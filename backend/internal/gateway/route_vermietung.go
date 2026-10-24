@@ -468,7 +468,7 @@ func (vr *VermietungRoutes) HandleListRentals(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VermietungRoutes) HandleCreateRental(w http.ResponseWriter, r *http.Request) {
@@ -516,7 +516,7 @@ func (vr *VermietungRoutes) HandleCreateRental(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (vr *VermietungRoutes) HandleGetRental(w http.ResponseWriter, r *http.Request) {
@@ -544,7 +544,7 @@ func (vr *VermietungRoutes) HandleGetRental(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VermietungRoutes) HandleUpdateRental(w http.ResponseWriter, r *http.Request) {
@@ -603,7 +603,7 @@ func (vr *VermietungRoutes) HandleUpdateRental(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VermietungRoutes) HandleDeleteRental(w http.ResponseWriter, r *http.Request) {
@@ -659,7 +659,7 @@ func (vr *VermietungRoutes) HandleStartRental(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VermietungRoutes) HandleEndRental(w http.ResponseWriter, r *http.Request) {
@@ -687,7 +687,7 @@ func (vr *VermietungRoutes) HandleEndRental(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -927,7 +927,7 @@ func (vr *VermietungRoutes) HandleGetRentalCalendar(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (vr *VermietungRoutes) HandleExportRentalReport(w http.ResponseWriter, r *http.Request) {

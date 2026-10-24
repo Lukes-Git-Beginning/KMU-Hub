@@ -18,20 +18,11 @@ import (
 // Local DTOs for email send/compose handlers (S4.1 validation boundary)
 // ============================================================================
 
-// emailAddressStrings converts a slice of plain email strings to []*emailv1.EmailAddress.
-func emailAddressStrings(addrs []string) []*emailv1.EmailAddress {
-	out := make([]*emailv1.EmailAddress, 0, len(addrs))
-	for _, a := range addrs {
-		out = append(out, &emailv1.EmailAddress{Email: a})
-	}
-	return out
-}
-
 type sendEmailDTO struct {
 	AccountID string   `json:"account_id"`
-	To        []string `json:"to" validate:"required,min=1,dive,email"`
-	Cc        []string `json:"cc" validate:"omitempty,dive,email"`
-	Bcc       []string `json:"bcc" validate:"omitempty,dive,email"`
+	To        addrList `json:"to" validate:"required,min=1"`
+	Cc        addrList `json:"cc"`
+	Bcc       addrList `json:"bcc"`
 	Subject   string   `json:"subject"`
 	BodyHtml  string   `json:"body_html"`
 	BodyText  string   `json:"body_text"`
@@ -42,9 +33,9 @@ type sendEmailDTO struct {
 
 type saveDraftDTO struct {
 	AccountID string   `json:"account_id"`
-	To        []string `json:"to" validate:"omitempty,dive,email"`
-	Cc        []string `json:"cc" validate:"omitempty,dive,email"`
-	Bcc       []string `json:"bcc" validate:"omitempty,dive,email"`
+	To        addrList `json:"to"`
+	Cc        addrList `json:"cc"`
+	Bcc       addrList `json:"bcc"`
 	Subject   string   `json:"subject"`
 	BodyHtml  string   `json:"body_html"`
 	BodyText  string   `json:"body_text"`
@@ -61,7 +52,7 @@ type replyEmailDTO struct {
 type forwardEmailDTO struct {
 	AccountID         string   `json:"account_id"`
 	OriginalMessageID string   `json:"original_message_id" validate:"required"`
-	To                []string `json:"to" validate:"required,min=1,dive,email"`
+	To                addrList `json:"to" validate:"required,min=1"`
 	BodyHtml          string   `json:"body_html"`
 	BodyText          string   `json:"body_text"`
 }
@@ -479,19 +470,23 @@ func (e *EmailRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request)
 	sortDesc, _ := strconv.ParseBool(r.URL.Query().Get("sort_desc"))
 
 	resp, err := client.ListMessages(r.Context(), &emailv1.ListMessagesRequest{
-		FolderId: r.URL.Query().Get("folder_id"),
-		Page:     int32(page),
-		PerPage:  int32(perPage),
-		Search:   r.URL.Query().Get("search"),
-		SortBy:   r.URL.Query().Get("sort_by"),
-		SortDesc: sortDesc,
+		FolderId:  r.URL.Query().Get("folder_id"),
+		Page:      int32(page),
+		PerPage:   int32(perPage),
+		Search:    r.URL.Query().Get("search"),
+		SortBy:    r.URL.Query().Get("sort_by"),
+		SortDesc:  sortDesc,
+		AccountId: r.URL.Query().Get("account_id"),
+		View:      r.URL.Query().Get("view"),
+		Filter:    r.URL.Query().Get("filter"),
+		LabelId:   r.URL.Query().Get("label_id"),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	writeEmailMessages(w, http.StatusOK, resp)
 }
 
 func (e *EmailRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
@@ -509,7 +504,7 @@ func (e *EmailRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	writeEmailMessages(w, http.StatusOK, resp)
 }
 
 func (e *EmailRoutes) HandleGetThreadMessages(w http.ResponseWriter, r *http.Request) {
@@ -527,7 +522,7 @@ func (e *EmailRoutes) HandleGetThreadMessages(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	writeEmailMessages(w, http.StatusOK, resp)
 }
 
 func (e *EmailRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
@@ -675,15 +670,15 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dto, ok := decodeAndValidate[sendEmailDTO](w, r)
-	if !ok {
+	if !ok || !validateRecipients(w, dto.To, dto.Cc, dto.Bcc) {
 		return
 	}
 
 	req := &emailv1.SendEmailRequest{
 		AccountId: dto.AccountID,
-		To:        emailAddressStrings(dto.To),
-		Cc:        emailAddressStrings(dto.Cc),
-		Bcc:       emailAddressStrings(dto.Bcc),
+		To:        dto.To.proto(),
+		Cc:        dto.Cc.proto(),
+		Bcc:       dto.Bcc.proto(),
 		Subject:   dto.Subject,
 		BodyHtml:  dto.BodyHtml,
 		BodyText:  dto.BodyText,
@@ -698,7 +693,7 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	writeEmailMessages(w, http.StatusCreated, resp)
 }
 
 func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
@@ -709,15 +704,15 @@ func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dto, ok := decodeAndValidate[saveDraftDTO](w, r)
-	if !ok {
+	if !ok || !validateRecipients(w, dto.To, dto.Cc, dto.Bcc) {
 		return
 	}
 
 	req := &emailv1.SaveDraftRequest{
 		AccountId: dto.AccountID,
-		To:        emailAddressStrings(dto.To),
-		Cc:        emailAddressStrings(dto.Cc),
-		Bcc:       emailAddressStrings(dto.Bcc),
+		To:        dto.To.proto(),
+		Cc:        dto.Cc.proto(),
+		Bcc:       dto.Bcc.proto(),
 		Subject:   dto.Subject,
 		BodyHtml:  dto.BodyHtml,
 		BodyText:  dto.BodyText,
@@ -729,7 +724,7 @@ func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	writeEmailMessages(w, http.StatusCreated, resp)
 }
 
 func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
@@ -758,7 +753,7 @@ func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	writeEmailMessages(w, http.StatusCreated, resp)
 }
 
 func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request) {
@@ -769,14 +764,14 @@ func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request)
 	}
 
 	dto, ok := decodeAndValidate[forwardEmailDTO](w, r)
-	if !ok {
+	if !ok || !validateRecipients(w, dto.To, nil, nil) {
 		return
 	}
 
 	req := &emailv1.ForwardEmailRequest{
 		AccountId:         dto.AccountID,
 		OriginalMessageId: dto.OriginalMessageID,
-		To:                emailAddressStrings(dto.To),
+		To:                dto.To.proto(),
 		BodyHtml:          dto.BodyHtml,
 		BodyText:          dto.BodyText,
 	}
@@ -787,7 +782,7 @@ func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusCreated, resp)
+	writeEmailMessages(w, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -1156,7 +1151,7 @@ func (e *EmailRoutes) HandleGetContactEmails(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	writeEmailMessages(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -1608,5 +1603,5 @@ func (e *EmailRoutes) HandleAssignMessageLabels(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeEmailMessages(w, http.StatusOK, resp)
 }

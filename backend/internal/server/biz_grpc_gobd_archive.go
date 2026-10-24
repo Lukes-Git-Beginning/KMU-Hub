@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
+	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -85,13 +86,22 @@ func (s *BizGRPCServer) ArchiveInvoiceDocument(ctx context.Context, req *bizv1.A
 		return nil, status.Error(codes.InvalidArgument, "invalid archived_by")
 	}
 
-	// Render the invoice PDF using the existing pdfGenerator on BizGRPCServer.
 	inv, err := s.invoiceService.GetByID(ctx, tenantID, invoiceID)
 	if err != nil {
 		return nil, mapBizError(err)
 	}
 
-	pdfBytes, pdfErr := s.pdfGenerator.GenerateInvoicePDF(*inv)
+	// Render with this tenant's letterhead, like the sibling PDF RPCs: the archived
+	// bytes are the legal copy, so they must carry the right company's master data.
+	settings, err := s.requireCompanySettings(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	// Incomplete master data is the tenant's to fix, not a server fault.
+	if err := pdf.ValidateCompanySettingsForPDF(*settings); err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	pdfBytes, pdfErr := pdf.NewGenerator(*settings).GenerateInvoicePDF(*inv)
 	if pdfErr != nil {
 		slog.Error("failed to generate invoice pdf for archive",
 			"invoice_id", invoiceID,
@@ -339,6 +349,8 @@ func mapGobdArchiveError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, gobdarchive.ErrInvoiceNotLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, gobdarchive.ErrIntegrityMismatch):
+		return status.Error(codes.FailedPrecondition, gobdarchive.ErrIntegrityMismatch.Error())
 	default:
 		slog.Error("unhandled gobd archive error", "error", err)
 		return status.Error(codes.Internal, "internal server error")

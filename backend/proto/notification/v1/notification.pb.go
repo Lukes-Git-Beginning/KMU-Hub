@@ -1297,15 +1297,17 @@ func (x *GetNotificationPreferencesResponse) GetPreferences() []*NotificationPre
 }
 
 type UpdateNotificationPreferenceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	EventTypeKey  *string                `protobuf:"bytes,2,opt,name=event_type_key,json=eventTypeKey,proto3,oneof" json:"event_type_key,omitempty"`
-	ModuleId      *string                `protobuf:"bytes,3,opt,name=module_id,json=moduleId,proto3,oneof" json:"module_id,omitempty"`
-	InApp         bool                   `protobuf:"varint,4,opt,name=in_app,json=inApp,proto3" json:"in_app,omitempty"`
-	DesktopPush   bool                   `protobuf:"varint,5,opt,name=desktop_push,json=desktopPush,proto3" json:"desktop_push,omitempty"`
-	Sound         string                 `protobuf:"bytes,6,opt,name=sound,proto3" json:"sound,omitempty"`
-	Email         bool                   `protobuf:"varint,7,opt,name=email,proto3" json:"email,omitempty"`
-	Sms           bool                   `protobuf:"varint,8,opt,name=sms,proto3" json:"sms,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	UserId       string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	EventTypeKey *string                `protobuf:"bytes,2,opt,name=event_type_key,json=eventTypeKey,proto3,oneof" json:"event_type_key,omitempty"`
+	ModuleId     *string                `protobuf:"bytes,3,opt,name=module_id,json=moduleId,proto3,oneof" json:"module_id,omitempty"`
+	// Delivery fields are optional: an unset field keeps the stored value (or the
+	// system default on first write) instead of being reset to false/"".
+	InApp         *bool   `protobuf:"varint,4,opt,name=in_app,json=inApp,proto3,oneof" json:"in_app,omitempty"`
+	DesktopPush   *bool   `protobuf:"varint,5,opt,name=desktop_push,json=desktopPush,proto3,oneof" json:"desktop_push,omitempty"`
+	Sound         *string `protobuf:"bytes,6,opt,name=sound,proto3,oneof" json:"sound,omitempty"`
+	Email         *bool   `protobuf:"varint,7,opt,name=email,proto3,oneof" json:"email,omitempty"`
+	Sms           *bool   `protobuf:"varint,8,opt,name=sms,proto3,oneof" json:"sms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1362,36 +1364,36 @@ func (x *UpdateNotificationPreferenceRequest) GetModuleId() string {
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetInApp() bool {
-	if x != nil {
-		return x.InApp
+	if x != nil && x.InApp != nil {
+		return *x.InApp
 	}
 	return false
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetDesktopPush() bool {
-	if x != nil {
-		return x.DesktopPush
+	if x != nil && x.DesktopPush != nil {
+		return *x.DesktopPush
 	}
 	return false
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetSound() string {
-	if x != nil {
-		return x.Sound
+	if x != nil && x.Sound != nil {
+		return *x.Sound
 	}
 	return ""
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetEmail() bool {
-	if x != nil {
-		return x.Email
+	if x != nil && x.Email != nil {
+		return *x.Email
 	}
 	return false
 }
 
 func (x *UpdateNotificationPreferenceRequest) GetSms() bool {
-	if x != nil {
-		return x.Sms
+	if x != nil && x.Sms != nil {
+		return *x.Sms
 	}
 	return false
 }
@@ -4240,19 +4242,24 @@ const file_proto_notification_v1_notification_proto_rawDesc = "" +
 	"\n" +
 	"_module_id\"s\n" +
 	"\"GetNotificationPreferencesResponse\x12M\n" +
-	"\vpreferences\x18\x01 \x03(\v2+.notification.v1.NotificationPreferenceInfoR\vpreferences\"\xa4\x02\n" +
+	"\vpreferences\x18\x01 \x03(\v2+.notification.v1.NotificationPreferenceInfoR\vpreferences\"\xf5\x02\n" +
 	"#UpdateNotificationPreferenceRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12)\n" +
 	"\x0eevent_type_key\x18\x02 \x01(\tH\x00R\feventTypeKey\x88\x01\x01\x12 \n" +
-	"\tmodule_id\x18\x03 \x01(\tH\x01R\bmoduleId\x88\x01\x01\x12\x15\n" +
-	"\x06in_app\x18\x04 \x01(\bR\x05inApp\x12!\n" +
-	"\fdesktop_push\x18\x05 \x01(\bR\vdesktopPush\x12\x14\n" +
-	"\x05sound\x18\x06 \x01(\tR\x05sound\x12\x14\n" +
-	"\x05email\x18\a \x01(\bR\x05email\x12\x10\n" +
-	"\x03sms\x18\b \x01(\bR\x03smsB\x11\n" +
+	"\tmodule_id\x18\x03 \x01(\tH\x01R\bmoduleId\x88\x01\x01\x12\x1a\n" +
+	"\x06in_app\x18\x04 \x01(\bH\x02R\x05inApp\x88\x01\x01\x12&\n" +
+	"\fdesktop_push\x18\x05 \x01(\bH\x03R\vdesktopPush\x88\x01\x01\x12\x19\n" +
+	"\x05sound\x18\x06 \x01(\tH\x04R\x05sound\x88\x01\x01\x12\x19\n" +
+	"\x05email\x18\a \x01(\bH\x05R\x05email\x88\x01\x01\x12\x15\n" +
+	"\x03sms\x18\b \x01(\bH\x06R\x03sms\x88\x01\x01B\x11\n" +
 	"\x0f_event_type_keyB\f\n" +
 	"\n" +
-	"_module_id\"s\n" +
+	"_module_idB\t\n" +
+	"\a_in_appB\x0f\n" +
+	"\r_desktop_pushB\b\n" +
+	"\x06_soundB\b\n" +
+	"\x06_emailB\x06\n" +
+	"\x04_sms\"s\n" +
 	"$UpdateNotificationPreferenceResponse\x12K\n" +
 	"\n" +
 	"preference\x18\x01 \x01(\v2+.notification.v1.NotificationPreferenceInfoR\n" +

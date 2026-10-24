@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 )
 
 // GuestAdapter implements ChannelAdapter for guest chat messages.
@@ -69,10 +70,7 @@ func (a *GuestAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, s
 			continue
 		}
 
-		preview := content
-		if len(preview) > 200 {
-			preview = preview[:200]
-		}
+		preview := textutil.TruncateBytes(content, 200)
 
 		result = append(result, models.InboxMessage{
 			ID:         uuid.New(),

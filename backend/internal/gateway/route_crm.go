@@ -207,5 +207,6 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	// GDPR deletion requests (top-level, admin only)
 	if c.ext != nil {
 		c.ext.registerGDPRRoutes(r, authMiddleware)
+		c.ext.registerTimelineAlias(r, authMiddleware)
 	}
 }

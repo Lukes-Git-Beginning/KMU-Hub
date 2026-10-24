@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -161,34 +162,51 @@ func (fr *FormulareRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit fu
 // Request types
 // ============================================================================
 
+// The schema and submission bodies take the camelCase keys formulare-types.ts sends and the
+// snake_case keys the gateway always read; `fields`/`answers` are JSON (see jsonBlob). The
+// `status` words are the frontend words `draft|active|archived`; `closed` has no proto value
+// and is rejected rather than stored as something else.
 type createFormSchemaRequest struct {
-	Title          string  `json:"title"                validate:"required"`
-	Description    string  `json:"description,omitempty"`
-	Fields         []byte  `json:"fields,omitempty"`
-	IsTemplate     bool    `json:"is_template,omitempty"`
-	IsPublic       bool    `json:"is_public,omitempty"`
-	PageCount      int32   `json:"page_count,omitempty"`
-	IntakeTargetID *string `json:"intake_target_id,omitempty"`
+	Title             string          `json:"title"                validate:"required"`
+	Description       string          `json:"description,omitempty"`
+	Fields            json.RawMessage `json:"fields,omitempty"`
+	Status            string          `json:"status,omitempty"     validate:"omitempty,oneof=draft active archived"`
+	IsTemplate        bool            `json:"is_template,omitempty"`
+	IsTemplateCamel   bool            `json:"isTemplate,omitempty"`
+	IsPublic          bool            `json:"is_public,omitempty"`
+	IsPublicCamel     bool            `json:"isPublic,omitempty"`
+	PageCount         int32           `json:"page_count,omitempty"`
+	PageCountCamel    int32           `json:"pageCount,omitempty"`
+	IntakeTargetID    *string         `json:"intake_target_id,omitempty"`
+	IntakeTargetCamel *string         `json:"intakeTargetId,omitempty"`
 }
 
 type updateFormSchemaRequest struct {
-	Title          *string `json:"title,omitempty"`
-	Description    *string `json:"description,omitempty"`
-	Fields         []byte  `json:"fields,omitempty"`
-	IsTemplate     *bool   `json:"is_template,omitempty"`
-	IsPublic       *bool   `json:"is_public,omitempty"`
-	PageCount      *int32  `json:"page_count,omitempty"`
-	IntakeTargetID *string `json:"intake_target_id,omitempty"`
+	Title             *string         `json:"title,omitempty"`
+	Description       *string         `json:"description,omitempty"`
+	Fields            json.RawMessage `json:"fields,omitempty"`
+	Status            *string         `json:"status,omitempty"     validate:"omitempty,oneof=draft active archived"`
+	IsTemplate        *bool           `json:"is_template,omitempty"`
+	IsTemplateCamel   *bool           `json:"isTemplate,omitempty"`
+	IsPublic          *bool           `json:"is_public,omitempty"`
+	IsPublicCamel     *bool           `json:"isPublic,omitempty"`
+	PageCount         *int32          `json:"page_count,omitempty"`
+	PageCountCamel    *int32          `json:"pageCount,omitempty"`
+	IntakeTargetID    *string         `json:"intake_target_id,omitempty"`
+	IntakeTargetCamel *string         `json:"intakeTargetId,omitempty"`
 }
 
+// duplicateFormSchemaRequest: the frontend sends `title`.
 type duplicateFormSchemaRequest struct {
+	Title    *string `json:"title,omitempty"`
 	NewTitle *string `json:"new_title,omitempty"`
 }
 
 type createSubmissionRequest struct {
-	Answers     []byte  `json:"answers,omitempty"`
-	SubmittedBy *string `json:"submitted_by,omitempty"`
-	IPAddress   *string `json:"ip_address,omitempty"`
+	Answers          json.RawMessage `json:"answers,omitempty"`
+	SubmittedBy      *string         `json:"submitted_by,omitempty"`
+	SubmittedByCamel *string         `json:"submittedBy,omitempty"`
+	IPAddress        *string         `json:"ip_address,omitempty"`
 }
 
 type updateSubmissionStatusRequest struct {
@@ -227,7 +245,8 @@ func (fr *FormulareRoutes) HandleListFormSchemas(w http.ResponseWriter, r *http.
 	}
 
 	q := r.URL.Query()
-	page, pageSize := parsePagination(r, 1, 20)
+	// The page shows every form without paging, so the default page is the largest one.
+	page, pageSize := parsePagination(r, 1, 100)
 	offset := int32((page - 1) * pageSize)
 
 	grpcReq := &formularev1.ListFormSchemasRequest{
@@ -242,7 +261,7 @@ func (fr *FormulareRoutes) HandleListFormSchemas(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSchemaListWire(resp))
 }
 
 func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -268,12 +287,13 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 		TenantId:       tenantID.String(),
 		Title:          req.Title,
 		Description:    req.Description,
-		Fields:         req.Fields,
-		IsTemplate:     req.IsTemplate,
-		IsPublic:       req.IsPublic,
-		PageCount:      req.PageCount,
+		Fields:         jsonBlob(req.Fields),
+		Status:         formSchemaStatusFromWord(req.Status),
+		IsTemplate:     req.IsTemplate || req.IsTemplateCamel,
+		IsPublic:       req.IsPublic || req.IsPublicCamel,
+		PageCount:      max(req.PageCount, req.PageCountCamel),
 		CreatedBy:      userID,
-		IntakeTargetId: req.IntakeTargetID,
+		IntakeTargetId: firstSet(req.IntakeTargetCamel, req.IntakeTargetID),
 	}
 
 	resp, err := client.CreateFormSchema(r.Context(), grpcReq)
@@ -281,7 +301,7 @@ func (fr *FormulareRoutes) HandleCreateFormSchema(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormSchemaWire(resp.GetSchema()))
 }
 
 func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +329,7 @@ func (fr *FormulareRoutes) HandleGetFormSchema(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSchemaWire(resp.GetSchema()))
 }
 
 func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -341,12 +361,16 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 		SchemaId:       id,
 		Title:          req.Title,
 		Description:    req.Description,
-		Fields:         req.Fields,
-		IsTemplate:     req.IsTemplate,
-		IsPublic:       req.IsPublic,
-		PageCount:      req.PageCount,
+		Fields:         jsonBlob(req.Fields),
+		IsTemplate:     firstSet(req.IsTemplateCamel, req.IsTemplate),
+		IsPublic:       firstSet(req.IsPublicCamel, req.IsPublic),
+		PageCount:      firstSet(req.PageCountCamel, req.PageCount),
 		EditorId:       userID,
-		IntakeTargetId: req.IntakeTargetID,
+		IntakeTargetId: firstSet(req.IntakeTargetCamel, req.IntakeTargetID),
+	}
+	if req.Status != nil {
+		status := formSchemaStatusFromWord(*req.Status)
+		grpcReq.Status = &status
 	}
 
 	resp, err := client.UpdateFormSchema(r.Context(), grpcReq)
@@ -354,7 +378,7 @@ func (fr *FormulareRoutes) HandleUpdateFormSchema(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSchemaWire(resp.GetSchema()))
 }
 
 func (fr *FormulareRoutes) HandleDeleteFormSchema(w http.ResponseWriter, r *http.Request) {
@@ -410,13 +434,13 @@ func (fr *FormulareRoutes) HandleDuplicateFormSchema(w http.ResponseWriter, r *h
 	resp, err := client.DuplicateFormSchema(r.Context(), &formularev1.DuplicateFormSchemaRequest{
 		TenantId: tenantID.String(),
 		SchemaId: id,
-		NewTitle: req.NewTitle,
+		NewTitle: firstSet(req.Title, req.NewTitle),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormSchemaWire(resp.GetSchema()))
 }
 
 // ============================================================================
@@ -448,15 +472,16 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 	}
 
 	// Use authenticated user as submitter if not explicitly provided
-	submittedBy := req.SubmittedBy
+	submittedBy := firstSet(req.SubmittedByCamel, req.SubmittedBy)
 	if submittedBy == nil {
 		submittedBy = &userID
 	}
 
+	answers := jsonBlob(req.Answers)
 	grpcReq := &formularev1.CreateSubmissionRequest{
 		TenantId:     tenantID.String(),
 		FormSchemaId: schemaID,
-		Answers:      req.Answers,
+		Answers:      answers,
 		SubmittedBy:  submittedBy,
 		IpAddress:    req.IPAddress,
 	}
@@ -471,12 +496,12 @@ func (fr *FormulareRoutes) HandleCreateSubmission(w http.ResponseWriter, r *http
 	// form is bound to. Order matters: a failing target must never cost the
 	// submitter their answers, so the dispatch error is logged and the
 	// response stays 201 (see runIntakeDispatch).
-	fr.dispatchIntake(r.Context(), client, tenantID, schemaID, resp.GetSubmission().GetId(), req.Answers, intakeOrigin{
+	fr.dispatchIntake(r.Context(), client, tenantID, schemaID, resp.GetSubmission().GetId(), answers, intakeOrigin{
 		Channel:     intakeChannelSelfService,
 		RequesterID: userID,
 	})
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormSubmissionWire(resp.GetSubmission()))
 }
 
 // dispatchIntake creates the module record bound to the submitted schema, if
@@ -542,7 +567,7 @@ func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePagination(r, 1, 100)
 	offset := int32((page - 1) * pageSize)
 
 	grpcReq := &formularev1.ListSubmissionsRequest{
@@ -557,7 +582,7 @@ func (fr *FormulareRoutes) HandleListSubmissions(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSubmissionListWire(resp))
 }
 
 func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Request) {
@@ -585,7 +610,7 @@ func (fr *FormulareRoutes) HandleGetSubmission(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSubmissionWire(resp.GetSubmission()))
 }
 
 func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r *http.Request) {
@@ -629,7 +654,7 @@ func (fr *FormulareRoutes) HandleUpdateSubmissionStatus(w http.ResponseWriter, r
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormSubmissionWire(resp.GetSubmission()))
 }
 
 // HandleExportSubmissions exports submissions for a schema as CSV or XLSX.
@@ -722,7 +747,7 @@ func (fr *FormulareRoutes) HandleListWebhooks(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookListWire(resp.GetWebhooks()))
 }
 
 func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -761,7 +786,7 @@ func (fr *FormulareRoutes) HandleCreateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Request) {
@@ -789,7 +814,7 @@ func (fr *FormulareRoutes) HandleGetWebhook(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Request) {
@@ -820,7 +845,8 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		Url:       req.URL,
 		Secret:    req.Secret,
 		Events:    req.Events,
-		EventsSet: req.EventsSet,
+		// The FE never sends `events_set`; a sent `events` list (even `[]`) replaces the stored one.
+		EventsSet: req.EventsSet || req.Events != nil,
 		Active:    req.Active,
 	}
 
@@ -829,7 +855,7 @@ func (fr *FormulareRoutes) HandleUpdateWebhook(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormWebhookWire(resp.GetWebhook()))
 }
 
 func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
@@ -864,6 +890,17 @@ func (fr *FormulareRoutes) HandleDeleteWebhook(w http.ResponseWriter, r *http.Re
 // Delivery Handlers
 // ============================================================================
 
+// deliveryPaging reads the FE's `limit`/`offset` and, as before, `page`/`page_size`.
+func deliveryPaging(r *http.Request) (limit, offset int32) {
+	page, pageSize := parsePagination(r, 1, 20)
+	limit = int32(parseLimit(r, pageSize, 100))
+	offset = int32((page - 1) * pageSize)
+	if o, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && o >= 0 {
+		offset = int32(o)
+	}
+	return limit, offset
+}
+
 // HandleListWebhookDeliveriesForWebhook lists deliveries filtered to a specific webhook ID.
 // Route: GET /webhooks/{id}/deliveries
 func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.ResponseWriter, r *http.Request) {
@@ -883,13 +920,12 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
-	offset := int32((page - 1) * pageSize)
+	limit, offset := deliveryPaging(r)
 
 	grpcReq := &formularev1.ListWebhookDeliveriesRequest{
 		TenantId:  tenantID.String(),
 		WebhookId: &webhookID,
-		Limit:     int32(pageSize),
+		Limit:     limit,
 		Offset:    offset,
 	}
 
@@ -898,7 +934,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveriesForWebhook(w http.Response
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toWebhookDeliveryListWire(resp.GetDeliveries()))
 }
 
 // HandleGetFormStats returns aggregated submission statistics for a form schema.
@@ -946,12 +982,11 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 	}
 
 	q := r.URL.Query()
-	page, pageSize := parsePagination(r, 1, 20)
-	offset := int32((page - 1) * pageSize)
+	limit, offset := deliveryPaging(r)
 
 	grpcReq := &formularev1.ListWebhookDeliveriesRequest{
 		TenantId: tenantID.String(),
-		Limit:    int32(pageSize),
+		Limit:    limit,
 		Offset:   offset,
 	}
 
@@ -962,9 +997,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		grpcReq.SubmissionId = &sid
 	}
 	if statusStr := q.Get("status"); statusStr != "" {
-		statusInt, err := strconv.Atoi(statusStr)
-		if err == nil {
-			s := formularev1.WebhookDeliveryStatus(statusInt)
+		if s, ok := webhookDeliveryStatusFromQuery(statusStr); ok {
 			grpcReq.Status = &s
 		}
 	}
@@ -974,7 +1007,7 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toWebhookDeliveryListWire(resp.GetDeliveries()))
 }
 
 // ============================================================================
@@ -988,10 +1021,13 @@ func (fr *FormulareRoutes) HandleListWebhookDeliveries(w http.ResponseWriter, r 
 const maxPublicSubmitBody = 256 << 10
 
 type createFormShareLinkRequest struct {
-	// ExpiresAt is RFC 3339; nil = never expires.
-	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// ExpiresAt is RFC 3339; nil = never expires. The FE sends the camelCase keys (and `null`
+	// for "no limit"); `channel` is not stored.
+	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
+	ExpiresAtCamel *time.Time `json:"expiresAt,omitempty"`
 	// MaxSubmissions nil or 0 = unlimited.
-	MaxSubmissions *int32 `json:"max_submissions,omitempty" validate:"omitempty,min=1"`
+	MaxSubmissions      *int32 `json:"max_submissions,omitempty" validate:"omitempty,min=1"`
+	MaxSubmissionsCamel *int32 `json:"maxSubmissions,omitempty"  validate:"omitempty,min=1"`
 }
 
 type publicSubmitRequest struct {
@@ -1024,7 +1060,7 @@ func (fr *FormulareRoutes) HandleListShareLinks(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toFormShareLinkListWire(resp.GetShareLinks()))
 }
 
 func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.Request) {
@@ -1053,11 +1089,11 @@ func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.
 		TenantId:     tenantID.String(),
 		FormSchemaId: schemaID,
 	}
-	if req.ExpiresAt != nil {
-		grpcReq.ExpiresAt = timestamppb.New(*req.ExpiresAt)
+	if expiresAt := firstSet(req.ExpiresAtCamel, req.ExpiresAt); expiresAt != nil {
+		grpcReq.ExpiresAt = timestamppb.New(*expiresAt)
 	}
-	if req.MaxSubmissions != nil {
-		grpcReq.MaxSubmissions = *req.MaxSubmissions
+	if maxSubmissions := firstSet(req.MaxSubmissionsCamel, req.MaxSubmissions); maxSubmissions != nil {
+		grpcReq.MaxSubmissions = *maxSubmissions
 	}
 	if userID := middleware.GetUserID(r.Context()); userID != "" {
 		grpcReq.CreatedBy = &userID
@@ -1069,7 +1105,7 @@ func (fr *FormulareRoutes) HandleCreateShareLink(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, toFormShareLinkWire(resp.GetShareLink()))
 }
 
 func (fr *FormulareRoutes) HandleRevokeShareLink(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,16 +17,21 @@ import (
 // ============================================================================
 
 type createInvoiceRequest struct {
-	Customer      *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
-	LineItems     []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
-	TaxMode       string                  `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
-	InvoiceDate   string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
-	DeliveryDate  string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
-	DueDate       string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
-	PaymentTerms  string                  `json:"payment_terms"`
-	Notes         string                  `json:"notes"`
-	SourceQuoteID string                  `json:"source_quote_id" validate:"omitempty,uuid"`
-	ContactID     string                  `json:"contact_id"      validate:"omitempty,uuid"`
+	Customer     *bizv1.CustomerSnapshot `json:"customer"       validate:"required"`
+	LineItems    []*bizv1.LineItem       `json:"line_items"     validate:"required,min=1"`
+	TaxMode      taxModeField            `json:"tax_mode"       validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	InvoiceDate  string                  `json:"invoice_date"   validate:"required,datetime=2006-01-02"`
+	DeliveryDate string                  `json:"delivery_date"  validate:"omitempty,datetime=2006-01-02"`
+	DueDate      string                  `json:"due_date"       validate:"omitempty,datetime=2006-01-02"`
+	PaymentTerms string                  `json:"payment_terms"`
+	// PaymentTermsDays is what the desktop form sends; it becomes the "N Tage netto"
+	// payment_terms the biz server reads the due-date offset from. An explicit
+	// payment_terms string wins; 0 or absent keeps the tenant default.
+	PaymentTermsDays int    `json:"payment_terms_days" validate:"omitempty,min=1,max=365"`
+	Currency         string `json:"currency"           validate:"omitempty,iso4217"`
+	Notes            string `json:"notes"`
+	SourceQuoteID    string `json:"source_quote_id" validate:"omitempty,uuid"`
+	ContactID        string `json:"contact_id"      validate:"omitempty,uuid"`
 }
 
 func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +56,11 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	paymentTerms := req.PaymentTerms
+	if paymentTerms == "" && req.PaymentTermsDays > 0 {
+		paymentTerms = fmt.Sprintf("%d Tage netto", req.PaymentTermsDays)
+	}
+
 	grpcCreateReq := &bizv1.CreateInvoiceRequest{
 		TenantId:      tenantID,
 		Customer:      req.Customer,
@@ -58,10 +69,11 @@ func (b *BizRoutes) HandleCreateInvoice(w http.ResponseWriter, r *http.Request) 
 		InvoiceDate:   req.InvoiceDate,
 		DeliveryDate:  req.DeliveryDate,
 		DueDate:       req.DueDate,
-		PaymentTerms:  req.PaymentTerms,
+		PaymentTerms:  paymentTerms,
 		Notes:         req.Notes,
 		SourceQuoteId: req.SourceQuoteID,
 		CreatedBy:     userID,
+		Currency:      req.Currency,
 	}
 	if req.ContactID != "" {
 		grpcCreateReq.ContactId = &req.ContactID
@@ -170,12 +182,16 @@ func (b *BizRoutes) HandleGetInvoice(w http.ResponseWriter, r *http.Request) {
 type updateInvoiceRequest struct {
 	Customer     *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems    []*bizv1.LineItem       `json:"line_items"`
-	TaxMode      string                  `json:"tax_mode"      validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode      taxModeField            `json:"tax_mode"      validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
 	InvoiceDate  string                  `json:"invoice_date"  validate:"omitempty,datetime=2006-01-02"`
 	DeliveryDate string                  `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
 	DueDate      string                  `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms string                  `json:"payment_terms"`
-	Notes        string                  `json:"notes"`
+	// PaymentTermsDays is what the desktop edit form sends; an explicit
+	// payment_terms string wins (same rule as create).
+	PaymentTermsDays int    `json:"payment_terms_days" validate:"omitempty,min=1,max=365"`
+	Currency         string `json:"currency"           validate:"omitempty,iso4217"`
+	Notes            string `json:"notes"`
 }
 
 func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +217,11 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	paymentTerms := req.PaymentTerms
+	if paymentTerms == "" && req.PaymentTermsDays > 0 {
+		paymentTerms = fmt.Sprintf("%d Tage netto", req.PaymentTermsDays)
+	}
+
 	resp, err := client.UpdateInvoice(r.Context(), &bizv1.UpdateInvoiceRequest{
 		Id:           id,
 		TenantId:     tenantID,
@@ -210,7 +231,8 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		InvoiceDate:  req.InvoiceDate,
 		DeliveryDate: req.DeliveryDate,
 		DueDate:      req.DueDate,
-		PaymentTerms: req.PaymentTerms,
+		PaymentTerms: paymentTerms,
+		Currency:     req.Currency,
 		Notes:        req.Notes,
 	})
 	if err != nil {

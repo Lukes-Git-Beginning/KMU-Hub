@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -25,13 +25,15 @@ import (
 // json.RawMessage. Originally scoped to the two canned-response handlers below;
 // route_hr.go's map-envelope handlers (leave requests, work-time entries, employees,
 // etc.) reuse it too since it's a package-level var with identical protojson options.
-// lean: duplicates response.go's unexported protoMarshaler config; the "third envelope
-// case" trigger has now fired (hr added ~12 more call sites) — fold into an exported
-// response.ProtoEnvelope helper next time this pattern spreads to another module.
-var cannedResponseMarshaler = protojson.MarshalOptions{
-	UseProtoNames:  true,
-	UseEnumNumbers: true,
-}
+// lean: thin wrapper so the ~25 call sites keep their `.Marshal` shape; fold into an
+// exported response.ProtoEnvelope helper when the next module needs this pattern.
+var cannedResponseMarshaler cannedMarshaler
+
+// cannedMarshaler delegates to response.MarshalProto so ad-hoc envelopes share its
+// encoding (including the string tax_mode) with response.Proto.
+type cannedMarshaler struct{}
+
+func (cannedMarshaler) Marshal(m proto.Message) ([]byte, error) { return response.MarshalProto(m) }
 
 // InboxRoutes handles HTTP routes for the inbox service.
 // InboxService is co-hosted in the notification binary, so ServiceName
@@ -101,6 +103,9 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/unread-count", ir.HandleGetUnreadCount)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-read", ir.HandleBulkMarkRead)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-archive", ir.HandleBulkArchive)
+		// Paths the desktop client calls (inbox-client.ts bulkMarkRead/bulkArchive).
+		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk/read", ir.HandleBulkMarkRead)
+		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk/archive", ir.HandleBulkArchive)
 
 		// Thread + canned-response endpoints (reuse inbox read/write permissions)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}/thread", ir.HandleListThreadMessages)
@@ -183,7 +188,20 @@ func (ir *InboxRoutes) HandleListMessages(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	items := make([]jsonObject, 0, len(resp.GetMessages()))
+	for _, m := range resp.GetMessages() {
+		obj, objErr := inboxMessageObject(m)
+		if objErr != nil {
+			writeInboxMarshalError(w, objErr)
+			return
+		}
+		items = append(items, obj)
+	}
+	response.JSON(w, http.StatusOK, map[string]any{
+		"messages":        items,
+		"total_count":     resp.GetTotalCount(),
+		"next_page_token": resp.GetNextPageToken(),
+	})
 }
 
 func (ir *InboxRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +227,13 @@ func (ir *InboxRoutes) HandleGetMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The desktop client unwraps `message`; tags must be an array.
+	obj, objErr := inboxMessageObject(resp.GetMessage())
+	if objErr != nil {
+		writeInboxMarshalError(w, objErr)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"message": obj})
 }
 
 func (ir *InboxRoutes) HandleMarkRead(w http.ResponseWriter, r *http.Request) {
@@ -641,7 +665,23 @@ func (ir *InboxRoutes) HandleGetUnreadCount(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The desktop client reads `counts` with the channel as a name; `by_channel`
+	// (channel as a number) stays for existing callers.
+	type channelCount struct {
+		Channel string `json:"channel"`
+		Count   int32  `json:"count"`
+	}
+	counts := make([]channelCount, 0, len(resp.GetByChannel()))
+	byChannel := make([]map[string]any, 0, len(resp.GetByChannel()))
+	for _, c := range resp.GetByChannel() {
+		counts = append(counts, channelCount{Channel: channelName(c.GetChannel()), Count: c.GetCount()})
+		byChannel = append(byChannel, map[string]any{"channel": int32(c.GetChannel()), "count": c.GetCount()})
+	}
+	response.JSON(w, http.StatusOK, map[string]any{
+		"total":      resp.GetTotal(),
+		"counts":     counts,
+		"by_channel": byChannel,
+	})
 }
 
 type bulkIDsRequest struct {
@@ -886,7 +926,9 @@ func (ir *InboxRoutes) HandleCreateTeamInbox(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	// The desktop client types the body as the bare team inbox.
+	obj, objErr := inboxTeamObject(resp.GetTeamInbox())
+	writeInboxObject(w, http.StatusCreated, obj, objErr)
 }
 
 type updateTeamInboxRequest struct {
@@ -941,7 +983,8 @@ func (ir *InboxRoutes) HandleUpdateTeamInbox(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	obj, objErr := inboxTeamObject(resp.GetTeamInbox())
+	writeInboxObject(w, http.StatusOK, obj, objErr)
 }
 
 func (ir *InboxRoutes) HandleDeleteTeamInbox(w http.ResponseWriter, r *http.Request) {
@@ -987,11 +1030,16 @@ func (ir *InboxRoutes) HandleListTeamInboxes(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// The settings panel maps over the body directly.
+	writeInboxList(w, http.StatusOK, resp.GetTeamInboxes(), inboxTeamObject)
 }
 
+// addTeamMemberRequest accepts the member as `user_id` (desktop client) or
+// `member_user_id`; one of them is required (a missing member is reported on
+// member_user_id).
 type addTeamMemberRequest struct {
-	MemberUserID string `json:"member_user_id" validate:"required,uuid"`
+	MemberUserID string `json:"member_user_id" validate:"required_without=UserID,omitempty,uuid"`
+	UserID       string `json:"user_id" validate:"omitempty,uuid"`
 	Role         string `json:"role" validate:"required"`
 }
 
@@ -1014,10 +1062,15 @@ func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	memberUserID := body.MemberUserID
+	if memberUserID == "" {
+		memberUserID = body.UserID
+	}
+
 	grpcReq := &inboxv1.AddTeamMemberRequest{
 		TeamInboxId:  teamInboxID,
 		UserId:       userID,
-		MemberUserId: body.MemberUserID,
+		MemberUserId: memberUserID,
 		Role:         parseTeamMemberRole(body.Role),
 	}
 
@@ -1027,7 +1080,8 @@ func (ir *InboxRoutes) HandleAddTeamMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	obj, objErr := inboxMemberObject(resp.GetMember())
+	writeInboxObject(w, http.StatusCreated, obj, objErr)
 }
 
 func (ir *InboxRoutes) HandleRemoveTeamMember(w http.ResponseWriter, r *http.Request) {
@@ -1085,7 +1139,7 @@ func (ir *InboxRoutes) HandleListTeamMembers(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeInboxList(w, http.StatusOK, resp.GetMembers(), inboxMemberObject)
 }
 
 func (ir *InboxRoutes) HandleClaimMessage(w http.ResponseWriter, r *http.Request) {
@@ -1172,7 +1226,8 @@ func (ir *InboxRoutes) HandleCreateRoutingRule(w http.ResponseWriter, r *http.Re
 	}
 
 	// The desktop client types the body as the bare RoutingRule.
-	response.Proto(w, http.StatusCreated, resp.GetRule())
+	obj, objErr := inboxRuleObject(resp.GetRule())
+	writeInboxObject(w, http.StatusCreated, obj, objErr)
 }
 
 type updateRoutingRuleRequest struct {
@@ -1244,7 +1299,8 @@ func (ir *InboxRoutes) HandleUpdateRoutingRule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.GetRule())
+	obj, objErr := inboxRuleObject(resp.GetRule())
+	writeInboxObject(w, http.StatusOK, obj, objErr)
 }
 
 func (ir *InboxRoutes) HandleDeleteRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1293,7 +1349,7 @@ func (ir *InboxRoutes) HandleListRoutingRules(w http.ResponseWriter, r *http.Req
 	}
 
 	// RoutingRulesEditor maps over the body directly; a wrapping object threw.
-	response.ProtoList(w, http.StatusOK, resp.GetRules())
+	writeInboxList(w, http.StatusOK, resp.GetRules(), inboxRuleObject)
 }
 
 func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Request) {
@@ -1305,9 +1361,11 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
+	// The desktop client sends the sample as `message`; `test_message` stays accepted.
 	var body struct {
-		Conditions  json.RawMessage           `json:"conditions"`
-		TestMessage *inboxv1.InboxMessageInfo `json:"test_message"`
+		Conditions  json.RawMessage  `json:"conditions"`
+		Message     *ruleTestMessage `json:"message"`
+		TestMessage *ruleTestMessage `json:"test_message"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
@@ -1320,10 +1378,14 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	sample := body.Message
+	if sample == nil {
+		sample = body.TestMessage
+	}
 	grpcReq := &inboxv1.TestRoutingRuleRequest{
 		UserId:      userID,
 		Conditions:  conditionsStruct,
-		TestMessage: body.TestMessage,
+		TestMessage: sample.proto(),
 	}
 
 	resp, err := client.TestRoutingRule(r.Context(), grpcReq)
@@ -1332,7 +1394,8 @@ func (ir *InboxRoutes) HandleTestRoutingRule(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	// `matches:false` must not be dropped.
+	response.JSON(w, http.StatusOK, map[string]bool{"matches": resp.GetMatches()})
 }
 
 // ============================================================================

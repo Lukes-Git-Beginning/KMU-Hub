@@ -14,6 +14,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/account"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/safego"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 )
 
 const (
@@ -505,11 +506,7 @@ func (w *Worker) envelopeToMessage(env *MessageEnvelope, folder *models.EmailFol
 	}
 
 	// Generate preview from subject (body fetched on-demand)
-	if len(msg.Subject) > 200 {
-		msg.Preview = msg.Subject[:200]
-	} else {
-		msg.Preview = msg.Subject
-	}
+	msg.Preview = textutil.TruncateBytes(msg.Subject, 200)
 
 	return msg
 }

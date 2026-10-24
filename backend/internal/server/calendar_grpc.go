@@ -38,6 +38,13 @@ type CalendarGRPCServer struct {
 	emailClient     emailv1.EmailServiceClient // nil if email service unavailable
 }
 
+// resourcesOpenToTenant is the isAdmin argument for resource create/update/delete:
+// the service's own admin-only check is deliberately bypassed because the gateway's
+// RequirePermission guard on the resource routes is the access control.
+// lean: Rechteprüfung allein am Gateway-Guard; Service-Admin-Check scharf schalten, sobald
+// Ressourcen pro Besitzer statt pro Tenant verwaltet werden sollen.
+const resourcesOpenToTenant = true
+
 // NewCalendarGRPCServer creates a new Calendar gRPC server
 func NewCalendarGRPCServer(
 	calendarSvc *calendar.Service,
@@ -469,6 +476,9 @@ func (s *CalendarGRPCServer) CreateEvent(ctx context.Context, req *calv1.CreateE
 		}
 		input.AttendeeIDs = append(input.AttendeeIDs, aid)
 	}
+	for _, m := range req.ReminderMinutes {
+		input.ReminderMinutes = append(input.ReminderMinutes, int(m))
+	}
 
 	evt, err := s.eventService.Create(ctx, createdBy, input)
 	if err != nil {
@@ -590,6 +600,7 @@ func (s *CalendarGRPCServer) UpdateEvent(ctx context.Context, req *calv1.UpdateE
 	if req.HasVideoCall != nil {
 		input.HasVideoCall = req.HasVideoCall
 	}
+	input.RRule = req.Rrule
 
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -898,7 +909,7 @@ func (s *CalendarGRPCServer) CreateResource(ctx context.Context, req *calv1.Crea
 		ResourceType: req.ResourceType,
 		Tags:         req.Tags,
 		CreatedBy:    createdBy,
-		IsAdmin:      true, // Gateway handles auth
+		IsAdmin:      resourcesOpenToTenant,
 	}
 	if req.Capacity != nil {
 		c := int(*req.Capacity)
@@ -952,8 +963,9 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 	}
 
 	filters := resource.ResourceFilters{
-		TenantID: tenantID,
-		Tags:     req.Tags,
+		TenantID:        tenantID,
+		Tags:            req.Tags,
+		IncludeInactive: req.IncludeInactive,
 	}
 	if req.ResourceType != nil {
 		filters.Type = req.ResourceType
@@ -964,12 +976,6 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 	}
 	if req.Floor != nil {
 		filters.Floor = req.Floor
-	}
-	if req.IncludeInactive {
-		// Don't set IsActive filter, so all resources are returned
-	} else {
-		active := true
-		filters.IsActive = &active
 	}
 
 	resources, err := s.resourceService.List(ctx, filters)
@@ -1019,7 +1025,7 @@ func (s *CalendarGRPCServer) UpdateResource(ctx context.Context, req *calv1.Upda
 		input.Description = req.Description
 	}
 
-	res, err := s.resourceService.Update(ctx, id, tenantID, true, input) // isAdmin=true, gateway handles auth
+	res, err := s.resourceService.Update(ctx, id, tenantID, resourcesOpenToTenant, input)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}
@@ -1040,7 +1046,7 @@ func (s *CalendarGRPCServer) DeleteResource(ctx context.Context, req *calv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid resource id")
 	}
 
-	if err := s.resourceService.Delete(ctx, id, tenantID, true); err != nil { // isAdmin=true, gateway handles auth
+	if err := s.resourceService.Delete(ctx, id, tenantID, resourcesOpenToTenant); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
@@ -1827,7 +1833,8 @@ func (s *CalendarGRPCServer) UpdateBookingPage(ctx context.Context, req *calv1.U
 	if v := req.GetCompanyName(); v != "" {
 		input.CompanyName = &v
 	}
-	if v := req.GetLogoUrl(); v != "" {
+	if req.LogoUrl != nil {
+		v := req.GetLogoUrl() // "" clears the logo
 		input.LogoURL = &v
 	}
 	if len(req.GetServices()) > 0 {
@@ -2002,17 +2009,17 @@ func bookingPageToProto(p *models.BookingPage) *calv1.BookingPageProto {
 		svcs = append(svcs, bookingServiceToProto(&sc))
 	}
 	return &calv1.BookingPageProto{
-		Id:                  p.ID.String(),
-		TenantId:            p.TenantID.String(),
-		CalendarId:          p.CalendarID.String(),
-		Slug:                p.Slug,
-		CompanyName:         p.CompanyName,
-		LogoUrl:             p.LogoURL,
-		Services:            svcs,
+		Id:                    p.ID.String(),
+		TenantId:              p.TenantID.String(),
+		CalendarId:            p.CalendarID.String(),
+		Slug:                  p.Slug,
+		CompanyName:           p.CompanyName,
+		LogoUrl:               p.LogoURL,
+		Services:              svcs,
 		AvailabilityRulesJson: string(rulesJSON),
-		Active:              p.Active,
-		CreatedAt:           timestamppb.New(p.CreatedAt),
-		UpdatedAt:           timestamppb.New(p.UpdatedAt),
+		Active:                p.Active,
+		CreatedAt:             timestamppb.New(p.CreatedAt),
+		UpdatedAt:             timestamppb.New(p.UpdatedAt),
 	}
 }
 

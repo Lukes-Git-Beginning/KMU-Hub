@@ -4880,6 +4880,8 @@ paths:
                       $ref: "#/components/schemas/NotificationPreference"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -4907,6 +4909,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -4937,6 +4941,8 @@ paths:
                       $ref: "#/components/schemas/EventType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -4953,19 +4959,25 @@ paths:
           application/json:
             schema:
               type: object
-              required: [module_id, resource_id]
+              required: [resource_id]
+              description: The muted kind is `resource_type`; the earlier `module_id` spelling is still accepted. One of the two is required.
               properties:
+                resource_type:
+                  type: string
                 module_id:
                   type: string
                 resource_id:
                   type: string
       responses:
         "201":
-          description: Resource muted
+          description: Resource muted, answered as `{mute}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NotificationMute"
+                type: object
+                properties:
+                  mute:
+                    $ref: "#/components/schemas/NotificationMute"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -5051,13 +5063,17 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Quiet hours configuration
+          description: >-
+            Quiet hours configuration under `quiet_hours`. A user without a record gets
+            the form defaults (22:00-07:00, Europe/Berlin, every day) with `is_active: false`.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/QuietHoursResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -5078,13 +5094,15 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/QuietHours"
+                $ref: "#/components/schemas/QuietHoursResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7748,10 +7766,11 @@ paths:
         - name: end
           in: query
           required: true
-          description: Range end (ISO 8601 / RFC 3339)
+          description: |
+            Range end (ISO 8601 / RFC 3339). A bare date (`YYYY-MM-DD`) is the last
+            visible day and is inclusive: it is read as the start of the following day.
           schema:
             type: string
-            format: date-time
         - name: calendar_ids
           in: query
           description: Filter by specific calendar IDs
@@ -7771,6 +7790,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Failed to render the events
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -7796,6 +7817,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to render the event
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -8101,6 +8124,24 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: resource_type
+          in: query
+          description: Alias of `type` (sent by the desktop client); `type` wins when both are set
+          schema:
+            type: string
+            enum: [room, equipment, vehicle]
+        - name: tag
+          in: query
+          description: Alias of `tags` (sent by the desktop client); `tags` wins when both are set
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          description: >
+            Desktop alias; `false` includes inactive resources like `include_inactive=true`
+            (the RPC cannot return inactive resources only), `true` keeps the default
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of resources
@@ -8217,18 +8258,22 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
         - name: start
           in: query
-          required: true
-          description: Range start (ISO 8601 / RFC 3339)
+          description: Range start (ISO 8601 / RFC 3339); required together with `end` unless `date` is given
           schema:
             type: string
             format: date-time
         - name: end
           in: query
-          required: true
-          description: Range end (ISO 8601 / RFC 3339)
+          description: Range end (ISO 8601 / RFC 3339); required together with `start` unless `date` is given
           schema:
             type: string
             format: date-time
+        - name: date
+          in: query
+          description: Single day (YYYY-MM-DD, UTC) as shorthand for start=date, end=date+1 day; ignored when `start`/`end` are present
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Availability information with existing bookings
@@ -8305,6 +8350,62 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/calendar/resources/bookings:
+    post:
+      summary: Book a resource for an event
+      tags: [resources]
+      operationId: bookResourceUnderResources
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookResourceRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceBookingSchema"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/calendar/resources/bookings/{id}:
+    delete:
+      summary: Cancel a resource booking
+      tags: [resources]
+      operationId: cancelResourceBooking
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   # ===========================================================================
   # Calendar – Holidays
   # ===========================================================================
@@ -8328,6 +8429,11 @@ paths:
           description: Subdivision code (e.g. DE-BY for Bavaria)
           schema:
             type: string
+        - name: year
+          in: query
+          description: Calendar year (2000-2100); used as 1 Jan - 31 Dec when `start` or `end` is missing. One of `year` or `start`+`end` is required.
+          schema:
+            type: integer
         - name: start
           in: query
           description: Filter start date (ISO 8601 / RFC 3339)
@@ -8336,7 +8442,7 @@ paths:
             format: date-time
         - name: end
           in: query
-          description: Filter end date (ISO 8601 / RFC 3339)
+          description: Filter end date, inclusive (ISO 8601 / RFC 3339)
           schema:
             type: string
             format: date-time
@@ -8473,7 +8579,7 @@ paths:
           in: query
           schema: {type: boolean, default: false}
       responses:
-        "200": {description: List of booking pages}
+        "200": {description: 'List of booking pages as `{pages}`; `pages` is `[]` when there are none'}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "503": {$ref: "#/components/responses/ServiceUnavailable"}
@@ -8872,11 +8978,13 @@ paths:
             default: 20
       responses:
         "200":
-          description: Recordings listed
+          description: Recordings listed (bare array; `[]` when none)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ListRecordingsResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecordingSchema"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
@@ -9275,8 +9383,23 @@ paths:
           in: query
           schema:
             type: integer
-            default: 20
+            default: 100
+            maximum: 100
+        - name: limit
+          in: query
+          description: Alias of page_size (wins when both are sent).
+          schema:
+            type: integer
+            maximum: 100
+        - name: offset
+          in: query
+          description: Start position; must be a multiple of the page size, otherwise 400.
+          schema:
+            type: integer
+            minimum: 0
       responses:
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "200":
           description: Meetings listed
           content:
@@ -9663,7 +9786,7 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Action items listed
+          description: Action items listed (bare array; `[]` when none)
           content:
             application/json:
               schema:
@@ -9851,6 +9974,11 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update company settings
+      description: >-
+        Partial update. Only the keys present in the body overwrite the stored settings;
+        absent keys (and explicit null) keep their stored value, and a present empty string
+        clears the field. The Stammdaten tabs save name/address, tax, bank and payment
+        terms as separate blocks.
       tags: [finance-settings]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -10109,12 +10237,13 @@ paths:
   /api/v1/finance/quotes/{id}/convert:
     post:
       summary: Convert a quote to an invoice
+      description: The body is optional; a request without one converts with the quote's own terms.
       tags: [quotes]
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: "#/components/parameters/ResourceId"
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -10851,11 +10980,14 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
       responses:
         "200":
-          description: Credit note details
+          description: Credit note details, wrapped as {credit_note}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CreditNote"
+                type: object
+                properties:
+                  credit_note:
+                    $ref: "#/components/schemas/CreditNote"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -12194,25 +12326,28 @@ paths:
 
   /api/v1/finance/dunning/detect:
     post:
-      summary: Detect overdue invoices and create dunning records
+      summary: Detect overdue invoices and create dunning drafts
+      description: >-
+        Takes no input (a body is ignored). Creates the next dunning level as a draft for every
+        overdue invoice that is due for one and answers with the drafts of this run; an empty
+        list means nothing was due.
       tags: [dunning]
       security: [{ bearerAuth: [] }]
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                invoice_id:
-                  type: string
-                  description: Optional - target a specific invoice
       responses:
-        "201":
-          description: Dunning record created
+        "200":
+          description: Drafts created by this run
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningRecord"
+                type: object
+                required: [dunnings, total]
+                properties:
+                  dunnings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DunningRecord"
+                  total:
+                    type: integer
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -12248,18 +12383,9 @@ paths:
       summary: Escalate a dunning to the next level
       tags: [dunning]
       security: [{ bearerAuth: [] }]
+      description: Takes no body; the invoice is resolved from the dunning record in the path.
       parameters:
         - $ref: "#/components/parameters/ResourceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [invoice_id]
-              properties:
-                invoice_id:
-                  type: string
       responses:
         "200":
           description: Dunning escalated
@@ -12304,11 +12430,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Dunning configuration
+          description: Dunning configuration, wrapped as {config}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningConfig"
+                type: object
+                properties:
+                  config:
+                    $ref: "#/components/schemas/DunningConfig"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -12325,11 +12454,14 @@ paths:
               $ref: "#/components/schemas/DunningConfigInput"
       responses:
         "200":
-          description: Updated dunning config
+          description: Updated dunning config, wrapped as {config}
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DunningConfig"
+                type: object
+                properties:
+                  config:
+                    $ref: "#/components/schemas/DunningConfig"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -12362,6 +12494,45 @@ paths:
   # Finance: DATEV Export
   # ===========================================================================
   /api/v1/finance/export/datev:
+    get:
+      summary: Export DATEV Buchungsstapel CSV (query form)
+      description: Same export and permission as the POST form; the desktop export dialog calls this one.
+      tags: [datev]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          required: true
+          description: First day of the export range (alias start_date).
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          required: true
+          description: Last day of the export range (alias end_date).
+          schema: { type: string, format: date }
+        - name: fiscal_year_start
+          in: query
+          required: false
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: DATEV CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="EXTF_Buchungsstapel_20260101_20261231.csv"'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503":
+          description: Finance service unavailable
     post:
       summary: Export DATEV Buchungsstapel CSV
       tags: [datev]
@@ -12435,11 +12606,18 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List leave requests (filtered)
+      description: >
+        A caller whose `hr:read` grant is narrowed to "own" always gets their own requests,
+        whatever `employee_id` or `user_id` say.
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
         - name: employee_id
           in: query
+          schema: { type: string, format: uuid }
+        - name: user_id
+          in: query
+          description: Alias of `employee_id` (a request's employee is the user who filed it); `employee_id` wins when both are set.
           schema: { type: string, format: uuid }
         - name: status
           in: query
@@ -12486,6 +12664,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such leave request, or it belongs to someone else and the caller's `hr:read` grant is narrowed to "own"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -12786,6 +12968,7 @@ paths:
         - { name: employee_id, in: query, schema: { type: string, format: uuid } }
         - { name: start_date, in: query, schema: { type: string, format: date } }
         - { name: end_date, in: query, schema: { type: string, format: date } }
+        - { name: status, in: query, schema: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
       responses:
@@ -12801,6 +12984,8 @@ paths:
                     items:
                       $ref: "#/components/schemas/WorkTimeEntry"
                   total: { type: integer }
+        "400":
+          description: Unknown status value
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
@@ -12825,6 +13010,7 @@ paths:
                 clock_in: { type: string, format: date-time }
                 clock_out: { type: string, format: date-time }
                 break_minutes: { type: integer, minimum: 0 }
+                project_id: { type: string, format: uuid }
                 category_id: { type: string, format: uuid }
                 activity: { type: string }
                 note: { type: string }
@@ -12954,13 +13140,17 @@ paths:
         - { name: department, in: query, schema: { type: string } }
       responses:
         "200":
-          description: Absence calendar entries
+          description: Absence calendar entries, wrapped as `{entries}` (empty `[]` when nobody is absent)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/AbsenceEntry"
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AbsenceEntry"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
@@ -13048,11 +13238,15 @@ paths:
                   type: string
       responses:
         "201":
-          description: Employee profile created
+          description: Employee profile created, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -13069,11 +13263,15 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Own profile
+          description: Own profile, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -13088,11 +13286,15 @@ paths:
               $ref: "#/components/schemas/UpdateSelfProfileInput"
       responses:
         "200":
-          description: Profile updated
+          description: Profile updated, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -13109,11 +13311,15 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Employee profile
+          description: Employee profile, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -13130,11 +13336,15 @@ paths:
               $ref: "#/components/schemas/UpdateEmployeeInput"
       responses:
         "200":
-          description: Employee updated
+          description: Employee updated, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -13426,13 +13636,17 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Documents list
+          description: Documents list, wrapped as `{documents}`
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/EmployeeDocument"
+                type: object
+                required: [documents]
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmployeeDocument"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -13447,18 +13661,28 @@ paths:
           application/json:
             schema:
               type: object
-              required: [category_id, file_id]
+              description: >
+                The keys are accepted in snake_case and in camelCase (`categoryId`, `fileId`),
+                because the desktop client posts camelCase.
               properties:
                 category_id: { type: string, format: uuid }
                 file_id: { type: string, format: uuid }
+                categoryId: { type: string, format: uuid }
+                fileId: { type: string, format: uuid }
+                fileName: { type: string, maxLength: 255 }
+                fileSize: { type: string, maxLength: 50 }
                 notes: { type: string }
       responses:
         "201":
-          description: Document uploaded
+          description: Document uploaded, wrapped as `{document}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeDocument"
+                type: object
+                required: [document]
+                properties:
+                  document:
+                    $ref: "#/components/schemas/EmployeeDocument"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -13585,17 +13809,26 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: HR settings
+          description: >
+            HR settings, wrapped as `{settings}`. A tenant that never saved its settings
+            gets an empty object.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HRSettings"
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/HRSettings"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update HR company settings
+      description: >
+        Partial update: only the keys present in the body change; the other stored values stay.
+        An explicit `false` or `0` is a value, an omitted key is not.
       tags: [hr-settings]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -13606,11 +13839,15 @@ paths:
               $ref: "#/components/schemas/UpdateHRSettingsInput"
       responses:
         "200":
-          description: HR settings updated
+          description: HR settings updated, wrapped as `{settings}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HRSettings"
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/HRSettings"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -13646,6 +13883,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InboxMessageList"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -13666,6 +13905,8 @@ paths:
                 $ref: "#/components/schemas/InboxMessage"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14111,6 +14352,72 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/inbox/messages/bulk/read:
+    post:
+      summary: Mark multiple messages as read (path used by the desktop client; same as bulk-read)
+      tags: [inbox-messages]
+      operationId: bulkMarkInboxReadDesktop
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/inbox/messages/bulk/archive:
+    post:
+      summary: Archive multiple messages (path used by the desktop client; same as bulk-archive)
+      tags: [inbox-messages]
+      operationId: bulkArchiveInboxDesktop
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Messages archived
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated_count: { type: integer }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/inbox/teams:
     post:
       summary: Create a team inbox (admin/manager only)
@@ -14134,6 +14441,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14143,16 +14452,15 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         "200":
-          description: Team inboxes list
+          description: Team inboxes list (bare array)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  team_inboxes:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TeamInbox"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamInbox"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14181,6 +14489,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14214,10 +14524,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [member_user_id]
+              required: [role]
+              description: The member is given as user_id (desktop client) or member_user_id; one of them is required.
               properties:
+                user_id: { type: string, format: uuid }
                 member_user_id: { type: string, format: uuid }
-                role: { type: string, enum: [admin, member], default: member }
+                role: { type: string, enum: [admin, member] }
       responses:
         "201":
           description: Member added
@@ -14229,6 +14541,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14240,22 +14554,21 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Team inbox members
+          description: Team inbox members (bare array)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  members:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/TeamInboxMember"
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamInboxMember"
         "400":
           $ref: "#/components/responses/BadRequest"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14323,6 +14636,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14339,6 +14654,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/RoutingRule"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14367,6 +14684,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Failed to render the response
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14398,9 +14717,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [conditions, test_message]
+              required: [conditions]
+              description: The sample message is given as message (desktop client) or test_message; the channel may be a name or a number.
               properties:
                 conditions: { type: object }
+                message:
+                  $ref: "#/components/schemas/InboxMessage"
                 test_message:
                   $ref: "#/components/schemas/InboxMessage"
       responses:
@@ -14410,6 +14732,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [matches]
                 properties:
                   matches: { type: boolean }
         "400":
@@ -14441,16 +14764,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     get:
@@ -14494,6 +14816,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14514,14 +14838,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -14546,16 +14869,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -14603,16 +14925,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14633,16 +14954,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14683,6 +15003,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14703,14 +15025,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  execution:
-                    $ref: "#/components/schemas/AutomationExecution"
+                $ref: "#/components/schemas/AutomationExecution"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14778,6 +15099,8 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/AutomationTemplate"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14807,16 +15130,15 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  automation:
-                    $ref: "#/components/schemas/Automation"
+                $ref: "#/components/schemas/Automation"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -14843,7 +15165,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  result: { type: boolean }
+                  matches: { type: boolean }
+                  error: { type: string, description: "Why the condition could not be evaluated; empty when it could." }
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -14876,14 +15199,18 @@ paths:
                 type: object
                 properties:
                   condition_result: { type: boolean }
+                  would_execute: { type: boolean, description: "Condition matched and the simulation reported no error." }
+                  error_message: { type: string }
                   steps:
                     type: array
                     items:
-                      $ref: "#/components/schemas/DryRunStep"
+                      $ref: "#/components/schemas/ExecutionStep"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -15965,6 +16292,8 @@ paths:
           description: Unauthorized
         "404":
           description: Document not found
+        "409":
+          description: The stored content no longer matches the SHA-256 recorded at archival; no URL is issued
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -18053,6 +18382,8 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, description: "Only shifts from this instant (RFC3339)", schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: "Only shifts up to this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
@@ -18069,6 +18400,7 @@ paths:
                       $ref: '#/components/schemas/SchichtenShift'
                   total:
                     type: integer
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -18130,6 +18462,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [published_count]
                 properties:
                   published_count:
                     type: integer
@@ -18231,6 +18564,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [assignments]
                 properties:
                   assignments:
                     type: array
@@ -18438,6 +18772,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [shifts, created_count]
                 properties:
                   shifts:
                     type: array
@@ -19335,7 +19670,7 @@ paths:
               properties:
                 description: { type: string }
                 severity: { type: string, enum: [minor, moderate, major, totalled] }
-                reported_by: { type: string, format: uuid }
+                reported_by: { type: string, description: "A user UUID, or the reporter's name as free text (the name moves into notes and the caller is recorded)" }
                 photo_keys: { type: array, items: { type: string } }
                 cost_cents: { type: integer, format: int64 }
                 notes: { type: string }
@@ -19459,16 +19794,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [date, start_location, end_location, purpose, driver_name]
+              required: [date, start_location, end_location]
               properties:
                 date: { type: string, format: date }
                 start_location: { type: string }
                 end_location: { type: string }
-                purpose: { type: string }
+                purpose: { type: string, description: "Required unless is_private is true (400 otherwise)" }
                 start_km: { type: integer, format: int64 }
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
-                driver_name: { type: string }
+                driver_name: { type: string, description: "Optional" }
                 business_partner: { type: string }
                 notes: { type: string }
       responses:
@@ -19584,6 +19919,7 @@ paths:
       operationId: listUpcomingVehicleServices
       security: [{ bearerAuth: [] }]
       parameters:
+        - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
@@ -20320,6 +20656,7 @@ paths:
         - { name: vehicle_id, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: from, in: query, schema: { type: string, format: date-time } }
         - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000 }, description: "Maximum number of positions; omitted or out of range means the service default" }
       responses:
         "200":
           description: GPS positions
@@ -20342,6 +20679,8 @@ paths:
       tags: [fuhrpark]
       operationId: checkVehiclesTuevDue
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
       responses:
         "200":
           description: TUV-due vehicle list
@@ -20539,8 +20878,8 @@ paths:
               properties:
                 supplier_id: { type: string, format: uuid }
                 po_number: { type: string }
-                order_date: { type: string, format: date }
-                expected_delivery_date: { type: string, format: date }
+                order_date: { type: string, description: "YYYY-MM-DD or RFC3339; defaults to now. Malformed value -> 400." }
+                expected_delivery_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 currency: { type: string, example: EUR }
                 notes: { type: string }
       responses:
@@ -20592,8 +20931,8 @@ paths:
               properties:
                 supplier_id: { type: string, format: uuid }
                 po_number: { type: string }
-                order_date: { type: string, format: date }
-                expected_delivery_date: { type: string, format: date }
+                order_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
+                expected_delivery_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears the date; an omitted key leaves it unchanged." }
                 currency: { type: string }
                 notes: { type: string }
       responses:
@@ -20751,7 +21090,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Line list
+          description: Line list, `{lines:[...]}` (`[]` for an order without lines)
           content:
             application/json:
               schema: { type: object }
@@ -20875,12 +21214,18 @@ paths:
               schema:
                 type: object
                 properties:
+                  catalog_items:
+                    type: array
+                    items: { $ref: "#/components/schemas/EinkaufCatalogItem" }
                   items:
                     type: array
+                    description: Same rows as `catalog_items`, kept for older callers
                     items: { $ref: "#/components/schemas/EinkaufCatalogItem" }
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -20913,12 +21258,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -20938,12 +21288,17 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
@@ -20976,13 +21331,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  catalog_item: { $ref: "#/components/schemas/EinkaufCatalogItem" }
+                  item:
+                    description: Same entity as `catalog_item`, kept for older callers
+                    $ref: "#/components/schemas/EinkaufCatalogItem"
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -21113,6 +21473,8 @@ paths:
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
@@ -21131,8 +21493,8 @@ paths:
                 supplier_id: { type: string, format: uuid }
                 title: { type: string }
                 contract_nr: { type: string }
-                start_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
-                end_date: { type: string, format: date, description: "ISO 8601 date (YYYY-MM-DD)" }
+                start_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400. Reads back as YYYY-MM-DD." }
+                end_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400. Reads back as YYYY-MM-DD." }
                 total_value: { type: string, description: "Budgeted value as numeric string (e.g. \"10000.00\")" }
                 currency: { type: string, example: EUR }
                 status: { type: string, enum: [draft, active, expired], default: draft }
@@ -21150,6 +21512,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -21175,6 +21539,8 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
@@ -21194,8 +21560,8 @@ paths:
                 supplier_id: { type: string, format: uuid }
                 title: { type: string }
                 contract_nr: { type: string }
-                start_date: { type: string, format: date }
-                end_date: { type: string, format: date }
+                start_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears it; an omitted key leaves it unchanged." }
+                end_date: { type: string, nullable: true, description: "Same as start_date." }
                 total_value: { type: string, description: "Numeric string" }
                 currency: { type: string }
                 status: { type: string, enum: [draft, active, expired] }
@@ -21214,6 +21580,8 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
+        "500":
+          description: Response could not be built
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -21448,6 +21816,12 @@ paths:
                 lat: { type: number, format: double, nullable: true }
                 lon: { type: number, format: double, nullable: true }
                 report_date: { type: string, description: "Date in YYYY-MM-DD format; defaults to today if omitted" }
+                weather: { type: string, maxLength: 50, description: "sunny|cloudy|rainy|snowy as the desktop sends it" }
+                temperature: { type: number, format: double, minimum: -99, maximum: 99 }
+                work_start: { type: string, description: "HH:MM" }
+                work_end: { type: string, description: "HH:MM" }
+                break_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                project_name: { type: string, maxLength: 200 }
       responses:
         "201":
           description: Report created
@@ -21508,6 +21882,12 @@ paths:
                 lat: { type: number, format: double, nullable: true }
                 lon: { type: number, format: double, nullable: true }
                 report_date: { type: string, description: "YYYY-MM-DD" }
+                weather: { type: string, maxLength: 50, description: "sunny|cloudy|rainy|snowy as the desktop sends it" }
+                temperature: { type: number, format: double, minimum: -99, maximum: 99 }
+                work_start: { type: string, description: "HH:MM" }
+                work_end: { type: string, description: "HH:MM" }
+                break_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                project_name: { type: string, maxLength: 200 }
       responses:
         "200":
           description: Updated report
@@ -22591,11 +22971,11 @@ paths:
               $ref: "#/components/schemas/UpdateTwoFactorPolicyRequest"
       responses:
         "200":
-          description: Updated policy
+          description: Updated policy, the flat entity (not wrapped in policy)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TwoFactorPolicyResponse"
+                $ref: "#/components/schemas/TwoFactorPolicy"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -22659,6 +23039,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: date_from
+          in: query
+          description: Earliest entry, YYYY-MM-DD or RFC3339
+          schema:
+            type: string
+        - name: date_to
+          in: query
+          description: >-
+            Latest entry, YYYY-MM-DD or RFC3339. A bare day includes the whole day.
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Rows to skip. Wins over page when both are sent.
+          schema:
+            type: integer
+            minimum: 0
+        - name: limit
+          in: query
+          description: Rows per page (1-100, default 50). Wins over page_size.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
         - name: page
           in: query
           schema:
@@ -22670,7 +23074,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 200
+            maximum: 100
             default: 50
       responses:
         "200":
@@ -22679,6 +23083,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListAuditEntriesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -22714,6 +23120,17 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: date_from
+          in: query
+          description: Earliest entry, YYYY-MM-DD or RFC3339
+          schema:
+            type: string
+        - name: date_to
+          in: query
+          description: >-
+            Latest entry, YYYY-MM-DD or RFC3339. A bare day includes the whole day.
+          schema:
+            type: string
       responses:
         "200":
           description: Audit log file download
@@ -22726,6 +23143,8 @@ paths:
               schema:
                 type: string
                 format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -22808,11 +23227,11 @@ paths:
               $ref: "#/components/schemas/SetVaultSecretRequest"
       responses:
         "200":
-          description: Secret stored; metadata returned
+          description: Secret stored; flat metadata returned
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VaultSecretResponse"
+                $ref: "#/components/schemas/VaultSecretMeta"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -22839,7 +23258,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Secret metadata and decrypted value
+          description: Key name and decrypted value
           content:
             application/json:
               schema:
@@ -22852,6 +23271,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+    put:
+      summary: Create or update the vault secret stored under the path key (admin only)
+      tags: [security]
+      operationId: setVaultSecretByKey
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVaultSecretByKeyRequest"
+      responses:
+        "200":
+          description: Secret stored; flat metadata returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VaultSecretMeta"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -23192,11 +23646,11 @@ paths:
               $ref: "#/components/schemas/UpdatePasswordPolicyRequest"
       responses:
         "200":
-          description: Updated password policy
+          description: Updated password policy, the flat entity (not wrapped in policy)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PasswordPolicyResponse"
+                $ref: "#/components/schemas/PasswordPolicy"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -23223,7 +23677,7 @@ paths:
               $ref: "#/components/schemas/ValidatePasswordRequest"
       responses:
         "200":
-          description: Validation result with violations list
+          description: Validation result; failures and violations carry the same list
           content:
             application/json:
               schema:
@@ -23282,11 +23736,11 @@ paths:
               $ref: "#/components/schemas/CreateIPRuleRequest"
       responses:
         "201":
-          description: IP rule created
+          description: IP rule created, the flat entity (not wrapped in rule)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/IPRuleResponse"
+                $ref: "#/components/schemas/IPAccessRule"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -23675,7 +24129,7 @@ paths:
       parameters:
         - { name: search, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
       responses:
         "200":
           description: Paginated form schema list
@@ -23683,8 +24137,9 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, total]
                 properties:
-                  schemas:
+                  items:
                     type: array
                     items: { $ref: "#/components/schemas/FormSchema" }
                   total: { type: integer }
@@ -23706,20 +24161,18 @@ paths:
               properties:
                 title: { type: string }
                 description: { type: string }
-                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
-                is_template: { type: boolean }
-                is_public: { type: boolean }
-                page_count: { type: integer, format: int32 }
-                intake_target_id: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\")" }
+                fields: { type: array, items: { type: object }, description: "FormField list as JSON. A base64 string is still read." }
+                status: { type: string, enum: [draft, active, archived], description: "`closed` has no backend value and is rejected with 400" }
+                isTemplate: { type: boolean, description: "snake_case `is_template` is read as well" }
+                isPublic: { type: boolean, description: "snake_case `is_public` is read as well" }
+                pageCount: { type: integer, format: int32, description: "snake_case `page_count` is read as well" }
+                intakeTargetId: { type: string, description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\"); snake_case `intake_target_id` is read as well" }
       responses:
         "201":
           description: Form schema created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -23739,10 +24192,7 @@ paths:
           description: Form schema
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -23765,20 +24215,18 @@ paths:
               properties:
                 title: { type: string }
                 description: { type: string }
-                fields: { type: string, format: byte, description: "JSON-array of FormField (base64-encoded bytes)" }
-                is_template: { type: boolean }
-                is_public: { type: boolean }
-                page_count: { type: integer, format: int32 }
-                intake_target_id: { type: string, description: "Key into the shared intake registry; empty string clears the binding" }
+                fields: { type: array, items: { type: object }, description: "FormField list as JSON. A base64 string is still read." }
+                status: { type: string, enum: [draft, active, archived], description: "Lifecycle toggle (publish/archive); `closed` has no backend value and is rejected with 400" }
+                isTemplate: { type: boolean, description: "snake_case `is_template` is read as well" }
+                isPublic: { type: boolean, description: "snake_case `is_public` is read as well" }
+                pageCount: { type: integer, format: int32, description: "snake_case `page_count` is read as well" }
+                intakeTargetId: { type: string, description: "Key into the shared intake registry; empty string clears the binding. snake_case `intake_target_id` is read as well" }
       responses:
         "200":
           description: Form schema updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -23818,16 +24266,13 @@ paths:
             schema:
               type: object
               properties:
-                new_title: { type: string }
+                title: { type: string, description: "Title of the copy; `new_title` is read as well" }
       responses:
         "201":
           description: Duplicated form schema
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  schema: { $ref: "#/components/schemas/FormSchema" }
+              schema: { $ref: "#/components/schemas/FormSchema" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -23869,7 +24314,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
       responses:
         "200":
           description: Paginated submission list
@@ -23877,8 +24322,9 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, total]
                 properties:
-                  submissions:
+                  items:
                     type: array
                     items: { $ref: "#/components/schemas/FormSubmission" }
                   total: { type: integer }
@@ -23902,18 +24348,15 @@ paths:
             schema:
               type: object
               properties:
-                answers: { type: string, format: byte, description: "JSON-object of field answers (base64-encoded bytes)" }
-                submitted_by: { type: string }
+                answers: { type: object, additionalProperties: true, description: "Field answers as JSON. A base64 string is still read." }
+                submittedBy: { type: string, description: "snake_case `submitted_by` is read as well; defaults to the signed-in user" }
                 ip_address: { type: string }
       responses:
         "201":
           description: Submission created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -23965,16 +24408,12 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Share links of the schema
+          description: Share links of the schema, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  share_links:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormShareLink" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormShareLink" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24004,18 +24443,21 @@ paths:
           application/json:
             schema:
               type: object
+              description: >
+                The camelCase keys are what the frontend sends; the snake_case ones
+                are still read. `channel` is accepted and not stored.
               properties:
+                expiresAt: { type: string, format: date-time, nullable: true }
+                maxSubmissions: { type: integer, minimum: 1, nullable: true }
                 expires_at: { type: string, format: date-time, nullable: true }
                 max_submissions: { type: integer, minimum: 1, nullable: true }
+                channel: { type: string, enum: [link, email, embed, qr] }
       responses:
         "201":
           description: Share link created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  share_link: { $ref: "#/components/schemas/FormShareLink" }
+              schema: { $ref: "#/components/schemas/FormShareLink" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -24175,15 +24617,12 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Webhook list
+          description: Webhook list, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  webhooks:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhook" }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhook" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24216,10 +24655,7 @@ paths:
           description: Webhook created
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
@@ -24239,10 +24675,7 @@ paths:
           description: Form submission
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24270,10 +24703,7 @@ paths:
           description: Submission status updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  submission: { $ref: "#/components/schemas/FormSubmission" }
+              schema: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -24294,10 +24724,7 @@ paths:
           description: Webhook
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24323,17 +24750,14 @@ paths:
                 events:
                   type: array
                   items: { type: string }
-                events_set: { type: boolean, description: "true = replace the full events list" }
+                events_set: { type: boolean, description: "true = replace the full events list; sending `events` at all (even `[]`) also replaces it" }
                 active: { type: boolean }
       responses:
         "200":
           description: Webhook updated
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  webhook: { $ref: "#/components/schemas/FormWebhook" }
+              schema: { $ref: "#/components/schemas/FormWebhook" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -24366,20 +24790,18 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         "200":
-          description: Delivery list for webhook
+          description: Delivery list for webhook, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  deliveries:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhookDelivery" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -24396,21 +24818,19 @@ paths:
       parameters:
         - { name: webhook_id, in: query, schema: { type: string, format: uuid } }
         - { name: submission_id, in: query, schema: { type: string, format: uuid } }
-        - { name: status, in: query, schema: { type: integer, description: "WebhookDeliveryStatus enum int (1=pending, 2=delivered, 3=failed, 4=dead)" } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, delivered, failed, dead], description: "Also accepts the WebhookDeliveryStatus number (1=pending, 2=delivered, 3=failed, 4=dead)" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
       responses:
         "200":
-          description: Paginated delivery list
+          description: Paginated delivery list, a bare array (empty = `[]`)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  deliveries:
-                    type: array
-                    items: { $ref: "#/components/schemas/FormWebhookDelivery" }
-                  total: { type: integer }
+                type: array
+                items: { $ref: "#/components/schemas/FormWebhookDelivery" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -24462,8 +24882,8 @@ paths:
                 contract_number: { type: string }
                 title: { type: string }
                 contract_type: { type: string, enum: [rental, service, employment, nda, other] }
-                starts_on: { type: string, description: "RFC3339 date string" }
-                ends_on: { type: string, description: "RFC3339 date string (optional)" }
+                starts_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
+                ends_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 document_url: { type: string, format: uri }
                 notes: { type: string }
       responses:
@@ -24519,8 +24939,8 @@ paths:
                 title: { type: string }
                 contract_type: { type: string, enum: [rental, service, employment, nda, other] }
                 status: { type: string, enum: [draft, active, expired, terminated] }
-                starts_on: { type: string, description: "RFC3339 date string" }
-                ends_on: { type: string, description: "RFC3339 date string" }
+                starts_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
+                ends_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 clear_ends_on: { type: boolean, description: "Set true to remove the ends_on date" }
                 document_url: { type: string, format: uri }
                 notes: { type: string }
@@ -24696,7 +25116,7 @@ paths:
                 company_id: { type: string, format: uuid }
                 external_name: { type: string }
                 role_in_contract: { type: string }
-                signed_on: { type: string, description: "RFC3339 datetime string" }
+                signed_on: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
       responses:
         "201":
           description: Party added
@@ -24777,7 +25197,7 @@ paths:
               type: object
               required: [subject]
               properties:
-                remind_at: { type: string, description: "RFC3339 datetime string" }
+                remind_at: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
                 subject: { type: string }
                 message: { type: string }
@@ -24811,7 +25231,7 @@ paths:
             schema:
               type: object
               properties:
-                remind_at: { type: string, description: "RFC3339 datetime string" }
+                remind_at: { type: string, description: "YYYY-MM-DD (UTC midnight) or RFC3339; malformed -> 400" }
                 reminder_type: { type: string, enum: [renewal, expiry, payment, custom] }
                 subject: { type: string }
                 message: { type: string }
@@ -25115,7 +25535,12 @@ paths:
 
   /api/v1/email/messages:
     get:
-      summary: List messages in a folder (paginated)
+      summary: List messages of a folder, the unified inbox or a label (paginated)
+      description: >
+        Give a folder_id for the folder view. With folder_id empty, view=unified lists the inboxes
+        of the caller's own mail accounts and label_id lists the messages carrying the label across
+        folders and accounts. filter narrows every form to unread or starred messages. One of
+        folder_id, view=unified or label_id is required (400 otherwise).
       tags: [mails]
       operationId: listEmailMessages
       security:
@@ -25123,7 +25548,30 @@ paths:
       parameters:
         - name: folder_id
           in: query
-          required: true
+          description: Folder to list; may be empty for view=unified and label_id.
+          schema:
+            type: string
+            format: uuid
+        - name: view
+          in: query
+          description: unified lists the inboxes of all of the caller's accounts.
+          schema:
+            type: string
+            enum: [unified]
+        - name: label_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, unread, starred]
+            default: all
+        - name: account_id
+          in: query
+          description: Narrow unified and label views to one of the caller's accounts (404 for any other account).
           schema:
             type: string
             format: uuid
@@ -25158,8 +25606,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EmailListMessagesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25183,6 +25637,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -25233,6 +25689,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25380,6 +25838,8 @@ paths:
           description: Message not found, or one of the label ids does not belong to the tenant
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25450,6 +25910,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25479,6 +25941,8 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25510,6 +25974,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -25541,6 +26007,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -26243,6 +26711,8 @@ paths:
                 $ref: "#/components/schemas/GetContactEmailsResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Response could not be encoded
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -27308,6 +27778,14 @@ paths:
                 min_quantity: { type: integer, format: int64, minimum: 0 }
                 unit: { type: string }
                 location: { type: string }
+                category: { type: string }
+                price: { type: number, format: double, minimum: 0 }
+                currency: { type: string, description: "ISO 4217 code, e.g. EUR", example: EUR }
+                batch_number: { type: string }
+                linked_purchase_order: { type: string }
+                serial_numbers:
+                  type: array
+                  items: { type: string }
       responses:
         "201":
           description: Item created
@@ -27369,6 +27847,12 @@ paths:
                 min_quantity: { type: integer, format: int64, minimum: 0 }
                 unit: { type: string }
                 location: { type: string }
+                category: { type: string }
+                price: { type: number, format: double, minimum: 0 }
+                currency: { type: string, description: "ISO 4217 code, e.g. EUR", example: EUR }
+                batch_number: { type: string }
+                linked_purchase_order: { type: string }
+                serial_numbers: { type: array, items: { type: string }, description: "Replaces the stored list; an empty array clears it; omitted or null leaves it unchanged." }
       responses:
         "200":
           description: Updated item
@@ -27491,8 +27975,8 @@ paths:
               properties:
                 movement_type:
                   type: string
-                  enum: [in, out, adjustment]
-                  description: "Allowed values: in, out, adjustment (transfer via POST /transfer)"
+                  enum: [in, out]
+                  description: "Allowed values: in (stock +quantity), out (stock -quantity, 409 if it would go below zero). Adjustments via POST /adjust, transfers via POST /transfer"
                 quantity: { type: integer, format: int64, minimum: 1 }
                 performed_by: { type: string, format: uuid }
                 reason: { type: string }
@@ -29097,9 +29581,9 @@ paths:
                   type: string
                   description: "system|custom (defaults to custom)"
                 query_config:
-                  type: string
-                  format: byte
-                  description: "Raw JSONB aggregation spec (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Aggregation spec as a JSON object (a base64 string of the JSON is still read)"
                 default_format:
                   type: string
                   description: "pdf|csv|xlsx"
@@ -29165,9 +29649,9 @@ paths:
                   type: string
                   description: "finanzen|crm|helpdesk|inventar|produktion|cross"
                 query_config:
-                  type: string
-                  format: byte
-                  description: "Raw JSONB aggregation spec (base64-encoded bytes on the wire); empty means no change"
+                  type: object
+                  additionalProperties: true
+                  description: "Aggregation spec as a JSON object (a base64 string of the JSON is still read); omitted means no change"
                 default_format:
                   type: string
                   description: "pdf|csv|xlsx"
@@ -29227,9 +29711,9 @@ paths:
               type: object
               properties:
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report filter params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report filter params as a JSON object (a base64 string of the JSON is still read)"
                 force_refresh:
                   type: boolean
                   description: Bypass any cached result and recompute
@@ -29248,6 +29732,8 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "500":
+          description: The result payload is not a JSON report document
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -29276,9 +29762,9 @@ paths:
               type: object
               properties:
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report filter params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report filter params as a JSON object (a base64 string of the JSON is still read)"
       responses:
         "200":
           description: Exported report file
@@ -29373,9 +29859,9 @@ paths:
                   items: { type: string, format: email }
                 format: { type: string, enum: [pdf, csv, xlsx] }
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report params as a JSON object (a base64 string of the JSON is still read)"
                 active: { type: boolean }
       responses:
         "201":
@@ -29422,9 +29908,9 @@ paths:
                   description: "Set true to replace recipients with the (possibly empty) recipients array above"
                 format: { type: string, enum: [pdf, csv, xlsx] }
                 params:
-                  type: string
-                  format: byte
-                  description: "JSON-encoded report params (base64-encoded bytes on the wire)"
+                  type: object
+                  additionalProperties: true
+                  description: "Report params as a JSON object (a base64 string of the JSON is still read)"
                 active: { type: boolean }
       responses:
         "200":
@@ -31269,6 +31755,10 @@ paths:
                   folders:
                     type: array
                     items: { $ref: "#/components/schemas/DocumentFolder" }
+                  shares:
+                    type: array
+                    description: The share rows behind files and folders (permission, who shared)
+                    items: { $ref: "#/components/schemas/DocumentShare" }
                   total: { type: integer }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -31502,6 +31992,10 @@ paths:
         - name: source
           in: query
           schema: { type: string, enum: [chat, email, task] }
+        - name: source_type
+          in: query
+          description: Alias for source (the desktop client sends this name). source wins when both are set.
+          schema: { type: string, enum: [chat, email, task] }
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -31611,8 +32105,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginManifest" }
+                type: object
+                required: [manifests]
+                properties:
+                  manifests:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginManifest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -31731,8 +32229,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginInstallation" }
+                type: object
+                required: [installations]
+                properties:
+                  installations:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginInstallation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -32002,8 +32504,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginValidationRule" }
+                type: object
+                required: [rules]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginValidationRule" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -32121,8 +32627,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginWorkflowRule" }
+                type: object
+                required: [rules]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginWorkflowRule" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -32238,8 +32748,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginIndustryTemplate" }
+                type: object
+                required: [templates]
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginIndustryTemplate" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -32304,8 +32818,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginExecutionLog" }
+                type: object
+                required: [logs]
+                properties:
+                  logs:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginExecutionLog" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -32325,6 +32843,7 @@ paths:
       operationId: listProductionBOMs
       security: [{ bearerAuth: [] }]
       parameters:
+        - { name: active, in: query, schema: { type: boolean }, description: "Only active (true) or only inactive (false) BOMs; omitted lists all" }
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/page_size"
       responses:
@@ -34532,6 +35051,9 @@ paths:
                   last_contact_sync_at: { type: string, format: date-time, description: "Present only once a contact sync has run" }
                   last_sync_error: { type: string, description: "Present only when the last sync attempt failed" }
                   last_sync_error_at: { type: string, format: date-time, description: "Present only when the last sync attempt failed" }
+                  contact_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
+                  invoice_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
+                  quote_sync: { $ref: "#/components/schemas/LexwareEntitySyncStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -35220,7 +35742,8 @@ paths:
   # route_crm_ext.go -- CRM extension routes: duplicate detection, contact
   # timeline, GDPR consent CRUD. Registered inside the EXISTING /contacts and
   # /companies subrouters (route_crm.go), so base paths are /api/v1/contacts
-  # and /api/v1/companies -- NOT /api/v1/crm/*. All handlers use
+  # and /api/v1/companies; the timeline is additionally served under
+  # /api/v1/crm/contacts/{id}/timeline (desktop path). All handlers use
   # response.JSON(w, status, resp) on RAW proto structs/fields (not
   # response.Proto) -- the generated pb.go json tags are snake_case and enum
   # int32 values serialize as plain numbers via encoding/json, matching
@@ -35289,8 +35812,8 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
         - name: offset
           in: query
-          description: Page number (1-based -- despite the query param name this is not a row offset, it maps directly to the proto page field)
-          schema: { type: integer, minimum: 1, default: 1 }
+          description: Row offset (the desktop sends (page-1)*limit); the gateway converts it to the RPC page number
+          schema: { type: integer, minimum: 0, default: 0 }
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
@@ -35303,6 +35826,39 @@ paths:
                 $ref: "#/components/schemas/CrmContactTimelineResponse"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Upstream CRM error
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/crm/contacts/{id}/timeline:
+    get:
+      summary: Get the contact timeline (alias of /api/v1/contacts/{id}/timeline, the path the desktop calls)
+      tags: [contacts]
+      operationId: getCrmContactTimeline
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+        - name: offset
+          in: query
+          description: Row offset (the desktop sends (page-1)*limit); the gateway converts it to the RPC page number
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Timeline events for the contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmContactTimelineResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: Upstream CRM error
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -36863,13 +37419,11 @@ paths:
         - $ref: "#/components/parameters/page_size"
       responses:
         "200":
-          description: Recordings for the meeting (bare array, not wrapped)
+          description: Recordings for the meeting, wrapped with the total (`recordings` is `[]` when none)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RecordingSchema"
+                $ref: "#/components/schemas/ListRecordingsResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -38112,6 +38666,18 @@ components:
         default: 20
 
   schemas:
+    LexwareEntitySyncStatus:
+      type: object
+      description: >-
+        Per-entity card of the Lexware sync dashboard. items_synced is the number of mapped
+        records, items_failed is always 0 (the biz service keeps no per-entity failure count),
+        status is derived (failed = last error newer than the last contact sync, completed =
+        something synced or mapped, else idle; never running).
+      properties:
+        status: { type: string, enum: [idle, running, completed, failed] }
+        items_synced: { type: integer, format: int32 }
+        items_failed: { type: integer }
+        last_sync_at: { type: string, format: date-time, description: "Contacts only; invoices and quotes are pushed on demand" }
     UserInfo:
       type: object
       description: Go encoding/json serialization uses snake_case field names.
@@ -40523,6 +41089,10 @@ components:
 
     UpdateNotificationPreferenceRequest:
       type: object
+      description: >-
+        Partial update: a delivery field that is not sent keeps its stored value (a first
+        write starts from the system default: in_app, desktop_push and email on, sms off,
+        sound "default"). An explicit false is a value.
       properties:
         event_type_key:
           type: string
@@ -40571,16 +41141,20 @@ components:
         id:
           type: string
           format: uuid
-        user_id:
+        resource_type:
           type: string
-          format: uuid
         module_id:
           type: string
+          description: Same value as resource_type (earlier shape).
         resource_id:
           type: string
+        muted_at:
+          type: string
+          format: date-time
         created_at:
           type: string
           format: date-time
+          description: Same value as muted_at (earlier shape).
 
     QuietHours:
       type: object
@@ -40601,14 +41175,28 @@ components:
           type: array
           items:
             type: integer
-          description: Days of week (0=Sunday, 6=Saturday)
+          description: Service weekdays, ISO (1=Monday .. 7=Sunday)
+        days:
+          type: array
+          items:
+            type: integer
+          description: Desktop weekdays (0=Sunday .. 6=Saturday); the same days as `days_of_week`
         enabled:
           type: boolean
+        is_active:
+          type: boolean
+          description: Same value as `enabled`
         manual_dnd:
           type: boolean
         manual_dnd_until:
           type: string
           format: date-time
+
+    QuietHoursResponse:
+      type: object
+      properties:
+        quiet_hours:
+          $ref: "#/components/schemas/QuietHours"
 
     DNDStatus:
       type: object
@@ -40626,7 +41214,7 @@ components:
 
     UpdateQuietHoursRequest:
       type: object
-      required: [start_time, end_time, timezone, enabled]
+      required: [start_time, end_time]
       properties:
         start_time:
           type: string
@@ -40634,10 +41222,24 @@ components:
           type: string
         timezone:
           type: string
+          description: IANA timezone; defaults to Europe/Berlin when omitted
+        days:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          description: Desktop weekdays (0=Sunday .. 6=Saturday). Wins over `days_of_week`.
         days_of_week:
           type: array
           items:
             type: integer
+            minimum: 1
+            maximum: 7
+          description: Service weekdays, ISO (1=Monday .. 7=Sunday). Without `days` and `days_of_week` every day applies.
+        is_active:
+          type: boolean
+          description: Schedule switch (desktop name). Wins over `enabled`; without either the schedule is off.
         enabled:
           type: boolean
 
@@ -41777,6 +42379,13 @@ components:
           items:
             type: string
             format: uuid
+        reminder_minutes:
+          type: array
+          maxItems: 3
+          items:
+            type: integer
+            minimum: 1
+          description: Reminder offsets in minutes before the start (at most three)
 
     UpdateEventRequest:
       type: object
@@ -41805,10 +42414,16 @@ components:
           nullable: true
         has_video_call:
           type: boolean
+        rrule:
+          type: string
+          description: Replaces the RFC 5545 RRULE of a single event; an empty string removes it. Ignored by the recurring-update route.
 
     UpdateRecurringEventRequest:
+      description: |
+        The changes may be sent flat next to `scope` and `original_date` (what the
+        desktop does) or nested under `changes`; `changes` wins when both are present.
       type: object
-      required: [scope, original_date, changes]
+      required: [scope, original_date]
       properties:
         scope:
           type: string
@@ -41819,6 +42434,30 @@ components:
           description: The original occurrence date being edited (YYYY-MM-DD)
         changes:
           $ref: "#/components/schemas/UpdateEventRequest"
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        is_all_day:
+          type: boolean
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        has_video_call:
+          type: boolean
 
     RSVPRequest:
       type: object
@@ -42332,18 +42971,33 @@ components:
           format: date-time
 
     PresenceResponse:
+      $ref: "#/components/schemas/UserPresence"
+
+    UserPresence:
       type: object
       properties:
-        presence:
-          $ref: "#/components/schemas/PresenceSchema"
+        user_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [online, away, dnd, in_call, offline]
+        manual_override:
+          type: boolean
+        last_activity:
+          type: string
+          format: date-time
+          nullable: true
+        first_name:
+          type: string
+        last_name:
+          type: string
 
     BulkPresenceResponse:
+      description: Presence keyed by user id.
       type: object
-      properties:
-        presences:
-          type: array
-          items:
-            $ref: "#/components/schemas/PresenceSchema"
+      additionalProperties:
+        $ref: "#/components/schemas/UserPresence"
 
     PresenceConfigSchema:
       type: object
@@ -42471,9 +43125,11 @@ components:
         agenda:
           type: string
         scheduled_start:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         scheduled_end:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         calendar_event_id:
@@ -42487,6 +43143,12 @@ components:
           items:
             type: string
             format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
 
     UpdateMeetingRequest:
       type: object
@@ -42498,9 +43160,11 @@ components:
         agenda:
           type: string
         scheduled_start:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         scheduled_end:
+          description: RFC 3339, or a wall-clock time without zone (`2026-11-02T10:00:00`, `2026-11-02T10:00`) read in Europe/Berlin.
           type: string
           format: date-time
         attendee_user_ids:
@@ -42508,6 +43172,12 @@ components:
           items:
             type: string
             format: uuid
+        contact_id:
+          type: string
+          format: uuid
+        deal_id:
+          type: string
+          format: uuid
 
     MeetingSchema:
       type: object
@@ -42754,12 +43424,9 @@ components:
           $ref: "#/components/schemas/ActionItemSchema"
 
     ListActionItemsResponse:
-      type: object
-      properties:
-        action_items:
-          type: array
-          items:
-            $ref: "#/components/schemas/ActionItemSchema"
+      type: array
+      items:
+        $ref: "#/components/schemas/ActionItemSchema"
 
     ConvertActionItemsRequest:
       type: object
@@ -42777,9 +43444,14 @@ components:
     ConvertActionItemsResponse:
       type: object
       properties:
+        action_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItemSchema"
         converted_count:
           type: integer
         task_ids:
+          description: Task id of every converted item that has one; `[]` when none.
           type: array
           items:
             type: string
@@ -42965,6 +43637,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         tax_breakdown:
           $ref: "#/components/schemas/TaxBreakdown"
         valid_until:
@@ -43011,6 +43684,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         valid_until:
           type: string
           format: date
@@ -43019,6 +43693,13 @@ components:
         deal_id:
           type: string
           format: uuid
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            An `exchange_rate` in the body is ignored: no rate is stored.
 
     UpdateQuoteRequest:
       type: object
@@ -43032,9 +43713,16 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         valid_until:
           type: string
           format: date
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
+            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 
@@ -43128,6 +43816,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         tax_breakdown:
           $ref: "#/components/schemas/TaxBreakdown"
         currency:
@@ -43182,6 +43871,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         currency:
           type: string
           example: EUR
@@ -43216,6 +43906,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         currency:
           type: string
         interval:
@@ -43236,7 +43927,7 @@ components:
 
     CreateInvoiceRequest:
       type: object
-      required: [customer, line_items, tax_mode, invoice_date, due_date]
+      required: [customer, line_items, tax_mode, invoice_date]
       properties:
         customer:
           $ref: "#/components/schemas/CustomerSnapshot"
@@ -43247,6 +43938,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         invoice_date:
           type: string
           format: date
@@ -43256,8 +43948,26 @@ components:
         due_date:
           type: string
           format: date
+          description: Ignored. The due date is invoice_date plus the payment term days.
         payment_terms:
           type: string
+          description: >
+            Free text whose leading number is the due-date offset in days ("14 Tage netto").
+            Wins over `payment_terms_days` when both are sent.
+        payment_terms_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: >
+            Days from invoice_date to the due date. Sent as "N Tage netto" payment terms.
+            Absent or 0 takes the tenant default (company settings, else 30).
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            An `exchange_rate` in the body is ignored: no rate is stored.
         notes:
           type: string
         source_quote_id:
@@ -43290,6 +44000,22 @@ components:
           format: date
         payment_terms:
           type: string
+          description: >
+            Free text whose leading number is the due-date offset in days ("14 Tage netto").
+            Wins over `payment_terms_days` when both are sent.
+        payment_terms_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: >
+            Days from invoice_date to the due date (sent as "N Tage netto"). Absent keeps the due date;
+            a changed invoice_date without terms or due_date moves the due date by the same distance.
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
+            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 
@@ -43338,13 +44064,14 @@ components:
 
     CreateCreditNoteRequest:
       type: object
-      required: [original_invoice_id, customer, line_items, tax_mode]
+      required: [original_invoice_id, line_items, tax_mode, reason]
       properties:
         original_invoice_id:
           type: string
           format: uuid
         customer:
           $ref: "#/components/schemas/CustomerSnapshot"
+          description: Optional. The credit note takes the customer from the original invoice.
         line_items:
           type: array
           items:
@@ -43352,6 +44079,7 @@ components:
         tax_mode:
           type: string
           enum: [standard, reverse_charge, kleinunternehmer]
+          description: Always a string in responses. Requests also accept the legacy enum numbers 1-3 (standard, reverse_charge, kleinunternehmer).
         reason:
           type: string
 
@@ -44122,6 +44850,24 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DunningRecord"
+        revenue_this_month:
+          type: number
+          description: Paid-invoice revenue (same basis as total_paid) of the current calendar month, tenant default currency.
+        revenue_last_month:
+          type: number
+          description: Same for the previous calendar month.
+        monthly_revenue:
+          type: array
+          description: Paid-invoice revenue of the last 12 calendar months, oldest first, ending with the current month; months without revenue are included with revenue 0.
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                format: date
+                description: First day of the month
+              revenue:
+                type: number
 
     # =========================================================================
     # HR Schemas
@@ -44474,7 +45220,7 @@ components:
         snoozed_until: { type: string, format: date-time }
         assigned_to: { type: string, format: uuid }
         team_inbox_id: { type: string, format: uuid }
-        tags: { type: array, items: { type: string } }
+        tags: { type: array, items: { type: string }, description: "Always present, empty array when the message has no tags" }
         deep_link: { type: string }
         crm_contact_id: { type: string, format: uuid }
         metadata: { type: object }
@@ -44500,14 +45246,23 @@ components:
 
     InboxUnreadCount:
       type: object
+      required: [total, counts, by_channel]
       properties:
         total: { type: integer }
-        by_channel:
+        counts:
           type: array
           items:
             type: object
             properties:
-              channel: { type: string, enum: [email, chat, notification] }
+              channel: { type: string, enum: [email, chat, notification, guest] }
+              count: { type: integer }
+        by_channel:
+          type: array
+          description: Legacy form of counts; the channel is the proto enum number (1=email, 2=chat, 3=notification, 4=guest).
+          items:
+            type: object
+            properties:
+              channel: { type: integer }
               count: { type: integer }
 
     TeamInbox:
@@ -44602,7 +45357,7 @@ components:
         owner_id: { type: string, format: uuid }
         trigger_type: { type: string }
         trigger_config: { type: object }
-        conditions: { type: object }
+        conditions: { type: object, nullable: true }
         actions: { type: array, items: { type: object } }
         is_active: { type: boolean }
         max_steps: { type: integer }
@@ -44670,6 +45425,14 @@ components:
         module: { type: string }
         name: { type: string }
         description: { type: string }
+        event_type: { type: string }
+        fields:
+          type: array
+          description: Condition fields the builder offers for this trigger, with the operators valid per field.
+          items: { $ref: "#/components/schemas/CatalogField" }
+        config_params:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogParam" }
 
     ActionDefinition:
       type: object
@@ -44678,6 +45441,36 @@ components:
         module: { type: string }
         name: { type: string }
         description: { type: string }
+        params:
+          type: array
+          items: { $ref: "#/components/schemas/CatalogParam" }
+        output_fields:
+          type: array
+          description: Values the action produces, usable as variables by later actions.
+          items: { $ref: "#/components/schemas/CatalogField" }
+
+    CatalogField:
+      type: object
+      properties:
+        key: { type: string, example: deal.value }
+        label: { type: string }
+        type: { type: string, description: "string, number, boolean or date" }
+        operators:
+          type: array
+          items: { type: string }
+        name: { type: string, description: Same as key (legacy). }
+        description: { type: string, description: Same as label (legacy). }
+
+    CatalogParam:
+      type: object
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, description: "string, number, boolean, select or template" }
+        required: { type: boolean }
+        default_value: { type: string, description: Empty when the parameter has no default. }
+        name: { type: string, description: Same as key (legacy). }
+        description: { type: string, description: Same as label (legacy). }
 
     AutomationTemplate:
       type: object
@@ -44686,20 +45479,12 @@ components:
         name: { type: string }
         description: { type: string }
         category: { type: string }
-        complexity: { type: string, enum: [simple, medium, advanced] }
+        complexity: { type: string, enum: [einfach, mittel, fortgeschritten] }
         trigger_type: { type: string }
         trigger_config: { type: object }
         conditions: { type: object }
         actions: { type: array, items: { type: object } }
         created_at: { type: string, format: date-time }
-
-    DryRunStep:
-      type: object
-      properties:
-        action_type: { type: string }
-        action_name: { type: string }
-        would_run: { type: boolean }
-        error: { type: string, nullable: true }
 
     AutomationStats:
       type: object
@@ -45494,10 +46279,11 @@ components:
           type: string
           format: uuid
         sequence_num:
-          type: integer
-          format: int64
+          type: string
+          description: int64 sequence number as a string
         timestamp:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         user_id:
           type: string
           format: uuid
@@ -45508,8 +46294,9 @@ components:
         target_type:
           type: string
         details:
-          type: string
-          description: JSON string with action-specific details
+          type: object
+          additionalProperties: true
+          description: Action-specific details ({} when none were recorded)
         ip_address:
           type: string
         user_agent:
@@ -45591,20 +46378,24 @@ components:
         description:
           type: string
 
-    VaultSecretResponse:
-      type: object
-      description: Returned by PUT /vault — metadata only, no plaintext
-      properties:
-        secret:
-          $ref: "#/components/schemas/VaultSecretMeta"
-
     VaultSecretValueResponse:
       type: object
       description: Returned by GET /vault/{keyName} — includes decrypted value
       properties:
-        secret:
-          $ref: "#/components/schemas/VaultSecretMeta"
-        decrypted_value:
+        key_name:
+          type: string
+        value:
+          type: string
+
+    SetVaultSecretByKeyRequest:
+      type: object
+      description: Body of PUT /vault/{keyName}; the key name is the path parameter
+      required: [value]
+      properties:
+        value:
+          type: string
+          format: password
+        description:
           type: string
 
     # -----------------------------------------------------------------------
@@ -45657,6 +46448,9 @@ components:
       properties:
         review_note:
           type: string
+        note:
+          type: string
+          description: Alias of review_note; review_note wins when both are sent
 
     # -----------------------------------------------------------------------
     # GDPR — erasure
@@ -45795,7 +46589,8 @@ components:
           description: Minimum Shannon entropy (bits)
         max_age_days:
           type: integer
-          description: 0 = no expiration
+          nullable: true
+          description: null = no expiration
         prevent_reuse_count:
           type: integer
           description: Number of previous passwords that cannot be reused
@@ -45830,6 +46625,8 @@ components:
           format: double
         max_age_days:
           type: integer
+          nullable: true
+          description: null = no expiration; omit to keep the stored value
         prevent_reuse_count:
           type: integer
 
@@ -45846,11 +46643,16 @@ components:
       properties:
         valid:
           type: boolean
-        violations:
+        failures:
           type: array
           items:
             type: string
           description: Human-readable rule violations (empty when valid)
+        violations:
+          type: array
+          items:
+            type: string
+          description: Same list as failures, kept for older callers
         entropy:
           type: number
           format: double
@@ -46160,70 +46962,59 @@ components:
 
     FormSchema:
       type: object
-      description: A form schema definition (fields layout + metadata).
+      description: >
+        A form schema definition (fields layout + metadata), written the way the
+        frontend types it: camelCase, `fields` as a JSON array, status as a word.
       properties:
-        id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
-        title:
-          type: string
-        description:
-          type: string
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
         fields:
-          type: string
-          format: byte
-          description: JSON-array of FormField (base64-encoded bytes on the wire)
+          type: array
+          items: { type: object }
+          description: FormField list; `[]` for a schema without fields.
         status:
           type: string
           enum: [draft, active, archived]
-          description: "Proto enum: 1=draft, 2=active, 3=archived"
-        is_template:
-          type: boolean
-        is_public:
-          type: boolean
-        page_count:
-          type: integer
-          format: int32
-        submission_count:
-          type: integer
-          format: int32
-        created_by:
-          type: string
-          format: uuid
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        deleted_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        intake_target_id:
+          description: The backend has no `closed` state, so it is never reported.
+        isTemplate: { type: boolean }
+        isPublic: { type: boolean }
+        pageCount: { type: integer, format: int32 }
+        submissionCount: { type: integer, format: int32 }
+        createdBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        intakeTargetId:
           type: string
           description: "Key into the shared intake registry (e.g. \"helpdesk_ticket\") this form feeds. Absent = a plain form."
 
     FormShareLink:
       type: object
       description: >
-        A public fill-out link for one form schema. `token` is the credential
-        itself and is returned in clear text on purpose — it is the link the
-        author copies out.
+        A public fill-out link for one form schema, written the way the frontend types
+        it (camelCase). `token` is the credential itself and is returned in clear text
+        on purpose - it is the link the author copies out. The proto has no channel, url
+        or view counter: they go out as zero values (`channel` "link", `url` "", `views` 0).
       properties:
         id: { type: string, format: uuid }
-        tenant_id: { type: string, format: uuid }
-        form_schema_id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid }
         token:
           type: string
           description: 43-char base64url secret (32 bytes of crypto/rand).
-        expires_at: { type: string, format: date-time, nullable: true }
-        revoked_at: { type: string, format: date-time, nullable: true }
-        max_submissions:
+        url: { type: string, description: "Empty until the public fill-out page exists." }
+        channel: { type: string, enum: [link, email, embed, qr] }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        maxSubmissions:
           type: integer
-          description: 0 = unlimited.
-        submission_count: { type: integer }
-        created_by: { type: string, format: uuid, nullable: true }
-        created_at: { type: string, format: date-time }
+          nullable: true
+          description: null = unlimited.
+        views: { type: integer }
+        submissions: { type: integer }
+        createdBy: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
         status:
           type: string
           enum: [active, expired, disabled]
@@ -46233,106 +47024,60 @@ components:
 
     FormSubmission:
       type: object
-      description: A single form submission (answers from one respondent).
+      description: A single form submission (answers from one respondent), camelCase as the frontend types it.
       properties:
-        id:
-          type: string
-          format: uuid
-        form_schema_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid, nullable: true }
+        tenantId: { type: string, format: uuid }
         answers:
-          type: string
-          format: byte
-          description: JSON-object of field answers (base64-encoded bytes on the wire)
-        status:
-          type: string
-          enum: [new, read, archived]
-          description: "Proto enum: 1=new, 2=read, 3=archived"
-        submitted_by:
-          type: string
-        ip_address:
-          type: string
-        submitted_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: object
+          additionalProperties: true
+          description: Field answers keyed by field id; `{}` when empty.
+        status: { type: string, enum: [new, read, archived] }
+        submittedBy: { type: string, nullable: true }
+        ipAddress: { type: string, nullable: true }
+        submittedAt: { type: string, format: date-time }
 
     FormWebhook:
       type: object
-      description: A webhook subscription attached to a form schema.
+      description: A webhook subscription attached to a form schema (camelCase, as the frontend types it).
       properties:
-        id:
-          type: string
-          format: uuid
-        form_schema_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
-        url:
-          type: string
-          format: uri
+        id: { type: string, format: uuid }
+        formSchemaId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        url: { type: string, format: uri }
         secret:
           type: string
-          description: HMAC secret (write-only; returned masked or omitted)
+          description: HMAC secret, masked on read.
         events:
           type: array
           items: { type: string }
-        active:
-          type: boolean
-        last_triggered_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        last_status:
-          type: string
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+        active: { type: boolean }
+        lastTriggeredAt: { type: string, format: date-time, nullable: true }
+        lastStatus: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     FormWebhookDelivery:
       type: object
-      description: A single delivery attempt for a webhook event.
+      description: A single delivery attempt for a webhook event (camelCase, as the frontend types it).
       properties:
-        id:
-          type: string
-          format: uuid
-        webhook_id:
-          type: string
-          format: uuid
-        submission_id:
-          type: string
-          format: uuid
-        tenant_id:
-          type: string
-          format: uuid
+        id: { type: string, format: uuid }
+        webhookId: { type: string, format: uuid }
+        submissionId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
         payload:
-          type: string
-          format: byte
-          description: Raw delivery payload (base64-encoded bytes on the wire)
-        status:
-          type: string
-          enum: [pending, delivered, failed, dead]
-          description: "Proto enum: 1=pending, 2=delivered, 3=failed, 4=dead"
-        attempt_count:
-          type: integer
-          format: int32
-        max_attempts:
-          type: integer
-          format: int32
-        next_attempt_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        last_error:
-          type: string
-        last_response_code:
-          type: integer
-          format: int32
-        created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        delivered_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: object
+          additionalProperties: true
+          description: The delivery payload as JSON (`{}` when empty).
+        status: { type: string, enum: [pending, delivered, failed, dead] }
+        attemptCount: { type: integer, format: int32 }
+        maxAttempts: { type: integer, format: int32 }
+        nextAttemptAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string, nullable: true }
+        lastResponseCode: { type: integer, format: int32, nullable: true }
+        createdAt: { type: string, format: date-time }
+        deliveredAt: { type: string, format: date-time, nullable: true }
 
     FormStats:
       type: object
@@ -46756,6 +47501,7 @@ components:
 
     EmailMessageInfo:
       type: object
+      description: references, to, cc, bcc, attachments and label_ids are always present (empty array when there is none).
       properties:
         id:
           type: string
@@ -46898,6 +47644,22 @@ components:
           type: integer
           description: Number of messages actually changed. Ids outside the caller's tenant are silently excluded, not errored.
 
+    EmailRecipient:
+      description: >
+        Recipient of a compose request. Either a bare address string or an object
+        with an optional display name. The address is validated as an e-mail.
+      oneOf:
+        - type: string
+          format: email
+        - type: object
+          required: [email]
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+
     SendEmailRequest:
       type: object
       required: [account_id, to, subject]
@@ -46909,18 +47671,15 @@ components:
           type: array
           minItems: 1
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         cc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         bcc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         subject:
           type: string
         body_html:
@@ -46967,18 +47726,15 @@ components:
         to:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         cc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         bcc:
           type: array
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         subject:
           type: string
         body_html:
@@ -47043,8 +47799,7 @@ components:
           type: array
           minItems: 1
           items:
-            type: string
-            format: email
+            $ref: "#/components/schemas/EmailRecipient"
         body_html:
           type: string
         body_text:
@@ -47892,7 +48647,10 @@ components:
 
     InventarItem:
       type: object
-      description: An inventory item tracked in the Inventar module.
+      description: >-
+        An inventory item tracked in the Inventar module. Stock counters are always present
+        (0 included) and unset optional members are `null`.
+      required: [id, name, quantity, min_quantity, unit]
       properties:
         id:
           type: string
@@ -48154,7 +48912,10 @@ components:
 
     InventarInventurCount:
       type: object
-      description: A single item count entry within an Inventur session.
+      description: >-
+        A single item count entry within an Inventur session. `expected` is always present
+        (0 included); `counted` is always present and `null` until the position is counted.
+      required: [id, item_id, expected, counted]
       properties:
         id:
           type: string
@@ -48894,6 +49655,7 @@ components:
     SchichtenStats:
       type: object
       description: Aggregate shift planning statistics for the current tenant (proto ShiftStatsResponse).
+      required: [total_shifts, published_shifts, draft_shifts, total_assignments, unique_employees]
       properties:
         total_shifts:
           type: integer
@@ -48942,7 +49704,8 @@ components:
 
     SchichtenTemplate:
       type: object
-      description: A reusable shift template (proto ShiftTemplate).
+      description: A reusable shift template (proto ShiftTemplate). Zero values are sent (full hour, Sunday).
+      required: [id, name, day_of_week, start_hour, start_minute, duration_minutes]
       properties:
         id:
           type: string
@@ -49101,6 +49864,7 @@ components:
     FuhrparkFuelLog:
       type: object
       description: A fuel refuelling log entry (proto FuelLog).
+      required: [id, vehicle_id, date, liters, cost_cents, mileage_km]
       properties:
         id:
           type: string
@@ -49160,6 +49924,7 @@ components:
     FuhrparkRoute:
       type: object
       description: A reconstructed vehicle route from GPS data (proto VehicleRoute).
+      required: [vehicle_id, vehicle_name, date, positions, daily_km, status, driver]
       properties:
         vehicle_id:
           type: string
@@ -49273,6 +50038,7 @@ components:
     FuhrparkTripLog:
       type: object
       description: A vehicle trip (Fahrtenbuch) entry (proto TripLog).
+      required: [id, vehicle_id, date, start_km, end_km, km, is_private, driver_name]
       properties:
         id:
           type: string
@@ -49320,6 +50086,7 @@ components:
     FuhrparkVehicle:
       type: object
       description: A fleet vehicle (proto Vehicle).
+      required: [id, license_plate, make, model, year, fuel_type, status, mileage_km]
       properties:
         id:
           type: string
@@ -49397,21 +50164,24 @@ components:
           type: string
           description: "system|custom"
         query_config:
-          type: string
-          format: byte
-          description: Raw JSONB aggregation spec (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Aggregation spec as a JSON object (`{}` when unset)
         default_format:
           type: string
           description: "pdf|csv|xlsx"
         created_by:
           type: string
           format: uuid
+          nullable: true
         is_published:
           type: boolean
         created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
 
     BerichtShareToken:
       type: object
@@ -49597,25 +50367,32 @@ components:
           type: string
           description: "pdf|csv|xlsx"
         params:
-          type: string
-          format: byte
-          description: Raw JSONB report params (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Report params as a JSON object (`{}` when unset)
         active:
           type: boolean
         last_run_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
+          nullable: true
         last_run_status:
           type: string
           description: "success|failed|skipped"
+          nullable: true
         last_run_error:
           type: string
+          nullable: true
         created_by:
           type: string
           format: uuid
+          nullable: true
         created_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         updated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
 
     BerichtRun:
       type: object
@@ -49635,48 +50412,84 @@ components:
         schedule_id:
           type: string
           format: uuid
+          nullable: true
         trigger:
           type: string
           description: "manual|scheduled|api"
         params:
-          type: string
-          format: byte
-          description: Raw JSONB params supplied for this run (base64-encoded bytes on the wire)
+          type: object
+          additionalProperties: true
+          description: Params supplied for this run as a JSON object (`{}` when none)
         duration_ms:
           type: integer
           format: int32
+          nullable: true
         row_count:
           type: integer
           format: int32
+          nullable: true
         status:
           type: string
           description: "success|failed"
         error:
           type: string
+          nullable: true
         started_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
         completed_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
+          type: string
+          format: date-time
+          nullable: true
 
     BerichtReportResult:
       type: object
       description: >-
-        The materialized output of a report run. payload is an opaque JSON
-        document produced by the report engine ({columns, rows, series,
-        totals, meta}); shape varies per report definition, so it travels as
-        base64-encoded bytes rather than a typed schema.
+        The materialized output of a report run, readable directly: the
+        report engine JSON document lifted to the top level, with columns
+        renamed to key/label/type and series to id/label/data. Empty
+        columns, rows and series are []. meta carries generated_at,
+        row_count, from_cache and definition_id (plus warning when a
+        downstream source was unavailable).
       properties:
-        payload:
-          type: string
-          format: byte
-          description: "JSON-encoded {columns, rows, series, totals, meta} (base64-encoded bytes on the wire)"
-        row_count:
-          type: integer
-          format: int32
-        generated_at:
-          $ref: "#/components/schemas/ProtoTimestamp"
-        from_cache:
-          type: boolean
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              label: { type: string }
+              type:
+                type: string
+                description: "number|currency|string|date|percent"
+        rows:
+          type: array
+          items: { type: object, additionalProperties: true }
+        series:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              label: { type: string }
+              data:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    label: { type: string }
+                    value: { type: number }
+        totals:
+          type: object
+          additionalProperties: true
+        meta:
+          type: object
+          properties:
+            generated_at: { type: string, format: date-time }
+            row_count: { type: integer, format: int32 }
+            from_cache: { type: boolean }
+            definition_id: { type: string, format: uuid }
+            warning: { type: string }
 
     BerichtKPI:
       type: object
@@ -51214,12 +52027,8 @@ components:
           type: string
         metadata:
           type: object
-          nullable: true
-          properties:
-            data:
-              type: object
-              additionalProperties:
-                type: string
+          description: Flat map of event details (values keep their JSON type); omitted when empty
+          additionalProperties: true
 
     CrmContactTimelineResponse:
       type: object
@@ -51739,9 +52548,11 @@ components:
 
     GetBreakoutAssignmentResponse:
       type: object
+      required: [room]
       properties:
         room:
-          description: Absent when the caller is currently in the main room.
+          description: "`null` when the caller is currently in the main room."
+          nullable: true
           allOf:
             - $ref: "#/components/schemas/MeetingBreakoutRoom"
 
@@ -51833,6 +52644,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MeetingCoHost"
+        user_ids:
+          description: The co-hosts' user ids, flat.
+          type: array
+          items:
+            type: string
+            format: uuid
 
     SetMeetingLockRequest:
       type: object
@@ -52071,12 +52888,21 @@ components:
 
     HrTimeAnalytics:
       type: object
-      description: hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields).
+      description: >
+        Built from hr.v1.GetTimeAnalyticsResp plus derived fields. worked_days counts the days of
+        the trend with booked time; billable_minutes is always 0 (work time entries carry no
+        billable flag yet).
+      required: [range, period_start, period_end, total_minutes, billable_minutes, target_minutes, overtime_minutes, avg_daily_minutes, worked_days, day_trend, by_project]
       properties:
+        range: { type: string, enum: [week, month] }
+        period_start: { type: string, description: "First day of the trend (YYYY-MM-DD); empty when the trend is empty." }
+        period_end: { type: string, description: "Last day of the trend (YYYY-MM-DD); empty when the trend is empty." }
         total_minutes: { type: integer }
+        billable_minutes: { type: integer }
         target_minutes: { type: integer }
         overtime_minutes: { type: integer }
         avg_daily_minutes: { type: integer }
+        worked_days: { type: integer }
         day_trend:
           type: array
           items: { $ref: "#/components/schemas/HrTimeDayTrendEntry" }
@@ -52090,12 +52916,14 @@ components:
         date: { type: string, format: date }
         net_minutes: { type: integer }
         target_minutes: { type: integer }
+        billable_minutes: { type: integer }
 
     HrTimeProjectBreakdown:
       type: object
       properties:
         project_id: { type: string, format: uuid }
         project_name: { type: string }
+        name: { type: string, description: "Same value as project_name (the name the desktop view reads)." }
         minutes: { type: integer }
 
     HrTimeBalance:

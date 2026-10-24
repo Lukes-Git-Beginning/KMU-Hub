@@ -4889,10 +4889,13 @@ func (x *ListSharedWithMeRequest) GetPerPage() int32 {
 }
 
 type ListSharedWithMeResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Files         []*DocumentFile        `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
-	Folders       []*DocumentFolder      `protobuf:"bytes,2,rep,name=folders,proto3" json:"folders,omitempty"`
-	Total         int32                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Files   []*DocumentFile        `protobuf:"bytes,1,rep,name=files,proto3" json:"files,omitempty"`
+	Folders []*DocumentFolder      `protobuf:"bytes,2,rep,name=folders,proto3" json:"folders,omitempty"`
+	Total   int32                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	// The share rows behind files/folders (permission, who shared) — the desktop
+	// client reads these as `shares`.
+	Shares        []*DocumentShare `protobuf:"bytes,4,rep,name=shares,proto3" json:"shares,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4946,6 +4949,13 @@ func (x *ListSharedWithMeResponse) GetTotal() int32 {
 		return x.Total
 	}
 	return 0
+}
+
+func (x *ListSharedWithMeResponse) GetShares() []*DocumentShare {
+	if x != nil {
+		return x.Shares
+	}
+	return nil
 }
 
 type CreateTagRequest struct {
@@ -6978,11 +6988,12 @@ const file_proto_document_v1_document_proto_rawDesc = "" +
 	"\x17ListSharedWithMeRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x19\n" +
-	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\x98\x01\n" +
+	"\bper_page\x18\x03 \x01(\x05R\aperPage\"\xcc\x01\n" +
 	"\x18ListSharedWithMeResponse\x12/\n" +
 	"\x05files\x18\x01 \x03(\v2\x19.document.v1.DocumentFileR\x05files\x125\n" +
 	"\afolders\x18\x02 \x03(\v2\x1b.document.v1.DocumentFolderR\afolders\x12\x14\n" +
-	"\x05total\x18\x03 \x01(\x05R\x05total\"[\n" +
+	"\x05total\x18\x03 \x01(\x05R\x05total\x122\n" +
+	"\x06shares\x18\x04 \x03(\v2\x1a.document.v1.DocumentShareR\x06shares\"[\n" +
 	"\x10CreateTagRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05color\x18\x02 \x01(\tR\x05color\x12\x1d\n" +
@@ -7356,122 +7367,123 @@ var file_proto_document_v1_document_proto_depIdxs = []int32{
 	8,   // 48: document.v1.ListSharesResponse.shares:type_name -> document.v1.DocumentShare
 	6,   // 49: document.v1.ListSharedWithMeResponse.files:type_name -> document.v1.DocumentFile
 	5,   // 50: document.v1.ListSharedWithMeResponse.folders:type_name -> document.v1.DocumentFolder
-	9,   // 51: document.v1.CreateTagResponse.tag:type_name -> document.v1.DocumentTag
-	9,   // 52: document.v1.ListTagsResponse.tags:type_name -> document.v1.DocumentTag
-	10,  // 53: document.v1.LinkFileToEntityResponse.link:type_name -> document.v1.DocumentEntityLink
-	10,  // 54: document.v1.ListFileEntityLinksResponse.links:type_name -> document.v1.DocumentEntityLink
-	6,   // 55: document.v1.ListFilesByEntityResponse.files:type_name -> document.v1.DocumentFile
-	15,  // 56: document.v1.SearchFilesResponse.results:type_name -> document.v1.FileSearchResult
-	2,   // 57: document.v1.ListVirtualFilesRequest.source_type:type_name -> document.v1.VirtualFileSource
-	13,  // 58: document.v1.ListVirtualFilesResponse.files:type_name -> document.v1.VirtualFile
-	113, // 59: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
-	118, // 60: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
-	118, // 61: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
-	16,  // 62: document.v1.DocumentService.CreateFolder:input_type -> document.v1.CreateFolderRequest
-	18,  // 63: document.v1.DocumentService.GetFolder:input_type -> document.v1.GetFolderRequest
-	20,  // 64: document.v1.DocumentService.ListFolders:input_type -> document.v1.ListFoldersRequest
-	22,  // 65: document.v1.DocumentService.UpdateFolder:input_type -> document.v1.UpdateFolderRequest
-	24,  // 66: document.v1.DocumentService.DeleteFolder:input_type -> document.v1.DeleteFolderRequest
-	26,  // 67: document.v1.DocumentService.GetFolderPath:input_type -> document.v1.GetFolderPathRequest
-	28,  // 68: document.v1.DocumentService.InitializeUserSpace:input_type -> document.v1.InitializeUserSpaceRequest
-	30,  // 69: document.v1.DocumentService.InitializeTeamSpace:input_type -> document.v1.InitializeTeamSpaceRequest
-	32,  // 70: document.v1.DocumentService.GetFile:input_type -> document.v1.GetFileRequest
-	34,  // 71: document.v1.DocumentService.ListFiles:input_type -> document.v1.ListFilesRequest
-	36,  // 72: document.v1.DocumentService.UpdateFile:input_type -> document.v1.UpdateFileRequest
-	38,  // 73: document.v1.DocumentService.DeleteFile:input_type -> document.v1.DeleteFileRequest
-	40,  // 74: document.v1.DocumentService.CopyFile:input_type -> document.v1.CopyFileRequest
-	42,  // 75: document.v1.DocumentService.MoveFile:input_type -> document.v1.MoveFileRequest
-	44,  // 76: document.v1.DocumentService.GetFileDownloadURL:input_type -> document.v1.GetFileDownloadURLRequest
-	46,  // 77: document.v1.DocumentService.CreateFileVersion:input_type -> document.v1.CreateFileVersionRequest
-	52,  // 78: document.v1.DocumentService.ListFileVersions:input_type -> document.v1.ListFileVersionsRequest
-	54,  // 79: document.v1.DocumentService.RevertFileVersion:input_type -> document.v1.RevertFileVersionRequest
-	56,  // 80: document.v1.DocumentService.GetFileVersionDownloadURL:input_type -> document.v1.GetFileVersionDownloadURLRequest
-	58,  // 81: document.v1.DocumentService.ListFileActivity:input_type -> document.v1.ListFileActivityRequest
-	48,  // 82: document.v1.DocumentService.RegisterUploadedFile:input_type -> document.v1.RegisterUploadedFileRequest
-	50,  // 83: document.v1.DocumentService.UploadFile:input_type -> document.v1.UploadFileRequest
-	60,  // 84: document.v1.DocumentService.ListFileComments:input_type -> document.v1.ListFileCommentsRequest
-	62,  // 85: document.v1.DocumentService.CreateFileComment:input_type -> document.v1.CreateFileCommentRequest
-	64,  // 86: document.v1.DocumentService.UpdateFileComment:input_type -> document.v1.UpdateFileCommentRequest
-	66,  // 87: document.v1.DocumentService.DeleteFileComment:input_type -> document.v1.DeleteFileCommentRequest
-	69,  // 88: document.v1.DocumentService.CreateShareLink:input_type -> document.v1.CreateShareLinkRequest
-	71,  // 89: document.v1.DocumentService.ListShareLinks:input_type -> document.v1.ListShareLinksRequest
-	73,  // 90: document.v1.DocumentService.RevokeShareLink:input_type -> document.v1.RevokeShareLinkRequest
-	75,  // 91: document.v1.DocumentService.GetSharedFile:input_type -> document.v1.GetSharedFileRequest
-	77,  // 92: document.v1.DocumentService.ShareEntity:input_type -> document.v1.ShareEntityRequest
-	79,  // 93: document.v1.DocumentService.UnshareEntity:input_type -> document.v1.UnshareEntityRequest
-	81,  // 94: document.v1.DocumentService.ListShares:input_type -> document.v1.ListSharesRequest
-	83,  // 95: document.v1.DocumentService.ListSharedWithMe:input_type -> document.v1.ListSharedWithMeRequest
-	85,  // 96: document.v1.DocumentService.CreateTag:input_type -> document.v1.CreateTagRequest
-	87,  // 97: document.v1.DocumentService.ListTags:input_type -> document.v1.ListTagsRequest
-	89,  // 98: document.v1.DocumentService.DeleteTag:input_type -> document.v1.DeleteTagRequest
-	91,  // 99: document.v1.DocumentService.TagFile:input_type -> document.v1.TagFileRequest
-	93,  // 100: document.v1.DocumentService.UntagFile:input_type -> document.v1.UntagFileRequest
-	95,  // 101: document.v1.DocumentService.LinkFileToEntity:input_type -> document.v1.LinkFileToEntityRequest
-	97,  // 102: document.v1.DocumentService.UnlinkFileFromEntity:input_type -> document.v1.UnlinkFileFromEntityRequest
-	99,  // 103: document.v1.DocumentService.ListFileEntityLinks:input_type -> document.v1.ListFileEntityLinksRequest
-	101, // 104: document.v1.DocumentService.DeleteEntityLink:input_type -> document.v1.DeleteEntityLinkRequest
-	103, // 105: document.v1.DocumentService.ListFilesByEntity:input_type -> document.v1.ListFilesByEntityRequest
-	105, // 106: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
-	107, // 107: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
-	109, // 108: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
-	111, // 109: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
-	114, // 110: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
-	116, // 111: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
-	17,  // 112: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
-	19,  // 113: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
-	21,  // 114: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
-	23,  // 115: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
-	25,  // 116: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
-	27,  // 117: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
-	29,  // 118: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
-	31,  // 119: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
-	33,  // 120: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
-	35,  // 121: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
-	37,  // 122: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
-	39,  // 123: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
-	41,  // 124: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
-	43,  // 125: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
-	45,  // 126: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
-	47,  // 127: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
-	53,  // 128: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
-	55,  // 129: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
-	57,  // 130: document.v1.DocumentService.GetFileVersionDownloadURL:output_type -> document.v1.GetFileVersionDownloadURLResponse
-	59,  // 131: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
-	49,  // 132: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
-	51,  // 133: document.v1.DocumentService.UploadFile:output_type -> document.v1.UploadFileResponse
-	61,  // 134: document.v1.DocumentService.ListFileComments:output_type -> document.v1.ListFileCommentsResponse
-	63,  // 135: document.v1.DocumentService.CreateFileComment:output_type -> document.v1.CreateFileCommentResponse
-	65,  // 136: document.v1.DocumentService.UpdateFileComment:output_type -> document.v1.UpdateFileCommentResponse
-	67,  // 137: document.v1.DocumentService.DeleteFileComment:output_type -> document.v1.DeleteFileCommentResponse
-	70,  // 138: document.v1.DocumentService.CreateShareLink:output_type -> document.v1.CreateShareLinkResponse
-	72,  // 139: document.v1.DocumentService.ListShareLinks:output_type -> document.v1.ListShareLinksResponse
-	74,  // 140: document.v1.DocumentService.RevokeShareLink:output_type -> document.v1.RevokeShareLinkResponse
-	76,  // 141: document.v1.DocumentService.GetSharedFile:output_type -> document.v1.GetSharedFileResponse
-	78,  // 142: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
-	80,  // 143: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
-	82,  // 144: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
-	84,  // 145: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
-	86,  // 146: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
-	88,  // 147: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
-	90,  // 148: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
-	92,  // 149: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
-	94,  // 150: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
-	96,  // 151: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
-	98,  // 152: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
-	100, // 153: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
-	102, // 154: document.v1.DocumentService.DeleteEntityLink:output_type -> document.v1.DeleteEntityLinkResponse
-	104, // 155: document.v1.DocumentService.ListFilesByEntity:output_type -> document.v1.ListFilesByEntityResponse
-	106, // 156: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
-	108, // 157: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
-	110, // 158: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
-	112, // 159: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
-	115, // 160: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
-	117, // 161: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
-	112, // [112:162] is the sub-list for method output_type
-	62,  // [62:112] is the sub-list for method input_type
-	62,  // [62:62] is the sub-list for extension type_name
-	62,  // [62:62] is the sub-list for extension extendee
-	0,   // [0:62] is the sub-list for field type_name
+	8,   // 51: document.v1.ListSharedWithMeResponse.shares:type_name -> document.v1.DocumentShare
+	9,   // 52: document.v1.CreateTagResponse.tag:type_name -> document.v1.DocumentTag
+	9,   // 53: document.v1.ListTagsResponse.tags:type_name -> document.v1.DocumentTag
+	10,  // 54: document.v1.LinkFileToEntityResponse.link:type_name -> document.v1.DocumentEntityLink
+	10,  // 55: document.v1.ListFileEntityLinksResponse.links:type_name -> document.v1.DocumentEntityLink
+	6,   // 56: document.v1.ListFilesByEntityResponse.files:type_name -> document.v1.DocumentFile
+	15,  // 57: document.v1.SearchFilesResponse.results:type_name -> document.v1.FileSearchResult
+	2,   // 58: document.v1.ListVirtualFilesRequest.source_type:type_name -> document.v1.VirtualFileSource
+	13,  // 59: document.v1.ListVirtualFilesResponse.files:type_name -> document.v1.VirtualFile
+	113, // 60: document.v1.GetWOPIDiscoveryResponse.actions:type_name -> document.v1.WOPIAction
+	118, // 61: document.v1.GetPresignedUploadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	118, // 62: document.v1.GetPresignedDownloadURLResponse.expires_at:type_name -> google.protobuf.Timestamp
+	16,  // 63: document.v1.DocumentService.CreateFolder:input_type -> document.v1.CreateFolderRequest
+	18,  // 64: document.v1.DocumentService.GetFolder:input_type -> document.v1.GetFolderRequest
+	20,  // 65: document.v1.DocumentService.ListFolders:input_type -> document.v1.ListFoldersRequest
+	22,  // 66: document.v1.DocumentService.UpdateFolder:input_type -> document.v1.UpdateFolderRequest
+	24,  // 67: document.v1.DocumentService.DeleteFolder:input_type -> document.v1.DeleteFolderRequest
+	26,  // 68: document.v1.DocumentService.GetFolderPath:input_type -> document.v1.GetFolderPathRequest
+	28,  // 69: document.v1.DocumentService.InitializeUserSpace:input_type -> document.v1.InitializeUserSpaceRequest
+	30,  // 70: document.v1.DocumentService.InitializeTeamSpace:input_type -> document.v1.InitializeTeamSpaceRequest
+	32,  // 71: document.v1.DocumentService.GetFile:input_type -> document.v1.GetFileRequest
+	34,  // 72: document.v1.DocumentService.ListFiles:input_type -> document.v1.ListFilesRequest
+	36,  // 73: document.v1.DocumentService.UpdateFile:input_type -> document.v1.UpdateFileRequest
+	38,  // 74: document.v1.DocumentService.DeleteFile:input_type -> document.v1.DeleteFileRequest
+	40,  // 75: document.v1.DocumentService.CopyFile:input_type -> document.v1.CopyFileRequest
+	42,  // 76: document.v1.DocumentService.MoveFile:input_type -> document.v1.MoveFileRequest
+	44,  // 77: document.v1.DocumentService.GetFileDownloadURL:input_type -> document.v1.GetFileDownloadURLRequest
+	46,  // 78: document.v1.DocumentService.CreateFileVersion:input_type -> document.v1.CreateFileVersionRequest
+	52,  // 79: document.v1.DocumentService.ListFileVersions:input_type -> document.v1.ListFileVersionsRequest
+	54,  // 80: document.v1.DocumentService.RevertFileVersion:input_type -> document.v1.RevertFileVersionRequest
+	56,  // 81: document.v1.DocumentService.GetFileVersionDownloadURL:input_type -> document.v1.GetFileVersionDownloadURLRequest
+	58,  // 82: document.v1.DocumentService.ListFileActivity:input_type -> document.v1.ListFileActivityRequest
+	48,  // 83: document.v1.DocumentService.RegisterUploadedFile:input_type -> document.v1.RegisterUploadedFileRequest
+	50,  // 84: document.v1.DocumentService.UploadFile:input_type -> document.v1.UploadFileRequest
+	60,  // 85: document.v1.DocumentService.ListFileComments:input_type -> document.v1.ListFileCommentsRequest
+	62,  // 86: document.v1.DocumentService.CreateFileComment:input_type -> document.v1.CreateFileCommentRequest
+	64,  // 87: document.v1.DocumentService.UpdateFileComment:input_type -> document.v1.UpdateFileCommentRequest
+	66,  // 88: document.v1.DocumentService.DeleteFileComment:input_type -> document.v1.DeleteFileCommentRequest
+	69,  // 89: document.v1.DocumentService.CreateShareLink:input_type -> document.v1.CreateShareLinkRequest
+	71,  // 90: document.v1.DocumentService.ListShareLinks:input_type -> document.v1.ListShareLinksRequest
+	73,  // 91: document.v1.DocumentService.RevokeShareLink:input_type -> document.v1.RevokeShareLinkRequest
+	75,  // 92: document.v1.DocumentService.GetSharedFile:input_type -> document.v1.GetSharedFileRequest
+	77,  // 93: document.v1.DocumentService.ShareEntity:input_type -> document.v1.ShareEntityRequest
+	79,  // 94: document.v1.DocumentService.UnshareEntity:input_type -> document.v1.UnshareEntityRequest
+	81,  // 95: document.v1.DocumentService.ListShares:input_type -> document.v1.ListSharesRequest
+	83,  // 96: document.v1.DocumentService.ListSharedWithMe:input_type -> document.v1.ListSharedWithMeRequest
+	85,  // 97: document.v1.DocumentService.CreateTag:input_type -> document.v1.CreateTagRequest
+	87,  // 98: document.v1.DocumentService.ListTags:input_type -> document.v1.ListTagsRequest
+	89,  // 99: document.v1.DocumentService.DeleteTag:input_type -> document.v1.DeleteTagRequest
+	91,  // 100: document.v1.DocumentService.TagFile:input_type -> document.v1.TagFileRequest
+	93,  // 101: document.v1.DocumentService.UntagFile:input_type -> document.v1.UntagFileRequest
+	95,  // 102: document.v1.DocumentService.LinkFileToEntity:input_type -> document.v1.LinkFileToEntityRequest
+	97,  // 103: document.v1.DocumentService.UnlinkFileFromEntity:input_type -> document.v1.UnlinkFileFromEntityRequest
+	99,  // 104: document.v1.DocumentService.ListFileEntityLinks:input_type -> document.v1.ListFileEntityLinksRequest
+	101, // 105: document.v1.DocumentService.DeleteEntityLink:input_type -> document.v1.DeleteEntityLinkRequest
+	103, // 106: document.v1.DocumentService.ListFilesByEntity:input_type -> document.v1.ListFilesByEntityRequest
+	105, // 107: document.v1.DocumentService.SearchFiles:input_type -> document.v1.SearchFilesRequest
+	107, // 108: document.v1.DocumentService.ListVirtualFiles:input_type -> document.v1.ListVirtualFilesRequest
+	109, // 109: document.v1.DocumentService.GenerateWOPIToken:input_type -> document.v1.GenerateWOPITokenRequest
+	111, // 110: document.v1.DocumentService.GetWOPIDiscovery:input_type -> document.v1.GetWOPIDiscoveryRequest
+	114, // 111: document.v1.DocumentService.GetPresignedUploadURL:input_type -> document.v1.GetPresignedUploadURLRequest
+	116, // 112: document.v1.DocumentService.GetPresignedDownloadURL:input_type -> document.v1.GetPresignedDownloadURLRequest
+	17,  // 113: document.v1.DocumentService.CreateFolder:output_type -> document.v1.CreateFolderResponse
+	19,  // 114: document.v1.DocumentService.GetFolder:output_type -> document.v1.GetFolderResponse
+	21,  // 115: document.v1.DocumentService.ListFolders:output_type -> document.v1.ListFoldersResponse
+	23,  // 116: document.v1.DocumentService.UpdateFolder:output_type -> document.v1.UpdateFolderResponse
+	25,  // 117: document.v1.DocumentService.DeleteFolder:output_type -> document.v1.DeleteFolderResponse
+	27,  // 118: document.v1.DocumentService.GetFolderPath:output_type -> document.v1.GetFolderPathResponse
+	29,  // 119: document.v1.DocumentService.InitializeUserSpace:output_type -> document.v1.InitializeUserSpaceResponse
+	31,  // 120: document.v1.DocumentService.InitializeTeamSpace:output_type -> document.v1.InitializeTeamSpaceResponse
+	33,  // 121: document.v1.DocumentService.GetFile:output_type -> document.v1.GetFileResponse
+	35,  // 122: document.v1.DocumentService.ListFiles:output_type -> document.v1.ListFilesResponse
+	37,  // 123: document.v1.DocumentService.UpdateFile:output_type -> document.v1.UpdateFileResponse
+	39,  // 124: document.v1.DocumentService.DeleteFile:output_type -> document.v1.DeleteFileResponse
+	41,  // 125: document.v1.DocumentService.CopyFile:output_type -> document.v1.CopyFileResponse
+	43,  // 126: document.v1.DocumentService.MoveFile:output_type -> document.v1.MoveFileResponse
+	45,  // 127: document.v1.DocumentService.GetFileDownloadURL:output_type -> document.v1.GetFileDownloadURLResponse
+	47,  // 128: document.v1.DocumentService.CreateFileVersion:output_type -> document.v1.CreateFileVersionResponse
+	53,  // 129: document.v1.DocumentService.ListFileVersions:output_type -> document.v1.ListFileVersionsResponse
+	55,  // 130: document.v1.DocumentService.RevertFileVersion:output_type -> document.v1.RevertFileVersionResponse
+	57,  // 131: document.v1.DocumentService.GetFileVersionDownloadURL:output_type -> document.v1.GetFileVersionDownloadURLResponse
+	59,  // 132: document.v1.DocumentService.ListFileActivity:output_type -> document.v1.ListFileActivityResponse
+	49,  // 133: document.v1.DocumentService.RegisterUploadedFile:output_type -> document.v1.RegisterUploadedFileResponse
+	51,  // 134: document.v1.DocumentService.UploadFile:output_type -> document.v1.UploadFileResponse
+	61,  // 135: document.v1.DocumentService.ListFileComments:output_type -> document.v1.ListFileCommentsResponse
+	63,  // 136: document.v1.DocumentService.CreateFileComment:output_type -> document.v1.CreateFileCommentResponse
+	65,  // 137: document.v1.DocumentService.UpdateFileComment:output_type -> document.v1.UpdateFileCommentResponse
+	67,  // 138: document.v1.DocumentService.DeleteFileComment:output_type -> document.v1.DeleteFileCommentResponse
+	70,  // 139: document.v1.DocumentService.CreateShareLink:output_type -> document.v1.CreateShareLinkResponse
+	72,  // 140: document.v1.DocumentService.ListShareLinks:output_type -> document.v1.ListShareLinksResponse
+	74,  // 141: document.v1.DocumentService.RevokeShareLink:output_type -> document.v1.RevokeShareLinkResponse
+	76,  // 142: document.v1.DocumentService.GetSharedFile:output_type -> document.v1.GetSharedFileResponse
+	78,  // 143: document.v1.DocumentService.ShareEntity:output_type -> document.v1.ShareEntityResponse
+	80,  // 144: document.v1.DocumentService.UnshareEntity:output_type -> document.v1.UnshareEntityResponse
+	82,  // 145: document.v1.DocumentService.ListShares:output_type -> document.v1.ListSharesResponse
+	84,  // 146: document.v1.DocumentService.ListSharedWithMe:output_type -> document.v1.ListSharedWithMeResponse
+	86,  // 147: document.v1.DocumentService.CreateTag:output_type -> document.v1.CreateTagResponse
+	88,  // 148: document.v1.DocumentService.ListTags:output_type -> document.v1.ListTagsResponse
+	90,  // 149: document.v1.DocumentService.DeleteTag:output_type -> document.v1.DeleteTagResponse
+	92,  // 150: document.v1.DocumentService.TagFile:output_type -> document.v1.TagFileResponse
+	94,  // 151: document.v1.DocumentService.UntagFile:output_type -> document.v1.UntagFileResponse
+	96,  // 152: document.v1.DocumentService.LinkFileToEntity:output_type -> document.v1.LinkFileToEntityResponse
+	98,  // 153: document.v1.DocumentService.UnlinkFileFromEntity:output_type -> document.v1.UnlinkFileFromEntityResponse
+	100, // 154: document.v1.DocumentService.ListFileEntityLinks:output_type -> document.v1.ListFileEntityLinksResponse
+	102, // 155: document.v1.DocumentService.DeleteEntityLink:output_type -> document.v1.DeleteEntityLinkResponse
+	104, // 156: document.v1.DocumentService.ListFilesByEntity:output_type -> document.v1.ListFilesByEntityResponse
+	106, // 157: document.v1.DocumentService.SearchFiles:output_type -> document.v1.SearchFilesResponse
+	108, // 158: document.v1.DocumentService.ListVirtualFiles:output_type -> document.v1.ListVirtualFilesResponse
+	110, // 159: document.v1.DocumentService.GenerateWOPIToken:output_type -> document.v1.GenerateWOPITokenResponse
+	112, // 160: document.v1.DocumentService.GetWOPIDiscovery:output_type -> document.v1.GetWOPIDiscoveryResponse
+	115, // 161: document.v1.DocumentService.GetPresignedUploadURL:output_type -> document.v1.GetPresignedUploadURLResponse
+	117, // 162: document.v1.DocumentService.GetPresignedDownloadURL:output_type -> document.v1.GetPresignedDownloadURLResponse
+	113, // [113:163] is the sub-list for method output_type
+	63,  // [63:113] is the sub-list for method input_type
+	63,  // [63:63] is the sub-list for extension type_name
+	63,  // [63:63] is the sub-list for extension extendee
+	0,   // [0:63] is the sub-list for field type_name
 }
 
 func init() { file_proto_document_v1_document_proto_init() }

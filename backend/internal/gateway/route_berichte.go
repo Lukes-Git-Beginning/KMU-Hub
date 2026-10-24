@@ -157,51 +157,51 @@ func (br *BerichteRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit fun
 // ============================================================================
 
 type createDefinitionRequest struct {
-	Name          string `json:"name"           validate:"required"`
-	Description   string `json:"description,omitempty"`
-	Module        string `json:"module"         validate:"required"`
-	Kind          string `json:"kind,omitempty"`
-	QueryConfig   []byte `json:"query_config,omitempty"`
-	DefaultFormat string `json:"default_format,omitempty"`
-	IsPublished   bool   `json:"is_published"`
+	Name          string          `json:"name"           validate:"required"`
+	Description   string          `json:"description,omitempty"`
+	Module        string          `json:"module"         validate:"required"`
+	Kind          string          `json:"kind,omitempty"`
+	QueryConfig   json.RawMessage `json:"query_config,omitempty"`
+	DefaultFormat string          `json:"default_format,omitempty"`
+	IsPublished   bool            `json:"is_published"`
 }
 
 type updateDefinitionRequest struct {
-	Name          *string `json:"name,omitempty"`
-	Description   *string `json:"description,omitempty"`
-	Module        *string `json:"module,omitempty"`
-	QueryConfig   []byte  `json:"query_config,omitempty"`
-	DefaultFormat *string `json:"default_format,omitempty"`
-	IsPublished   *bool   `json:"is_published,omitempty"`
+	Name          *string         `json:"name,omitempty"`
+	Description   *string         `json:"description,omitempty"`
+	Module        *string         `json:"module,omitempty"`
+	QueryConfig   json.RawMessage `json:"query_config,omitempty"`
+	DefaultFormat *string         `json:"default_format,omitempty"`
+	IsPublished   *bool           `json:"is_published,omitempty"`
 }
 
 type runReportRequest struct {
-	Params       []byte `json:"params,omitempty"`
-	ForceRefresh bool   `json:"force_refresh,omitempty"`
+	Params       json.RawMessage `json:"params,omitempty"`
+	ForceRefresh bool            `json:"force_refresh,omitempty"`
 }
 
 type exportReportRequest struct {
-	Params []byte `json:"params,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 type createScheduleRequest struct {
-	DefinitionID   string   `json:"definition_id"             validate:"omitempty,uuid"`
-	Name           string   `json:"name"                      validate:"required"`
-	CronExpression string   `json:"cron_expression"           validate:"required"`
-	Recipients     []string `json:"recipients,omitempty"      validate:"omitempty,dive,email"`
-	Format         string   `json:"format,omitempty"          validate:"omitempty,oneof=pdf csv xlsx"`
-	Params         []byte   `json:"params,omitempty"`
-	Active         bool     `json:"active"`
+	DefinitionID   string          `json:"definition_id"             validate:"omitempty,uuid"`
+	Name           string          `json:"name"                      validate:"required"`
+	CronExpression string          `json:"cron_expression"           validate:"required"`
+	Recipients     []string        `json:"recipients,omitempty"      validate:"omitempty,dive,email"`
+	Format         string          `json:"format,omitempty"          validate:"omitempty,oneof=pdf csv xlsx"`
+	Params         json.RawMessage `json:"params,omitempty"`
+	Active         bool            `json:"active"`
 }
 
 type updateScheduleRequest struct {
-	Name           *string  `json:"name,omitempty"`
-	CronExpression *string  `json:"cron_expression,omitempty"`
-	Recipients     []string `json:"recipients,omitempty"`
-	RecipientsSet  bool     `json:"recipients_set,omitempty"`
-	Format         *string  `json:"format,omitempty"`
-	Params         []byte   `json:"params,omitempty"`
-	Active         *bool    `json:"active,omitempty"`
+	Name           *string         `json:"name,omitempty"`
+	CronExpression *string         `json:"cron_expression,omitempty"`
+	Recipients     []string        `json:"recipients,omitempty"`
+	RecipientsSet  bool            `json:"recipients_set,omitempty"`
+	Format         *string         `json:"format,omitempty"`
+	Params         json.RawMessage `json:"params,omitempty"`
+	Active         *bool           `json:"active,omitempty"`
 }
 
 type toggleScheduleRequest struct {
@@ -254,7 +254,7 @@ func (br *BerichteRoutes) HandleListDefinitions(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toReportDefinitionListWire(resp))
 }
 
 func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.Request) {
@@ -282,7 +282,7 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 		Description:   req.Description,
 		Module:        req.Module,
 		Kind:          req.Kind,
-		QueryConfig:   req.QueryConfig,
+		QueryConfig:   jsonBlob(req.QueryConfig),
 		DefaultFormat: req.DefaultFormat,
 		IsPublished:   req.IsPublished,
 		CreatedBy:     &userID,
@@ -293,7 +293,7 @@ func (br *BerichteRoutes) HandleCreateDefinition(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, reportDefinitionEnvelope{Definition: toReportDefinitionWire(resp.GetDefinition())})
 }
 
 func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Request) {
@@ -321,7 +321,7 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, reportDefinitionEnvelope{Definition: toReportDefinitionWire(resp.GetDefinition())})
 }
 
 func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.Request) {
@@ -354,7 +354,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 		Name:          req.Name,
 		Description:   req.Description,
 		Module:        req.Module,
-		QueryConfig:   req.QueryConfig,
+		QueryConfig:   jsonBlob(req.QueryConfig),
 		DefaultFormat: req.DefaultFormat,
 		IsPublished:   req.IsPublished,
 		EditorId:      userID,
@@ -365,7 +365,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, reportDefinitionEnvelope{Definition: toReportDefinitionWire(resp.GetDefinition())})
 }
 
 func (br *BerichteRoutes) HandleDeleteDefinition(w http.ResponseWriter, r *http.Request) {
@@ -760,7 +760,7 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 	grpcReq := &berichtev1.RunReportRequest{
 		TenantId:     tenantID.String(),
 		DefinitionId: id,
-		Params:       req.Params,
+		Params:       jsonBlob(req.Params),
 		ForceRefresh: req.ForceRefresh,
 		Trigger:      "manual",
 	}
@@ -770,7 +770,7 @@ func (br *BerichteRoutes) HandleRunReport(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeReportRun(w, resp)
 }
 
 // HandleExportReport runs and streams a report as a binary download (PDF/CSV/XLSX).
@@ -806,7 +806,7 @@ func (br *BerichteRoutes) HandleExportReport(w http.ResponseWriter, r *http.Requ
 	grpcReq := &berichtev1.ExportReportRequest{
 		TenantId:     tenantID.String(),
 		DefinitionId: id,
-		Params:       req.Params,
+		Params:       jsonBlob(req.Params),
 		Format:       format,
 	}
 
@@ -912,7 +912,7 @@ func (br *BerichteRoutes) HandleListSchedules(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, toReportScheduleListWire(resp))
 }
 
 func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -941,7 +941,7 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 		CronExpression: req.CronExpression,
 		Recipients:     req.Recipients,
 		Format:         req.Format,
-		Params:         req.Params,
+		Params:         jsonBlob(req.Params),
 		Active:         req.Active,
 		CreatedBy:      &userID,
 	}
@@ -951,7 +951,7 @@ func (br *BerichteRoutes) HandleCreateSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.JSON(w, http.StatusCreated, reportScheduleEnvelope{Schedule: toReportScheduleWire(resp.GetSchedule())})
 }
 
 func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -984,7 +984,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		Recipients:     req.Recipients,
 		RecipientsSet:  req.RecipientsSet,
 		Format:         req.Format,
-		Params:         req.Params,
+		Params:         jsonBlob(req.Params),
 		Active:         req.Active,
 	}
 
@@ -993,7 +993,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, reportScheduleEnvelope{Schedule: toReportScheduleWire(resp.GetSchedule())})
 }
 
 func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {
@@ -1055,7 +1055,7 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, reportScheduleEnvelope{Schedule: toReportScheduleWire(resp.GetSchedule())})
 }
 
 // ============================================================================

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,10 +35,23 @@ func NewStore(client *minio.Client, bucket string) *Store {
 	}
 }
 
+// objectName reduces a sender-supplied filename to a single path segment, so
+// "../x" or "a/b.pdf" cannot leave the attachment's own key prefix.
+func objectName(filename string) string {
+	name := path.Base(strings.ReplaceAll(filename, "\\", "/"))
+	if name == "." || name == ".." || name == "/" {
+		return "attachment"
+	}
+	return name
+}
+
 // Upload streams an attachment directly to MinIO (no full memory buffering).
-// Returns the MinIO object key.
+// Returns the MinIO object key. Every upload gets its own key segment: two
+// attachments of one mail often share a filename (inline "image.png") and
+// would otherwise overwrite each other. Readers use the stored key, never
+// recompute it.
 func (s *Store) Upload(ctx context.Context, accountID uuid.UUID, messageUID uint32, filename string, reader io.Reader, size int64, contentType string) (string, error) {
-	key := fmt.Sprintf("%s/%s/%d/%s", keyPrefix, accountID.String(), messageUID, filename)
+	key := fmt.Sprintf("%s/%s/%d/%s/%s", keyPrefix, accountID.String(), messageUID, uuid.NewString(), objectName(filename))
 
 	opts := minio.PutObjectOptions{
 		ContentType: contentType,

@@ -14,8 +14,8 @@ import (
 //
 // A person who only booked through the public booking page or only chatted as
 // a guest exists nowhere in contacts/users, so the contact and user branches of
-// SearchByQuery never see them. Each distinct visitor (grouped by e-mail, or by
-// display name for e-mail-less chat guests) is disclosed as its own subject.
+// SearchByQuery never see them. Each distinct visitor (grouped by e-mail; an
+// e-mail-less chat guest session stands alone) is disclosed as its own subject.
 // Read-only: retention/erasure for these tables is decided elsewhere.
 // ---------------------------------------------------------------------------
 
@@ -128,9 +128,10 @@ func publicBookingsModule(ctx context.Context, pool *pgxpool.Pool, tenantID uuid
 	return &mod, nil
 }
 
-// guestVisitorKey groups chat guest sessions: by e-mail when given, otherwise by
-// display name (guests without an e-mail cannot be told apart any better).
-const guestVisitorKey = `COALESCE(NULLIF(lower(gs.email), ''), 'name:' || lower(gs.display_name))`
+// guestVisitorKey groups chat guest sessions by e-mail when given. A session
+// without an e-mail is its own subject: grouping by display name would hand one
+// requester every "Max" who ever chatted as a guest in the tenant.
+const guestVisitorKey = `COALESCE(NULLIF(lower(gs.email), ''), 'session:' || gs.id::text)`
 
 // matchGuestSessionVisitors finds chat guests by display name or e-mail.
 // token_hash is the session credential and is never selected.

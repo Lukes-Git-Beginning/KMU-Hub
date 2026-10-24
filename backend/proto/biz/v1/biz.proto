@@ -395,6 +395,17 @@ message FinanceDashboard {
   repeated Invoice recent_invoices = 10;
   repeated Quote expiring_quotes = 11;
   repeated DunningRecord pending_dunnings = 12;
+  // Paid-invoice revenue (same basis as total_paid) of the current and the previous calendar
+  // month, plus a 12-month series ending with the current month (zero months included).
+  // double, not decimal string: the dashboard widgets chart these figures and read numbers.
+  double revenue_this_month = 13;
+  double revenue_last_month = 14;
+  repeated MonthlyRevenue monthly_revenue = 15;
+}
+
+message MonthlyRevenue {
+  string month = 1;                // First day of the month, YYYY-MM-DD
+  double revenue = 2;
 }
 
 message DATEVExportRequest {
@@ -444,6 +455,8 @@ message CreateQuoteRequest {
   string notes = 6;
   string deal_id = 7;             // Optional
   string created_by = 8;
+  // ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+  string currency = 9;
 }
 
 message CreateQuoteResponse {
@@ -480,6 +493,8 @@ message UpdateQuoteRequest {
   TaxMode tax_mode = 5;
   string valid_until = 6;
   string notes = 7;
+  // ISO 4217 code; empty keeps the stored currency.
+  string currency = 8;
 }
 
 message UpdateQuoteResponse {
@@ -560,6 +575,8 @@ message CreateInvoiceRequest {
   string created_by = 11;
   // Contact-360: CRM contact to link to this invoice (Migration 000141).
   optional string contact_id = 12;
+  // ISO 4217 code; empty takes the tenant default (company settings, else EUR).
+  string currency = 13;
 }
 
 message CreateInvoiceResponse {
@@ -602,6 +619,8 @@ message UpdateInvoiceRequest {
   string due_date = 8;
   string payment_terms = 9;
   string notes = 10;
+  // ISO 4217 code; empty keeps the stored currency.
+  string currency = 11;
 }
 
 message UpdateInvoiceResponse {
@@ -750,6 +769,8 @@ message CreateDunningRequest {
 
 message CreateDunningResponse {
   DunningRecord dunning = 1;
+  // Every draft the detection run created (dunning is the first of them).  Empty when nothing was due.
+  repeated DunningRecord dunnings = 2;
 }
 
 message SendDunningRequest {
@@ -765,6 +786,8 @@ message EscalateDunningRequest {
   string invoice_id = 1;
   string tenant_id = 2;
   string created_by = 3;
+  // Dunning record to escalate; the invoice is resolved from it when invoice_id is empty.
+  string dunning_id = 4;
 }
 
 message EscalateDunningResponse {

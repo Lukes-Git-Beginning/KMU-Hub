@@ -33,7 +33,6 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/gobdarchive"
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
-	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -199,14 +198,14 @@ func newGobdTestServer(repo *stubGobdRepo, store *stubGobdStore) *BizGRPCServer 
 	return &BizGRPCServer{gobdArchiveSvc: gobdarchive.NewService(repo, store, nil)}
 }
 
-// newGobdInvoiceTestServer additionally wires the invoice service and a real
-// PDF generator, as ArchiveInvoiceDocument renders the invoice before archiving.
+// newGobdInvoiceTestServer additionally wires the invoice service and the tenant's
+// company settings, as ArchiveInvoiceDocument renders the invoice before archiving.
 func newGobdInvoiceTestServer(repo *stubGobdRepo, store *stubGobdStore, invRepo *stubInvoiceRepo) *BizGRPCServer {
 	invSvc := invoice.NewService(invRepo, nil, &stubCompanySettingsRepo{}, nil, fakeTxBeginner{})
 	return &BizGRPCServer{
-		invoiceService: invSvc,
-		pdfGenerator:   pdf.NewGenerator(pdfReadyCompanySettings()),
-		gobdArchiveSvc: gobdarchive.NewService(repo, store, invSvc),
+		invoiceService:  invSvc,
+		companySettings: pdfReadyCompanySettingsRepo(),
+		gobdArchiveSvc:  gobdarchive.NewService(repo, store, invSvc),
 	}
 }
 
@@ -220,6 +219,11 @@ func pdfReadyCompanySettings() models.CompanySettings {
 		City:         "Mainz",
 		Steuernummer: "26/123/45678",
 	}
+}
+
+func pdfReadyCompanySettingsRepo() *stubCompanySettingsRepo {
+	settings := pdfReadyCompanySettings()
+	return &stubCompanySettingsRepo{settings: &settings}
 }
 
 func archivedDoc(tenantID uuid.UUID) *models.GobdDocument {
@@ -237,6 +241,14 @@ func archivedDoc(tenantID uuid.UUID) *models.GobdDocument {
 		ArchivedBy:       uuid.New(),
 		RetentionUntil:   time.Date(2036, time.December, 31, 0, 0, 0, 0, time.UTC),
 	}
+}
+
+// storeWithContent puts bytes under the document's key and records their real
+// SHA-256 on the document, so an integrity check at download time passes.
+func storeWithContent(store *stubGobdStore, doc *models.GobdDocument, content []byte) {
+	sum := sha256.Sum256(content)
+	doc.SHA256 = hex.EncodeToString(sum[:])
+	store.uploads[doc.StorageKey] = content
 }
 
 // ============================================================================
@@ -438,7 +450,34 @@ func TestArchiveInvoiceDocument(t *testing.T) {
 		assert.Empty(t, repo.docs, "GoBD: only finalized documents are archived")
 	})
 
-	t.Run("unrenderable invoice maps to Internal and archives nothing", func(t *testing.T) {
+	t.Run("tenant without complete company master data gets FailedPrecondition and archives nothing", func(t *testing.T) {
+		// A nil row (never configured) and a row missing the §14 UStG Pflichtangaben
+		// must both fail before anything reaches the archive.
+		for name, settings := range map[string]*models.CompanySettings{
+			"no settings row":     nil,
+			"incomplete settings": {Name: "Zentria UG"},
+		} {
+			t.Run(name, func(t *testing.T) {
+				invRepo := newStubInvoiceRepo()
+				inv := lockedInvoice(tenantID)
+				invRepo.invoices[inv.ID] = inv
+
+				repo := newStubGobdRepo()
+				store := newStubGobdStore()
+				srv := newGobdInvoiceTestServer(repo, store, invRepo)
+				srv.companySettings = &stubCompanySettingsRepo{settings: settings}
+
+				_, err := srv.ArchiveInvoiceDocument(context.Background(), &bizv1.ArchiveInvoiceDocumentRequest{
+					TenantId: tenantID.String(), InvoiceId: inv.ID.String(), ArchivedBy: userID.String(),
+				})
+				requireGRPCCode(t, err, codes.FailedPrecondition)
+				assert.Empty(t, repo.docs, "a document that could not be rendered must not be recorded as archived")
+				assert.Empty(t, store.uploads)
+			})
+		}
+	})
+
+	t.Run("settings lookup failure maps to Internal and archives nothing", func(t *testing.T) {
 		invRepo := newStubInvoiceRepo()
 		inv := lockedInvoice(tenantID)
 		invRepo.invoices[inv.ID] = inv
@@ -446,15 +485,13 @@ func TestArchiveInvoiceDocument(t *testing.T) {
 		repo := newStubGobdRepo()
 		store := newStubGobdStore()
 		srv := newGobdInvoiceTestServer(repo, store, invRepo)
-		// Incomplete company settings fail ValidateCompanySettingsForPDF (§14 UStG),
-		// so the renderer errors before anything reaches the archive.
-		srv.pdfGenerator = pdf.NewGenerator(models.CompanySettings{})
+		srv.companySettings = &stubCompanySettingsRepo{getErr: errors.New("db down")}
 
 		_, err := srv.ArchiveInvoiceDocument(context.Background(), &bizv1.ArchiveInvoiceDocumentRequest{
 			TenantId: tenantID.String(), InvoiceId: inv.ID.String(), ArchivedBy: userID.String(),
 		})
 		requireGRPCCode(t, err, codes.Internal)
-		assert.Empty(t, repo.docs, "a document that could not be rendered must not be recorded as archived")
+		assert.Empty(t, repo.docs)
 		assert.Empty(t, store.uploads)
 	})
 
@@ -745,6 +782,7 @@ func TestDownloadGobdDocument(t *testing.T) {
 		doc := archivedDoc(tenantID)
 		repo.docs[doc.ID] = doc
 		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
 
 		srv := newGobdTestServer(repo, store)
 		resp, err := srv.DownloadGobdDocument(context.Background(), &bizv1.DownloadGobdDocumentRequest{
@@ -756,10 +794,31 @@ func TestDownloadGobdDocument(t *testing.T) {
 		assert.Equal(t, doc.MimeType, resp.GetMimeType())
 
 		require.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeAccess))
-		ev := repo.appendedEvents[0]
+		assert.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeIntegrityCheck))
+		ev := repo.appendedEvents[len(repo.appendedEvents)-1]
+		assert.Equal(t, models.GobdEventTypeAccess, ev.EventType)
 		assert.Equal(t, tenantID, ev.TenantID)
 		assert.Equal(t, doc.ID, ev.DocumentID)
 		assert.Equal(t, userID, ev.CreatedBy)
+	})
+
+	t.Run("changed content is refused with FailedPrecondition and no url", func(t *testing.T) {
+		repo := newStubGobdRepo()
+		doc := archivedDoc(tenantID)
+		repo.docs[doc.ID] = doc
+		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
+		store.uploads[doc.StorageKey] = []byte("manipulated bytes")
+
+		srv := newGobdTestServer(repo, store)
+		_, err := srv.DownloadGobdDocument(context.Background(), &bizv1.DownloadGobdDocumentRequest{
+			TenantId: tenantID.String(), Id: doc.ID.String(), RequestedBy: userID.String(),
+		})
+		requireGRPCCode(t, err, codes.FailedPrecondition)
+		assert.Contains(t, err.Error(), gobdarchive.ErrIntegrityMismatch.Error())
+		assert.Zero(t, store.presignCalls, "a document with a broken hash must not be presigned")
+		assert.Zero(t, repo.eventsOfType(models.GobdEventTypeAccess))
+		assert.Equal(t, 1, repo.eventsOfType(models.GobdEventTypeIntegrityCheck))
 	})
 
 	t.Run("presign failure maps to Internal", func(t *testing.T) {
@@ -767,6 +826,7 @@ func TestDownloadGobdDocument(t *testing.T) {
 		doc := archivedDoc(tenantID)
 		repo.docs[doc.ID] = doc
 		store := newStubGobdStore()
+		storeWithContent(store, doc, []byte("beleg bytes"))
 		store.presignErr = errors.New("minio unreachable")
 
 		srv := newGobdTestServer(repo, store)

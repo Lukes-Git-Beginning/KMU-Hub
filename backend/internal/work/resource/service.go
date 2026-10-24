@@ -93,9 +93,10 @@ func (s *Service) Get(ctx context.Context, id, tenantID uuid.UUID) (*models.Reso
 	return s.repo.GetByID(ctx, id, tenantID)
 }
 
-// List lists resources with optional filters. Defaults to active-only.
+// List lists resources with optional filters. Defaults to active-only unless
+// IncludeInactive is set.
 func (s *Service) List(ctx context.Context, filters ResourceFilters) ([]models.Resource, error) {
-	if filters.IsActive == nil {
+	if filters.IsActive == nil && !filters.IncludeInactive {
 		active := true
 		filters.IsActive = &active
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 )
 
 // EmailClient is a local interface for the email gRPC service to avoid import cycles.
@@ -69,10 +70,7 @@ func (a *EmailAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, s
 
 	result := make([]models.InboxMessage, 0, len(messages))
 	for _, msg := range messages {
-		preview := msg.Body
-		if len(preview) > 200 {
-			preview = preview[:200]
-		}
+		preview := textutil.TruncateBytes(msg.Body, 200)
 
 		email := msg.FromEmail
 		inboxMsg := models.InboxMessage{

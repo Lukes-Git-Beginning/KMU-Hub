@@ -1,9 +1,13 @@
 package gateway
 
 import (
+	"context"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -237,7 +241,7 @@ type completeServiceRequest struct {
 type reportDamageRequest struct {
 	Description string   `json:"description"           validate:"required"`
 	Severity    string   `json:"severity"              validate:"omitempty,oneof=minor moderate major totalled"`
-	ReportedBy  *string  `json:"reported_by,omitempty" validate:"omitempty,uuid"`
+	ReportedBy  *string  `json:"reported_by,omitempty"`
 	PhotoKeys   []string `json:"photo_keys,omitempty"`
 	CostCents   *int64   `json:"cost_cents,omitempty"  validate:"omitempty,gte=0"`
 	Notes       *string  `json:"notes,omitempty"`
@@ -280,11 +284,11 @@ type createTripLogRequest struct {
 	Date             string `json:"date"           validate:"required"`
 	StartLocation    string `json:"start_location" validate:"required"`
 	EndLocation      string `json:"end_location"   validate:"required"`
-	Purpose          string `json:"purpose"        validate:"required"`
+	Purpose          string `json:"purpose"`
 	StartKm          int64  `json:"start_km"       validate:"gte=0"`
 	EndKm            int64  `json:"end_km"         validate:"gte=0"`
 	IsPrivate        bool   `json:"is_private"`
-	DriverName       string `json:"driver_name"    validate:"required"`
+	DriverName       string `json:"driver_name"`
 	BusinessPartner  string `json:"business_partner,omitempty"`
 	Notes            string `json:"notes,omitempty"`
 }
@@ -374,7 +378,7 @@ func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Request) {
@@ -414,7 +418,7 @@ func (fr *FuhrparkRoutes) HandleCreateVehicle(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Request) {
@@ -442,7 +446,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicle(w http.ResponseWriter, r *http.Reques
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Request) {
@@ -491,7 +495,7 @@ func (fr *FuhrparkRoutes) HandleUpdateVehicle(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteVehicle(w http.ResponseWriter, r *http.Request) {
@@ -769,9 +773,10 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 	}
 	page, pageSize := parsePagination(r, 1, 50)
 	resp, err := client.ListUpcomingServices(r.Context(), &fuhrparkv1.ListUpcomingServicesRequest{
-		TenantId: tenantID.String(),
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		TenantId:  tenantID.String(),
+		DaysAhead: parseDaysAhead(r),
+		Page:      int32(page),
+		PageSize:  int32(pageSize),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -780,9 +785,37 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// parseDaysAhead reads ?days_ahead; 0 lets the service apply its 30-day default.
+func parseDaysAhead(r *http.Request) int32 {
+	if d, err := strconv.Atoi(r.URL.Query().Get("days_ahead")); err == nil && d > 0 && d <= 3650 {
+		return int32(d)
+	}
+	return 0
+}
+
 // ============================================================================
 // Damage Handlers
 // ============================================================================
+
+// damageReporter resolves who reported a damage. `reported_by` is a user UUID column, but the
+// damage dialog collects a free-text name (SchadensmeldungDialog.tsx). A UUID passes through;
+// a name is not an ID, so it moves into the notes and the caller is recorded as reporter.
+func damageReporter(ctx context.Context, reportedBy, notes *string) (*string, *string) {
+	if reportedBy == nil || strings.TrimSpace(*reportedBy) == "" {
+		return nil, notes
+	}
+	if _, err := uuid.Parse(*reportedBy); err == nil {
+		return reportedBy, notes
+	}
+	note := "Gemeldet von: " + strings.TrimSpace(*reportedBy)
+	if notes != nil && strings.TrimSpace(*notes) != "" {
+		note = *notes + "\n" + note
+	}
+	if userID := middleware.GetUserID(ctx); userID != "" {
+		return &userID, &note
+	}
+	return nil, &note
+}
 
 func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
@@ -803,15 +836,16 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	reportedBy, notes := damageReporter(r.Context(), req.ReportedBy, req.Notes)
 	resp, err := client.ReportDamage(r.Context(), &fuhrparkv1.ReportDamageRequest{
 		TenantId:    tenantID.String(),
 		VehicleId:   vehicleID,
 		Description: req.Description,
 		Severity:    req.Severity,
-		ReportedBy:  req.ReportedBy,
+		ReportedBy:  reportedBy,
 		PhotoKeys:   req.PhotoKeys,
 		CostCents:   req.CostCents,
-		Notes:       req.Notes,
+		Notes:       notes,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -965,8 +999,10 @@ func (fr *FuhrparkRoutes) HandleCheckTuevDue(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
+	daysAhead := parseDaysAhead(r)
 	resp, err := client.CheckTuevDue(r.Context(), &fuhrparkv1.CheckTuevDueRequest{
-		TenantId: tenantID.String(),
+		TenantId:  tenantID.String(),
+		DaysAhead: &daysAhead,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1004,7 +1040,7 @@ func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	_ = tenantID // carried via JWT in gRPC context
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *http.Request) {
@@ -1032,7 +1068,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1071,7 +1107,7 @@ func (fr *FuhrparkRoutes) HandleCreateFuelLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1117,7 +1153,7 @@ func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteFuelLog(w http.ResponseWriter, r *http.Request) {
@@ -1171,7 +1207,7 @@ func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *http.Request) {
@@ -1199,7 +1235,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1221,6 +1257,12 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	// The logbook dialog lets a private trip go without a purpose and never forces a
+	// driver name; only a business trip needs its purpose (§ 6 EStG).
+	if !req.IsPrivate && strings.TrimSpace(req.Purpose) == "" {
+		response.Error(w, http.StatusBadRequest, "purpose is required for a business trip")
+		return
+	}
 	resp, err := client.CreateTripLog(r.Context(), &fuhrparkv1.CreateTripLogRequest{
 		VehicleId:       vehicleID,
 		Date:            req.Date,
@@ -1238,7 +1280,7 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1296,7 +1338,7 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleDeleteTripLog(w http.ResponseWriter, r *http.Request) {
@@ -1658,7 +1700,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleRoutes(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.Request) {
@@ -1682,12 +1724,13 @@ func (fr *FuhrparkRoutes) HandleGetGpsPositions(w http.ResponseWriter, r *http.R
 		VehicleId: vehicleID,
 		From:      q.Get("from"),
 		To:        q.Get("to"),
+		Limit:     int32(parseLimit(r, 0, 10000)),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleExportVehicleReport(w http.ResponseWriter, r *http.Request) {

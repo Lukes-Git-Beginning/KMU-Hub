@@ -1610,7 +1610,7 @@ func (s *CRMGRPCServer) CreateActivity(ctx context.Context, req *crmv1.CreateAct
 		input.AssignedTo = &assignedTo
 	}
 	if req.DueDate != "" {
-		t, parseErr := time.Parse(time.RFC3339, req.DueDate)
+		t, parseErr := parseDate(req.DueDate)
 		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid due_date format")
 		}
@@ -1785,7 +1785,7 @@ func (s *CRMGRPCServer) UpdateActivity(ctx context.Context, req *crmv1.UpdateAct
 		if *req.DueDate == "" {
 			input.DueDate = nil
 		} else {
-			t, parseErr := time.Parse(time.RFC3339, *req.DueDate)
+			t, parseErr := parseDate(*req.DueDate)
 			if parseErr != nil {
 				return nil, status.Error(codes.InvalidArgument, "invalid due_date format")
 			}

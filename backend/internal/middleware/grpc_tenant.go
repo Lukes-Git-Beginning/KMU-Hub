@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"slices"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -17,6 +19,11 @@ const (
 	// gRPCUserHeader carries the request user_id (sub claim) so service handlers
 	// can identify the caller without re-validating the JWT.
 	gRPCUserHeader = "x-user-id"
+	// gRPCPermsHeader carries the subset of the caller's permissions listed in
+	// forwardedPermissions. The full list lives in the JWT and is not sent: a
+	// service that needs a capability decision (not just a gateway guard)
+	// opts in by adding its key below.
+	gRPCPermsHeader = "x-user-perms"
 	// gRPCClientIPHeader and gRPCClientUAHeader carry the originating client's
 	// IP and user agent (see internal/clientctx). Unlike the two above they are
 	// also present on pre-JWT calls — login has no tenant yet but still needs
@@ -24,6 +31,14 @@ const (
 	gRPCClientIPHeader = "x-client-ip"
 	gRPCClientUAHeader = "x-client-user-agent"
 )
+
+// PermTeamInboxManage lets its holder manage the members of every team inbox
+// of the tenant without being an admin of that inbox.
+const PermTeamInboxManage = "kommunikation:team_inbox:manage"
+
+// forwardedPermissions are the capability keys a backend service decides on
+// itself, so they must cross the gateway->service hop.
+var forwardedPermissions = []string{PermTeamInboxManage}
 
 // TenantOutboundUnaryInterceptor is a gRPC client interceptor that copies the
 // tenant_id and user_id values from the HTTP request context (already populated
@@ -45,6 +60,9 @@ func TenantOutboundUnaryInterceptor() grpc.UnaryClientInterceptor {
 		}
 		if userID := GetUserID(ctx); userID != "" {
 			ctx = metadata.AppendToOutgoingContext(ctx, gRPCUserHeader, userID)
+		}
+		if fwd := forwardedOf(GetUserPermissions(ctx)); len(fwd) > 0 {
+			ctx = metadata.AppendToOutgoingContext(ctx, gRPCPermsHeader, strings.Join(fwd, ","))
 		}
 		if client := clientctx.From(ctx); client.IP != "" || client.UserAgent != "" {
 			// Metadata values must be valid HTTP/2 header values; a user agent
@@ -84,6 +102,12 @@ func TenantInboundUnaryInterceptor() grpc.UnaryServerInterceptor {
 			ctx = context.WithValue(ctx, UserIDKey, vals[0])
 		}
 
+		// Only forwardedPermissions arrive, never the caller's full list, so
+		// GetUserPermissions on a service context is a partial view by design.
+		if vals := md.Get(gRPCPermsHeader); len(vals) > 0 && vals[0] != "" {
+			ctx = context.WithValue(ctx, UserPermsKey, forwardedOf(strings.Split(vals[0], ",")))
+		}
+
 		var client clientctx.Info
 		if vals := md.Get(gRPCClientIPHeader); len(vals) > 0 {
 			client.IP = vals[0]
@@ -100,6 +124,17 @@ func TenantInboundUnaryInterceptor() grpc.UnaryServerInterceptor {
 		// may legitimately run without a tenant (system context, future).
 		return handler(ctx, req)
 	}
+}
+
+// forwardedOf keeps the keys of perms that are in forwardedPermissions.
+func forwardedOf(perms []string) []string {
+	var out []string
+	for _, p := range perms {
+		if slices.Contains(forwardedPermissions, p) && !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // isPrintableASCII reports whether s is safe to put into gRPC metadata: only

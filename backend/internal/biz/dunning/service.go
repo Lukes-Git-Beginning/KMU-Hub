@@ -258,8 +258,11 @@ func (s *Service) DetectAndCreateDunnings(ctx context.Context, tenantID uuid.UUI
 			// callers (verified 2026-08-23). Not "calculated elsewhere"; simply not wired.
 			// Upgrade trigger: wire once (a) a B2B/B2C flag exists on invoice/customer and
 			// (b) CompanySettings.Basiszinssatz is read here instead of left at zero.
-			Interest:  decimal.Zero,
-			CreatedBy: uuid.Nil, // System-generated
+			Interest: decimal.Zero,
+			// lean: automatic dunning runs have no human actor, created_by is the nil UUID.
+			// Upgrade trigger: a per-tenant system-actor user, once the UI must show who
+			// triggered a dunning record.
+			CreatedBy: uuid.Nil,
 			CreatedAt: now,
 		}
 

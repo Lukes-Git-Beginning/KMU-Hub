@@ -950,10 +950,10 @@ type CreateReportRequest struct {
 	Lon           *float64               `protobuf:"fixed64,6,opt,name=lon,proto3,oneof" json:"lon,omitempty"`
 	ReportDate    string                 `protobuf:"bytes,7,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"` // YYYY-MM-DD, empty = today
 	Weather       string                 `protobuf:"bytes,8,opt,name=weather,proto3" json:"weather,omitempty"`
-	Temperature   float64                `protobuf:"fixed64,9,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	Temperature   *float64               `protobuf:"fixed64,9,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
 	WorkStart     string                 `protobuf:"bytes,10,opt,name=work_start,json=workStart,proto3" json:"work_start,omitempty"`
 	WorkEnd       string                 `protobuf:"bytes,11,opt,name=work_end,json=workEnd,proto3" json:"work_end,omitempty"`
-	BreakMinutes  int32                  `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3" json:"break_minutes,omitempty"`
+	BreakMinutes  *int32                 `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3,oneof" json:"break_minutes,omitempty"`
 	ProjectName   string                 `protobuf:"bytes,13,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1046,8 +1046,8 @@ func (x *CreateReportRequest) GetWeather() string {
 }
 
 func (x *CreateReportRequest) GetTemperature() float64 {
-	if x != nil {
-		return x.Temperature
+	if x != nil && x.Temperature != nil {
+		return *x.Temperature
 	}
 	return 0
 }
@@ -1067,8 +1067,8 @@ func (x *CreateReportRequest) GetWorkEnd() string {
 }
 
 func (x *CreateReportRequest) GetBreakMinutes() int32 {
-	if x != nil {
-		return x.BreakMinutes
+	if x != nil && x.BreakMinutes != nil {
+		return *x.BreakMinutes
 	}
 	return 0
 }
@@ -4721,7 +4721,7 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\tR\tupdatedAt\"\xa4\x03\n" +
+	"updated_at\x18\t \x01(\tR\tupdatedAt\"\xd0\x03\n" +
 	"\x13CreateReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -4731,16 +4731,18 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x03lon\x18\x06 \x01(\x01H\x01R\x03lon\x88\x01\x01\x12\x1f\n" +
 	"\vreport_date\x18\a \x01(\tR\n" +
 	"reportDate\x12\x18\n" +
-	"\aweather\x18\b \x01(\tR\aweather\x12 \n" +
-	"\vtemperature\x18\t \x01(\x01R\vtemperature\x12\x1d\n" +
+	"\aweather\x18\b \x01(\tR\aweather\x12%\n" +
+	"\vtemperature\x18\t \x01(\x01H\x02R\vtemperature\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"work_start\x18\n" +
 	" \x01(\tR\tworkStart\x12\x19\n" +
-	"\bwork_end\x18\v \x01(\tR\aworkEnd\x12#\n" +
-	"\rbreak_minutes\x18\f \x01(\x05R\fbreakMinutes\x12!\n" +
+	"\bwork_end\x18\v \x01(\tR\aworkEnd\x12(\n" +
+	"\rbreak_minutes\x18\f \x01(\x05H\x03R\fbreakMinutes\x88\x01\x01\x12!\n" +
 	"\fproject_name\x18\r \x01(\tR\vprojectNameB\x06\n" +
 	"\x04_latB\x06\n" +
-	"\x04_lon\"L\n" +
+	"\x04_lonB\x0e\n" +
+	"\f_temperatureB\x10\n" +
+	"\x0e_break_minutes\"L\n" +
 	"\x10GetReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\"\xd6\x04\n" +

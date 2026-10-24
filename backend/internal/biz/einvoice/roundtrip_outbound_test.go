@@ -177,7 +177,7 @@ func setupRoundtripFixture(t *testing.T, pool *pgxpool.Pool, invoiceNumber strin
 
 	invoiceService := invoice.NewService(invoiceRepo, nil, nil, nil, pool)
 	bizServer := server.NewBizGRPCServer(
-		nil, invoiceService, nil, nil, nil, nil, nil, nil,
+		nil, invoiceService, nil, nil, nil, nil, nil,
 		settingsRepo, nil, nil, nil, nil,
 	)
 

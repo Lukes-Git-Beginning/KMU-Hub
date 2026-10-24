@@ -142,6 +142,12 @@ message GetItemRequest {
   string item_id = 2;
 }
 
+// SerialNumberList wraps the list so that an absent field (leave unchanged)
+// can be told apart from an empty list (clear all serial numbers).
+message SerialNumberList {
+  repeated string values = 1;
+}
+
 message UpdateItemRequest {
   string tenant_id = 1;
   string item_id = 2;
@@ -157,6 +163,7 @@ message UpdateItemRequest {
   optional string currency = 12;
   optional string batch_number = 13;
   optional string linked_purchase_order = 14;
+  optional SerialNumberList serial_numbers = 15;
 }
 
 message DeleteItemRequest {

@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	"github.com/kmuhub/kmuhub/internal/validation"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
@@ -16,9 +20,11 @@ import (
 
 type createCreditNoteRequest struct {
 	OriginalInvoiceID string                  `json:"original_invoice_id" validate:"omitempty,uuid"`
-	Customer          *bizv1.CustomerSnapshot `json:"customer"            validate:"required"`
+	// Customer is optional: the service takes the customer from the original invoice, and the
+	// desktop dialog sends none.
+	Customer          *bizv1.CustomerSnapshot `json:"customer"`
 	LineItems         []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
-	TaxMode           string                  `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	TaxMode           taxModeField            `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
 	Reason            string                  `json:"reason"              validate:"required"`
 }
 
@@ -124,7 +130,7 @@ func (b *BizRoutes) HandleGetCreditNote(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.CreditNote)
+	response.ProtoWrapped(w, http.StatusOK, "credit_note", resp.CreditNote)
 }
 
 func (b *BizRoutes) HandleSendCreditNote(w http.ResponseWriter, r *http.Request) {
@@ -356,13 +362,10 @@ func (b *BizRoutes) HandleListDunnings(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type createDunningRequest struct {
-	InvoiceID string `json:"invoice_id" validate:"required,uuid"`
-	Level     int32  `json:"level"      validate:"required,gte=1,lte=3"`
-	Fee       string `json:"fee"        validate:"omitempty,decimal_gte0"`
-	Interest  string `json:"interest"   validate:"omitempty,decimal_gte0"`
-}
-
+// HandleCreateDunning serves POST /finance/dunning/detect: it runs the overdue detection of
+// the biz service (creates the next draft level per overdue invoice) and answers
+// {dunnings:[...]} with the drafts that run created. Nothing due is 200 with an empty list.
+// The request carries no input; the body of older clients is ignored.
 func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) {
 	client, err := b.getBizClient()
 	if err != nil {
@@ -377,25 +380,21 @@ func (b *BizRoutes) HandleCreateDunning(w http.ResponseWriter, r *http.Request) 
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	req, ok := decodeAndValidate[createDunningRequest](w, r)
-	if !ok {
-		return
-	}
-
 	resp, err := client.CreateDunning(r.Context(), &bizv1.CreateDunningRequest{
 		TenantId:  tenantID,
-		InvoiceId: req.InvoiceID,
-		Level:     req.Level,
-		Fee:       req.Fee,
-		Interest:  req.Interest,
 		CreatedBy: userID,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			// the service answers NotFound when no invoice is due for a (next) level
+			response.ProtoListWrapped(w, http.StatusOK, "dunnings", []*bizv1.DunningRecord{}, map[string]any{"total": 0})
+			return
+		}
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp.Dunning)
+	response.ProtoListWrapped(w, http.StatusOK, "dunnings", resp.Dunnings, map[string]any{"total": len(resp.Dunnings)})
 }
 
 func (b *BizRoutes) HandleSendDunning(w http.ResponseWriter, r *http.Request) {
@@ -441,18 +440,15 @@ func (b *BizRoutes) HandleEscalateDunning(w http.ResponseWriter, r *http.Request
 	}
 	userID := middleware.GetUserID(r.Context())
 
-	// The escalate endpoint uses the dunning ID from the URL, but the proto
-	// uses invoice_id. We need to get the invoice_id from the request body.
-	type escalateDunningRequest struct {
-		InvoiceID string `json:"invoice_id" validate:"required,uuid"`
-	}
-	req, ok := decodeAndValidate[escalateDunningRequest](w, r)
+	id, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
 
+	// The dunning ID comes from the URL; the service resolves its invoice. The desktop client
+	// sends no body.
 	resp, err := client.EscalateDunning(r.Context(), &bizv1.EscalateDunningRequest{
-		InvoiceId: req.InvoiceID,
+		DunningId: id,
 		TenantId:  tenantID,
 		CreatedBy: userID,
 	})
@@ -514,7 +510,7 @@ func (b *BizRoutes) HandleGetDunningConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Config)
+	response.ProtoWrapped(w, http.StatusOK, "config", resp.Config)
 }
 
 type updateDunningConfigRequest struct {
@@ -561,7 +557,7 @@ func (b *BizRoutes) HandleUpdateDunningConfig(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Config)
+	response.ProtoWrapped(w, http.StatusOK, "config", resp.Config)
 }
 
 // ============================================================================
@@ -589,7 +585,9 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Dashboard)
+	// ProtoFull: a month without revenue must arrive as 0, not as a missing key (the widgets
+	// divide by it), and empty lists as [].
+	response.ProtoFull(w, http.StatusOK, resp.Dashboard)
 }
 
 // ============================================================================
@@ -619,7 +617,51 @@ func (b *BizRoutes) HandleExportDATEV(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	b.serveDATEVExport(w, r, client, tenantID, req)
+}
 
+// HandleExportDATEVGet serves GET /finance/export/datev?date_from&date_to[&fiscal_year_start], the
+// call the desktop export dialog makes (it downloads the CSV as a blob). Same export and guard as
+// the POST route; start_date/end_date are accepted as aliases of the POST field names.
+func (b *BizRoutes) HandleExportDATEVGet(w http.ResponseWriter, r *http.Request) {
+	client, err := b.getBizClient()
+	if err != nil {
+		respondServiceUnavailable(w, b.ServiceName())
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+
+	q := r.URL.Query()
+	first := func(keys ...string) string {
+		for _, k := range keys {
+			if v := q.Get(k); v != "" {
+				return v
+			}
+		}
+		return ""
+	}
+	req := exportDATEVRequest{
+		StartDate:       first("date_from", "start_date"),
+		EndDate:         first("date_to", "end_date"),
+		FiscalYearStart: q.Get("fiscal_year_start"),
+	}
+	if err := validation.Validate(&req); err != nil {
+		if body, ok := validation.ErrorBody(err); ok {
+			response.JSON(w, http.StatusBadRequest, body)
+		} else {
+			response.Error(w, http.StatusBadRequest, "validation failed")
+		}
+		return
+	}
+	b.serveDATEVExport(w, r, client, tenantID, req)
+}
+
+func (b *BizRoutes) serveDATEVExport(w http.ResponseWriter, r *http.Request, client bizv1.FinanceServiceClient, tenantID string, req exportDATEVRequest) {
 	resp, err := client.ExportDATEV(r.Context(), &bizv1.ExportDATEVRequest{
 		TenantId:        tenantID,
 		StartDate:       req.StartDate,

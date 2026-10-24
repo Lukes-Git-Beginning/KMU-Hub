@@ -1786,13 +1786,20 @@ func (x *EmailMessageInfo) GetLabelIds() []string {
 }
 
 type ListMessagesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	FolderId      string                 `protobuf:"bytes,1,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
-	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	PerPage       int32                  `protobuf:"varint,3,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
-	Search        string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
-	SortBy        string                 `protobuf:"bytes,5,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
-	SortDesc      bool                   `protobuf:"varint,6,opt,name=sort_desc,json=sortDesc,proto3" json:"sort_desc,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	FolderId string                 `protobuf:"bytes,1,opt,name=folder_id,json=folderId,proto3" json:"folder_id,omitempty"`
+	Page     int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage  int32                  `protobuf:"varint,3,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	Search   string                 `protobuf:"bytes,4,opt,name=search,proto3" json:"search,omitempty"`
+	SortBy   string                 `protobuf:"bytes,5,opt,name=sort_by,json=sortBy,proto3" json:"sort_by,omitempty"`
+	SortDesc bool                   `protobuf:"varint,6,opt,name=sort_desc,json=sortDesc,proto3" json:"sort_desc,omitempty"`
+	// Optional narrowing. view="unified" lists the inboxes of the caller's accounts (folder_id empty);
+	// label_id lists messages carrying the label across folders; filter is all|unread|starred.
+	// account_id (must belong to the caller) limits unified/label views to one account.
+	AccountId     string `protobuf:"bytes,7,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	View          string `protobuf:"bytes,8,opt,name=view,proto3" json:"view,omitempty"`
+	Filter        string `protobuf:"bytes,9,opt,name=filter,proto3" json:"filter,omitempty"`
+	LabelId       string `protobuf:"bytes,10,opt,name=label_id,json=labelId,proto3" json:"label_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1867,6 +1874,34 @@ func (x *ListMessagesRequest) GetSortDesc() bool {
 		return x.SortDesc
 	}
 	return false
+}
+
+func (x *ListMessagesRequest) GetAccountId() string {
+	if x != nil {
+		return x.AccountId
+	}
+	return ""
+}
+
+func (x *ListMessagesRequest) GetView() string {
+	if x != nil {
+		return x.View
+	}
+	return ""
+}
+
+func (x *ListMessagesRequest) GetFilter() string {
+	if x != nil {
+		return x.Filter
+	}
+	return ""
+}
+
+func (x *ListMessagesRequest) GetLabelId() string {
+	if x != nil {
+		return x.LabelId
+	}
+	return ""
 }
 
 type ListMessagesResponse struct {
@@ -7361,14 +7396,20 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"created_at\x18\x18 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\x19 \x01(\tR\tupdatedAt\x12\x1b\n" +
-	"\tlabel_ids\x18\x1a \x03(\tR\blabelIds\"\xaf\x01\n" +
+	"\tlabel_ids\x18\x1a \x03(\tR\blabelIds\"\x95\x02\n" +
 	"\x13ListMessagesRequest\x12\x1b\n" +
 	"\tfolder_id\x18\x01 \x01(\tR\bfolderId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x19\n" +
 	"\bper_page\x18\x03 \x01(\x05R\aperPage\x12\x16\n" +
 	"\x06search\x18\x04 \x01(\tR\x06search\x12\x17\n" +
 	"\asort_by\x18\x05 \x01(\tR\x06sortBy\x12\x1b\n" +
-	"\tsort_desc\x18\x06 \x01(\bR\bsortDesc\"d\n" +
+	"\tsort_desc\x18\x06 \x01(\bR\bsortDesc\x12\x1d\n" +
+	"\n" +
+	"account_id\x18\a \x01(\tR\taccountId\x12\x12\n" +
+	"\x04view\x18\b \x01(\tR\x04view\x12\x16\n" +
+	"\x06filter\x18\t \x01(\tR\x06filter\x12\x19\n" +
+	"\blabel_id\x18\n" +
+	" \x01(\tR\alabelId\"d\n" +
 	"\x14ListMessagesResponse\x126\n" +
 	"\bmessages\x18\x01 \x03(\v2\x1a.email.v1.EmailMessageInfoR\bmessages\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"#\n" +

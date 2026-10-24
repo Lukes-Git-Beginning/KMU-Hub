@@ -326,7 +326,7 @@ func TestHandleListEventTypes_WithAndWithoutModuleID(t *testing.T) {
 
 // --- HandleMuteResource ---
 
-func TestHandleMuteResource_MissingModuleID(t *testing.T) {
+func TestHandleMuteResource_MissingResourceType(t *testing.T) {
 	routes := newNotificationRoutesReachable()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/notifications/mutes", jsonBody(t, map[string]string{
@@ -334,7 +334,8 @@ func TestHandleMuteResource_MissingModuleID(t *testing.T) {
 	}))
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleMuteResource(rec, req)
-	assertValidationError(t, rec, "module_id")
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "resource_type is required")
 }
 
 func TestHandleMuteResource_MissingResourceID(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -365,6 +366,10 @@ func (s *EmailGRPCServer) SyncFolders(ctx context.Context, req *emailv1.SyncFold
 // ============================================================================
 
 func (s *EmailGRPCServer) ListMessages(ctx context.Context, req *emailv1.ListMessagesRequest) (*emailv1.ListMessagesResponse, error) {
+	if req.FolderId == "" || req.View != "" || req.LabelId != "" || req.Filter != "" || req.AccountId != "" {
+		return s.listMessagesFiltered(ctx, req)
+	}
+
 	folderID, err := uuid.Parse(req.FolderId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid folder_id")
@@ -421,6 +426,95 @@ func (s *EmailGRPCServer) ListMessages(ctx context.Context, req *emailv1.ListMes
 		Messages: protoMsgs,
 		Total:    int32(total),
 	}, nil
+}
+
+// listMessagesFiltered serves the list forms the plain folder view cannot:
+// the unified inbox (view=unified), a label view (label_id) and the
+// unread/starred filter. A folder_id, when given, still narrows the result.
+// Account-wide views are confined to the calling user's own accounts; an
+// account_id from the client only narrows them further.
+func (s *EmailGRPCServer) listMessagesFiltered(ctx context.Context, req *emailv1.ListMessagesRequest) (*emailv1.ListMessagesResponse, error) {
+	f := message.ListFilter{SearchQuery: req.Search}
+
+	switch req.Filter {
+	case "", "all":
+	case "unread":
+		f.UnreadOnly = true
+	case "starred":
+		f.StarredOnly = true
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid filter")
+	}
+	switch req.View {
+	case "", "unified":
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid view")
+	}
+
+	var err error
+	if req.FolderId != "" {
+		if f.FolderID, err = uuid.Parse(req.FolderId); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid folder_id")
+		}
+	}
+	if req.LabelId != "" {
+		if f.LabelID, err = uuid.Parse(req.LabelId); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid label_id")
+		}
+	}
+	if f.FolderID == uuid.Nil && f.LabelID == uuid.Nil && req.View != "unified" {
+		return nil, status.Error(codes.InvalidArgument, "folder_id, label_id or view=unified required")
+	}
+	f.InboxOnly = f.FolderID == uuid.Nil && f.LabelID == uuid.Nil
+
+	if f.FolderID == uuid.Nil {
+		tenantID, tErr := middleware.GetTenantID(ctx)
+		if tErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+		}
+		userID, uErr := callerID(ctx)
+		if uErr != nil {
+			return nil, uErr
+		}
+		accounts, aErr := s.accountService.ListByUserAndTenant(ctx, userID, tenantID)
+		if aErr != nil {
+			return nil, mapEmailError(aErr)
+		}
+		f.AccountIDs = make([]uuid.UUID, 0, len(accounts))
+		for _, a := range accounts {
+			f.AccountIDs = append(f.AccountIDs, a.ID)
+		}
+		if req.AccountId != "" {
+			wanted, pErr := uuid.Parse(req.AccountId)
+			if pErr != nil {
+				return nil, status.Error(codes.InvalidArgument, "invalid account_id")
+			}
+			if !slices.Contains(f.AccountIDs, wanted) {
+				return nil, status.Error(codes.NotFound, "account not found")
+			}
+			f.AccountIDs = []uuid.UUID{wanted}
+		}
+	}
+
+	page := max(int(req.Page), 1)
+	perPage := int(req.PerPage)
+	if perPage < 1 {
+		perPage = 50
+	}
+	sortDir := "ASC"
+	if req.SortDesc {
+		sortDir = "DESC"
+	}
+	messages, total, err := s.messageService.List(ctx, f, message.ListOpts{Page: page, PerPage: perPage, SortBy: "date", SortDir: sortDir})
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+
+	protoMsgs := make([]*emailv1.EmailMessageInfo, 0, len(messages))
+	for _, m := range messages {
+		protoMsgs = append(protoMsgs, toEmailMessageInfo(m))
+	}
+	return &emailv1.ListMessagesResponse{Messages: protoMsgs, Total: int32(total)}, nil
 }
 
 func (s *EmailGRPCServer) GetMessage(ctx context.Context, req *emailv1.GetMessageRequest) (*emailv1.GetMessageResponse, error) {

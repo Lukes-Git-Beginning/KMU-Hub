@@ -18,8 +18,10 @@ import (
 // Contact branch: only finance_invoices carries a contact_id. The other
 // documents are matched heuristically — customer_email equality (same rule as
 // formSubmissionsModule) for quotes, credit notes and subscriptions; exact
-// case-insensitive name equality with the contact's full name or company for
-// incoming invoices and bank bookings, which hold no e-mail at all. Name hits
+// case-insensitive name equality with the contact's full name for incoming
+// invoices and bank bookings, which hold no e-mail at all. Never by the
+// contact's company: the company's supplier invoices and bookings are not the
+// contact's data and would disclose the employer's business to them. Name hits
 // are flagged "(Namensabgleich)" in the module title: a namesake in the same
 // tenant would show up, the reviewer has to confirm. Credit notes and dunning
 // records are additionally reachable through the contact's invoices.
@@ -31,13 +33,7 @@ import (
 // ones are skipped.
 func contactFinanceModules(ctx context.Context, pool *pgxpool.Pool, tenantID uuid.UUID, c contactRow) ([]DSARModule, error) {
 	email := strings.ToLower(strings.TrimSpace(c.email))
-	names := []string{}
-	if n := strings.ToLower(strings.TrimSpace(joinName(c.first, c.last))); n != "" {
-		names = append(names, n)
-	}
-	if n := strings.ToLower(strings.TrimSpace(c.company)); n != "" {
-		names = append(names, n)
-	}
+	fullName := strings.ToLower(strings.TrimSpace(joinName(c.first, c.last)))
 
 	var out []DSARModule
 	add := func(mod *DSARModule, err error) error {
@@ -98,15 +94,15 @@ func contactFinanceModules(ctx context.Context, pool *pgxpool.Pool, tenantID uui
 		return nil, err
 	}
 
-	if len(names) > 0 {
+	if fullName != "" {
 		cols = []string{"Rechnungsnummer", "Lieferant", "Adresse", "Datum", "Status", "Betrag"}
 		if err := add(userRowsModule(ctx, pool, "incoming invoices", "Eingangsrechnungen (Namensabgleich)", cols,
 			`SELECT invoice_number, supplier_name, supplier_address, invoice_date, status,
 			        to_char(gross_total, 'FM999999999990.00') || ' ' || currency
 			 FROM finance_incoming_invoices
-			 WHERE tenant_id = $1 AND LOWER(BTRIM(supplier_name)) = ANY($2::text[])
+			 WHERE tenant_id = $1 AND LOWER(BTRIM(supplier_name)) = $2
 			 ORDER BY invoice_date DESC
-			 LIMIT $3`, []any{tenantID, names, dsarMaxRows}, valuesRecord(cols))); err != nil {
+			 LIMIT $3`, []any{tenantID, fullName, dsarMaxRows}, valuesRecord(cols))); err != nil {
 			return nil, err
 		}
 
@@ -117,9 +113,9 @@ func contactFinanceModules(ctx context.Context, pool *pgxpool.Pool, tenantID uui
 			             THEN '****' || right(replace(counterparty_iban, ' ', ''), 4) ELSE '' END,
 			        remittance_info, to_char(amount, 'FM999999999990.00') || ' ' || currency
 			 FROM finance_bank_transactions
-			 WHERE tenant_id = $1 AND LOWER(BTRIM(counterparty_name)) = ANY($2::text[])
+			 WHERE tenant_id = $1 AND LOWER(BTRIM(counterparty_name)) = $2
 			 ORDER BY value_date DESC
-			 LIMIT $3`, []any{tenantID, names, dsarMaxRows}, valuesRecord(cols))); err != nil {
+			 LIMIT $3`, []any{tenantID, fullName, dsarMaxRows}, valuesRecord(cols))); err != nil {
 			return nil, err
 		}
 	}

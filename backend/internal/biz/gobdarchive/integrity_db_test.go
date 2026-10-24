@@ -62,3 +62,42 @@ func TestVerifyIntegrity_DB_MismatchPersistsEventAndForeignTenantSeesNothing(t *
 	assert.NotEqual(t, doc.SHA256, meta["actual_sha256"])
 	assert.Equal(t, false, meta["match"])
 }
+
+// The download path is the archive's exit: a manipulated object must not get a
+// URL, an intact one must, and both leave their trace under the WORM grants.
+func TestGetDownloadURL_DB_VerifiesBeforeHandingOut(t *testing.T) {
+	t.Parallel()
+	pool, tenantID, ctx := newGobdFixture(t)
+	store := newMockFileStore()
+	svc := NewService(NewPostgresRepository(pool), store, nil)
+
+	content := []byte("archived receipt bytes for download")
+	doc, err := svc.ArchiveDocument(ctx, ArchiveInput{
+		TenantID:         tenantID,
+		DocType:          models.GobdDocTypeReceipt,
+		OriginalFilename: "receipt.pdf",
+		MimeType:         "application/pdf",
+		Content:          bytes.NewReader(content),
+		Size:             int64(len(content)),
+		ArchivedBy:       uuid.New(),
+	})
+	require.NoError(t, err)
+
+	url, err := svc.GetDownloadURL(ctx, tenantID, doc.ID, uuid.New())
+	require.NoError(t, err)
+	assert.NotEmpty(t, url)
+
+	store.uploaded[doc.StorageKey] = []byte("swapped object")
+	url, err = svc.GetDownloadURL(ctx, tenantID, doc.ID, uuid.New())
+	require.ErrorIs(t, err, ErrIntegrityMismatch)
+	assert.Empty(t, url)
+
+	events, err := svc.ListEvents(ctx, tenantID, doc.ID)
+	require.NoError(t, err)
+	counts := map[string]int{}
+	for _, ev := range events {
+		counts[ev.EventType]++
+	}
+	assert.Equal(t, 2, counts[models.GobdEventTypeIntegrityCheck])
+	assert.Equal(t, 1, counts[models.GobdEventTypeAccess], "only the intact download is an access")
+}

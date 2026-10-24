@@ -49,7 +49,6 @@ type BizGRPCServer struct {
 	paymentService    *payment.Service
 	dunningService    *dunning.Service
 	dashboardService  *dashboard.Service
-	pdfGenerator      *pdf.Generator
 	// datevBuchungsstapel renders the DATEV booking batch. Shared with the DATEV
 	// API upload path (datev.UploadService) so download and upload cannot diverge.
 	datevBuchungsstapel *datev.BuchungsstapelBuilder
@@ -92,7 +91,6 @@ func NewBizGRPCServer(
 	paymentService *payment.Service,
 	dunningService *dunning.Service,
 	dashboardService *dashboard.Service,
-	pdfGenerator *pdf.Generator,
 	datevBuchungsstapel *datev.BuchungsstapelBuilder,
 	companySettings CompanySettingsRepository,
 	timetrackingRepo timetracking.WorkTimeRepository,
@@ -107,7 +105,6 @@ func NewBizGRPCServer(
 		paymentService:      paymentService,
 		dunningService:      dunningService,
 		dashboardService:    dashboardService,
-		pdfGenerator:        pdfGenerator,
 		datevBuchungsstapel: datevBuchungsstapel,
 		companySettings:     companySettings,
 		timetrackingRepo:    timetrackingRepo,
@@ -281,6 +278,7 @@ func (s *BizGRPCServer) CreateQuote(ctx context.Context, req *bizv1.CreateQuoteR
 		LineItems:       lineItems,
 		Notes:           req.GetNotes(),
 		UserID:          userID,
+		Currency:        req.GetCurrency(),
 	}
 
 	if req.GetValidUntil() != "" {
@@ -401,6 +399,11 @@ func (s *BizGRPCServer) UpdateQuote(ctx context.Context, req *bizv1.UpdateQuoteR
 		input.ValidUntil = &t
 	}
 
+	if req.GetCurrency() != "" {
+		cur := req.GetCurrency()
+		input.Currency = &cur
+	}
+
 	if req.GetNotes() != "" {
 		notes := req.GetNotes()
 		input.Notes = &notes
@@ -433,8 +436,12 @@ func (s *BizGRPCServer) SendQuote(ctx context.Context, req *bizv1.SendQuoteReque
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.quoteService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.quoteService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -518,7 +525,12 @@ func (s *BizGRPCServer) ConvertQuoteToInvoice(ctx context.Context, req *bizv1.Co
 		return nil, err
 	}
 
-	inv, err := s.invoiceService.CreateFromQuote(ctx, tenantID, quoteID, uuid.Nil)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inv, err := s.invoiceService.CreateFromQuote(ctx, tenantID, quoteID, actorID)
 	if err != nil {
 		return nil, mapBizError(err)
 	}
@@ -556,6 +568,7 @@ func (s *BizGRPCServer) CreateInvoice(ctx context.Context, req *bizv1.CreateInvo
 		LineItems:       lineItems,
 		Notes:           req.GetNotes(),
 		UserID:          userID,
+		Currency:        req.GetCurrency(),
 	}
 
 	if req.GetInvoiceDate() != "" {
@@ -702,6 +715,39 @@ func (s *BizGRPCServer) UpdateInvoice(ctx context.Context, req *bizv1.UpdateInvo
 		input.LineItems = items
 	}
 
+	if req.GetInvoiceDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetInvoiceDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid invoice_date")
+		}
+		input.InvoiceDate = &t
+	}
+	if req.GetDeliveryDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDeliveryDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid delivery_date")
+		}
+		input.DeliveryDate = &t
+	}
+	if req.GetDueDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDueDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid due_date")
+		}
+		input.DueDate = &t
+	}
+	// Same "30 Tage netto" convention as CreateInvoice.
+	if req.GetPaymentTerms() != "" {
+		var days int
+		if _, scanErr := fmt.Sscanf(req.GetPaymentTerms(), "%d", &days); scanErr == nil && days > 0 {
+			input.PaymentTermsDays = &days
+		}
+	}
+	if req.GetCurrency() != "" {
+		cur := req.GetCurrency()
+		input.Currency = &cur
+	}
+
 	if req.GetNotes() != "" {
 		notes := req.GetNotes()
 		input.Notes = &notes
@@ -721,8 +767,12 @@ func (s *BizGRPCServer) SendInvoice(ctx context.Context, req *bizv1.SendInvoiceR
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.invoiceService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.invoiceService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -758,8 +808,12 @@ func (s *BizGRPCServer) CancelInvoice(ctx context.Context, req *bizv1.CancelInvo
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.invoiceService.Cancel(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.invoiceService.Cancel(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -867,8 +921,12 @@ func (s *BizGRPCServer) SendCreditNote(ctx context.Context, req *bizv1.SendCredi
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.creditNoteService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.creditNoteService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -1022,6 +1080,11 @@ func (s *BizGRPCServer) CreateDunning(ctx context.Context, req *bizv1.CreateDunn
 		return nil, mapBizError(err)
 	}
 
+	protoAll := make([]*bizv1.DunningRecord, 0, len(records))
+	for _, r := range records {
+		protoAll = append(protoAll, toProtoDunningRecord(r))
+	}
+
 	// If a specific invoice was requested, find the dunning for that invoice
 	if req.GetInvoiceId() != "" {
 		invoiceID, invErr := uuid.Parse(req.GetInvoiceId())
@@ -1030,14 +1093,14 @@ func (s *BizGRPCServer) CreateDunning(ctx context.Context, req *bizv1.CreateDunn
 		}
 		for _, r := range records {
 			if r.InvoiceID == invoiceID {
-				return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(r)}, nil
+				return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(r), Dunnings: protoAll}, nil
 			}
 		}
 		return nil, status.Error(codes.NotFound, "no dunning created for specified invoice")
 	}
 
 	if len(records) > 0 {
-		return &bizv1.CreateDunningResponse{Dunning: toProtoDunningRecord(records[0])}, nil
+		return &bizv1.CreateDunningResponse{Dunning: protoAll[0], Dunnings: protoAll}, nil
 	}
 
 	return nil, status.Error(codes.NotFound, "no overdue invoices found for dunning creation")
@@ -1049,8 +1112,12 @@ func (s *BizGRPCServer) SendDunning(ctx context.Context, req *bizv1.SendDunningR
 		return nil, err
 	}
 
-	// Proto doesn't include user_id; use uuid.Nil (gateway handles auth)
-	if err := s.dunningService.Send(ctx, tenantID, id, uuid.Nil); err != nil {
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.dunningService.Send(ctx, tenantID, id, actorID); err != nil {
 		return nil, mapBizError(err)
 	}
 
@@ -1071,7 +1138,19 @@ func (s *BizGRPCServer) EscalateDunning(ctx context.Context, req *bizv1.Escalate
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	invoiceID, err := uuid.Parse(req.GetInvoiceId())
+	invoiceIDStr := req.GetInvoiceId()
+	if invoiceIDStr == "" && req.GetDunningId() != "" {
+		dunningID, idErr := uuid.Parse(req.GetDunningId())
+		if idErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid dunning_id")
+		}
+		record, getErr := s.dunningService.GetByID(ctx, tenantID, dunningID)
+		if getErr != nil {
+			return nil, mapBizError(getErr)
+		}
+		invoiceIDStr = record.InvoiceID.String()
+	}
+	invoiceID, err := uuid.Parse(invoiceIDStr)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid invoice_id")
 	}
@@ -1736,6 +1815,16 @@ func toProtoDashboard(d *models.FinanceDashboard) *bizv1.FinanceDashboard {
 		AverageDealSize:  d.Pipeline.AverageDealSize.String(),
 		RevenueForecast:  d.RevenueForecast.String(),
 		StatusBreakdown:  statusBreakdown,
+		// lean: float64 for display-only widget figures (the FE charts numbers); the
+		// monetary totals above stay decimal strings. Upgrade if these ever feed a booking.
+		RevenueThisMonth: d.RevenueThisMonth.InexactFloat64(),
+		RevenueLastMonth: d.RevenueLastMonth.InexactFloat64(),
+	}
+	for _, p := range d.RevenueByMonth {
+		fd.MonthlyRevenue = append(fd.MonthlyRevenue, &bizv1.MonthlyRevenue{
+			Month:   p.Month,
+			Revenue: p.Revenue.InexactFloat64(),
+		})
 	}
 
 	for _, inv := range d.RecentInvoices {
@@ -2079,7 +2168,9 @@ func (s *BizGRPCServer) CreateInvoiceFromTimeEntries(ctx context.Context, req *b
 
 	userID, err := uuid.Parse(req.GetCreatedBy())
 	if err != nil {
-		// created_by is best-effort; fall back to Nil so invoice.Create still works.
+		// lean: created_by is best-effort; an unparsable value falls back to the nil UUID so
+		// the invoice is still created. Upgrade trigger: derive it from callerID(ctx) once the
+		// gateway always sends x-user-id for this RPC, then reject instead of falling back.
 		userID = uuid.Nil
 	}
 
@@ -2246,6 +2337,9 @@ func (s *BizGRPCServer) CreateQuoteFromDeal(ctx context.Context, req *bizv1.Crea
 
 	userID, err := uuid.Parse(req.GetCreatedBy())
 	if err != nil {
+		// lean: created_by is best-effort; an unparsable value falls back to the nil UUID so
+		// the quote is still created. Upgrade trigger: derive it from callerID(ctx) once the
+		// gateway always sends x-user-id for this RPC, then reject instead of falling back.
 		userID = uuid.Nil
 	}
 
@@ -2524,7 +2618,12 @@ func (s *BizGRPCServer) SendDunningNotice(ctx context.Context, req *bizv1.SendDu
 		return nil, err
 	}
 
-	record, sendErr := s.dunningService.SendDunningNotice(ctx, tenantID, id, uuid.Nil)
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	record, sendErr := s.dunningService.SendDunningNotice(ctx, tenantID, id, actorID)
 	if sendErr != nil {
 		slog.Error("SendDunningNotice failed", "dunning_id", id, "tenant_id", tenantID, "error", sendErr)
 		return nil, mapBizError(sendErr)

@@ -236,6 +236,73 @@ func (s *Service) UpdatePreference(ctx context.Context, pref *models.Notificatio
 	return s.repo.UpsertPreference(ctx, pref)
 }
 
+// PreferenceChange is a partial update of a preference. A nil delivery field keeps
+// the stored value; on first write it falls back to the system default that
+// Evaluate applies when no preference exists.
+type PreferenceChange struct {
+	EventTypeKey *string
+	ModuleID     *string
+	InApp        *bool
+	DesktopPush  *bool
+	Email        *bool
+	SMS          *bool
+	Sound        *string
+}
+
+// ChangePreference merges change into the stored preference (event-type scope when
+// EventTypeKey is set, module default otherwise) and persists the result.
+func (s *Service) ChangePreference(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, change PreferenceChange) (*models.NotificationPreference, error) {
+	var existing *models.NotificationPreference
+	var err error
+	switch {
+	case change.EventTypeKey != nil:
+		existing, err = s.repo.GetEventTypePreference(ctx, tenantID, userID, *change.EventTypeKey)
+	case change.ModuleID != nil:
+		existing, err = s.repo.GetModuleDefault(ctx, tenantID, userID, *change.ModuleID)
+	}
+	if err != nil && !errors.Is(err, ErrPreferenceNotFound) {
+		return nil, err
+	}
+
+	pref := &models.NotificationPreference{
+		TenantID:     tenantID,
+		UserID:       userID,
+		EventTypeKey: change.EventTypeKey,
+		ModuleID:     change.ModuleID,
+		InApp:        true,
+		DesktopPush:  true,
+		Email:        true,
+		Sound:        "default",
+	}
+	if existing != nil {
+		pref = existing
+		pref.EventTypeKey = change.EventTypeKey
+		if change.ModuleID != nil {
+			pref.ModuleID = change.ModuleID
+		}
+	}
+	if change.InApp != nil {
+		pref.InApp = *change.InApp
+	}
+	if change.DesktopPush != nil {
+		pref.DesktopPush = *change.DesktopPush
+	}
+	if change.Email != nil {
+		pref.Email = *change.Email
+	}
+	if change.SMS != nil {
+		pref.SMS = *change.SMS
+	}
+	if change.Sound != nil {
+		pref.Sound = *change.Sound
+	}
+
+	if err := s.UpdatePreference(ctx, pref); err != nil {
+		return nil, err
+	}
+	return pref, nil
+}
+
 // MuteResource mutes notifications for a specific resource within a tenant.
 func (s *Service) MuteResource(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, moduleID, resourceID string) (*models.NotificationMute, error) {
 	// Check if already muted

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -143,6 +144,22 @@ func (c *CRMExtRoutes) HandleMergeCompanies(w http.ResponseWriter, r *http.Reque
 // Contact Timeline
 // ============================================================================
 
+// timelineEventWire is the desktop shape of a timeline event
+// (api/hooks/useTimeline.ts): metadata is a flat map, not the proto's nested
+// {data:{k:"<json>"}}.
+type timelineEventWire struct {
+	ID            string         `json:"id"`
+	EventType     string         `json:"event_type"`
+	OccurredAt    string         `json:"occurred_at"`
+	Title         string         `json:"title"`
+	Description   *string        `json:"description,omitempty"`
+	CreatedByName string         `json:"created_by_name,omitempty"`
+	Metadata      map[string]any `json:"metadata,omitempty"`
+}
+
+// HandleContactTimeline serves GET /contacts/{id}/timeline and its desktop alias
+// /crm/contacts/{id}/timeline. `offset` is a row offset (the desktop sends
+// (page-1)*limit); the RPC pages by number.
 func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Request) {
 	client, err := c.getCRMClient()
 	if err != nil {
@@ -150,20 +167,13 @@ func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	offsetStr := r.URL.Query().Get("offset")
-	limitStr := r.URL.Query().Get("limit")
-
-	page := int32(1)
 	pageSize := int32(20)
-	if offsetStr != "" {
-		if v, err := strconv.Atoi(offsetStr); err == nil && v >= 0 {
-			page = int32(v)
-		}
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 && v <= 100 {
+		pageSize = int32(v)
 	}
-	if limitStr != "" {
-		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 && v <= 100 {
-			pageSize = int32(v)
-		}
+	page := int32(1)
+	if v, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && v >= 0 {
+		page = int32(v)/pageSize + 1
 	}
 
 	resp, err := client.GetContactTimeline(r.Context(), &crmv1.GetContactTimelineRequest{
@@ -176,7 +186,26 @@ func (c *CRMExtRoutes) HandleContactTimeline(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	events := make([]timelineEventWire, 0, len(resp.GetEvents()))
+	for _, e := range resp.GetEvents() {
+		ev := timelineEventWire{
+			ID: e.GetId(), EventType: e.GetEventType(), OccurredAt: e.GetOccurredAt(),
+			Title: e.GetTitle(), Description: e.Description, CreatedByName: e.GetCreatedByName(),
+		}
+		if data := e.GetMetadata().GetData(); len(data) > 0 {
+			ev.Metadata = make(map[string]any, len(data))
+			for k, raw := range data {
+				// The server stores every value JSON-encoded; fall back to the raw string.
+				var v any
+				if json.Unmarshal([]byte(raw), &v) != nil {
+					v = raw
+				}
+				ev.Metadata[k] = v
+			}
+		}
+		events = append(events, ev)
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"events": events, "total": resp.GetTotal()})
 }
 
 // ============================================================================
@@ -406,6 +435,15 @@ func (c *CRMExtRoutes) registerContactExtRoutes(r chi.Router) {
 func (c *CRMExtRoutes) registerCompanyExtRoutes(r chi.Router) {
 	r.With(middleware.RequirePermission("companies", "read")).Get("/{id}/duplicates", c.HandleFindCompanyDuplicates)
 	r.With(middleware.RequirePermission("companies", "write")).Post("/merge", c.HandleMergeCompanies)
+}
+
+// registerTimelineAlias serves the timeline under the path the desktop client
+// calls (/api/v1/crm/contacts/{id}/timeline); /api/v1/crm is not mounted anywhere else.
+func (c *CRMExtRoutes) registerTimelineAlias(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	r.Route("/api/v1/crm/contacts", func(r chi.Router) {
+		r.Use(authMiddleware)
+		r.With(middleware.RequirePermission("contacts", "read")).Get("/{id}/timeline", c.HandleContactTimeline)
+	})
 }
 
 // registerGDPRRoutes adds top-level GDPR routes to the root router.

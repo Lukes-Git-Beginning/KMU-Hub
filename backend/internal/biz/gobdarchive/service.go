@@ -204,10 +204,16 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.GobdDo
 // ============================================================================
 
 // GetDownloadURL generates a short-lived presigned URL for the document and
-// records an access event.
+// records an access event. The stored bytes are re-hashed first (VerifyIntegrity):
+// a document whose content diverges from its archived SHA-256 is never handed
+// out, the caller gets ErrIntegrityMismatch instead.
 func (s *Service) GetDownloadURL(ctx context.Context, tenantID, id, requestedBy uuid.UUID) (string, error) {
 	doc, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
+		return "", err
+	}
+
+	if err := s.VerifyIntegrity(ctx, tenantID, id, requestedBy); err != nil {
 		return "", err
 	}
 

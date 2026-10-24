@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"cmp"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -299,9 +302,25 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 	}
 	page, pageSize := parsePagination(r, 1, 50)
 
+	// A leave request's employee_id is the user id of whoever filed it. The self-service view asks
+	// with user_id; employee_id is the same filter under its HR name.
+	employeeID := r.URL.Query().Get("employee_id")
+	if employeeID == "" {
+		employeeID = r.URL.Query().Get("user_id")
+	}
+	// A grant narrowed to "own" overrides whatever the client asked for, otherwise the narrowing
+	// is a suggestion and the self-service list shows every request of the tenant.
+	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	if !ok {
+		return
+	}
+	if ownerID != nil {
+		employeeID = *ownerID
+	}
+
 	grpcReq := &hrv1.ListLeaveRequestsReq{
 		TenantId:   tenantID,
-		EmployeeId: r.URL.Query().Get("employee_id"),
+		EmployeeId: employeeID,
 		Status:     r.URL.Query().Get("status"),
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
@@ -335,11 +354,20 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	if !ok {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GetLeaveRequest(r.Context(), &hrv1.GetLeaveRequestReq{Id: id})
 	if err != nil {
 		respondGRPCError(w, err)
+		return
+	}
+	// Someone else's request looks exactly like a missing one to a caller narrowed to "own".
+	if ownerID != nil && resp.LeaveRequest.GetEmployeeId() != *ownerID {
+		response.Error(w, http.StatusNotFound, "leave request not found")
 		return
 	}
 
@@ -806,6 +834,7 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		EmployeeId: r.URL.Query().Get("employee_id"),
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
+		Status:     r.URL.Query().Get("status"),
 		Page:       int32(page),
 		PerPage:    int32(pageSize),
 	}
@@ -993,7 +1022,8 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Absences)
+	// The client reads `{entries}`; a bare array made the calendar and the dashboard widget empty.
+	response.ProtoListWrapped(w, http.StatusOK, "entries", resp.Absences, nil)
 }
 
 // ============================================================================
@@ -1055,7 +1085,7 @@ func (h *HRRoutes) HandleGetSelfProfile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Employee)
+	response.ProtoWrapped(w, http.StatusOK, "employee", resp.Employee)
 }
 
 func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
@@ -1075,7 +1105,7 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Employee)
+	response.ProtoWrapped(w, http.StatusOK, "employee", resp.Employee)
 }
 
 type updateEmployeeHTTPReq struct {
@@ -1123,7 +1153,7 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Employee)
+	response.ProtoWrapped(w, http.StatusOK, "employee", resp.Employee)
 }
 
 type offboardEmployeeHTTPReq struct {
@@ -1209,7 +1239,7 @@ func (h *HRRoutes) HandleUpdateSelfProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Employee)
+	response.ProtoWrapped(w, http.StatusOK, "employee", resp.Employee)
 }
 
 // HandleListOwnDocuments serves an employee their own personnel documents —
@@ -1293,7 +1323,7 @@ func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.ProtoList(w, http.StatusOK, resp.Documents)
+	response.ProtoListWrapped(w, http.StatusOK, "documents", resp.Documents, nil)
 }
 
 // HandleListEmployeeDocumentCategories lists document categories, filtered by
@@ -1411,10 +1441,17 @@ func (h *HRRoutes) HandleCreatePersonnelDocument(w http.ResponseWriter, r *http.
 	response.Proto(w, http.StatusCreated, resp.Document)
 }
 
+// uploadDocumentHTTPReq accepts both spellings: the desktop client posts its
+// UploadDocumentInput unchanged (hr-client.ts:928), i.e. camelCase, so the
+// snake_case keys alone arrived empty.
 type uploadDocumentHTTPReq struct {
-	CategoryID string `json:"category_id" validate:"omitempty,uuid"`
-	FileID     string `json:"file_id"     validate:"omitempty,uuid"`
-	Notes      string `json:"notes"`
+	CategoryID      string `json:"category_id" validate:"omitempty,uuid"`
+	FileID          string `json:"file_id"     validate:"omitempty,uuid"`
+	CategoryIDCamel string `json:"categoryId"  validate:"omitempty,uuid"`
+	FileIDCamel     string `json:"fileId"      validate:"omitempty,uuid"`
+	FileName        string `json:"fileName"    validate:"omitempty,max=255"`
+	FileSize        string `json:"fileSize"    validate:"omitempty,max=50"`
+	Notes           string `json:"notes"`
 }
 
 func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.Request) {
@@ -1440,8 +1477,10 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 	resp, err := client.UploadEmployeeDocument(r.Context(), &hrv1.UploadEmployeeDocumentReq{
 		TenantId:   tenantID,
 		EmployeeId: employeeID,
-		CategoryId: req.CategoryID,
-		FileId:     req.FileID,
+		CategoryId: cmp.Or(req.CategoryID, req.CategoryIDCamel),
+		FileId:     cmp.Or(req.FileID, req.FileIDCamel),
+		FileName:   req.FileName,
+		FileSize:   req.FileSize,
 		UploadedBy: uploadedBy,
 		Notes:      req.Notes,
 	})
@@ -1450,7 +1489,7 @@ func (h *HRRoutes) HandleUploadEmployeeDocument(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp.Document)
+	response.ProtoWrapped(w, http.StatusCreated, "document", resp.Document)
 }
 
 // ============================================================================
@@ -1473,22 +1512,55 @@ func (h *HRRoutes) HandleGetHRSettings(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.GetHRSettings(r.Context(), &hrv1.GetHRSettingsReq{
 		TenantId: tenantID,
 	})
+	if status.Code(err) == codes.NotFound {
+		// A tenant that never saved its settings has no row; the client falls back to
+		// its defaults for an empty object.
+		response.JSON(w, http.StatusOK, map[string]any{"settings": map[string]any{}})
+		return
+	}
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Settings)
+	response.ProtoWrapped(w, http.StatusOK, "settings", resp.Settings)
 }
 
+// updateHRSettingsHTTPReq is a partial update: pointers tell an omitted key (keep the
+// stored value) from an explicit zero or false.
 type updateHRSettingsHTTPReq struct {
-	AUThresholdDays        int32  `json:"au_threshold_days"         validate:"omitempty,gte=0"`
-	ShowAbsenceReason      bool   `json:"show_absence_reason"`
-	DefaultAnnualLeaveDays int32  `json:"default_annual_leave_days" validate:"omitempty,gte=0"`
-	Timezone               string `json:"timezone"`
-	WorkHoursPerDay        int32  `json:"work_hours_per_day"        validate:"omitempty,gte=1,lte=24"`
-	MaxDailyHours          int32  `json:"max_daily_hours"           validate:"omitempty,gte=1,lte=24"`
-	BreakAfterHours        int32  `json:"break_after_hours"         validate:"omitempty,gte=0,lte=24"`
+	AUThresholdDays        *int32  `json:"au_threshold_days"         validate:"omitempty,gte=0"`
+	ShowAbsenceReason      *bool   `json:"show_absence_reason"`
+	DefaultAnnualLeaveDays *int32  `json:"default_annual_leave_days" validate:"omitempty,gte=0"`
+	Timezone               *string `json:"timezone"`
+	WorkHoursPerDay        *int32  `json:"work_hours_per_day"        validate:"omitempty,gte=1,lte=24"`
+	MaxDailyHours          *int32  `json:"max_daily_hours"           validate:"omitempty,gte=1,lte=24"`
+	BreakAfterHours        *int32  `json:"break_after_hours"         validate:"omitempty,gte=0,lte=24"`
+}
+
+// applyTo overwrites the fields of dst that the request carries and leaves the rest alone.
+func (u updateHRSettingsHTTPReq) applyTo(dst *hrv1.UpdateHRSettingsReq) {
+	if u.AUThresholdDays != nil {
+		dst.AuThresholdDays = *u.AUThresholdDays
+	}
+	if u.ShowAbsenceReason != nil {
+		dst.ShowAbsenceReason = *u.ShowAbsenceReason
+	}
+	if u.DefaultAnnualLeaveDays != nil {
+		dst.DefaultAnnualLeaveDays = *u.DefaultAnnualLeaveDays
+	}
+	if u.Timezone != nil {
+		dst.Timezone = *u.Timezone
+	}
+	if u.WorkHoursPerDay != nil {
+		dst.WorkHoursPerDay = *u.WorkHoursPerDay
+	}
+	if u.MaxDailyHours != nil {
+		dst.MaxDailyHours = *u.MaxDailyHours
+	}
+	if u.BreakAfterHours != nil {
+		dst.BreakAfterHours = *u.BreakAfterHours
+	}
 }
 
 func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request) {
@@ -1509,23 +1581,37 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	resp, err := client.UpdateHRSettings(r.Context(), &hrv1.UpdateHRSettingsReq{
-		TenantId:               tenantID,
-		AuThresholdDays:        req.AUThresholdDays,
-		ShowAbsenceReason:      req.ShowAbsenceReason,
-		DefaultAnnualLeaveDays: req.DefaultAnnualLeaveDays,
-		Timezone:               req.Timezone,
-		// Work-hours policy fields (proto fields 6-8, require proto regen to compile)
-		WorkHoursPerDay: req.WorkHoursPerDay,
-		MaxDailyHours:   req.MaxDailyHours,
-		BreakAfterHours: req.BreakAfterHours,
-	})
+	// The RPC upserts every column, so start from the stored row; otherwise a save that
+	// carries four fields would reset the work-hours policy to 0.
+	// lean: read-modify-write without a lock; a SELECT ... FOR UPDATE in the HR service
+	// once two admins edit the settings at the same moment.
+	merged := &hrv1.UpdateHRSettingsReq{TenantId: tenantID}
+	current, err := client.GetHRSettings(r.Context(), &hrv1.GetHRSettingsReq{TenantId: tenantID})
+	switch {
+	case err == nil:
+		cur := current.GetSettings()
+		merged.AuThresholdDays = cur.GetAuThresholdDays()
+		merged.ShowAbsenceReason = cur.GetShowAbsenceReason()
+		merged.DefaultAnnualLeaveDays = cur.GetDefaultAnnualLeaveDays()
+		merged.Timezone = cur.GetTimezone()
+		merged.WorkHoursPerDay = cur.GetWorkHoursPerDay()
+		merged.MaxDailyHours = cur.GetMaxDailyHours()
+		merged.BreakAfterHours = cur.GetBreakAfterHours()
+	case status.Code(err) == codes.NotFound:
+		// First save of this tenant: nothing stored to keep.
+	default:
+		respondGRPCError(w, err)
+		return
+	}
+	req.applyTo(merged)
+
+	resp, err := client.UpdateHRSettings(r.Context(), merged)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Settings)
+	response.ProtoWrapped(w, http.StatusOK, "settings", resp.Settings)
 }
 
 // ============================================================================
@@ -1593,7 +1679,7 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp.Employee)
+	response.ProtoWrapped(w, http.StatusCreated, "employee", resp.Employee)
 }
 
 // ============================================================================
@@ -1604,6 +1690,7 @@ type createManualEntryHTTPReq struct {
 	ClockIn         string  `json:"clock_in"          validate:"required"`
 	ClockOut        string  `json:"clock_out"         validate:"required"`
 	BreakMinutes    int32   `json:"break_minutes"     validate:"gte=0"`
+	ProjectID       string  `json:"project_id"        validate:"omitempty,uuid"`
 	CategoryID      string  `json:"category_id"       validate:"omitempty,uuid"`
 	Activity        string  `json:"activity"`
 	Note            string  `json:"note"`
@@ -1655,6 +1742,7 @@ func (h *HRRoutes) HandleCreateManualEntry(w http.ResponseWriter, r *http.Reques
 		ClockIn:         timestamppb.New(clockIn),
 		ClockOut:        timestamppb.New(clockOut),
 		BreakMinutes:    req.BreakMinutes,
+		ProjectId:       req.ProjectID,
 		CategoryId:      req.CategoryID,
 		Activity:        req.Activity,
 		Note:            req.Note,
@@ -1733,26 +1821,55 @@ func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	dayTrendJSON, err := hrMarshalSlice(resp.DayTrend)
-	if err != nil {
-		slog.Error("proto json marshal failed", "error", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error")
-		return
+	// The analytics view divides by worked_days and labels the project bars with `name`, so both
+	// must be present: worked_days is derived from the trend, project_name is mirrored as name.
+	// billable_minutes stays 0 until work time entries carry a billable flag (the table has none).
+	// lean: hand-built maps instead of a proto change; add the fields to GetTimeAnalyticsResp when
+	// a second consumer needs them.
+	rangeOut := "week"
+	if rangeParam == "month" {
+		rangeOut = "month"
 	}
-	byProjectJSON, err := hrMarshalSlice(resp.ByProject)
-	if err != nil {
-		slog.Error("proto json marshal failed", "error", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error")
-		return
+	workedDays := 0
+	periodStart, periodEnd := "", ""
+	dayTrend := make([]map[string]any, 0, len(resp.DayTrend))
+	for i, d := range resp.DayTrend {
+		if d.NetMinutes > 0 {
+			workedDays++
+		}
+		if i == 0 {
+			periodStart = d.Date
+		}
+		periodEnd = d.Date
+		dayTrend = append(dayTrend, map[string]any{
+			"date":             d.Date,
+			"net_minutes":      d.NetMinutes,
+			"target_minutes":   d.TargetMinutes,
+			"billable_minutes": 0,
+		})
+	}
+	byProject := make([]map[string]any, 0, len(resp.ByProject))
+	for _, p := range resp.ByProject {
+		byProject = append(byProject, map[string]any{
+			"project_id":   p.ProjectId,
+			"project_name": p.ProjectName,
+			"name":         p.ProjectName,
+			"minutes":      p.Minutes,
+		})
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"range":             rangeOut,
+		"period_start":      periodStart,
+		"period_end":        periodEnd,
 		"total_minutes":     resp.TotalMinutes,
+		"billable_minutes":  0,
 		"target_minutes":    resp.TargetMinutes,
 		"overtime_minutes":  resp.OvertimeMinutes,
 		"avg_daily_minutes": resp.AvgDailyMinutes,
-		"day_trend":         dayTrendJSON,
-		"by_project":        byProjectJSON,
+		"worked_days":       workedDays,
+		"day_trend":         dayTrend,
+		"by_project":        byProject,
 	})
 }
 

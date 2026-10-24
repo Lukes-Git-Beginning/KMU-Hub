@@ -58,9 +58,13 @@ func (m *mockRepository) CreateItem(ctx context.Context, item *Item) error {
 	return nil
 }
 
+// UpdateItem mirrors the SQL: master data is replaced, the stored quantity stays.
 func (m *mockRepository) UpdateItem(ctx context.Context, item *Item) error {
 	if m.updateItemErr != nil {
 		return m.updateItemErr
+	}
+	if stored, ok := m.items[item.ID]; ok {
+		item.Quantity = stored.Quantity
 	}
 	m.items[item.ID] = item
 	return nil
@@ -347,6 +351,10 @@ func (m *mockRepository) CompleteInventurSessionTx(_ context.Context, tenantID, 
 // every movement against a scratch copy of the affected quantities first and
 // only mutates items/movements once all of them check out, giving the mock
 // the same all-or-nothing guarantee the real transaction provides.
+func (m *mockRepository) ApplyStockMovementsTx(_ context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	return m.applyMovements(tenantID, movements)
+}
+
 func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
 	scratch := make(map[uuid.UUID]int64, len(movements))
 	for _, mv := range movements {
@@ -372,8 +380,12 @@ func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMov
 		item.Quantity = scratch[mv.ItemID]
 		item.UpdatedAt = time.Now()
 
+		mvID := mv.ID
+		if mvID == uuid.Nil {
+			mvID = uuid.New()
+		}
 		mvRow := &Movement{
-			ID:           uuid.New(),
+			ID:           mvID,
 			TenantID:     tenantID,
 			ItemID:       mv.ItemID,
 			MovementType: mv.MovementType,
@@ -857,24 +869,88 @@ func TestService_TransferStock_ZeroQuantity(t *testing.T) {
 // RecordMovement Tests
 // ============================================================================
 
-func TestService_RecordMovement_Success(t *testing.T) {
+func TestService_RecordMovement_InRaisesStockAndWritesOneRow(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
-	item := addItem(repo, tenantID, "Produkt", "P-001", 100, 10)
+	item := addItem(repo, tenantID, "Produkt", "P-001", 10, 1)
 
 	mv, err := svc.RecordMovement(context.Background(), RecordMovementInput{
 		TenantID:     tenantID,
 		ItemID:       item.ID,
 		MovementType: MovementTypeIn,
-		Quantity:     50,
-		Reason:       "Batch Import",
+		Quantity:     5,
+		Reason:       "Wareneingang",
 	})
 
 	require.NoError(t, err)
 	assert.Equal(t, MovementTypeIn, mv.MovementType)
-	assert.Equal(t, int64(50), mv.Quantity)
+	assert.Equal(t, int64(5), mv.Quantity)
+	assert.Equal(t, int64(15), repo.items[item.ID].Quantity)
+	assert.Len(t, repo.movements, 1, "exactly one movement row, no double booking")
+}
+
+func TestService_RecordMovement_OutLowersStockAndRejectsOverdraw(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Produkt", "P-001", 15, 1)
+
+	mv, err := svc.RecordMovement(context.Background(), RecordMovementInput{
+		TenantID: tenantID, ItemID: item.ID, MovementType: MovementTypeOut, Quantity: 4,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(-4), mv.Quantity)
+	assert.Equal(t, int64(11), repo.items[item.ID].Quantity)
+
+	_, err = svc.RecordMovement(context.Background(), RecordMovementInput{
+		TenantID: tenantID, ItemID: item.ID, MovementType: MovementTypeOut, Quantity: 20,
+	})
+	assert.ErrorIs(t, err, ErrInsufficientStock)
+	assert.Equal(t, int64(11), repo.items[item.ID].Quantity, "a rejected outbound leaves the stock untouched")
+	assert.Len(t, repo.movements, 1, "a rejected outbound writes no row")
+}
+
+func TestService_RecordMovement_RejectsTypesThatMoveNoStock(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Produkt", "P-001", 10, 1)
+
+	for _, typ := range []MovementType{MovementTypeAdjustment, MovementTypeTransfer, "bogus"} {
+		_, err := svc.RecordMovement(context.Background(), RecordMovementInput{
+			TenantID: tenantID, ItemID: item.ID, MovementType: typ, Quantity: 3,
+		})
+		assert.ErrorIs(t, err, ErrInvalidInput, string(typ))
+	}
+	assert.Empty(t, repo.movements)
+}
+
+func TestService_RecordMovement_UnknownItem(t *testing.T) {
+	svc := NewService(newMockRepository())
+
+	_, err := svc.RecordMovement(context.Background(), RecordMovementInput{
+		TenantID: uuid.New(), ItemID: uuid.New(), MovementType: MovementTypeIn, Quantity: 1,
+	})
+	assert.ErrorIs(t, err, ErrItemNotFound)
+}
+
+func TestService_RecordMovement_NegativeQuantityIsRejected(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Produkt", "P-001", 10, 1)
+
+	_, err := svc.RecordMovement(context.Background(), RecordMovementInput{
+		TenantID: tenantID, ItemID: item.ID, MovementType: MovementTypeIn, Quantity: -4,
+	})
+
+	assert.ErrorIs(t, err, ErrInvalidInput)
+	assert.Equal(t, int64(10), repo.items[item.ID].Quantity, "a negative inbound must not drain the stock")
 }
 
 func TestService_RecordMovement_ZeroQuantity(t *testing.T) {
@@ -1152,4 +1228,24 @@ func TestService_TransferStock_InsufficientSource(t *testing.T) {
 	assert.Equal(t, int64(0), repo.items[toItem.ID].Quantity)
 	// No movements must have been recorded
 	assert.Len(t, repo.movements, 0)
+}
+
+func TestService_UpdateItem_SerialNumbersReplaceClearOrStay(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Bohrer", "P-010", 5, 1)
+	item.SerialNumbers = []string{"old-1", "old-2"}
+
+	updated, err := svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID, SerialNumbers: []string{"n-1"}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"n-1"}, updated.SerialNumbers)
+
+	updated, err = svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"n-1"}, updated.SerialNumbers, "nil leaves the list alone")
+
+	updated, err = svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID, SerialNumbers: []string{}})
+	require.NoError(t, err)
+	assert.Empty(t, updated.SerialNumbers, "an empty non-nil list clears it")
 }

@@ -197,13 +197,30 @@ func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Reque
 	if s := q.Get("status"); s != "" {
 		grpcReq.Status = &s
 	}
+	// from/to bound the week view; without them the page is the first 50 shifts of the tenant.
+	if v := q.Get("from"); v != "" {
+		ts, err := parseRFC3339ToTimestamp(v)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid from: use RFC3339")
+			return
+		}
+		grpcReq.From = ts
+	}
+	if v := q.Get("to"); v != "" {
+		ts, err := parseRFC3339ToTimestamp(v)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, "invalid to: use RFC3339")
+			return
+		}
+		grpcReq.To = ts
+	}
 
 	resp, err := client.ListShifts(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +266,7 @@ func (sr *SchichtenRoutes) HandleCreateShift(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (sr *SchichtenRoutes) HandleGetShift(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +294,7 @@ func (sr *SchichtenRoutes) HandleGetShift(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Request) {
@@ -331,7 +348,7 @@ func (sr *SchichtenRoutes) HandleUpdateShift(w http.ResponseWriter, r *http.Requ
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleDeleteShift(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +416,7 @@ func (sr *SchichtenRoutes) HandlePublishShifts(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -431,7 +448,7 @@ func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.Request) {
@@ -468,7 +485,7 @@ func (sr *SchichtenRoutes) HandleAssignEmployee(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (sr *SchichtenRoutes) HandleUnassignEmployee(w http.ResponseWriter, r *http.Request) {
@@ -531,7 +548,7 @@ func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -565,7 +582,7 @@ func (sr *SchichtenRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.Request) {
@@ -607,7 +624,7 @@ func (sr *SchichtenRoutes) HandleUpdateTemplate(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleDeleteTemplate(w http.ResponseWriter, r *http.Request) {
@@ -682,7 +699,7 @@ func (sr *SchichtenRoutes) HandleApplyTemplate(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 // ============================================================================
@@ -729,7 +746,7 @@ func (sr *SchichtenRoutes) HandleCheckArbzgCompliance(w http.ResponseWriter, r *
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Request) {
@@ -765,7 +782,7 @@ func (sr *SchichtenRoutes) HandleGetShiftStats(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -820,7 +837,7 @@ func (sr *SchichtenRoutes) HandleCreateSwapRequest(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http.Request) {
@@ -866,7 +883,7 @@ func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleApproveSwapRequest(w http.ResponseWriter, r *http.Request) {
@@ -894,7 +911,7 @@ func (sr *SchichtenRoutes) HandleApproveSwapRequest(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (sr *SchichtenRoutes) HandleRejectSwapRequest(w http.ResponseWriter, r *http.Request) {
@@ -922,7 +939,7 @@ func (sr *SchichtenRoutes) HandleRejectSwapRequest(w http.ResponseWriter, r *htt
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================

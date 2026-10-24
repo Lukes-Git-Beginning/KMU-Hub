@@ -114,6 +114,78 @@ func (r *PostgresRepository) ListByFolder(ctx context.Context, folderID uuid.UUI
 	return messages, total, err
 }
 
+// List returns messages matching f, newest first unless opts.SortDir is ASC.
+// Tenant isolation comes from RLS, as for the other list queries; callers pass
+// AccountIDs to confine the result to the accounts the user owns.
+func (r *PostgresRepository) List(ctx context.Context, f ListFilter, opts ListOpts) ([]*models.EmailMessage, int, error) {
+	if opts.PerPage <= 0 || opts.PerPage > 100 {
+		opts.PerPage = 50
+	}
+	if opts.Page < 1 {
+		opts.Page = 1
+	}
+	offset := (opts.Page - 1) * opts.PerPage
+
+	var conds []string
+	var args []any
+	arg := func(v any) string {
+		args = append(args, v)
+		return fmt.Sprintf("$%d", len(args))
+	}
+	if f.FolderID != uuid.Nil {
+		conds = append(conds, "folder_id = "+arg(f.FolderID))
+	}
+	if f.AccountIDs != nil {
+		conds = append(conds, "account_id = ANY("+arg(f.AccountIDs)+")")
+	}
+	if f.InboxOnly {
+		conds = append(conds, "folder_id IN (SELECT id FROM email_folders WHERE folder_type = 'inbox')")
+	}
+	if f.LabelID != uuid.Nil {
+		conds = append(conds, arg(f.LabelID)+" = ANY(label_ids)")
+	}
+	if f.UnreadOnly {
+		conds = append(conds, "is_read = false")
+	}
+	if f.StarredOnly {
+		conds = append(conds, "is_starred = true")
+	}
+	if f.SearchQuery != "" {
+		conds = append(conds, "search_vector @@ plainto_tsquery('german', "+arg(f.SearchQuery)+")")
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
+	}
+
+	var total int
+	if err := r.pool.QueryRow(ctx, `SELECT COUNT(*) FROM email_messages`+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	orderDir := "DESC"
+	if strings.ToUpper(opts.SortDir) == "ASC" {
+		orderDir = "ASC"
+	}
+	rows, err := r.pool.Query(ctx,
+		fmt.Sprintf(`SELECT id, account_id, folder_id, uid, message_id, in_reply_to,
+			"references", thread_id, from_name, from_email, to_addresses,
+			cc_addresses, bcc_addresses, subject, preview, body_text, body_html,
+			is_read, is_starred, is_draft, has_attachments, date, size_bytes,
+			raw_headers, label_ids, created_at, updated_at
+		 FROM email_messages%s ORDER BY date %s LIMIT %s OFFSET %s`,
+			where, orderDir, arg(opts.PerPage), arg(offset)),
+		args...,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	messages, err := collectMessages(rows)
+	return messages, total, err
+}
+
 func (r *PostgresRepository) ListByThread(ctx context.Context, threadID uuid.UUID) ([]*models.EmailMessage, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, account_id, folder_id, uid, message_id, in_reply_to,

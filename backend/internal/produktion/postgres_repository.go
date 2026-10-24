@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	_ "time/tzdata" // the alpine runtime image ships no zoneinfo; LoadLocation would fail there
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -503,11 +504,27 @@ func (r *PostgresRepository) GetCapacityOverview(ctx context.Context, tenantID u
 	}, nil
 }
 
-// isoWeekBounds returns Monday 00:00 UTC and the following Monday 00:00 UTC
-// for the given ISO year and week number.
+// planningLocation is the wall-clock zone production weeks are read in. A
+// booking stored as Sunday 23:30 UTC is Monday 01:30 in Berlin and belongs to
+// the week that starts on that Monday; summing against UTC weeks would put it
+// into the previous one.
+//
+// lean: fixed to Europe/Berlin rather than read from hr_company_settings.timezone
+// (produktion stays decoupled from hr) or a per-tenant setting (no migration).
+// Thread the tenant's zone through once a tenant outside Europe/Berlin exists.
+var planningLocation = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return time.UTC
+	}
+	return loc
+}()
+
+// isoWeekBounds returns Monday 00:00 and the following Monday 00:00 in
+// planningLocation for the given ISO year and week number.
 func isoWeekBounds(year, week int) (time.Time, time.Time) {
 	// Jan 4 is always in week 1 per ISO 8601.
-	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.UTC)
+	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, planningLocation)
 	// Offset to Monday of week 1.
 	_, w1 := jan4.ISOWeek()
 	_ = w1

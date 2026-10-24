@@ -3667,6 +3667,7 @@ type ListWorkTimeEntriesReq struct {
 	EndDate       string                 `protobuf:"bytes,4,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`          // YYYY-MM-DD
 	Page          int32                  `protobuf:"varint,5,opt,name=page,proto3" json:"page,omitempty"`
 	PerPage       int32                  `protobuf:"varint,6,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	Status        string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"` // Optional: active|completed|correction_pending|correction_approved|superseded
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3741,6 +3742,13 @@ func (x *ListWorkTimeEntriesReq) GetPerPage() int32 {
 		return x.PerPage
 	}
 	return 0
+}
+
+func (x *ListWorkTimeEntriesReq) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
 }
 
 type ListWorkTimeEntriesResp struct {
@@ -9771,7 +9779,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x12GetActiveShiftResp\x12*\n" +
 	"\x05entry\x18\x01 \x01(\v2\x14.hr.v1.WorkTimeEntryR\x05entry\x12\x1e\n" +
 	"\vis_on_break\x18\x02 \x01(\bR\tisOnBreak\x124\n" +
-	"\factive_break\x18\x03 \x01(\v2\x11.hr.v1.BreakEntryR\vactiveBreak\"\xbf\x01\n" +
+	"\factive_break\x18\x03 \x01(\v2\x11.hr.v1.BreakEntryR\vactiveBreak\"\xd7\x01\n" +
 	"\x16ListWorkTimeEntriesReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vemployee_id\x18\x02 \x01(\tR\n" +
@@ -9780,7 +9788,8 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"start_date\x18\x03 \x01(\tR\tstartDate\x12\x19\n" +
 	"\bend_date\x18\x04 \x01(\tR\aendDate\x12\x12\n" +
 	"\x04page\x18\x05 \x01(\x05R\x04page\x12\x19\n" +
-	"\bper_page\x18\x06 \x01(\x05R\aperPage\"\x8e\x01\n" +
+	"\bper_page\x18\x06 \x01(\x05R\aperPage\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\"\x8e\x01\n" +
 	"\x17ListWorkTimeEntriesResp\x12.\n" +
 	"\aentries\x18\x01 \x03(\v2\x14.hr.v1.WorkTimeEntryR\aentries\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +

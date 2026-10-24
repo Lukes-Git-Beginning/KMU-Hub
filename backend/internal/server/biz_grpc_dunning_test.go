@@ -78,7 +78,7 @@ func TestSendDunning_ResponsePopulated(t *testing.T) {
 	svc := dunning.NewService(repo, nil, nil)
 	srv := &BizGRPCServer{dunningService: svc}
 
-	resp, err := srv.SendDunning(context.Background(), &bizv1.SendDunningRequest{
+	resp, err := srv.SendDunning(bizActorCtx(tenantID), &bizv1.SendDunningRequest{
 		TenantId: tenantID.String(),
 		Id:       dunningID.String(),
 	})

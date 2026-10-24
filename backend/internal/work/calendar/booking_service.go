@@ -113,6 +113,9 @@ func (s *BookingService) UpdateBookingPage(ctx context.Context, id, tenantID uui
 
 	if input.LogoURL != nil {
 		page.LogoURL = input.LogoURL
+		if *input.LogoURL == "" {
+			page.LogoURL = nil
+		}
 	}
 
 	if input.Services != nil {

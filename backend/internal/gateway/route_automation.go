@@ -190,7 +190,7 @@ func (ar *AutomationRoutes) HandleCreateAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	writeAutomation(w, http.StatusCreated, resp.GetAutomation())
 }
 
 func (ar *AutomationRoutes) HandleListAutomations(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +236,8 @@ func (ar *AutomationRoutes) HandleListAutomations(w http.ResponseWriter, r *http
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	items, err := wireList(resp.GetAutomations(), automationWire)
+	writeAutomationWire(w, http.StatusOK, automationListWire{Automations: items, TotalCount: resp.GetTotalCount()}, err)
 }
 
 func (ar *AutomationRoutes) HandleGetAutomation(w http.ResponseWriter, r *http.Request) {
@@ -259,7 +260,7 @@ func (ar *AutomationRoutes) HandleGetAutomation(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeAutomation(w, http.StatusOK, resp.GetAutomation())
 }
 
 func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +338,7 @@ func (ar *AutomationRoutes) HandleUpdateAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeAutomation(w, http.StatusOK, resp.GetAutomation())
 }
 
 func (ar *AutomationRoutes) HandleDeleteAutomation(w http.ResponseWriter, r *http.Request) {
@@ -387,7 +388,7 @@ func (ar *AutomationRoutes) HandleEnableAutomation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeAutomation(w, http.StatusOK, resp.GetAutomation())
 }
 
 func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +411,7 @@ func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeAutomation(w, http.StatusOK, resp.GetAutomation())
 }
 
 // ============================================================================
@@ -454,7 +455,8 @@ func (ar *AutomationRoutes) HandleListExecutions(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	items, err := wireList(resp.GetExecutions(), automationExecutionWire)
+	writeAutomationWire(w, http.StatusOK, automationExecutionListWire{Executions: items, TotalCount: resp.GetTotalCount()}, err)
 }
 
 func (ar *AutomationRoutes) HandleGetExecution(w http.ResponseWriter, r *http.Request) {
@@ -477,7 +479,7 @@ func (ar *AutomationRoutes) HandleGetExecution(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	writeAutomationExecution(w, http.StatusOK, resp.GetExecution())
 }
 
 // ============================================================================
@@ -497,7 +499,7 @@ func (ar *AutomationRoutes) HandleListTriggers(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Request) {
@@ -513,7 +515,7 @@ func (ar *AutomationRoutes) HandleListActions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -538,7 +540,8 @@ func (ar *AutomationRoutes) HandleListTemplates(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	items, err := wireList(resp.GetTemplates(), automationTemplateWire)
+	writeAutomationWire(w, http.StatusOK, automationTemplateListWire{Templates: items}, err)
 }
 
 type createFromTemplateRequest struct {
@@ -571,7 +574,7 @@ func (ar *AutomationRoutes) HandleCreateFromTemplate(w http.ResponseWriter, r *h
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	writeAutomation(w, http.StatusCreated, resp.GetAutomation())
 }
 
 // ============================================================================
@@ -613,7 +616,7 @@ func (ar *AutomationRoutes) HandleTestCondition(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, testConditionWire{Matches: resp.GetMatches(), Error: resp.GetErrorMessage()})
 }
 
 type dryRunRequest struct {
@@ -648,7 +651,8 @@ func (ar *AutomationRoutes) HandleDryRun(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	wire, err := toDryRunWire(resp)
+	writeAutomationWire(w, http.StatusOK, wire, err)
 }
 
 // ============================================================================

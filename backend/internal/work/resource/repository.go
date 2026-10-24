@@ -17,6 +17,9 @@ type ResourceFilters struct {
 	Tags        []string
 	Floor       *string
 	IsActive    *bool
+	// IncludeInactive lists active and inactive resources alike. Without it a
+	// nil IsActive means active-only (Service.List); the repository ignores it.
+	IncludeInactive bool
 }
 
 // Repository defines the interface for resource persistence

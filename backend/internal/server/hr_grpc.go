@@ -512,6 +512,13 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 		}
 	}
 
+	if st := req.GetStatus(); st != "" {
+		if workTimeStatusToProto(models.WorkTimeEntryStatus(st)) == hrv1.WorkTimeEntryStatus_WORK_TIME_ENTRY_STATUS_UNSPECIFIED {
+			return nil, status.Error(codes.InvalidArgument, "invalid status")
+		}
+		filter.Status = &st
+	}
+
 	entries, total, err := s.timetrackingService.ListWorkTimeEntries(ctx, filter)
 	if err != nil {
 		return nil, mapHRError(err)
@@ -2091,6 +2098,10 @@ func mapHRError(err error) error {
 	switch {
 	// Leave errors
 	case errors.Is(err, leave.ErrLeaveRequestNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	// No row yet for a tenant that never saved its HR settings; the gateway turns this into
+	// an empty settings object (GET) or a first save (PUT).
+	case errors.Is(err, leave.ErrSettingsNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, leave.ErrInvalidTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())

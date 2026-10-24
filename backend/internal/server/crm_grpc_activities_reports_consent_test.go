@@ -1448,3 +1448,33 @@ func TestProcessDeletion_HappyPath(t *testing.T) {
 		t.Fatalf("expected deletion request status updated to completed")
 	}
 }
+
+// The desktop sends due_date as YYYY-MM-DD (<input type="date">) and echoes the
+// stored value back sliced to ten characters; both RPCs must take a bare date.
+func TestActivityDueDate_AcceptsBareDateAndRFC3339(t *testing.T) {
+	repo := newStubActivityRepo()
+	srv := newCRMServerWithActivityRepo(repo)
+	tenantID := uuid.New()
+
+	created, err := srv.CreateActivity(ctxWithTenant(tenantID), &crmv1.CreateActivityRequest{
+		ActivityType: "task", Subject: "Angebot nachfassen", CreatedBy: uuid.New().String(), DueDate: "2026-11-01",
+	})
+	requireGRPCOK(t, err)
+	if got := created.Activity.DueDate; got != "2026-11-01T00:00:00Z" {
+		t.Fatalf("expected due_date 2026-11-01T00:00:00Z, got %q", got)
+	}
+
+	for _, in := range []string{"2026-11-02", "2026-11-03T10:30:00Z"} {
+		due := in
+		resp, err := srv.UpdateActivity(ctxWithTenant(tenantID), &crmv1.UpdateActivityRequest{Id: created.Activity.Id, DueDate: &due})
+		requireGRPCOK(t, err)
+		if len(resp.Activity.DueDate) < 10 || resp.Activity.DueDate[:10] != in[:10] {
+			t.Fatalf("update with %q stored %q", in, resp.Activity.DueDate)
+		}
+	}
+
+	_, err = srv.CreateActivity(ctxWithTenant(tenantID), &crmv1.CreateActivityRequest{
+		ActivityType: "task", Subject: "x", CreatedBy: uuid.New().String(), DueDate: "01.11.2026",
+	})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+}

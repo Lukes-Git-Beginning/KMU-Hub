@@ -149,3 +149,44 @@ func TestTenantInboundUnaryInterceptor_EmptyTenantHeader(t *testing.T) {
 		t.Errorf("expected ErrMissingTenantID for empty header, got %v", tenantErr)
 	}
 }
+
+// ─── Forwarded permissions ────────────────────────────────────────────────────
+
+// Only the allow-listed keys cross the gateway->service hop; the rest of the
+// JWT permission list stays at the gateway.
+func TestPermissionForwarding_OnlyAllowListedKeysArrive(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserPermsKey,
+		[]string{"inbox:write", PermTeamInboxManage, "crm:delete"})
+
+	var outgoingCtx context.Context
+	if err := TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx)); err != nil {
+		t.Fatalf("outbound: %v", err)
+	}
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	if got := md.Get(gRPCPermsHeader); len(got) != 1 || got[0] != PermTeamInboxManage {
+		t.Fatalf("x-user-perms = %v; want only %q", got, PermTeamInboxManage)
+	}
+
+	// The receiving side filters again: a hand-built header cannot smuggle keys in.
+	in := metadata.NewIncomingContext(context.Background(),
+		metadata.Pairs(gRPCPermsHeader, "crm:delete,"+PermTeamInboxManage))
+	res, err := TenantInboundUnaryInterceptor()(in, nil, &grpc.UnaryServerInfo{}, fakeUnaryHandler)
+	if err != nil {
+		t.Fatalf("inbound: %v", err)
+	}
+	got := GetUserPermissions(res.(context.Context))
+	if len(got) != 1 || got[0] != PermTeamInboxManage {
+		t.Fatalf("GetUserPermissions = %v; want only %q", got, PermTeamInboxManage)
+	}
+}
+
+func TestPermissionForwarding_NoKeyNoHeader(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserPermsKey, []string{"inbox:write"})
+
+	var outgoingCtx context.Context
+	_ = TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx))
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	if got := md.Get(gRPCPermsHeader); len(got) != 0 {
+		t.Fatalf("unexpected x-user-perms header: %v", got)
+	}
+}

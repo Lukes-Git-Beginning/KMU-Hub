@@ -133,6 +133,7 @@ func TestSearchByQuery_ContactFinanceBeyondInvoices_Integration(t *testing.T) {
 	}
 	booking("Fiona Finanzbuch", "DE89 3704 0044 0532 0130 00", "Rechnung RE-17")
 	booking("Jemand Anderes", "DE02120300000000202051", "Gehalt")
+	booking("Finanz AG", "DE44500105175407324931", "Lieferantenzahlung") // the contact's company
 
 	// --- act ------------------------------------------------------------------
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
@@ -159,11 +160,11 @@ func TestSearchByQuery_ContactFinanceBeyondInvoices_Integration(t *testing.T) {
 	require.Len(t, dunning, 1, "only the dunning of the contact's own invoice")
 	assert.Equal(t, "2", dunning[0]["Mahnstufe"])
 
-	assert.ElementsMatch(t, []string{"ER-1", "ER-2"}, column("Eingangsrechnungen (Namensabgleich)", "Rechnungsnummer"),
-		"supplier name equal to company or full name, other tenant's namesake supplier excluded")
+	assert.ElementsMatch(t, []string{"ER-2"}, column("Eingangsrechnungen (Namensabgleich)", "Rechnungsnummer"),
+		"supplier name equal to the full name only: the contact's company is a third party")
 
 	bank := recordMaps(dsarModule(t, person, "Bankumsätze (Namensabgleich)"))
-	require.Len(t, bank, 1)
+	require.Len(t, bank, 1, "only the full-name counterparty, never the contact's company")
 	assert.Equal(t, "****3000", bank[0]["IBAN"], "IBAN must be masked to the last four digits")
 	assert.Equal(t, "Rechnung RE-17", bank[0]["Verwendungszweck"])
 	assert.Equal(t, "119.50 EUR", bank[0]["Betrag"])
@@ -189,7 +190,8 @@ func TestSearchByQuery_ContactFinanceBeyondInvoices_Integration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, foreign, 1)
 	assert.Equal(t, []string{"AN-FOREIGN"}, column2(t, foreign[0], "Angebote", "Angebotsnummer"))
-	assert.Equal(t, []string{"ER-4"}, column2(t, foreign[0], "Eingangsrechnungen (Namensabgleich)", "Rechnungsnummer"))
+	assert.NotContains(t, moduleNames(foreign[0]), "Eingangsrechnungen (Namensabgleich)",
+		"ER-4 names only the foreign contact's company")
 	assert.NotContains(t, moduleNames(foreign[0]), "Bankumsätze (Namensabgleich)")
 	assert.NotContains(t, moduleNames(foreign[0]), "Gutschriften")
 }

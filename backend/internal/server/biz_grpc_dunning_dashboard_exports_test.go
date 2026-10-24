@@ -329,6 +329,20 @@ func TestCreateDunning(t *testing.T) {
 		assert.Equal(t, invoiceID.String(), resp.GetDunning().GetInvoiceId())
 		assert.Equal(t, int32(1), resp.GetDunning().GetLevel())
 	})
+
+	// The desktop "detect" button needs every draft of the run, not only the first.
+	t.Run("answers every draft the run created", func(t *testing.T) {
+		first, second := uuid.New(), uuid.New()
+		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{
+			{ID: first, TenantID: tenantID, DueDate: time.Now().Add(-30 * 24 * time.Hour)},
+			{ID: second, TenantID: tenantID, DueDate: time.Now().Add(-30 * 24 * time.Hour)},
+		}}
+		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{config: defaultDunningConfig(tenantID)}, invReader)
+		resp, err := srv.CreateDunning(context.Background(), &bizv1.CreateDunningRequest{TenantId: tenantID.String()})
+		require.NoError(t, err)
+		require.Len(t, resp.GetDunnings(), 2)
+		assert.Equal(t, resp.GetDunnings()[0].GetId(), resp.GetDunning().GetId())
+	})
 }
 
 // ============================================================================
@@ -388,6 +402,43 @@ func TestEscalateDunning(t *testing.T) {
 			TenantId: tenantID.String(), InvoiceId: invoiceID.String(),
 		})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
+	})
+
+	// The desktop client escalates by dunning id and sends no invoice id: the invoice is
+	// resolved from the stored record.
+	t.Run("dunning_id resolves the invoice and escalates to level 2", func(t *testing.T) {
+		invoiceID := uuid.New()
+		repo := newStubDunningRecordRepo()
+		sentAt := time.Now().Add(-40 * 24 * time.Hour)
+		level1 := &models.DunningRecord{
+			ID: uuid.New(), TenantID: tenantID, InvoiceID: invoiceID,
+			Level: 1, Status: models.DunningStatusSent, SentAt: &sentAt,
+			Fee: decimal.Zero, Interest: decimal.Zero, CreatedBy: uuid.New(), CreatedAt: sentAt,
+		}
+		repo.records[level1.ID] = level1
+		repo.byInvoice[invoiceID] = []*models.DunningRecord{level1}
+		invReader := &stubDunningInvoiceReader{overdue: []*models.Invoice{{
+			ID: invoiceID, TenantID: tenantID, DueDate: time.Now().Add(-60 * 24 * time.Hour),
+		}}}
+		srv := newDunningTestServer(repo, &stubDunningConfigRepo{config: defaultDunningConfig(tenantID)}, invReader)
+		resp, err := srv.EscalateDunning(context.Background(), &bizv1.EscalateDunningRequest{
+			TenantId: tenantID.String(), DunningId: level1.ID.String(),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int32(2), resp.GetDunning().GetLevel())
+		assert.Equal(t, invoiceID.String(), resp.GetDunning().GetInvoiceId())
+	})
+
+	t.Run("unknown dunning_id is not found, malformed is invalid", func(t *testing.T) {
+		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{config: defaultDunningConfig(tenantID)}, &stubDunningInvoiceReader{})
+		_, err := srv.EscalateDunning(context.Background(), &bizv1.EscalateDunningRequest{
+			TenantId: tenantID.String(), DunningId: uuid.New().String(),
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.EscalateDunning(context.Background(), &bizv1.EscalateDunningRequest{
+			TenantId: tenantID.String(), DunningId: "not-a-uuid",
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
 	t.Run("happy path escalates to level 1", func(t *testing.T) {
@@ -515,7 +566,7 @@ func TestSendDunningNotice(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newDunningTestServer(newStubDunningRecordRepo(), &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		_, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		_, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: "not-a-uuid",
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
@@ -526,7 +577,7 @@ func TestSendDunningNotice(t *testing.T) {
 		dunningID := uuid.New()
 		repo.records[dunningID] = &models.DunningRecord{ID: dunningID, TenantID: tenantID, Status: models.DunningStatusSent}
 		srv := newDunningTestServer(repo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		_, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		_, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: dunningID.String(),
 		})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
@@ -537,7 +588,7 @@ func TestSendDunningNotice(t *testing.T) {
 		dunningID := uuid.New()
 		repo.records[dunningID] = &models.DunningRecord{ID: dunningID, TenantID: tenantID, Status: models.DunningStatusDraft}
 		srv := newDunningTestServer(repo, &stubDunningConfigRepo{}, &stubDunningInvoiceReader{})
-		resp, err := srv.SendDunningNotice(context.Background(), &bizv1.SendDunningNoticeRequest{
+		resp, err := srv.SendDunningNotice(bizActorCtx(tenantID), &bizv1.SendDunningNoticeRequest{
 			TenantId: tenantID.String(), Id: dunningID.String(),
 		})
 		require.NoError(t, err)
@@ -638,12 +689,21 @@ func TestGetFinanceDashboard(t *testing.T) {
 			StatusBreakdown: models.InvoiceStatusBreakdown{Draft: 1, Sent: 2, Overdue: 1, Paid: 3, Cancelled: 0},
 			MonthlyRevenue:  decimal.NewFromInt(600),
 			MonthsInRange:   6,
+			RevenueByMonth: []models.MonthlyRevenuePoint{
+				{Month: "2026-02-01", Revenue: decimal.RequireFromString("42300.5")},
+				{Month: "2026-03-01", Revenue: decimal.NewFromInt(47500)},
+			},
 		}}
 		srv := newDashboardTestServer(repo)
 		resp, err := srv.GetFinanceDashboard(context.Background(), &bizv1.GetFinanceDashboardRequest{TenantId: tenantID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, "1000", resp.GetDashboard().GetTotalInvoiced())
 		assert.Equal(t, int32(3), resp.GetDashboard().GetQuotesPending())
+		assert.InDelta(t, 47500, resp.GetDashboard().GetRevenueThisMonth(), 0.001)
+		assert.InDelta(t, 42300.5, resp.GetDashboard().GetRevenueLastMonth(), 0.001)
+		require.Len(t, resp.GetDashboard().GetMonthlyRevenue(), 2)
+		assert.Equal(t, "2026-02-01", resp.GetDashboard().GetMonthlyRevenue()[0].GetMonth())
+		assert.InDelta(t, 42300.5, resp.GetDashboard().GetMonthlyRevenue()[0].GetRevenue(), 0.001)
 	})
 
 	t.Run("repo error maps to internal", func(t *testing.T) {

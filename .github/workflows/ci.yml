@@ -267,6 +267,8 @@ jobs:
           go build -o bin/work ./cmd/work
           go build -o bin/document ./cmd/document
           go build -o bin/dialer ./cmd/dialer
+          go build -o bin/biz ./cmd/biz
+          go build -o bin/notification ./cmd/notification
 
       - name: Start auth service
         working-directory: backend
@@ -370,6 +372,43 @@ jobs:
             sleep 1
           done
 
+      - name: Start biz service
+        # Finance flows (quotes, invoices, credit notes). Needs MinIO for the
+        # GoBD archive, which is already up.
+        working-directory: backend
+        run: |
+          ./bin/biz > /tmp/biz.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9098/health > /dev/null 2>&1; then
+              echo "Biz service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Biz service failed to start"
+              cat /tmp/biz.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Start notification service
+        # Serves the inbox (team inboxes, routing rules) next to notifications.
+        working-directory: backend
+        run: |
+          ./bin/notification > /tmp/notification.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9094/health > /dev/null 2>&1; then
+              echo "Notification service healthy"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "Notification service failed to start"
+              cat /tmp/notification.log
+              exit 1
+            fi
+            sleep 1
+          done
+
       - name: Start gateway service
         working-directory: backend
         run: |
@@ -406,6 +445,10 @@ jobs:
           cat /tmp/document.log || true
           echo "=== Dialer Service Logs ==="
           cat /tmp/dialer.log || true
+          echo "=== Biz Service Logs ==="
+          cat /tmp/biz.log || true
+          echo "=== Notification Service Logs ==="
+          cat /tmp/notification.log || true
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
 

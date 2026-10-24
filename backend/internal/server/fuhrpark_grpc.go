@@ -1563,6 +1563,8 @@ func vehicleRouteToProto(r fuhrpark.VehicleRouteAggregation) *fuhrparkv1.Vehicle
 	for i, p := range r.Positions {
 		positions[i] = gpsPositionToProto(p)
 	}
+	// Driver stays empty: vehicles.assigned_driver_id has no name source yet (stub, no FK). The gateway
+	// writes it as "" so the route list can search it.
 	return &fuhrparkv1.VehicleRoute{
 		VehicleId:   r.VehicleID.String(),
 		VehicleName: r.VehicleName,

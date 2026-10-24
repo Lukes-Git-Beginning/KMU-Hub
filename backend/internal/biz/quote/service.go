@@ -103,6 +103,9 @@ type CreateInput struct {
 	Notes           string
 	DealID          *uuid.UUID
 	UserID          uuid.UUID
+	// Currency overrides the tenant default (ISO 4217). Empty means "use the
+	// tenant default".
+	Currency string
 }
 
 // Create creates a new quote with tax calculation and optional deal sync.
@@ -155,10 +158,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Quote,
 		validUntil = &expiry
 	}
 
-	// Currency: tenant default from company settings, else the system default (EUR).
+	// Currency: explicit input wins, then the tenant default from company
+	// settings, then the system default (EUR).
 	currency := models.DefaultCurrency
 	if settings != nil && settings.DefaultCurrency != "" {
 		currency = settings.DefaultCurrency
+	}
+	if input.Currency != "" {
+		currency = input.Currency
 	}
 
 	now := time.Now()
@@ -235,6 +242,7 @@ type UpdateInput struct {
 	TaxMode         *string
 	LineItems       []models.LineItem // nil = no change, empty = error
 	ValidUntil      *time.Time
+	Currency        *string // ISO 4217; nil or empty = no change
 	Notes           *string
 	DealID          *uuid.UUID
 }
@@ -267,6 +275,9 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	}
 	if input.ValidUntil != nil {
 		quote.ValidUntil = input.ValidUntil
+	}
+	if input.Currency != nil && *input.Currency != "" {
+		quote.Currency = *input.Currency
 	}
 	if input.DealID != nil {
 		quote.DealID = input.DealID

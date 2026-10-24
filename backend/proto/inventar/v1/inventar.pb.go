@@ -650,6 +650,52 @@ func (x *GetItemRequest) GetItemId() string {
 	return ""
 }
 
+// SerialNumberList wraps the list so that an absent field (leave unchanged)
+// can be told apart from an empty list (clear all serial numbers).
+type SerialNumberList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SerialNumberList) Reset() {
+	*x = SerialNumberList{}
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SerialNumberList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SerialNumberList) ProtoMessage() {}
+
+func (x *SerialNumberList) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SerialNumberList.ProtoReflect.Descriptor instead.
+func (*SerialNumberList) Descriptor() ([]byte, []int) {
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SerialNumberList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 type UpdateItemRequest struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	TenantId            string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -666,13 +712,14 @@ type UpdateItemRequest struct {
 	Currency            *string                `protobuf:"bytes,12,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
 	BatchNumber         *string                `protobuf:"bytes,13,opt,name=batch_number,json=batchNumber,proto3,oneof" json:"batch_number,omitempty"`
 	LinkedPurchaseOrder *string                `protobuf:"bytes,14,opt,name=linked_purchase_order,json=linkedPurchaseOrder,proto3,oneof" json:"linked_purchase_order,omitempty"`
+	SerialNumbers       *SerialNumberList      `protobuf:"bytes,15,opt,name=serial_numbers,json=serialNumbers,proto3,oneof" json:"serial_numbers,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
 
 func (x *UpdateItemRequest) Reset() {
 	*x = UpdateItemRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[5]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -684,7 +731,7 @@ func (x *UpdateItemRequest) String() string {
 func (*UpdateItemRequest) ProtoMessage() {}
 
 func (x *UpdateItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[5]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -697,7 +744,7 @@ func (x *UpdateItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateItemRequest.ProtoReflect.Descriptor instead.
 func (*UpdateItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{5}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UpdateItemRequest) GetTenantId() string {
@@ -798,6 +845,13 @@ func (x *UpdateItemRequest) GetLinkedPurchaseOrder() string {
 	return ""
 }
 
+func (x *UpdateItemRequest) GetSerialNumbers() *SerialNumberList {
+	if x != nil {
+		return x.SerialNumbers
+	}
+	return nil
+}
+
 type DeleteItemRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -808,7 +862,7 @@ type DeleteItemRequest struct {
 
 func (x *DeleteItemRequest) Reset() {
 	*x = DeleteItemRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[6]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -820,7 +874,7 @@ func (x *DeleteItemRequest) String() string {
 func (*DeleteItemRequest) ProtoMessage() {}
 
 func (x *DeleteItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[6]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -833,7 +887,7 @@ func (x *DeleteItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteItemRequest.ProtoReflect.Descriptor instead.
 func (*DeleteItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{6}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteItemRequest) GetTenantId() string {
@@ -858,7 +912,7 @@ type DeleteItemResponse struct {
 
 func (x *DeleteItemResponse) Reset() {
 	*x = DeleteItemResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[7]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +924,7 @@ func (x *DeleteItemResponse) String() string {
 func (*DeleteItemResponse) ProtoMessage() {}
 
 func (x *DeleteItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[7]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +937,7 @@ func (x *DeleteItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteItemResponse.ProtoReflect.Descriptor instead.
 func (*DeleteItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{7}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{8}
 }
 
 type ItemResponse struct {
@@ -895,7 +949,7 @@ type ItemResponse struct {
 
 func (x *ItemResponse) Reset() {
 	*x = ItemResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[8]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -907,7 +961,7 @@ func (x *ItemResponse) String() string {
 func (*ItemResponse) ProtoMessage() {}
 
 func (x *ItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[8]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -920,7 +974,7 @@ func (x *ItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemResponse.ProtoReflect.Descriptor instead.
 func (*ItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{8}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ItemResponse) GetItem() *Item {
@@ -944,7 +998,7 @@ type ListItemsRequest struct {
 
 func (x *ListItemsRequest) Reset() {
 	*x = ListItemsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[9]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -956,7 +1010,7 @@ func (x *ListItemsRequest) String() string {
 func (*ListItemsRequest) ProtoMessage() {}
 
 func (x *ListItemsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[9]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -969,7 +1023,7 @@ func (x *ListItemsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemsRequest.ProtoReflect.Descriptor instead.
 func (*ListItemsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{9}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListItemsRequest) GetTenantId() string {
@@ -1024,7 +1078,7 @@ type ListItemsResponse struct {
 
 func (x *ListItemsResponse) Reset() {
 	*x = ListItemsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[10]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1036,7 +1090,7 @@ func (x *ListItemsResponse) String() string {
 func (*ListItemsResponse) ProtoMessage() {}
 
 func (x *ListItemsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[10]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1049,7 +1103,7 @@ func (x *ListItemsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemsResponse.ProtoReflect.Descriptor instead.
 func (*ListItemsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{10}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListItemsResponse) GetItems() []*Item {
@@ -1079,7 +1133,7 @@ type AdjustStockRequest struct {
 
 func (x *AdjustStockRequest) Reset() {
 	*x = AdjustStockRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[11]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1091,7 +1145,7 @@ func (x *AdjustStockRequest) String() string {
 func (*AdjustStockRequest) ProtoMessage() {}
 
 func (x *AdjustStockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[11]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1104,7 +1158,7 @@ func (x *AdjustStockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AdjustStockRequest.ProtoReflect.Descriptor instead.
 func (*AdjustStockRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{11}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *AdjustStockRequest) GetTenantId() string {
@@ -1156,7 +1210,7 @@ type TransferStockRequest struct {
 
 func (x *TransferStockRequest) Reset() {
 	*x = TransferStockRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[12]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1168,7 +1222,7 @@ func (x *TransferStockRequest) String() string {
 func (*TransferStockRequest) ProtoMessage() {}
 
 func (x *TransferStockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[12]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1181,7 +1235,7 @@ func (x *TransferStockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferStockRequest.ProtoReflect.Descriptor instead.
 func (*TransferStockRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{12}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TransferStockRequest) GetTenantId() string {
@@ -1234,7 +1288,7 @@ type TransferStockResponse struct {
 
 func (x *TransferStockResponse) Reset() {
 	*x = TransferStockResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[13]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1246,7 +1300,7 @@ func (x *TransferStockResponse) String() string {
 func (*TransferStockResponse) ProtoMessage() {}
 
 func (x *TransferStockResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[13]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1259,7 +1313,7 @@ func (x *TransferStockResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransferStockResponse.ProtoReflect.Descriptor instead.
 func (*TransferStockResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{13}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{14}
 }
 
 type RecordMovementRequest struct {
@@ -1276,7 +1330,7 @@ type RecordMovementRequest struct {
 
 func (x *RecordMovementRequest) Reset() {
 	*x = RecordMovementRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[14]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1288,7 +1342,7 @@ func (x *RecordMovementRequest) String() string {
 func (*RecordMovementRequest) ProtoMessage() {}
 
 func (x *RecordMovementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[14]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1301,7 +1355,7 @@ func (x *RecordMovementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordMovementRequest.ProtoReflect.Descriptor instead.
 func (*RecordMovementRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{14}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *RecordMovementRequest) GetTenantId() string {
@@ -1355,7 +1409,7 @@ type MovementResponse struct {
 
 func (x *MovementResponse) Reset() {
 	*x = MovementResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[15]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1367,7 +1421,7 @@ func (x *MovementResponse) String() string {
 func (*MovementResponse) ProtoMessage() {}
 
 func (x *MovementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[15]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1380,7 +1434,7 @@ func (x *MovementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MovementResponse.ProtoReflect.Descriptor instead.
 func (*MovementResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{15}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MovementResponse) GetMovement() *Movement {
@@ -1402,7 +1456,7 @@ type ListMovementsRequest struct {
 
 func (x *ListMovementsRequest) Reset() {
 	*x = ListMovementsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[16]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1414,7 +1468,7 @@ func (x *ListMovementsRequest) String() string {
 func (*ListMovementsRequest) ProtoMessage() {}
 
 func (x *ListMovementsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[16]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1427,7 +1481,7 @@ func (x *ListMovementsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMovementsRequest.ProtoReflect.Descriptor instead.
 func (*ListMovementsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{16}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListMovementsRequest) GetTenantId() string {
@@ -1468,7 +1522,7 @@ type ListMovementsResponse struct {
 
 func (x *ListMovementsResponse) Reset() {
 	*x = ListMovementsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[17]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1480,7 +1534,7 @@ func (x *ListMovementsResponse) String() string {
 func (*ListMovementsResponse) ProtoMessage() {}
 
 func (x *ListMovementsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[17]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1493,7 +1547,7 @@ func (x *ListMovementsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMovementsResponse.ProtoReflect.Descriptor instead.
 func (*ListMovementsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{17}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListMovementsResponse) GetMovements() []*Movement {
@@ -1522,7 +1576,7 @@ type GetStockHistoryRequest struct {
 
 func (x *GetStockHistoryRequest) Reset() {
 	*x = GetStockHistoryRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[18]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1534,7 +1588,7 @@ func (x *GetStockHistoryRequest) String() string {
 func (*GetStockHistoryRequest) ProtoMessage() {}
 
 func (x *GetStockHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[18]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1547,7 +1601,7 @@ func (x *GetStockHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetStockHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{18}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetStockHistoryRequest) GetTenantId() string {
@@ -1590,7 +1644,7 @@ type CreateWarningRequest struct {
 
 func (x *CreateWarningRequest) Reset() {
 	*x = CreateWarningRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[19]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1602,7 +1656,7 @@ func (x *CreateWarningRequest) String() string {
 func (*CreateWarningRequest) ProtoMessage() {}
 
 func (x *CreateWarningRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[19]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1615,7 +1669,7 @@ func (x *CreateWarningRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateWarningRequest.ProtoReflect.Descriptor instead.
 func (*CreateWarningRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{19}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CreateWarningRequest) GetTenantId() string {
@@ -1657,7 +1711,7 @@ type UpdateWarningRequest struct {
 
 func (x *UpdateWarningRequest) Reset() {
 	*x = UpdateWarningRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[20]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1669,7 +1723,7 @@ func (x *UpdateWarningRequest) String() string {
 func (*UpdateWarningRequest) ProtoMessage() {}
 
 func (x *UpdateWarningRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[20]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1682,7 +1736,7 @@ func (x *UpdateWarningRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWarningRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWarningRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{20}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *UpdateWarningRequest) GetTenantId() string {
@@ -1717,7 +1771,7 @@ type AcknowledgeWarningRequest struct {
 
 func (x *AcknowledgeWarningRequest) Reset() {
 	*x = AcknowledgeWarningRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[21]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1729,7 +1783,7 @@ func (x *AcknowledgeWarningRequest) String() string {
 func (*AcknowledgeWarningRequest) ProtoMessage() {}
 
 func (x *AcknowledgeWarningRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[21]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1742,7 +1796,7 @@ func (x *AcknowledgeWarningRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcknowledgeWarningRequest.ProtoReflect.Descriptor instead.
 func (*AcknowledgeWarningRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{21}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AcknowledgeWarningRequest) GetTenantId() string {
@@ -1775,7 +1829,7 @@ type WarningResponse struct {
 
 func (x *WarningResponse) Reset() {
 	*x = WarningResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[22]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1787,7 +1841,7 @@ func (x *WarningResponse) String() string {
 func (*WarningResponse) ProtoMessage() {}
 
 func (x *WarningResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[22]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1800,7 +1854,7 @@ func (x *WarningResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WarningResponse.ProtoReflect.Descriptor instead.
 func (*WarningResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{22}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *WarningResponse) GetWarning() *Warning {
@@ -1822,7 +1876,7 @@ type ListWarningsRequest struct {
 
 func (x *ListWarningsRequest) Reset() {
 	*x = ListWarningsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[23]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1834,7 +1888,7 @@ func (x *ListWarningsRequest) String() string {
 func (*ListWarningsRequest) ProtoMessage() {}
 
 func (x *ListWarningsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[23]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +1901,7 @@ func (x *ListWarningsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWarningsRequest.ProtoReflect.Descriptor instead.
 func (*ListWarningsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{23}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListWarningsRequest) GetTenantId() string {
@@ -1888,7 +1942,7 @@ type ListWarningsResponse struct {
 
 func (x *ListWarningsResponse) Reset() {
 	*x = ListWarningsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[24]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1900,7 +1954,7 @@ func (x *ListWarningsResponse) String() string {
 func (*ListWarningsResponse) ProtoMessage() {}
 
 func (x *ListWarningsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[24]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,7 +1967,7 @@ func (x *ListWarningsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWarningsResponse.ProtoReflect.Descriptor instead.
 func (*ListWarningsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{24}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ListWarningsResponse) GetWarnings() []*Warning {
@@ -1939,7 +1993,7 @@ type GetStockReportRequest struct {
 
 func (x *GetStockReportRequest) Reset() {
 	*x = GetStockReportRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[25]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1951,7 +2005,7 @@ func (x *GetStockReportRequest) String() string {
 func (*GetStockReportRequest) ProtoMessage() {}
 
 func (x *GetStockReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[25]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1964,7 +2018,7 @@ func (x *GetStockReportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockReportRequest.ProtoReflect.Descriptor instead.
 func (*GetStockReportRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{25}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetStockReportRequest) GetTenantId() string {
@@ -1984,7 +2038,7 @@ type UnitQuantity struct {
 
 func (x *UnitQuantity) Reset() {
 	*x = UnitQuantity{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[26]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1996,7 +2050,7 @@ func (x *UnitQuantity) String() string {
 func (*UnitQuantity) ProtoMessage() {}
 
 func (x *UnitQuantity) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[26]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2009,7 +2063,7 @@ func (x *UnitQuantity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnitQuantity.ProtoReflect.Descriptor instead.
 func (*UnitQuantity) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{26}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UnitQuantity) GetUnit() string {
@@ -2043,7 +2097,7 @@ type StockReportResponse struct {
 
 func (x *StockReportResponse) Reset() {
 	*x = StockReportResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[27]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2055,7 +2109,7 @@ func (x *StockReportResponse) String() string {
 func (*StockReportResponse) ProtoMessage() {}
 
 func (x *StockReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[27]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2122,7 @@ func (x *StockReportResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockReportResponse.ProtoReflect.Descriptor instead.
 func (*StockReportResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{27}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StockReportResponse) GetTotalItems() int32 {
@@ -2116,7 +2170,7 @@ type ExportInventoryRequest struct {
 
 func (x *ExportInventoryRequest) Reset() {
 	*x = ExportInventoryRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[28]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2128,7 +2182,7 @@ func (x *ExportInventoryRequest) String() string {
 func (*ExportInventoryRequest) ProtoMessage() {}
 
 func (x *ExportInventoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[28]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2141,7 +2195,7 @@ func (x *ExportInventoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportInventoryRequest.ProtoReflect.Descriptor instead.
 func (*ExportInventoryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{28}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ExportInventoryRequest) GetTenantId() string {
@@ -2169,7 +2223,7 @@ type ExportInventoryResponse struct {
 
 func (x *ExportInventoryResponse) Reset() {
 	*x = ExportInventoryResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2181,7 +2235,7 @@ func (x *ExportInventoryResponse) String() string {
 func (*ExportInventoryResponse) ProtoMessage() {}
 
 func (x *ExportInventoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[29]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2194,7 +2248,7 @@ func (x *ExportInventoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportInventoryResponse.ProtoReflect.Descriptor instead.
 func (*ExportInventoryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{29}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ExportInventoryResponse) GetPayload() []byte {
@@ -2233,7 +2287,7 @@ type Location struct {
 
 func (x *Location) Reset() {
 	*x = Location{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2245,7 +2299,7 @@ func (x *Location) String() string {
 func (*Location) ProtoMessage() {}
 
 func (x *Location) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[30]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2258,7 +2312,7 @@ func (x *Location) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Location.ProtoReflect.Descriptor instead.
 func (*Location) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{30}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Location) GetId() string {
@@ -2322,7 +2376,7 @@ type CreateLocationRequest struct {
 
 func (x *CreateLocationRequest) Reset() {
 	*x = CreateLocationRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2334,7 +2388,7 @@ func (x *CreateLocationRequest) String() string {
 func (*CreateLocationRequest) ProtoMessage() {}
 
 func (x *CreateLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[31]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2347,7 +2401,7 @@ func (x *CreateLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLocationRequest.ProtoReflect.Descriptor instead.
 func (*CreateLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{31}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CreateLocationRequest) GetTenantId() string {
@@ -2388,7 +2442,7 @@ type GetLocationRequest struct {
 
 func (x *GetLocationRequest) Reset() {
 	*x = GetLocationRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2400,7 +2454,7 @@ func (x *GetLocationRequest) String() string {
 func (*GetLocationRequest) ProtoMessage() {}
 
 func (x *GetLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[32]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2413,7 +2467,7 @@ func (x *GetLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLocationRequest.ProtoReflect.Descriptor instead.
 func (*GetLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{32}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetLocationRequest) GetTenantId() string {
@@ -2443,7 +2497,7 @@ type UpdateLocationRequest struct {
 
 func (x *UpdateLocationRequest) Reset() {
 	*x = UpdateLocationRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2455,7 +2509,7 @@ func (x *UpdateLocationRequest) String() string {
 func (*UpdateLocationRequest) ProtoMessage() {}
 
 func (x *UpdateLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[33]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2468,7 +2522,7 @@ func (x *UpdateLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLocationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{33}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *UpdateLocationRequest) GetTenantId() string {
@@ -2516,7 +2570,7 @@ type DeleteLocationRequest struct {
 
 func (x *DeleteLocationRequest) Reset() {
 	*x = DeleteLocationRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2528,7 +2582,7 @@ func (x *DeleteLocationRequest) String() string {
 func (*DeleteLocationRequest) ProtoMessage() {}
 
 func (x *DeleteLocationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[34]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2541,7 +2595,7 @@ func (x *DeleteLocationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLocationRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLocationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{34}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteLocationRequest) GetTenantId() string {
@@ -2566,7 +2620,7 @@ type DeleteLocationResponse struct {
 
 func (x *DeleteLocationResponse) Reset() {
 	*x = DeleteLocationResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2578,7 +2632,7 @@ func (x *DeleteLocationResponse) String() string {
 func (*DeleteLocationResponse) ProtoMessage() {}
 
 func (x *DeleteLocationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[35]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2591,7 +2645,7 @@ func (x *DeleteLocationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLocationResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLocationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{35}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{36}
 }
 
 type LocationResponse struct {
@@ -2603,7 +2657,7 @@ type LocationResponse struct {
 
 func (x *LocationResponse) Reset() {
 	*x = LocationResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2615,7 +2669,7 @@ func (x *LocationResponse) String() string {
 func (*LocationResponse) ProtoMessage() {}
 
 func (x *LocationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[36]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2628,7 +2682,7 @@ func (x *LocationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocationResponse.ProtoReflect.Descriptor instead.
 func (*LocationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{36}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *LocationResponse) GetLocation() *Location {
@@ -2649,7 +2703,7 @@ type ListLocationsRequest struct {
 
 func (x *ListLocationsRequest) Reset() {
 	*x = ListLocationsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2661,7 +2715,7 @@ func (x *ListLocationsRequest) String() string {
 func (*ListLocationsRequest) ProtoMessage() {}
 
 func (x *ListLocationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[37]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2674,7 +2728,7 @@ func (x *ListLocationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocationsRequest.ProtoReflect.Descriptor instead.
 func (*ListLocationsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{37}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListLocationsRequest) GetTenantId() string {
@@ -2708,7 +2762,7 @@ type ListLocationsResponse struct {
 
 func (x *ListLocationsResponse) Reset() {
 	*x = ListLocationsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2720,7 +2774,7 @@ func (x *ListLocationsResponse) String() string {
 func (*ListLocationsResponse) ProtoMessage() {}
 
 func (x *ListLocationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[38]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2733,7 +2787,7 @@ func (x *ListLocationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocationsResponse.ProtoReflect.Descriptor instead.
 func (*ListLocationsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{38}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListLocationsResponse) GetLocations() []*Location {
@@ -2765,7 +2819,7 @@ type InventurCount struct {
 
 func (x *InventurCount) Reset() {
 	*x = InventurCount{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2777,7 +2831,7 @@ func (x *InventurCount) String() string {
 func (*InventurCount) ProtoMessage() {}
 
 func (x *InventurCount) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[39]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2790,7 +2844,7 @@ func (x *InventurCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventurCount.ProtoReflect.Descriptor instead.
 func (*InventurCount) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{39}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *InventurCount) GetId() string {
@@ -2860,7 +2914,7 @@ type InventurSession struct {
 
 func (x *InventurSession) Reset() {
 	*x = InventurSession{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2872,7 +2926,7 @@ func (x *InventurSession) String() string {
 func (*InventurSession) ProtoMessage() {}
 
 func (x *InventurSession) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[40]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2885,7 +2939,7 @@ func (x *InventurSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventurSession.ProtoReflect.Descriptor instead.
 func (*InventurSession) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{40}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *InventurSession) GetId() string {
@@ -2972,7 +3026,7 @@ type CreateInventurSessionRequest struct {
 
 func (x *CreateInventurSessionRequest) Reset() {
 	*x = CreateInventurSessionRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2984,7 +3038,7 @@ func (x *CreateInventurSessionRequest) String() string {
 func (*CreateInventurSessionRequest) ProtoMessage() {}
 
 func (x *CreateInventurSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[41]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2997,7 +3051,7 @@ func (x *CreateInventurSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInventurSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateInventurSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{41}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *CreateInventurSessionRequest) GetTenantId() string {
@@ -3052,7 +3106,7 @@ type GetInventurSessionRequest struct {
 
 func (x *GetInventurSessionRequest) Reset() {
 	*x = GetInventurSessionRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3064,7 +3118,7 @@ func (x *GetInventurSessionRequest) String() string {
 func (*GetInventurSessionRequest) ProtoMessage() {}
 
 func (x *GetInventurSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[42]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3077,7 +3131,7 @@ func (x *GetInventurSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetInventurSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetInventurSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{42}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *GetInventurSessionRequest) GetTenantId() string {
@@ -3105,7 +3159,7 @@ type UpdateInventurSessionStatusRequest struct {
 
 func (x *UpdateInventurSessionStatusRequest) Reset() {
 	*x = UpdateInventurSessionStatusRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3117,7 +3171,7 @@ func (x *UpdateInventurSessionStatusRequest) String() string {
 func (*UpdateInventurSessionStatusRequest) ProtoMessage() {}
 
 func (x *UpdateInventurSessionStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[43]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3130,7 +3184,7 @@ func (x *UpdateInventurSessionStatusRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateInventurSessionStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateInventurSessionStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{43}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *UpdateInventurSessionStatusRequest) GetTenantId() string {
@@ -3164,7 +3218,7 @@ type DeleteInventurSessionRequest struct {
 
 func (x *DeleteInventurSessionRequest) Reset() {
 	*x = DeleteInventurSessionRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3176,7 +3230,7 @@ func (x *DeleteInventurSessionRequest) String() string {
 func (*DeleteInventurSessionRequest) ProtoMessage() {}
 
 func (x *DeleteInventurSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[44]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3189,7 +3243,7 @@ func (x *DeleteInventurSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteInventurSessionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteInventurSessionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{44}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *DeleteInventurSessionRequest) GetTenantId() string {
@@ -3214,7 +3268,7 @@ type DeleteInventurSessionResponse struct {
 
 func (x *DeleteInventurSessionResponse) Reset() {
 	*x = DeleteInventurSessionResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3226,7 +3280,7 @@ func (x *DeleteInventurSessionResponse) String() string {
 func (*DeleteInventurSessionResponse) ProtoMessage() {}
 
 func (x *DeleteInventurSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[45]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3239,7 +3293,7 @@ func (x *DeleteInventurSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteInventurSessionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteInventurSessionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{45}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{46}
 }
 
 type ListInventurSessionsRequest struct {
@@ -3253,7 +3307,7 @@ type ListInventurSessionsRequest struct {
 
 func (x *ListInventurSessionsRequest) Reset() {
 	*x = ListInventurSessionsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3265,7 +3319,7 @@ func (x *ListInventurSessionsRequest) String() string {
 func (*ListInventurSessionsRequest) ProtoMessage() {}
 
 func (x *ListInventurSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[46]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3278,7 +3332,7 @@ func (x *ListInventurSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInventurSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListInventurSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{46}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListInventurSessionsRequest) GetTenantId() string {
@@ -3312,7 +3366,7 @@ type ListInventurSessionsResponse struct {
 
 func (x *ListInventurSessionsResponse) Reset() {
 	*x = ListInventurSessionsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3324,7 +3378,7 @@ func (x *ListInventurSessionsResponse) String() string {
 func (*ListInventurSessionsResponse) ProtoMessage() {}
 
 func (x *ListInventurSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[47]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3337,7 +3391,7 @@ func (x *ListInventurSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInventurSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListInventurSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{47}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *ListInventurSessionsResponse) GetSessions() []*InventurSession {
@@ -3366,7 +3420,7 @@ type UpsertInventurCountRequest struct {
 
 func (x *UpsertInventurCountRequest) Reset() {
 	*x = UpsertInventurCountRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3378,7 +3432,7 @@ func (x *UpsertInventurCountRequest) String() string {
 func (*UpsertInventurCountRequest) ProtoMessage() {}
 
 func (x *UpsertInventurCountRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[48]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3391,7 +3445,7 @@ func (x *UpsertInventurCountRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertInventurCountRequest.ProtoReflect.Descriptor instead.
 func (*UpsertInventurCountRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{48}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *UpsertInventurCountRequest) GetTenantId() string {
@@ -3431,7 +3485,7 @@ type InventurCountResponse struct {
 
 func (x *InventurCountResponse) Reset() {
 	*x = InventurCountResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3443,7 +3497,7 @@ func (x *InventurCountResponse) String() string {
 func (*InventurCountResponse) ProtoMessage() {}
 
 func (x *InventurCountResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[49]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3456,7 +3510,7 @@ func (x *InventurCountResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventurCountResponse.ProtoReflect.Descriptor instead.
 func (*InventurCountResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{49}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *InventurCountResponse) GetCount() *InventurCount {
@@ -3477,7 +3531,7 @@ type BookInventurDifferencesRequest struct {
 
 func (x *BookInventurDifferencesRequest) Reset() {
 	*x = BookInventurDifferencesRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3489,7 +3543,7 @@ func (x *BookInventurDifferencesRequest) String() string {
 func (*BookInventurDifferencesRequest) ProtoMessage() {}
 
 func (x *BookInventurDifferencesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[50]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3502,7 +3556,7 @@ func (x *BookInventurDifferencesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookInventurDifferencesRequest.ProtoReflect.Descriptor instead.
 func (*BookInventurDifferencesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{50}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *BookInventurDifferencesRequest) GetTenantId() string {
@@ -3535,7 +3589,7 @@ type InventurSessionResponse struct {
 
 func (x *InventurSessionResponse) Reset() {
 	*x = InventurSessionResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3547,7 +3601,7 @@ func (x *InventurSessionResponse) String() string {
 func (*InventurSessionResponse) ProtoMessage() {}
 
 func (x *InventurSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[51]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3560,7 +3614,7 @@ func (x *InventurSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InventurSessionResponse.ProtoReflect.Descriptor instead.
 func (*InventurSessionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{51}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *InventurSessionResponse) GetSession() *InventurSession {
@@ -3587,7 +3641,7 @@ type PickingListItem struct {
 
 func (x *PickingListItem) Reset() {
 	*x = PickingListItem{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3599,7 +3653,7 @@ func (x *PickingListItem) String() string {
 func (*PickingListItem) ProtoMessage() {}
 
 func (x *PickingListItem) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[52]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3612,7 +3666,7 @@ func (x *PickingListItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickingListItem.ProtoReflect.Descriptor instead.
 func (*PickingListItem) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{52}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *PickingListItem) GetId() string {
@@ -3695,7 +3749,7 @@ type PickingList struct {
 
 func (x *PickingList) Reset() {
 	*x = PickingList{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3707,7 +3761,7 @@ func (x *PickingList) String() string {
 func (*PickingList) ProtoMessage() {}
 
 func (x *PickingList) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[53]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3720,7 +3774,7 @@ func (x *PickingList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickingList.ProtoReflect.Descriptor instead.
 func (*PickingList) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{53}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *PickingList) GetId() string {
@@ -3798,7 +3852,7 @@ type CreatePickingListItemInput struct {
 
 func (x *CreatePickingListItemInput) Reset() {
 	*x = CreatePickingListItemInput{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3810,7 +3864,7 @@ func (x *CreatePickingListItemInput) String() string {
 func (*CreatePickingListItemInput) ProtoMessage() {}
 
 func (x *CreatePickingListItemInput) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[54]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3823,7 +3877,7 @@ func (x *CreatePickingListItemInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePickingListItemInput.ProtoReflect.Descriptor instead.
 func (*CreatePickingListItemInput) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{54}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *CreatePickingListItemInput) GetItemId() string {
@@ -3867,7 +3921,7 @@ type CreatePickingListRequest struct {
 
 func (x *CreatePickingListRequest) Reset() {
 	*x = CreatePickingListRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3879,7 +3933,7 @@ func (x *CreatePickingListRequest) String() string {
 func (*CreatePickingListRequest) ProtoMessage() {}
 
 func (x *CreatePickingListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[55]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3892,7 +3946,7 @@ func (x *CreatePickingListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreatePickingListRequest.ProtoReflect.Descriptor instead.
 func (*CreatePickingListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{55}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CreatePickingListRequest) GetTenantId() string {
@@ -3940,7 +3994,7 @@ type GetPickingListRequest struct {
 
 func (x *GetPickingListRequest) Reset() {
 	*x = GetPickingListRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3952,7 +4006,7 @@ func (x *GetPickingListRequest) String() string {
 func (*GetPickingListRequest) ProtoMessage() {}
 
 func (x *GetPickingListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[56]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3965,7 +4019,7 @@ func (x *GetPickingListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPickingListRequest.ProtoReflect.Descriptor instead.
 func (*GetPickingListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{56}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *GetPickingListRequest) GetTenantId() string {
@@ -3995,7 +4049,7 @@ type UpdatePickingListRequest struct {
 
 func (x *UpdatePickingListRequest) Reset() {
 	*x = UpdatePickingListRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4007,7 +4061,7 @@ func (x *UpdatePickingListRequest) String() string {
 func (*UpdatePickingListRequest) ProtoMessage() {}
 
 func (x *UpdatePickingListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[57]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4020,7 +4074,7 @@ func (x *UpdatePickingListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdatePickingListRequest.ProtoReflect.Descriptor instead.
 func (*UpdatePickingListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{57}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *UpdatePickingListRequest) GetTenantId() string {
@@ -4068,7 +4122,7 @@ type DeletePickingListRequest struct {
 
 func (x *DeletePickingListRequest) Reset() {
 	*x = DeletePickingListRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[58]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4080,7 +4134,7 @@ func (x *DeletePickingListRequest) String() string {
 func (*DeletePickingListRequest) ProtoMessage() {}
 
 func (x *DeletePickingListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[58]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4093,7 +4147,7 @@ func (x *DeletePickingListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePickingListRequest.ProtoReflect.Descriptor instead.
 func (*DeletePickingListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{58}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *DeletePickingListRequest) GetTenantId() string {
@@ -4118,7 +4172,7 @@ type DeletePickingListResponse struct {
 
 func (x *DeletePickingListResponse) Reset() {
 	*x = DeletePickingListResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[59]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4130,7 +4184,7 @@ func (x *DeletePickingListResponse) String() string {
 func (*DeletePickingListResponse) ProtoMessage() {}
 
 func (x *DeletePickingListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[59]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4143,7 +4197,7 @@ func (x *DeletePickingListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePickingListResponse.ProtoReflect.Descriptor instead.
 func (*DeletePickingListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{59}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{60}
 }
 
 type ListPickingListsRequest struct {
@@ -4158,7 +4212,7 @@ type ListPickingListsRequest struct {
 
 func (x *ListPickingListsRequest) Reset() {
 	*x = ListPickingListsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[60]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4170,7 +4224,7 @@ func (x *ListPickingListsRequest) String() string {
 func (*ListPickingListsRequest) ProtoMessage() {}
 
 func (x *ListPickingListsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[60]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4183,7 +4237,7 @@ func (x *ListPickingListsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPickingListsRequest.ProtoReflect.Descriptor instead.
 func (*ListPickingListsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{60}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ListPickingListsRequest) GetTenantId() string {
@@ -4224,7 +4278,7 @@ type ListPickingListsResponse struct {
 
 func (x *ListPickingListsResponse) Reset() {
 	*x = ListPickingListsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[61]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4236,7 +4290,7 @@ func (x *ListPickingListsResponse) String() string {
 func (*ListPickingListsResponse) ProtoMessage() {}
 
 func (x *ListPickingListsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[61]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4249,7 +4303,7 @@ func (x *ListPickingListsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPickingListsResponse.ProtoReflect.Descriptor instead.
 func (*ListPickingListsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{61}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ListPickingListsResponse) GetPickingLists() []*PickingList {
@@ -4280,7 +4334,7 @@ type UpsertPickingListItemRequest struct {
 
 func (x *UpsertPickingListItemRequest) Reset() {
 	*x = UpsertPickingListItemRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[62]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4292,7 +4346,7 @@ func (x *UpsertPickingListItemRequest) String() string {
 func (*UpsertPickingListItemRequest) ProtoMessage() {}
 
 func (x *UpsertPickingListItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[62]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4305,7 +4359,7 @@ func (x *UpsertPickingListItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertPickingListItemRequest.ProtoReflect.Descriptor instead.
 func (*UpsertPickingListItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{62}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *UpsertPickingListItemRequest) GetTenantId() string {
@@ -4359,7 +4413,7 @@ type PickingListItemResponse struct {
 
 func (x *PickingListItemResponse) Reset() {
 	*x = PickingListItemResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[63]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4371,7 +4425,7 @@ func (x *PickingListItemResponse) String() string {
 func (*PickingListItemResponse) ProtoMessage() {}
 
 func (x *PickingListItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[63]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4384,7 +4438,7 @@ func (x *PickingListItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickingListItemResponse.ProtoReflect.Descriptor instead.
 func (*PickingListItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{63}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *PickingListItemResponse) GetItem() *PickingListItem {
@@ -4404,7 +4458,7 @@ type DeletePickingListItemRequest struct {
 
 func (x *DeletePickingListItemRequest) Reset() {
 	*x = DeletePickingListItemRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[64]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4416,7 +4470,7 @@ func (x *DeletePickingListItemRequest) String() string {
 func (*DeletePickingListItemRequest) ProtoMessage() {}
 
 func (x *DeletePickingListItemRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[64]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4429,7 +4483,7 @@ func (x *DeletePickingListItemRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePickingListItemRequest.ProtoReflect.Descriptor instead.
 func (*DeletePickingListItemRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{64}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *DeletePickingListItemRequest) GetTenantId() string {
@@ -4454,7 +4508,7 @@ type DeletePickingListItemResponse struct {
 
 func (x *DeletePickingListItemResponse) Reset() {
 	*x = DeletePickingListItemResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[65]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4466,7 +4520,7 @@ func (x *DeletePickingListItemResponse) String() string {
 func (*DeletePickingListItemResponse) ProtoMessage() {}
 
 func (x *DeletePickingListItemResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[65]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4479,7 +4533,7 @@ func (x *DeletePickingListItemResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePickingListItemResponse.ProtoReflect.Descriptor instead.
 func (*DeletePickingListItemResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{65}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{66}
 }
 
 type BookPickingListRequest struct {
@@ -4493,7 +4547,7 @@ type BookPickingListRequest struct {
 
 func (x *BookPickingListRequest) Reset() {
 	*x = BookPickingListRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[66]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4505,7 +4559,7 @@ func (x *BookPickingListRequest) String() string {
 func (*BookPickingListRequest) ProtoMessage() {}
 
 func (x *BookPickingListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[66]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4518,7 +4572,7 @@ func (x *BookPickingListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BookPickingListRequest.ProtoReflect.Descriptor instead.
 func (*BookPickingListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{66}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *BookPickingListRequest) GetTenantId() string {
@@ -4551,7 +4605,7 @@ type PickingListResponse struct {
 
 func (x *PickingListResponse) Reset() {
 	*x = PickingListResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[67]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4563,7 +4617,7 @@ func (x *PickingListResponse) String() string {
 func (*PickingListResponse) ProtoMessage() {}
 
 func (x *PickingListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[67]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4576,7 +4630,7 @@ func (x *PickingListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PickingListResponse.ProtoReflect.Descriptor instead.
 func (*PickingListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{67}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *PickingListResponse) GetPickingList() *PickingList {
@@ -4602,7 +4656,7 @@ type ItemAttachment struct {
 
 func (x *ItemAttachment) Reset() {
 	*x = ItemAttachment{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[68]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4614,7 +4668,7 @@ func (x *ItemAttachment) String() string {
 func (*ItemAttachment) ProtoMessage() {}
 
 func (x *ItemAttachment) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[68]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4627,7 +4681,7 @@ func (x *ItemAttachment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemAttachment.ProtoReflect.Descriptor instead.
 func (*ItemAttachment) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{68}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *ItemAttachment) GetId() string {
@@ -4699,7 +4753,7 @@ type CreateItemAttachmentRequest struct {
 
 func (x *CreateItemAttachmentRequest) Reset() {
 	*x = CreateItemAttachmentRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[69]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4711,7 +4765,7 @@ func (x *CreateItemAttachmentRequest) String() string {
 func (*CreateItemAttachmentRequest) ProtoMessage() {}
 
 func (x *CreateItemAttachmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[69]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4724,7 +4778,7 @@ func (x *CreateItemAttachmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateItemAttachmentRequest.ProtoReflect.Descriptor instead.
 func (*CreateItemAttachmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{69}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *CreateItemAttachmentRequest) GetTenantId() string {
@@ -4771,7 +4825,7 @@ type ItemAttachmentResponse struct {
 
 func (x *ItemAttachmentResponse) Reset() {
 	*x = ItemAttachmentResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[70]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4783,7 +4837,7 @@ func (x *ItemAttachmentResponse) String() string {
 func (*ItemAttachmentResponse) ProtoMessage() {}
 
 func (x *ItemAttachmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[70]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4796,7 +4850,7 @@ func (x *ItemAttachmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ItemAttachmentResponse.ProtoReflect.Descriptor instead.
 func (*ItemAttachmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{70}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *ItemAttachmentResponse) GetAttachment() *ItemAttachment {
@@ -4816,7 +4870,7 @@ type ListItemAttachmentsRequest struct {
 
 func (x *ListItemAttachmentsRequest) Reset() {
 	*x = ListItemAttachmentsRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[71]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4828,7 +4882,7 @@ func (x *ListItemAttachmentsRequest) String() string {
 func (*ListItemAttachmentsRequest) ProtoMessage() {}
 
 func (x *ListItemAttachmentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[71]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4841,7 +4895,7 @@ func (x *ListItemAttachmentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemAttachmentsRequest.ProtoReflect.Descriptor instead.
 func (*ListItemAttachmentsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{71}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *ListItemAttachmentsRequest) GetTenantId() string {
@@ -4867,7 +4921,7 @@ type ListItemAttachmentsResponse struct {
 
 func (x *ListItemAttachmentsResponse) Reset() {
 	*x = ListItemAttachmentsResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[72]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4879,7 +4933,7 @@ func (x *ListItemAttachmentsResponse) String() string {
 func (*ListItemAttachmentsResponse) ProtoMessage() {}
 
 func (x *ListItemAttachmentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[72]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4892,7 +4946,7 @@ func (x *ListItemAttachmentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListItemAttachmentsResponse.ProtoReflect.Descriptor instead.
 func (*ListItemAttachmentsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{72}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ListItemAttachmentsResponse) GetAttachments() []*ItemAttachment {
@@ -4912,7 +4966,7 @@ type DeleteItemAttachmentRequest struct {
 
 func (x *DeleteItemAttachmentRequest) Reset() {
 	*x = DeleteItemAttachmentRequest{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[73]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4924,7 +4978,7 @@ func (x *DeleteItemAttachmentRequest) String() string {
 func (*DeleteItemAttachmentRequest) ProtoMessage() {}
 
 func (x *DeleteItemAttachmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[73]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4937,7 +4991,7 @@ func (x *DeleteItemAttachmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteItemAttachmentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteItemAttachmentRequest) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{73}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *DeleteItemAttachmentRequest) GetTenantId() string {
@@ -4962,7 +5016,7 @@ type DeleteItemAttachmentResponse struct {
 
 func (x *DeleteItemAttachmentResponse) Reset() {
 	*x = DeleteItemAttachmentResponse{}
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[74]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4974,7 +5028,7 @@ func (x *DeleteItemAttachmentResponse) String() string {
 func (*DeleteItemAttachmentResponse) ProtoMessage() {}
 
 func (x *DeleteItemAttachmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[74]
+	mi := &file_proto_inventar_v1_inventar_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4987,7 +5041,7 @@ func (x *DeleteItemAttachmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteItemAttachmentResponse.ProtoReflect.Descriptor instead.
 func (*DeleteItemAttachmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{74}
+	return file_proto_inventar_v1_inventar_proto_rawDescGZIP(), []int{75}
 }
 
 var File_proto_inventar_v1_inventar_proto protoreflect.FileDescriptor
@@ -5091,7 +5145,9 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x16_linked_purchase_order\"F\n" +
 	"\x0eGetItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x81\x05\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"*\n" +
+	"\x10SerialNumberList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xdf\x05\n" +
 	"\x11UpdateItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x17\n" +
@@ -5109,7 +5165,8 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\bcurrency\x18\f \x01(\tH\tR\bcurrency\x88\x01\x01\x12&\n" +
 	"\fbatch_number\x18\r \x01(\tH\n" +
 	"R\vbatchNumber\x88\x01\x01\x127\n" +
-	"\x15linked_purchase_order\x18\x0e \x01(\tH\vR\x13linkedPurchaseOrder\x88\x01\x01B\a\n" +
+	"\x15linked_purchase_order\x18\x0e \x01(\tH\vR\x13linkedPurchaseOrder\x88\x01\x01\x12I\n" +
+	"\x0eserial_numbers\x18\x0f \x01(\v2\x1d.inventar.v1.SerialNumberListH\fR\rserialNumbers\x88\x01\x01B\a\n" +
 	"\x05_nameB\x06\n" +
 	"\x04_skuB\n" +
 	"\n" +
@@ -5122,7 +5179,8 @@ const file_proto_inventar_v1_inventar_proto_rawDesc = "" +
 	"\x06_priceB\v\n" +
 	"\t_currencyB\x0f\n" +
 	"\r_batch_numberB\x18\n" +
-	"\x16_linked_purchase_order\"I\n" +
+	"\x16_linked_purchase_orderB\x11\n" +
+	"\x0f_serial_numbers\"I\n" +
 	"\x11DeleteItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x14\n" +
@@ -5532,207 +5590,209 @@ func file_proto_inventar_v1_inventar_proto_rawDescGZIP() []byte {
 	return file_proto_inventar_v1_inventar_proto_rawDescData
 }
 
-var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 75)
+var file_proto_inventar_v1_inventar_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
 var file_proto_inventar_v1_inventar_proto_goTypes = []any{
 	(*Item)(nil),                               // 0: inventar.v1.Item
 	(*Movement)(nil),                           // 1: inventar.v1.Movement
 	(*Warning)(nil),                            // 2: inventar.v1.Warning
 	(*CreateItemRequest)(nil),                  // 3: inventar.v1.CreateItemRequest
 	(*GetItemRequest)(nil),                     // 4: inventar.v1.GetItemRequest
-	(*UpdateItemRequest)(nil),                  // 5: inventar.v1.UpdateItemRequest
-	(*DeleteItemRequest)(nil),                  // 6: inventar.v1.DeleteItemRequest
-	(*DeleteItemResponse)(nil),                 // 7: inventar.v1.DeleteItemResponse
-	(*ItemResponse)(nil),                       // 8: inventar.v1.ItemResponse
-	(*ListItemsRequest)(nil),                   // 9: inventar.v1.ListItemsRequest
-	(*ListItemsResponse)(nil),                  // 10: inventar.v1.ListItemsResponse
-	(*AdjustStockRequest)(nil),                 // 11: inventar.v1.AdjustStockRequest
-	(*TransferStockRequest)(nil),               // 12: inventar.v1.TransferStockRequest
-	(*TransferStockResponse)(nil),              // 13: inventar.v1.TransferStockResponse
-	(*RecordMovementRequest)(nil),              // 14: inventar.v1.RecordMovementRequest
-	(*MovementResponse)(nil),                   // 15: inventar.v1.MovementResponse
-	(*ListMovementsRequest)(nil),               // 16: inventar.v1.ListMovementsRequest
-	(*ListMovementsResponse)(nil),              // 17: inventar.v1.ListMovementsResponse
-	(*GetStockHistoryRequest)(nil),             // 18: inventar.v1.GetStockHistoryRequest
-	(*CreateWarningRequest)(nil),               // 19: inventar.v1.CreateWarningRequest
-	(*UpdateWarningRequest)(nil),               // 20: inventar.v1.UpdateWarningRequest
-	(*AcknowledgeWarningRequest)(nil),          // 21: inventar.v1.AcknowledgeWarningRequest
-	(*WarningResponse)(nil),                    // 22: inventar.v1.WarningResponse
-	(*ListWarningsRequest)(nil),                // 23: inventar.v1.ListWarningsRequest
-	(*ListWarningsResponse)(nil),               // 24: inventar.v1.ListWarningsResponse
-	(*GetStockReportRequest)(nil),              // 25: inventar.v1.GetStockReportRequest
-	(*UnitQuantity)(nil),                       // 26: inventar.v1.UnitQuantity
-	(*StockReportResponse)(nil),                // 27: inventar.v1.StockReportResponse
-	(*ExportInventoryRequest)(nil),             // 28: inventar.v1.ExportInventoryRequest
-	(*ExportInventoryResponse)(nil),            // 29: inventar.v1.ExportInventoryResponse
-	(*Location)(nil),                           // 30: inventar.v1.Location
-	(*CreateLocationRequest)(nil),              // 31: inventar.v1.CreateLocationRequest
-	(*GetLocationRequest)(nil),                 // 32: inventar.v1.GetLocationRequest
-	(*UpdateLocationRequest)(nil),              // 33: inventar.v1.UpdateLocationRequest
-	(*DeleteLocationRequest)(nil),              // 34: inventar.v1.DeleteLocationRequest
-	(*DeleteLocationResponse)(nil),             // 35: inventar.v1.DeleteLocationResponse
-	(*LocationResponse)(nil),                   // 36: inventar.v1.LocationResponse
-	(*ListLocationsRequest)(nil),               // 37: inventar.v1.ListLocationsRequest
-	(*ListLocationsResponse)(nil),              // 38: inventar.v1.ListLocationsResponse
-	(*InventurCount)(nil),                      // 39: inventar.v1.InventurCount
-	(*InventurSession)(nil),                    // 40: inventar.v1.InventurSession
-	(*CreateInventurSessionRequest)(nil),       // 41: inventar.v1.CreateInventurSessionRequest
-	(*GetInventurSessionRequest)(nil),          // 42: inventar.v1.GetInventurSessionRequest
-	(*UpdateInventurSessionStatusRequest)(nil), // 43: inventar.v1.UpdateInventurSessionStatusRequest
-	(*DeleteInventurSessionRequest)(nil),       // 44: inventar.v1.DeleteInventurSessionRequest
-	(*DeleteInventurSessionResponse)(nil),      // 45: inventar.v1.DeleteInventurSessionResponse
-	(*ListInventurSessionsRequest)(nil),        // 46: inventar.v1.ListInventurSessionsRequest
-	(*ListInventurSessionsResponse)(nil),       // 47: inventar.v1.ListInventurSessionsResponse
-	(*UpsertInventurCountRequest)(nil),         // 48: inventar.v1.UpsertInventurCountRequest
-	(*InventurCountResponse)(nil),              // 49: inventar.v1.InventurCountResponse
-	(*BookInventurDifferencesRequest)(nil),     // 50: inventar.v1.BookInventurDifferencesRequest
-	(*InventurSessionResponse)(nil),            // 51: inventar.v1.InventurSessionResponse
-	(*PickingListItem)(nil),                    // 52: inventar.v1.PickingListItem
-	(*PickingList)(nil),                        // 53: inventar.v1.PickingList
-	(*CreatePickingListItemInput)(nil),         // 54: inventar.v1.CreatePickingListItemInput
-	(*CreatePickingListRequest)(nil),           // 55: inventar.v1.CreatePickingListRequest
-	(*GetPickingListRequest)(nil),              // 56: inventar.v1.GetPickingListRequest
-	(*UpdatePickingListRequest)(nil),           // 57: inventar.v1.UpdatePickingListRequest
-	(*DeletePickingListRequest)(nil),           // 58: inventar.v1.DeletePickingListRequest
-	(*DeletePickingListResponse)(nil),          // 59: inventar.v1.DeletePickingListResponse
-	(*ListPickingListsRequest)(nil),            // 60: inventar.v1.ListPickingListsRequest
-	(*ListPickingListsResponse)(nil),           // 61: inventar.v1.ListPickingListsResponse
-	(*UpsertPickingListItemRequest)(nil),       // 62: inventar.v1.UpsertPickingListItemRequest
-	(*PickingListItemResponse)(nil),            // 63: inventar.v1.PickingListItemResponse
-	(*DeletePickingListItemRequest)(nil),       // 64: inventar.v1.DeletePickingListItemRequest
-	(*DeletePickingListItemResponse)(nil),      // 65: inventar.v1.DeletePickingListItemResponse
-	(*BookPickingListRequest)(nil),             // 66: inventar.v1.BookPickingListRequest
-	(*PickingListResponse)(nil),                // 67: inventar.v1.PickingListResponse
-	(*ItemAttachment)(nil),                     // 68: inventar.v1.ItemAttachment
-	(*CreateItemAttachmentRequest)(nil),        // 69: inventar.v1.CreateItemAttachmentRequest
-	(*ItemAttachmentResponse)(nil),             // 70: inventar.v1.ItemAttachmentResponse
-	(*ListItemAttachmentsRequest)(nil),         // 71: inventar.v1.ListItemAttachmentsRequest
-	(*ListItemAttachmentsResponse)(nil),        // 72: inventar.v1.ListItemAttachmentsResponse
-	(*DeleteItemAttachmentRequest)(nil),        // 73: inventar.v1.DeleteItemAttachmentRequest
-	(*DeleteItemAttachmentResponse)(nil),       // 74: inventar.v1.DeleteItemAttachmentResponse
-	(*timestamppb.Timestamp)(nil),              // 75: google.protobuf.Timestamp
+	(*SerialNumberList)(nil),                   // 5: inventar.v1.SerialNumberList
+	(*UpdateItemRequest)(nil),                  // 6: inventar.v1.UpdateItemRequest
+	(*DeleteItemRequest)(nil),                  // 7: inventar.v1.DeleteItemRequest
+	(*DeleteItemResponse)(nil),                 // 8: inventar.v1.DeleteItemResponse
+	(*ItemResponse)(nil),                       // 9: inventar.v1.ItemResponse
+	(*ListItemsRequest)(nil),                   // 10: inventar.v1.ListItemsRequest
+	(*ListItemsResponse)(nil),                  // 11: inventar.v1.ListItemsResponse
+	(*AdjustStockRequest)(nil),                 // 12: inventar.v1.AdjustStockRequest
+	(*TransferStockRequest)(nil),               // 13: inventar.v1.TransferStockRequest
+	(*TransferStockResponse)(nil),              // 14: inventar.v1.TransferStockResponse
+	(*RecordMovementRequest)(nil),              // 15: inventar.v1.RecordMovementRequest
+	(*MovementResponse)(nil),                   // 16: inventar.v1.MovementResponse
+	(*ListMovementsRequest)(nil),               // 17: inventar.v1.ListMovementsRequest
+	(*ListMovementsResponse)(nil),              // 18: inventar.v1.ListMovementsResponse
+	(*GetStockHistoryRequest)(nil),             // 19: inventar.v1.GetStockHistoryRequest
+	(*CreateWarningRequest)(nil),               // 20: inventar.v1.CreateWarningRequest
+	(*UpdateWarningRequest)(nil),               // 21: inventar.v1.UpdateWarningRequest
+	(*AcknowledgeWarningRequest)(nil),          // 22: inventar.v1.AcknowledgeWarningRequest
+	(*WarningResponse)(nil),                    // 23: inventar.v1.WarningResponse
+	(*ListWarningsRequest)(nil),                // 24: inventar.v1.ListWarningsRequest
+	(*ListWarningsResponse)(nil),               // 25: inventar.v1.ListWarningsResponse
+	(*GetStockReportRequest)(nil),              // 26: inventar.v1.GetStockReportRequest
+	(*UnitQuantity)(nil),                       // 27: inventar.v1.UnitQuantity
+	(*StockReportResponse)(nil),                // 28: inventar.v1.StockReportResponse
+	(*ExportInventoryRequest)(nil),             // 29: inventar.v1.ExportInventoryRequest
+	(*ExportInventoryResponse)(nil),            // 30: inventar.v1.ExportInventoryResponse
+	(*Location)(nil),                           // 31: inventar.v1.Location
+	(*CreateLocationRequest)(nil),              // 32: inventar.v1.CreateLocationRequest
+	(*GetLocationRequest)(nil),                 // 33: inventar.v1.GetLocationRequest
+	(*UpdateLocationRequest)(nil),              // 34: inventar.v1.UpdateLocationRequest
+	(*DeleteLocationRequest)(nil),              // 35: inventar.v1.DeleteLocationRequest
+	(*DeleteLocationResponse)(nil),             // 36: inventar.v1.DeleteLocationResponse
+	(*LocationResponse)(nil),                   // 37: inventar.v1.LocationResponse
+	(*ListLocationsRequest)(nil),               // 38: inventar.v1.ListLocationsRequest
+	(*ListLocationsResponse)(nil),              // 39: inventar.v1.ListLocationsResponse
+	(*InventurCount)(nil),                      // 40: inventar.v1.InventurCount
+	(*InventurSession)(nil),                    // 41: inventar.v1.InventurSession
+	(*CreateInventurSessionRequest)(nil),       // 42: inventar.v1.CreateInventurSessionRequest
+	(*GetInventurSessionRequest)(nil),          // 43: inventar.v1.GetInventurSessionRequest
+	(*UpdateInventurSessionStatusRequest)(nil), // 44: inventar.v1.UpdateInventurSessionStatusRequest
+	(*DeleteInventurSessionRequest)(nil),       // 45: inventar.v1.DeleteInventurSessionRequest
+	(*DeleteInventurSessionResponse)(nil),      // 46: inventar.v1.DeleteInventurSessionResponse
+	(*ListInventurSessionsRequest)(nil),        // 47: inventar.v1.ListInventurSessionsRequest
+	(*ListInventurSessionsResponse)(nil),       // 48: inventar.v1.ListInventurSessionsResponse
+	(*UpsertInventurCountRequest)(nil),         // 49: inventar.v1.UpsertInventurCountRequest
+	(*InventurCountResponse)(nil),              // 50: inventar.v1.InventurCountResponse
+	(*BookInventurDifferencesRequest)(nil),     // 51: inventar.v1.BookInventurDifferencesRequest
+	(*InventurSessionResponse)(nil),            // 52: inventar.v1.InventurSessionResponse
+	(*PickingListItem)(nil),                    // 53: inventar.v1.PickingListItem
+	(*PickingList)(nil),                        // 54: inventar.v1.PickingList
+	(*CreatePickingListItemInput)(nil),         // 55: inventar.v1.CreatePickingListItemInput
+	(*CreatePickingListRequest)(nil),           // 56: inventar.v1.CreatePickingListRequest
+	(*GetPickingListRequest)(nil),              // 57: inventar.v1.GetPickingListRequest
+	(*UpdatePickingListRequest)(nil),           // 58: inventar.v1.UpdatePickingListRequest
+	(*DeletePickingListRequest)(nil),           // 59: inventar.v1.DeletePickingListRequest
+	(*DeletePickingListResponse)(nil),          // 60: inventar.v1.DeletePickingListResponse
+	(*ListPickingListsRequest)(nil),            // 61: inventar.v1.ListPickingListsRequest
+	(*ListPickingListsResponse)(nil),           // 62: inventar.v1.ListPickingListsResponse
+	(*UpsertPickingListItemRequest)(nil),       // 63: inventar.v1.UpsertPickingListItemRequest
+	(*PickingListItemResponse)(nil),            // 64: inventar.v1.PickingListItemResponse
+	(*DeletePickingListItemRequest)(nil),       // 65: inventar.v1.DeletePickingListItemRequest
+	(*DeletePickingListItemResponse)(nil),      // 66: inventar.v1.DeletePickingListItemResponse
+	(*BookPickingListRequest)(nil),             // 67: inventar.v1.BookPickingListRequest
+	(*PickingListResponse)(nil),                // 68: inventar.v1.PickingListResponse
+	(*ItemAttachment)(nil),                     // 69: inventar.v1.ItemAttachment
+	(*CreateItemAttachmentRequest)(nil),        // 70: inventar.v1.CreateItemAttachmentRequest
+	(*ItemAttachmentResponse)(nil),             // 71: inventar.v1.ItemAttachmentResponse
+	(*ListItemAttachmentsRequest)(nil),         // 72: inventar.v1.ListItemAttachmentsRequest
+	(*ListItemAttachmentsResponse)(nil),        // 73: inventar.v1.ListItemAttachmentsResponse
+	(*DeleteItemAttachmentRequest)(nil),        // 74: inventar.v1.DeleteItemAttachmentRequest
+	(*DeleteItemAttachmentResponse)(nil),       // 75: inventar.v1.DeleteItemAttachmentResponse
+	(*timestamppb.Timestamp)(nil),              // 76: google.protobuf.Timestamp
 }
 var file_proto_inventar_v1_inventar_proto_depIdxs = []int32{
-	75, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
-	75, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
-	75, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
-	75, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
-	0,  // 5: inventar.v1.ItemResponse.item:type_name -> inventar.v1.Item
-	0,  // 6: inventar.v1.ListItemsResponse.items:type_name -> inventar.v1.Item
-	1,  // 7: inventar.v1.MovementResponse.movement:type_name -> inventar.v1.Movement
-	1,  // 8: inventar.v1.ListMovementsResponse.movements:type_name -> inventar.v1.Movement
-	2,  // 9: inventar.v1.WarningResponse.warning:type_name -> inventar.v1.Warning
-	2,  // 10: inventar.v1.ListWarningsResponse.warnings:type_name -> inventar.v1.Warning
-	26, // 11: inventar.v1.StockReportResponse.quantity_by_unit:type_name -> inventar.v1.UnitQuantity
-	75, // 12: inventar.v1.Location.created_at:type_name -> google.protobuf.Timestamp
-	75, // 13: inventar.v1.Location.updated_at:type_name -> google.protobuf.Timestamp
-	30, // 14: inventar.v1.LocationResponse.location:type_name -> inventar.v1.Location
-	30, // 15: inventar.v1.ListLocationsResponse.locations:type_name -> inventar.v1.Location
-	75, // 16: inventar.v1.InventurCount.counted_at:type_name -> google.protobuf.Timestamp
-	75, // 17: inventar.v1.InventurSession.date:type_name -> google.protobuf.Timestamp
-	39, // 18: inventar.v1.InventurSession.counts:type_name -> inventar.v1.InventurCount
-	75, // 19: inventar.v1.InventurSession.created_at:type_name -> google.protobuf.Timestamp
-	75, // 20: inventar.v1.InventurSession.updated_at:type_name -> google.protobuf.Timestamp
-	75, // 21: inventar.v1.CreateInventurSessionRequest.date:type_name -> google.protobuf.Timestamp
-	40, // 22: inventar.v1.ListInventurSessionsResponse.sessions:type_name -> inventar.v1.InventurSession
-	39, // 23: inventar.v1.InventurCountResponse.count:type_name -> inventar.v1.InventurCount
-	40, // 24: inventar.v1.InventurSessionResponse.session:type_name -> inventar.v1.InventurSession
-	75, // 25: inventar.v1.PickingListItem.created_at:type_name -> google.protobuf.Timestamp
-	75, // 26: inventar.v1.PickingListItem.updated_at:type_name -> google.protobuf.Timestamp
-	52, // 27: inventar.v1.PickingList.items:type_name -> inventar.v1.PickingListItem
-	75, // 28: inventar.v1.PickingList.created_at:type_name -> google.protobuf.Timestamp
-	75, // 29: inventar.v1.PickingList.updated_at:type_name -> google.protobuf.Timestamp
-	54, // 30: inventar.v1.CreatePickingListRequest.items:type_name -> inventar.v1.CreatePickingListItemInput
-	53, // 31: inventar.v1.ListPickingListsResponse.picking_lists:type_name -> inventar.v1.PickingList
-	52, // 32: inventar.v1.PickingListItemResponse.item:type_name -> inventar.v1.PickingListItem
-	53, // 33: inventar.v1.PickingListResponse.picking_list:type_name -> inventar.v1.PickingList
-	75, // 34: inventar.v1.ItemAttachment.created_at:type_name -> google.protobuf.Timestamp
-	75, // 35: inventar.v1.ItemAttachment.updated_at:type_name -> google.protobuf.Timestamp
-	68, // 36: inventar.v1.ItemAttachmentResponse.attachment:type_name -> inventar.v1.ItemAttachment
-	68, // 37: inventar.v1.ListItemAttachmentsResponse.attachments:type_name -> inventar.v1.ItemAttachment
-	3,  // 38: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
-	4,  // 39: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
-	5,  // 40: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
-	6,  // 41: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
-	9,  // 42: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
-	11, // 43: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
-	12, // 44: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
-	14, // 45: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
-	16, // 46: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
-	18, // 47: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
-	19, // 48: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
-	20, // 49: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
-	21, // 50: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
-	23, // 51: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
-	25, // 52: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
-	28, // 53: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
-	31, // 54: inventar.v1.InventarService.CreateLocation:input_type -> inventar.v1.CreateLocationRequest
-	32, // 55: inventar.v1.InventarService.GetLocation:input_type -> inventar.v1.GetLocationRequest
-	33, // 56: inventar.v1.InventarService.UpdateLocation:input_type -> inventar.v1.UpdateLocationRequest
-	34, // 57: inventar.v1.InventarService.DeleteLocation:input_type -> inventar.v1.DeleteLocationRequest
-	37, // 58: inventar.v1.InventarService.ListLocations:input_type -> inventar.v1.ListLocationsRequest
-	41, // 59: inventar.v1.InventarService.CreateInventurSession:input_type -> inventar.v1.CreateInventurSessionRequest
-	42, // 60: inventar.v1.InventarService.GetInventurSession:input_type -> inventar.v1.GetInventurSessionRequest
-	43, // 61: inventar.v1.InventarService.UpdateInventurSessionStatus:input_type -> inventar.v1.UpdateInventurSessionStatusRequest
-	44, // 62: inventar.v1.InventarService.DeleteInventurSession:input_type -> inventar.v1.DeleteInventurSessionRequest
-	46, // 63: inventar.v1.InventarService.ListInventurSessions:input_type -> inventar.v1.ListInventurSessionsRequest
-	48, // 64: inventar.v1.InventarService.UpsertInventurCount:input_type -> inventar.v1.UpsertInventurCountRequest
-	50, // 65: inventar.v1.InventarService.BookInventurDifferences:input_type -> inventar.v1.BookInventurDifferencesRequest
-	55, // 66: inventar.v1.InventarService.CreatePickingList:input_type -> inventar.v1.CreatePickingListRequest
-	56, // 67: inventar.v1.InventarService.GetPickingList:input_type -> inventar.v1.GetPickingListRequest
-	57, // 68: inventar.v1.InventarService.UpdatePickingList:input_type -> inventar.v1.UpdatePickingListRequest
-	58, // 69: inventar.v1.InventarService.DeletePickingList:input_type -> inventar.v1.DeletePickingListRequest
-	60, // 70: inventar.v1.InventarService.ListPickingLists:input_type -> inventar.v1.ListPickingListsRequest
-	62, // 71: inventar.v1.InventarService.UpsertPickingListItem:input_type -> inventar.v1.UpsertPickingListItemRequest
-	64, // 72: inventar.v1.InventarService.DeletePickingListItem:input_type -> inventar.v1.DeletePickingListItemRequest
-	66, // 73: inventar.v1.InventarService.BookPickingList:input_type -> inventar.v1.BookPickingListRequest
-	69, // 74: inventar.v1.InventarService.CreateItemAttachment:input_type -> inventar.v1.CreateItemAttachmentRequest
-	71, // 75: inventar.v1.InventarService.ListItemAttachments:input_type -> inventar.v1.ListItemAttachmentsRequest
-	73, // 76: inventar.v1.InventarService.DeleteItemAttachment:input_type -> inventar.v1.DeleteItemAttachmentRequest
-	8,  // 77: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
-	8,  // 78: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
-	8,  // 79: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
-	7,  // 80: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
-	10, // 81: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
-	8,  // 82: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
-	13, // 83: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
-	15, // 84: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
-	17, // 85: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
-	17, // 86: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
-	22, // 87: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 88: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
-	22, // 89: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
-	24, // 90: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
-	27, // 91: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
-	29, // 92: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
-	36, // 93: inventar.v1.InventarService.CreateLocation:output_type -> inventar.v1.LocationResponse
-	36, // 94: inventar.v1.InventarService.GetLocation:output_type -> inventar.v1.LocationResponse
-	36, // 95: inventar.v1.InventarService.UpdateLocation:output_type -> inventar.v1.LocationResponse
-	35, // 96: inventar.v1.InventarService.DeleteLocation:output_type -> inventar.v1.DeleteLocationResponse
-	38, // 97: inventar.v1.InventarService.ListLocations:output_type -> inventar.v1.ListLocationsResponse
-	51, // 98: inventar.v1.InventarService.CreateInventurSession:output_type -> inventar.v1.InventurSessionResponse
-	51, // 99: inventar.v1.InventarService.GetInventurSession:output_type -> inventar.v1.InventurSessionResponse
-	51, // 100: inventar.v1.InventarService.UpdateInventurSessionStatus:output_type -> inventar.v1.InventurSessionResponse
-	45, // 101: inventar.v1.InventarService.DeleteInventurSession:output_type -> inventar.v1.DeleteInventurSessionResponse
-	47, // 102: inventar.v1.InventarService.ListInventurSessions:output_type -> inventar.v1.ListInventurSessionsResponse
-	49, // 103: inventar.v1.InventarService.UpsertInventurCount:output_type -> inventar.v1.InventurCountResponse
-	51, // 104: inventar.v1.InventarService.BookInventurDifferences:output_type -> inventar.v1.InventurSessionResponse
-	67, // 105: inventar.v1.InventarService.CreatePickingList:output_type -> inventar.v1.PickingListResponse
-	67, // 106: inventar.v1.InventarService.GetPickingList:output_type -> inventar.v1.PickingListResponse
-	67, // 107: inventar.v1.InventarService.UpdatePickingList:output_type -> inventar.v1.PickingListResponse
-	59, // 108: inventar.v1.InventarService.DeletePickingList:output_type -> inventar.v1.DeletePickingListResponse
-	61, // 109: inventar.v1.InventarService.ListPickingLists:output_type -> inventar.v1.ListPickingListsResponse
-	63, // 110: inventar.v1.InventarService.UpsertPickingListItem:output_type -> inventar.v1.PickingListItemResponse
-	65, // 111: inventar.v1.InventarService.DeletePickingListItem:output_type -> inventar.v1.DeletePickingListItemResponse
-	67, // 112: inventar.v1.InventarService.BookPickingList:output_type -> inventar.v1.PickingListResponse
-	70, // 113: inventar.v1.InventarService.CreateItemAttachment:output_type -> inventar.v1.ItemAttachmentResponse
-	72, // 114: inventar.v1.InventarService.ListItemAttachments:output_type -> inventar.v1.ListItemAttachmentsResponse
-	74, // 115: inventar.v1.InventarService.DeleteItemAttachment:output_type -> inventar.v1.DeleteItemAttachmentResponse
-	77, // [77:116] is the sub-list for method output_type
-	38, // [38:77] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	76, // 0: inventar.v1.Item.created_at:type_name -> google.protobuf.Timestamp
+	76, // 1: inventar.v1.Item.updated_at:type_name -> google.protobuf.Timestamp
+	76, // 2: inventar.v1.Movement.created_at:type_name -> google.protobuf.Timestamp
+	76, // 3: inventar.v1.Warning.created_at:type_name -> google.protobuf.Timestamp
+	76, // 4: inventar.v1.Warning.acknowledged_at:type_name -> google.protobuf.Timestamp
+	5,  // 5: inventar.v1.UpdateItemRequest.serial_numbers:type_name -> inventar.v1.SerialNumberList
+	0,  // 6: inventar.v1.ItemResponse.item:type_name -> inventar.v1.Item
+	0,  // 7: inventar.v1.ListItemsResponse.items:type_name -> inventar.v1.Item
+	1,  // 8: inventar.v1.MovementResponse.movement:type_name -> inventar.v1.Movement
+	1,  // 9: inventar.v1.ListMovementsResponse.movements:type_name -> inventar.v1.Movement
+	2,  // 10: inventar.v1.WarningResponse.warning:type_name -> inventar.v1.Warning
+	2,  // 11: inventar.v1.ListWarningsResponse.warnings:type_name -> inventar.v1.Warning
+	27, // 12: inventar.v1.StockReportResponse.quantity_by_unit:type_name -> inventar.v1.UnitQuantity
+	76, // 13: inventar.v1.Location.created_at:type_name -> google.protobuf.Timestamp
+	76, // 14: inventar.v1.Location.updated_at:type_name -> google.protobuf.Timestamp
+	31, // 15: inventar.v1.LocationResponse.location:type_name -> inventar.v1.Location
+	31, // 16: inventar.v1.ListLocationsResponse.locations:type_name -> inventar.v1.Location
+	76, // 17: inventar.v1.InventurCount.counted_at:type_name -> google.protobuf.Timestamp
+	76, // 18: inventar.v1.InventurSession.date:type_name -> google.protobuf.Timestamp
+	40, // 19: inventar.v1.InventurSession.counts:type_name -> inventar.v1.InventurCount
+	76, // 20: inventar.v1.InventurSession.created_at:type_name -> google.protobuf.Timestamp
+	76, // 21: inventar.v1.InventurSession.updated_at:type_name -> google.protobuf.Timestamp
+	76, // 22: inventar.v1.CreateInventurSessionRequest.date:type_name -> google.protobuf.Timestamp
+	41, // 23: inventar.v1.ListInventurSessionsResponse.sessions:type_name -> inventar.v1.InventurSession
+	40, // 24: inventar.v1.InventurCountResponse.count:type_name -> inventar.v1.InventurCount
+	41, // 25: inventar.v1.InventurSessionResponse.session:type_name -> inventar.v1.InventurSession
+	76, // 26: inventar.v1.PickingListItem.created_at:type_name -> google.protobuf.Timestamp
+	76, // 27: inventar.v1.PickingListItem.updated_at:type_name -> google.protobuf.Timestamp
+	53, // 28: inventar.v1.PickingList.items:type_name -> inventar.v1.PickingListItem
+	76, // 29: inventar.v1.PickingList.created_at:type_name -> google.protobuf.Timestamp
+	76, // 30: inventar.v1.PickingList.updated_at:type_name -> google.protobuf.Timestamp
+	55, // 31: inventar.v1.CreatePickingListRequest.items:type_name -> inventar.v1.CreatePickingListItemInput
+	54, // 32: inventar.v1.ListPickingListsResponse.picking_lists:type_name -> inventar.v1.PickingList
+	53, // 33: inventar.v1.PickingListItemResponse.item:type_name -> inventar.v1.PickingListItem
+	54, // 34: inventar.v1.PickingListResponse.picking_list:type_name -> inventar.v1.PickingList
+	76, // 35: inventar.v1.ItemAttachment.created_at:type_name -> google.protobuf.Timestamp
+	76, // 36: inventar.v1.ItemAttachment.updated_at:type_name -> google.protobuf.Timestamp
+	69, // 37: inventar.v1.ItemAttachmentResponse.attachment:type_name -> inventar.v1.ItemAttachment
+	69, // 38: inventar.v1.ListItemAttachmentsResponse.attachments:type_name -> inventar.v1.ItemAttachment
+	3,  // 39: inventar.v1.InventarService.CreateItem:input_type -> inventar.v1.CreateItemRequest
+	4,  // 40: inventar.v1.InventarService.GetItem:input_type -> inventar.v1.GetItemRequest
+	6,  // 41: inventar.v1.InventarService.UpdateItem:input_type -> inventar.v1.UpdateItemRequest
+	7,  // 42: inventar.v1.InventarService.DeleteItem:input_type -> inventar.v1.DeleteItemRequest
+	10, // 43: inventar.v1.InventarService.ListItems:input_type -> inventar.v1.ListItemsRequest
+	12, // 44: inventar.v1.InventarService.AdjustStock:input_type -> inventar.v1.AdjustStockRequest
+	13, // 45: inventar.v1.InventarService.TransferStock:input_type -> inventar.v1.TransferStockRequest
+	15, // 46: inventar.v1.InventarService.RecordMovement:input_type -> inventar.v1.RecordMovementRequest
+	17, // 47: inventar.v1.InventarService.ListMovements:input_type -> inventar.v1.ListMovementsRequest
+	19, // 48: inventar.v1.InventarService.GetStockHistory:input_type -> inventar.v1.GetStockHistoryRequest
+	20, // 49: inventar.v1.InventarService.CreateWarning:input_type -> inventar.v1.CreateWarningRequest
+	21, // 50: inventar.v1.InventarService.UpdateWarning:input_type -> inventar.v1.UpdateWarningRequest
+	22, // 51: inventar.v1.InventarService.AcknowledgeWarning:input_type -> inventar.v1.AcknowledgeWarningRequest
+	24, // 52: inventar.v1.InventarService.ListWarnings:input_type -> inventar.v1.ListWarningsRequest
+	26, // 53: inventar.v1.InventarService.GetStockReport:input_type -> inventar.v1.GetStockReportRequest
+	29, // 54: inventar.v1.InventarService.ExportInventory:input_type -> inventar.v1.ExportInventoryRequest
+	32, // 55: inventar.v1.InventarService.CreateLocation:input_type -> inventar.v1.CreateLocationRequest
+	33, // 56: inventar.v1.InventarService.GetLocation:input_type -> inventar.v1.GetLocationRequest
+	34, // 57: inventar.v1.InventarService.UpdateLocation:input_type -> inventar.v1.UpdateLocationRequest
+	35, // 58: inventar.v1.InventarService.DeleteLocation:input_type -> inventar.v1.DeleteLocationRequest
+	38, // 59: inventar.v1.InventarService.ListLocations:input_type -> inventar.v1.ListLocationsRequest
+	42, // 60: inventar.v1.InventarService.CreateInventurSession:input_type -> inventar.v1.CreateInventurSessionRequest
+	43, // 61: inventar.v1.InventarService.GetInventurSession:input_type -> inventar.v1.GetInventurSessionRequest
+	44, // 62: inventar.v1.InventarService.UpdateInventurSessionStatus:input_type -> inventar.v1.UpdateInventurSessionStatusRequest
+	45, // 63: inventar.v1.InventarService.DeleteInventurSession:input_type -> inventar.v1.DeleteInventurSessionRequest
+	47, // 64: inventar.v1.InventarService.ListInventurSessions:input_type -> inventar.v1.ListInventurSessionsRequest
+	49, // 65: inventar.v1.InventarService.UpsertInventurCount:input_type -> inventar.v1.UpsertInventurCountRequest
+	51, // 66: inventar.v1.InventarService.BookInventurDifferences:input_type -> inventar.v1.BookInventurDifferencesRequest
+	56, // 67: inventar.v1.InventarService.CreatePickingList:input_type -> inventar.v1.CreatePickingListRequest
+	57, // 68: inventar.v1.InventarService.GetPickingList:input_type -> inventar.v1.GetPickingListRequest
+	58, // 69: inventar.v1.InventarService.UpdatePickingList:input_type -> inventar.v1.UpdatePickingListRequest
+	59, // 70: inventar.v1.InventarService.DeletePickingList:input_type -> inventar.v1.DeletePickingListRequest
+	61, // 71: inventar.v1.InventarService.ListPickingLists:input_type -> inventar.v1.ListPickingListsRequest
+	63, // 72: inventar.v1.InventarService.UpsertPickingListItem:input_type -> inventar.v1.UpsertPickingListItemRequest
+	65, // 73: inventar.v1.InventarService.DeletePickingListItem:input_type -> inventar.v1.DeletePickingListItemRequest
+	67, // 74: inventar.v1.InventarService.BookPickingList:input_type -> inventar.v1.BookPickingListRequest
+	70, // 75: inventar.v1.InventarService.CreateItemAttachment:input_type -> inventar.v1.CreateItemAttachmentRequest
+	72, // 76: inventar.v1.InventarService.ListItemAttachments:input_type -> inventar.v1.ListItemAttachmentsRequest
+	74, // 77: inventar.v1.InventarService.DeleteItemAttachment:input_type -> inventar.v1.DeleteItemAttachmentRequest
+	9,  // 78: inventar.v1.InventarService.CreateItem:output_type -> inventar.v1.ItemResponse
+	9,  // 79: inventar.v1.InventarService.GetItem:output_type -> inventar.v1.ItemResponse
+	9,  // 80: inventar.v1.InventarService.UpdateItem:output_type -> inventar.v1.ItemResponse
+	8,  // 81: inventar.v1.InventarService.DeleteItem:output_type -> inventar.v1.DeleteItemResponse
+	11, // 82: inventar.v1.InventarService.ListItems:output_type -> inventar.v1.ListItemsResponse
+	9,  // 83: inventar.v1.InventarService.AdjustStock:output_type -> inventar.v1.ItemResponse
+	14, // 84: inventar.v1.InventarService.TransferStock:output_type -> inventar.v1.TransferStockResponse
+	16, // 85: inventar.v1.InventarService.RecordMovement:output_type -> inventar.v1.MovementResponse
+	18, // 86: inventar.v1.InventarService.ListMovements:output_type -> inventar.v1.ListMovementsResponse
+	18, // 87: inventar.v1.InventarService.GetStockHistory:output_type -> inventar.v1.ListMovementsResponse
+	23, // 88: inventar.v1.InventarService.CreateWarning:output_type -> inventar.v1.WarningResponse
+	23, // 89: inventar.v1.InventarService.UpdateWarning:output_type -> inventar.v1.WarningResponse
+	23, // 90: inventar.v1.InventarService.AcknowledgeWarning:output_type -> inventar.v1.WarningResponse
+	25, // 91: inventar.v1.InventarService.ListWarnings:output_type -> inventar.v1.ListWarningsResponse
+	28, // 92: inventar.v1.InventarService.GetStockReport:output_type -> inventar.v1.StockReportResponse
+	30, // 93: inventar.v1.InventarService.ExportInventory:output_type -> inventar.v1.ExportInventoryResponse
+	37, // 94: inventar.v1.InventarService.CreateLocation:output_type -> inventar.v1.LocationResponse
+	37, // 95: inventar.v1.InventarService.GetLocation:output_type -> inventar.v1.LocationResponse
+	37, // 96: inventar.v1.InventarService.UpdateLocation:output_type -> inventar.v1.LocationResponse
+	36, // 97: inventar.v1.InventarService.DeleteLocation:output_type -> inventar.v1.DeleteLocationResponse
+	39, // 98: inventar.v1.InventarService.ListLocations:output_type -> inventar.v1.ListLocationsResponse
+	52, // 99: inventar.v1.InventarService.CreateInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	52, // 100: inventar.v1.InventarService.GetInventurSession:output_type -> inventar.v1.InventurSessionResponse
+	52, // 101: inventar.v1.InventarService.UpdateInventurSessionStatus:output_type -> inventar.v1.InventurSessionResponse
+	46, // 102: inventar.v1.InventarService.DeleteInventurSession:output_type -> inventar.v1.DeleteInventurSessionResponse
+	48, // 103: inventar.v1.InventarService.ListInventurSessions:output_type -> inventar.v1.ListInventurSessionsResponse
+	50, // 104: inventar.v1.InventarService.UpsertInventurCount:output_type -> inventar.v1.InventurCountResponse
+	52, // 105: inventar.v1.InventarService.BookInventurDifferences:output_type -> inventar.v1.InventurSessionResponse
+	68, // 106: inventar.v1.InventarService.CreatePickingList:output_type -> inventar.v1.PickingListResponse
+	68, // 107: inventar.v1.InventarService.GetPickingList:output_type -> inventar.v1.PickingListResponse
+	68, // 108: inventar.v1.InventarService.UpdatePickingList:output_type -> inventar.v1.PickingListResponse
+	60, // 109: inventar.v1.InventarService.DeletePickingList:output_type -> inventar.v1.DeletePickingListResponse
+	62, // 110: inventar.v1.InventarService.ListPickingLists:output_type -> inventar.v1.ListPickingListsResponse
+	64, // 111: inventar.v1.InventarService.UpsertPickingListItem:output_type -> inventar.v1.PickingListItemResponse
+	66, // 112: inventar.v1.InventarService.DeletePickingListItem:output_type -> inventar.v1.DeletePickingListItemResponse
+	68, // 113: inventar.v1.InventarService.BookPickingList:output_type -> inventar.v1.PickingListResponse
+	71, // 114: inventar.v1.InventarService.CreateItemAttachment:output_type -> inventar.v1.ItemAttachmentResponse
+	73, // 115: inventar.v1.InventarService.ListItemAttachments:output_type -> inventar.v1.ListItemAttachmentsResponse
+	75, // 116: inventar.v1.InventarService.DeleteItemAttachment:output_type -> inventar.v1.DeleteItemAttachmentResponse
+	78, // [78:117] is the sub-list for method output_type
+	39, // [39:78] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_proto_inventar_v1_inventar_proto_init() }
@@ -5744,32 +5804,32 @@ func file_proto_inventar_v1_inventar_proto_init() {
 	file_proto_inventar_v1_inventar_proto_msgTypes[1].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[3].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[9].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[11].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[10].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[12].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[14].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[23].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[33].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[39].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[15].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[24].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[34].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[40].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[41].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[50].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[52].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[42].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[51].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[53].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[54].OneofWrappers = []any{}
 	file_proto_inventar_v1_inventar_proto_msgTypes[55].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[57].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[60].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[62].OneofWrappers = []any{}
-	file_proto_inventar_v1_inventar_proto_msgTypes[66].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[56].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[58].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[61].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[63].OneofWrappers = []any{}
+	file_proto_inventar_v1_inventar_proto_msgTypes[67].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_inventar_v1_inventar_proto_rawDesc), len(file_proto_inventar_v1_inventar_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   75,
+			NumMessages:   76,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

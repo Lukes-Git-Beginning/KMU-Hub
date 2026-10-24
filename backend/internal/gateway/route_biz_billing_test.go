@@ -32,6 +32,7 @@ func TestBizBillingRoutes_ServiceUnavailable(t *testing.T) {
 		"HandleUpdateDunningConfig":   routes.HandleUpdateDunningConfig,
 		"HandleGetFinanceDashboard":   routes.HandleGetFinanceDashboard,
 		"HandleExportDATEV":           routes.HandleExportDATEV,
+		"HandleExportDATEVGet":        routes.HandleExportDATEVGet,
 		"HandleGetJournalSummary":     routes.HandleGetJournalSummary,
 		"HandleValidateInvoiceNumber": routes.HandleValidateInvoiceNumber,
 		"HandleLockInvoice":           routes.HandleLockInvoice,
@@ -76,6 +77,7 @@ func TestBizBillingRoutes_NoTenant(t *testing.T) {
 		"HandleUpdateDunningConfig":   routes.HandleUpdateDunningConfig,
 		"HandleGetFinanceDashboard":   routes.HandleGetFinanceDashboard,
 		"HandleExportDATEV":           routes.HandleExportDATEV,
+		"HandleExportDATEVGet":        routes.HandleExportDATEVGet,
 		"HandleGetJournalSummary":     routes.HandleGetJournalSummary,
 		"HandleValidateInvoiceNumber": routes.HandleValidateInvoiceNumber,
 		"HandleLockInvoice":           routes.HandleLockInvoice,
@@ -351,75 +353,14 @@ func TestHandleRecordPayment_AmountAsJSONNumber(t *testing.T) {
 // Dunning
 // ============================================================================
 
-func TestHandleCreateDunning_InvalidJSON(t *testing.T) {
+func TestHandleEscalateDunning_InvalidID(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", invalidJSON())
+	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/not-a-uuid/escalate", nil)
 	req = withTenantID(req, testTenantID)
-	routes.HandleCreateDunning(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid request body")
-}
-
-func TestHandleCreateDunning_LevelOutOfRange(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-
-	cases := map[string]int{"TooLow": 0, "TooHigh": 4}
-	for name, level := range cases {
-		t.Run(name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
-				"invoice_id": "550e8400-e29b-41d4-a716-446655440000",
-				"level":      level,
-			}))
-			req = withTenantID(req, testTenantID)
-			routes.HandleCreateDunning(rec, req)
-			assertValidationError(t, rec, "level")
-		})
-	}
-}
-
-func TestHandleCreateDunning_InvalidFee(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/detect", jsonBody(t, map[string]interface{}{
-		"invoice_id": "550e8400-e29b-41d4-a716-446655440000",
-		"level":      1,
-		"fee":        "-5.00",
-	}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleCreateDunning(rec, req)
-	assertValidationError(t, rec, "fee")
-}
-
-func TestHandleEscalateDunning_InvalidJSON(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/id/escalate", invalidJSON())
-	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "id", "not-a-uuid")
 	routes.HandleEscalateDunning(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
-	assertErrorContains(t, rec, "invalid request body")
-}
-
-func TestHandleEscalateDunning_MissingInvoiceID(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/id/escalate", jsonBody(t, map[string]interface{}{}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleEscalateDunning(rec, req)
-	assertValidationError(t, rec, "invoice_id")
-}
-
-func TestHandleEscalateDunning_InvalidInvoiceIDFormat(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/dunning/id/escalate", jsonBody(t, map[string]interface{}{
-		"invoice_id": "not-a-uuid",
-	}))
-	req = withTenantID(req, testTenantID)
-	routes.HandleEscalateDunning(rec, req)
-	assertValidationError(t, rec, "invoice_id")
 }
 
 func TestHandleUpdateDunningConfig_InvalidJSON(t *testing.T) {

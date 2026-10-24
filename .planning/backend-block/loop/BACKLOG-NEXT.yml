@@ -1,9 +1,9 @@
 # Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf
 #
-# STAND 2026-10-23 (Staging Lauf 15): 20 Units, alle `blocked` — Entscheidungen Luke, Legal
-# oder Frontend. Was baubar war, steht in BACKLOG.yml (Liste im Block "NACHBEARBEITUNG
-# LAUF 14" am Dateiende). Die Blöcke darunter sind historisch gewachsen, ihre Kopfzeilen
-# beschreiben den Stand zum jeweiligen Datum.
+# STAND 2026-10-24 (Nachbearbeitung Lauf 15): Lauf 15 hat BACKLOG.yml leergearbeitet. Hier
+# liegen die Entscheidungen von Luke, Desktop-Arbeit und die Reste des Post-Run-Reviews
+# (Block "NACHBEARBEITUNG LAUF 15" am Dateiende). Die Blöcke darunter sind historisch
+# gewachsen, ihre Kopfzeilen beschreiben den Stand zum jeweiligen Datum.
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
@@ -1132,3 +1132,678 @@ units:
       2026-10-23, Deckel bleibt). VORRANG im Alltag: Login 401 und 409 beim Signieren.
     done_when:
       - Je Punkt geprüft und behandelt oder bewusst verworfen
+
+  - id: fe-virtual-files-view-wire-shape
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`). Die Dateiansicht „Chat/E-Mail/Aufgaben“ in
+      `DokumentePage.tsx` ist noch gar nicht verdrahtet.
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 15 Iteration 1 (`fix-document-virtual-files-nil-user`): das Backend liefert die
+      virtuelle Dateiliste jetzt für echte Nutzer, aber die FE-Seite ist halb fertig.
+      (1) `DokumentePage.tsx:234-242` ruft `useVirtualFiles` dreimal und verwirft das Ergebnis
+      (`_virtualChatFiles` usw.), nichts wird gerendert. (2) `VirtualFile.source_type` ist im FE
+      ein String (`'chat'|'email'|'task'`), der Gateway liefert den Proto-Enum als Zahl
+      (`UseEnumNumbers`, 1=CHAT 2=EMAIL 3=TASK, siehe `api/types.ts` `DocumentVirtualFile`).
+      (3) `listVirtualFiles(sourceType, limit, offset)` sendet `limit`/`offset`, der Gateway liest
+      `page`/`page_size`. Der Filter-Parameter `source_type` wird seit Iteration 1 akzeptiert.
+    done_when:
+      - "Dateiansicht rendert die drei Quellen, Typ und Paginierung passen zum Gateway"
+
+  - id: decide-trip-logs-driver-user-fk
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE (Datenmodell + FE): Fahrer als echte User-Referenz im Fahrtenbuch ja/nein.
+    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml (Migration + Desktop-Fahrerauswahl)"
+    scope: >
+      Aus Lauf 15 Iteration 6 (`fix-dsar-third-party-matching`): der DSAR-Nutzerzweig legt das
+      Fahrtenbuch nicht mehr offen, weil `trip_logs.driver_name` Freitext ohne User-FK ist und der
+      Namensabgleich Fahrten von Namensvettern herausgab. Folge: die eigenen Fahrten eines Fahrers
+      fehlen jetzt in seiner Auskunft (Art. 15), der Bearbeiter muss sie von Hand ziehen
+      (`lean:`-Marker in `security/gdpr/dsar_search_fuhrpark.go`). Derselbe Owner-FK-Gap steht in
+      `.planning/backend-gaps.md` (scope-own für Fahrer). Frage: `driver_user_id UUID NULL`
+      (FK users, tenant-gescoped) einführen und im Desktop eine Fahrerauswahl anbieten, freier
+      Name bleibt für Externe? Dann DSAR über die FK und scope-own im Katalog möglich.
+    done_when:
+      - Entscheidung Luke dokumentiert
+
+  - id: fe-handle-crm-kommunikation-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderungen laufen über den
+      Build-+-Verify-Standard mit Screenshot-QA (`.planning/nico-block/WORKFLOW.md`). Punkt (j)
+      braucht außerdem eine Entscheidung von Luke.
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      FE-Funde aus `scan-fe-gateway-shape-crm-kommunikation` (Iteration 12, Belege im Journal).
+      VORRANG: (a) Benachrichtigungs-Priorität: `PRIORITY_BY_INT` in `useNotifications.ts:21` ist
+      vertauscht (Proto 1=URGENT, 2=NORMAL, 3=LOW, 4=HIGH; FE 1->low, 3->urgent) — dringende Meldungen
+      erscheinen als "low". (b) `useCreateTag/useUpdateTag/useDeleteTag`, alle `useCustomFields`-Hooks
+      und `useBirthdays` nutzen rohes `fetch` OHNE `Authorization`-Header -> 401 im Produktivbetrieb;
+      `useUpdateTag` sendet PATCH, die Route ist nur PUT; `/dashboard/birthdays` hat keinen Handler.
+      (c) `useLeads.ts` ist ein In-Memory-Mock mit 8 erfundenen Leads (Gateway `/leads` existiert
+      ungenutzt); Auswertungen zählen sie mit. (d) `activity.completed` heißt auf der Leitung
+      `is_completed` (`ActivitiesListPage.tsx:396/409/448`, `WiedervorlageView.tsx:30/71`,
+      `AuswertungenPage.tsx:99`). (e) Kontakt-Namen: Konsumenten lesen camelCase aus Roh-snake_case
+      (`RecentContacts.tsx`, `DealFormDialog.tsx:195` — Picker leer, `MeetingFormDialog.tsx:533`,
+      `AttachToContactDialog.tsx:22`, `ReferredByField.tsx`, `AdvisoryProtocolEditor.tsx:207`,
+      `VertraegePage.tsx:245/837`). (f) `DealDetailPage` liest `contactId/companyId/closedAt/customFields`,
+      `backendDealToUI` normalisiert sie nicht (`useDeals.ts:15`); `CompanyDetailPage.tsx:324` liest
+      `firstName/lastName` aus `useCompanyContacts`. (g) `KontaktePage.tsx:92` lädt ohne Paging nur
+      20 Kontakte. (h) Meetings: Status/RSVP-Vergleiche gegen Strings (`MeetingLobby.tsx:104`,
+      `MeetingSummaryView.tsx:129`), Teilnehmername `a.user_name` statt first/last_name,
+      `VideoCallView` bekommt keine `meetingId` (`MeetingsPage.tsx:419`, `VideoPage.tsx:484`) — Co-Hosts,
+      Breakout, Meeting-Chat feuern nicht. (i) Posteingang: `useUnreadInbox.ts` ruft zwei Routen, die es
+      im Gateway nicht gibt (`/messages/unread-inbox`, `/channels/read-all`), ohne Auth-Header. (j)
+      ENTSCHEIDUNG LUKE: `page_size` über 100 wird am Gateway still auf 20 gesetzt, das FE fragt 200
+      an (Pipeline-Kanban zeigt max. 20 Deals, `DealForecastView`, `AuswertungenPage`, Kontakt-Picker).
+      Obergrenze am Gateway anheben (Backend, kleine Unit) oder FE paginiert?
+      (k) `ActivityFeed.tsx:82` verlinkt auf nicht existierende `/crm/...`-Routen; `CRMLayout` ist nirgends
+      gemountet (toter Code: `ImportWizard`, `ExportDialog`, `ContactsListPage`).
+    done_when:
+      - "Punkte (a)-(i),(k) im FE behoben und per Screenshot-QA abgenommen; (j) entschieden"
+
+  - id: fe-handle-geld-waren-shape-findings
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderungen laufen über den
+      Build-+-Verify-Standard mit Screenshot-QA (`.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      FE-Funde aus `scan-fe-gateway-shape-geld-waren` (Iteration 19, Belege im Journal), die das
+      Backend nicht lösen kann. (a) DATEV-Beleg-Upload: `DatevSettingsPanel.tsx:122` ruft
+      `uploadBeleg.mutateAsync(file.name)` mit dem Dateinamen, die Route verlangt die Rechnungs-UUID
+      (`route_datev_upload.go:307`) -> 400 für jeden Admin, dazu drei Retries (`useDatevUpload.ts:155`).
+      (b) `EinkaufPage.tsx:276` `s.email.toLowerCase()` stürzt bei einem Lieferanten ohne E-Mail ab,
+      sobald gesucht wird (`email` fehlt im Proto-JSON, wenn leer). (c) `EinkaufDialogs.tsx:80`
+      `linesData.lines.slice()` ohne `?.`. (d) `EinkaufPage.tsx:1084/1086` hängt `T00:00:00` an ein
+      RFC3339-Datum -> "Invalid Date". (e) Inventur-Dialog bietet `transfer` als Bewegungstyp, falls
+      das Backend ihn nicht annimmt (Entscheidung in `fix-inventar-inventur-counted-and-movement-type`).
+      (f) `vertraege-client.ts:35` `normalizeWireTimestamps` ist wirkungslos (Gateway liefert
+      RFC3339-Strings), Kommentar im Normalizer ist veraltet. (g) Nicht verwendete Hooks
+      (`useJournalSummary`, `useValidateInvoiceNumber`, `useLockInvoice`, `usePaymentStats`,
+      `useUpdateDunningStatus`, `useSendDunningNotice`, `useGoBDExport`) vor dem Anschließen gegen
+      die Gateway-Form prüfen. (h) `StammdatenTab`-Teil-Saves: FE-seitig unkritisch, sobald
+      `fix-finance-company-settings-partial-save-wipes-data` durch ist.
+    done_when:
+      - "Punkte (a)-(g) im FE behoben und per Screenshot-QA abgenommen"
+
+  - id: decide-creditnote-dialog-storno-flag
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Gutschrift-Dialog (`CreditNoteDialog.tsx:139-152`) sendet `is_storno: true` und meldet
+      danach "Storno erledigt". Das Gateway kennt das Feld nicht (`createCreditNoteRequest`), das
+      Proto auch nicht: es entsteht eine normale Gutschrift, die Rechnung bleibt unverändert. Einen
+      Storno-Pfad gibt es im Service (`invoice.Service.CancelInvoice` legt für eine versendete
+      Rechnung die Storno-Gutschrift an und setzt die Rechnung auf `cancelled`, über
+      `creditnote.StornoInvoice` in einer Transaktion), er hängt aber nur an der Rechnungs-Route.
+      ENTSCHEIDUNG LUKE: (a) Dialog bei `is_storno` an `POST /finance/invoices/{id}/cancel`
+      umleiten (FE-Änderung, Gutschrift entsteht automatisch, volle Summe), (b) `is_storno` am
+      Gateway annehmen und intern auf den Cancel-RPC abbilden, die gesendeten Positionen
+      verwerfen, oder (c) die Checkbox im Dialog streichen. Bis dahin sagt der Toast etwas, das
+      nicht stimmt.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/CreditNoteDialog.tsx
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/invoice/service.go
+    done_when:
+      - "Entscheidung a/b/c steht; bei b ein Router-Test, dass is_storno die Rechnung auf cancelled setzt"
+
+  - id: decide-inventar-movement-transfer-in-dialog
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Bewegungs-Dialog (`InventarPage.tsx:433/445-450`) bietet `transfer` als Typ, schickt ihn an
+      `POST /inventar/items/{id}/movements`, der Validator (`route_inventar.go`, `oneof=in out
+      adjustment`) lehnt ihn mit 400 ab. Das ist KEIN Gateway-Fehler, sondern ein fehlender Vertrag:
+      der Service kann Umbuchung nur zwischen ZWEI Artikeln (`POST /inventar/transfer`,
+      `from_item_id`/`to_item_id`/`quantity`), der Dialog erfasst aber nur den einen Artikel plus ein
+      Lagerort-Textfeld (`lagerort`), kein Zielartikel. `RecordMovement(transfer)` anzunehmen würde
+      eine Bewegungszeile ohne Bestandswirkung schreiben (siehe `fix-inventar-record-movement-changes-stock`).
+      ENTSCHEIDUNG LUKE: (a) FE: `transfer` aus dem Dialog nehmen oder einen Zielartikel abfragen und
+      `/inventar/transfer` rufen (nur FE), (b) Lagerort-Umbuchung desselben Artikels als eigenes
+      Datenmodell (Bestand je Lagerort, heute hat ein Artikel genau ein `location`) — Architektur.
+    sources:
+      - desktop/src/renderer/src/modules/inventar/InventarPage.tsx
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/inventar/service.go
+    done_when:
+      - "Entscheidung a/b steht; bei a ist der Dialog angepasst, bei b eine eigene Unit mit Datenmodell angelegt"
+
+  - id: decide-hr-employee-create-without-user-id
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `POST /hr/employees` (`route_hr.go:1535/1566`) verlangt `user_id` (required, uuid) und liest
+      `first_name`, `last_name`, `email`, `roles`, `temporary_password`, `workload_percent`, `location`,
+      `send_invite_email` nie. Der Client (`hr-client.ts:883`, `toSnakeCaseEmployeeBody`) schickt
+      `user_id` nie: der Aufruf endet für JEDEN mit 400 (Scan Iteration 29). Vertragsfrage: legt "Mitarbeiter
+      anlegen" im FE zugleich ein Benutzerkonto an (dann braucht das Gateway einen Auth-Aufruf plus
+      Einladung — Architektur), oder zeigt der Dialog nur vorhandene Benutzer ohne Profil (dann FE-Thema:
+      `user_id` mitsenden)? ENTSCHEIDUNG LUKE; Wrap-Form der Antwort (`{employee}`) steckt bereits in
+      `fix-hr-employee-settings-calendar-documents-wire`.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - desktop/src/renderer/src/api/hr-client.ts
+    done_when:
+      - "Entscheidung a (Konto mit anlegen) / b (FE schickt user_id) steht"
+
+  - id: decide-berichte-preview-and-run-schedule-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Der Berichte-Builder ruft `POST /api/v1/berichte/preview` (`berichte-client.ts:168`,
+      `useBerichte.ts:208`, Live-Vorschau des No-Code-Builders) und der Zeitplan-Dialog
+      `POST /api/v1/berichte/schedules/{id}/run` (`berichte-client.ts:220`, `useRunScheduleNow`).
+      Beide Routen gibt es am Gateway nicht, und `berichte.proto` hat dafür keinen RPC (nur
+      `RunReport`, `GetCachedResult`, Schedule-CRUD und `ToggleSchedule`). Beide Aufrufe enden mit
+      404 (Scan Iteration 34). Neue Route plus RPC ist Architektur: ENTSCHEIDUNG LUKE, ob (a)
+      Preview als `RunReport` auf einer nicht gespeicherten Definition gebaut wird (Aggregations-
+      Executor kennt `BuilderQueryConfig`? prüfen), (b) "Jetzt ausführen" auf einen vorhandenen
+      Lauf-RPC mit `trigger=manual` und dem Zeitplan-`params` abgebildet wird, oder (c) beide im
+      FE ausgeblendet werden, bis der Executor den Builder-Vertrag kennt.
+    sources:
+      - desktop/src/renderer/src/api/berichte-client.ts
+      - desktop/src/renderer/src/api/hooks/useBerichte.ts
+      - backend/proto/berichte/v1/berichte.proto
+      - backend/internal/gateway/route_berichte.go
+    done_when:
+      - "Entscheidung a/b/c steht; bei a/b eine eigene Bau-Unit mit Spec-Pfad und Router-Test"
+
+  - id: decide-wiki-templates-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      `wiki-client.ts` ruft `GET/POST /wiki/templates` und `PUT/DELETE /wiki/templates/{id}`
+      (WP-5, `WikiTemplateDialog.tsx`). Weder Gateway (`route_wiki.go`, `RegisterRoutes`) noch
+      `wiki.proto` kennen Vorlagen, die Aufrufe enden mit 404; der Dialog fällt still auf die leere
+      Standardvorlage zurück (kein Absturz). Vorlagen sind ein Datenmodell (Tabelle mit
+      `tenant_id` + RLS, Seed der Standardvorlagen, Permission-Seed): ENTSCHEIDUNG LUKE, ob sie
+      serverseitig gebaut werden oder der Vorlagen-Teil im FE bis dahin entfällt.
+    sources:
+      - desktop/src/renderer/src/api/wiki-client.ts
+      - desktop/src/renderer/src/modules/wiki/WikiTemplateDialog.tsx
+      - backend/internal/gateway/route_wiki.go
+      - backend/proto/wiki/v1/wiki.proto
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Migration (RLS, Seed) und Spec"
+
+  - id: decide-formulare-closed-status
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Das Formular-FE kennt vier Stati (`draft|active|closed|archived`, `FormularePage.tsx` `applyStatus(…, 'closed')`,
+      Zähler, Ausfüllseite mit `closedMessage`). `FormSchemaStatus` im Proto und die Spalte kennen
+      nur draft/active/archived. Seit `fix-formulare-schemas-submissions-wire` schickt das Gateway
+      `status` an den Service durch und lehnt `closed` mit 400 ab (vorher wurde `status` stillschweigend
+      verworfen, das Schließen blieb ohne Wirkung). Ebenso ohne Ablage: `closedMessage`, `thankYouMessage`,
+      `redirectUrl`, `notifications` des FE-Typs. ENTSCHEIDUNG LUKE: `closed` (und die vier FE-Felder)
+      serverseitig bauen (Proto-Enum + Migration, Public-Route lehnt Einreichungen ab) oder im FE streichen.
+    sources:
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+      - backend/proto/formulare/v1/formulare.proto
+      - backend/internal/gateway/route_formulare_wire.go
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Public-Route und Spec"
+
+  - id: decide-formulare-share-link-url-channel-toggle
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Die Verteilen-Ansicht des Formular-FE (`ShareLinksPanel`, Share-Dialog) liest pro Share-Link
+      `url`, `channel`, `views` und schaltet per `PATCH /formulare/share-links/{id}` zwischen
+      `active` und `disabled`. Das Backend hat dafür nichts: das Proto kennt weder URL noch Kanal
+      noch Aufrufzähler, es gibt keine öffentliche Ausfüllseite (nur `POST /public/formulare/submit/{token}`)
+      und keine PATCH-Route (nur `DELETE`, das widerruft endgültig). Seit
+      `fix-formulare-webhooks-share-links-deliveries-stats-wire` schreibt das Gateway `url: ""`,
+      `channel: "link"`, `views: 0`; Kopieren liefert also einen leeren Link, Deaktivieren/Reaktivieren
+      endet in 404. ENTSCHEIDUNG LUKE: (a) öffentliche Ausfüllseite (FD-4) bauen und die Basis-URL
+      festlegen, (b) Kanal und Aufrufzähler speichern oder im FE streichen, (c) Deaktivieren als
+      umkehrbare Aktion (PATCH, `revoked_at` zurücksetzbar) oder das FE-Toggle durch "Widerrufen" ersetzen.
+    sources:
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+      - desktop/src/renderer/src/api/formulare-types.ts
+      - backend/proto/formulare/v1/formulare.proto
+      - backend/internal/gateway/route_formulare_wire.go
+    done_when:
+      - "Entscheidung steht; bei Bau eine eigene Unit mit Proto-Regen, Migration, Route, Spec und Public-Seite"
+
+  - id: fe-erasure-execute-send-admin-password
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      TOTALAUSFALL DSGVO-Löschung (Scan Iteration 39). `POST /api/v1/security/gdpr/erasure/execute`
+      verlangt `user_id` UND `admin_password` (`executeErasureRequest`, `validate:"required"`;
+      Proto `ExecuteErasureRequest.admin_password` = Bestätigung). `GDPRErasurePage.tsx` sammelt das
+      Passwort (`adminPassword`, Z. 66/401) und ruft dann `executeErasure.mutate(selectedUserId, …)`
+      (Z. 135), der Hook und `security-client.ts:206` schicken nur `{user_id}` -> jede Löschung endet
+      in 400. Das Backend darf die Passwortprüfung NICHT aufweichen. FE-Unit: Passwort durch
+      Hook (`useExecuteErasure`) und Client (`executeErasure(userId, adminPassword)`) in den Body
+      `admin_password` reichen, MSW-Mock und `__tests__` mitziehen. Desktop-Code ändert der Loop nicht.
+    sources:
+      - desktop/src/renderer/src/modules/security/GDPRErasurePage.tsx
+      - desktop/src/renderer/src/api/hooks/useSecurity.ts
+      - desktop/src/renderer/src/api/security-client.ts
+      - backend/internal/gateway/route_security.go
+    done_when:
+      - "Body enthält `admin_password`; Löschung gegen ein echtes Backend (lokal) liefert 200 statt 400"
+
+  - id: fe-dialer-agent-status-menu-offers-rejected-transitions
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 41 (scan-validation-tightening-vs-desktop-callers). `AgentStatusPill.tsx` bietet im
+      Menü immer `available`, `break`, `offline` an (`switchable = [1, 4, 5]`), auch den aktuellen
+      Status. Der Statusautomat (`dialer/redis_agent_store.go` `validTransitions`) lehnt
+      `available->available`, `break->break`, `offline->offline`, `offline->break`, `on_call->break|offline`
+      und `wrap_up->offline` ab; seit `9d080798` kommt das als FailedPrecondition = HTTP 409 an (vorher 500).
+      `useSetAgentStatus` (`useDialer.ts:316`) hat kein `onError`: die Auswahl bleibt ohne Rückmeldung
+      wirkungslos, die Pille zeigt weiter den alten Status. Kein Totalausfall (available/offline gehen
+      aus den Grundzuständen), aber ein stiller Fehlschlag im Tagesgeschäft eines Agenten.
+      FE-Unit: nur erlaubte Ziele anbieten (aus dem aktuellen Status ableiten, Tabelle oben) und
+      `onError` mit Toast ergänzen. Alternative Backend-Entscheidung (Luke): `X->X` als No-op
+      zulassen; `offline->break` bleibt sinnvoll abgelehnt. Desktop-Code ändert der Loop nicht.
+    sources:
+      - desktop/src/renderer/src/modules/dialer/components/workspace/AgentStatusPill.tsx
+      - desktop/src/renderer/src/api/hooks/useDialer.ts
+      - backend/internal/dialer/redis_agent_store.go
+    done_when:
+      - "Menü zeigt nur Übergänge, die der Automat annimmt; ein 409 erzeugt einen sichtbaren Fehlerhinweis"
+
+  - id: decide-credit-note-over-credit-limit
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 42. `internal/biz/creditnote/repository_coverage_integration_test.go:236-270`
+      (Build-Tag `integration`) schreibt fest, dass `creditnote.Service.Create` keine Obergrenze prüft:
+      eine Gutschrift über 1190 € auf eine Rechnung über 119 € wird angelegt. Der Service lädt die
+      Originalrechnung nur auf Existenz/Status. Kein Totalausfall, aber eine Buchhaltungslücke
+      (Gutschriften summieren sich über die Rechnung hinaus). ENTSCHEIDUNG LUKE: Obergrenze =
+      Rechnungsbrutto minus bereits erteilte Gutschriften (409/InvalidArgument bei Überschreitung)
+      oder bewusst erlaubt (z. B. Kulanz/Rückerstattung über Rechnung hinaus)? Bei "Obergrenze":
+      Fix-Unit mit Summenprüfung in einer Transaktion (Rennen zwischen zwei Gutschriften) und Test
+      ohne Build-Tag, damit er im PR-Gate läuft.
+    sources:
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/creditnote/repository_coverage_integration_test.go
+    done_when:
+      - "Entscheidung Obergrenze ja/nein steht; bei ja ist die Fix-Unit angelegt"
+
+  - id: decide-hr-team-time-scope-for-managers
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    scope: >
+      Scan Iteration 42. `GET /api/v1/hr/time/team` (`route_hr.go:121`, Guard `hr:read` ODER
+      `zeiterfassung:team view`) ruft `GetTeamTime` (`hr_grpc.go:1237`); `GetTeamTimeReq` trägt nur
+      Mandant und Wochenstart, keinen Aufrufer. Jeder Inhaber der Berechtigung sieht damit ALLE
+      Mitarbeiter des Mandanten mit Wochenminuten, Überstunden und Stempelstatus, nicht nur sein Team.
+      Der Gateway-Test `route_hr_time_tracking_test.go:310` verweist auf eine Unit
+      `fix-hr-team-time-not-scoped-to-manager`, die in keiner Backlog-Datei und keinem Archiv steht
+      (nie angelegt). ENTSCHEIDUNG LUKE: Teamleiter sehen nur ihre direkten Berichte
+      (Proto-Feld `caller_id` + Filter über die Berichtslinie) oder bewusst alle (KMU mit 5-200
+      Personen, `zeiterfassung:team view` ist eine eigene Berechtigung)?
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/server/hr_grpc.go
+      - backend/internal/biz/hr/timetracking/service.go
+    done_when:
+      - "Entscheidung gescoped/alle steht; bei gescoped ist die Fix-Unit mit Proto-Feld angelegt"
+
+  - id: decide-document-share-access-effect
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Entscheidung Luke: welche Rechte folgen aus einer Freigabe (read/write) bei Datei und Ordner?"
+    scope: >
+      Gefunden in cov-document-share (Iteration 53), von fix-document-shared-with-me-and-share-effect
+      (Iteration 54) bewusst nicht gebaut. `share.Service.CheckAccess`/`HasAccess` hat außerhalb des
+      Pakets KEINEN Aufrufer: weder Datei- noch Ordner-Zugriff prüft `document_shares`. Eine Freigabe
+      erscheint jetzt in "Mit mir geteilt", bewirkt sonst aber nichts — der Empfänger kann die Datei
+      nicht öffnen, wenn die Dokument-Routen auf Besitz/Raum prüfen. Offene Fragen: (1) Gibt `read`
+      Download/Vorschau/Versionsliste, `write` Umbenennen/Neue Version/Löschen? (2) Erbt ein Ordner-Share
+      die Dateien und Unterordner? (3) Darf der Empfänger weiterteilen? (4) Prüft `ShareEntity`, dass
+      der Teilende die Entität besitzt oder `write` hat (heute nur `documents:share`-Guard, keine
+      Existenz-/Besitzprüfung)?
+    sources:
+      - backend/internal/document/share/service.go
+      - backend/internal/server/document_grpc.go
+      - backend/internal/gateway/route_document.go
+    done_when:
+      - "Entscheidung zu (1)-(4) steht; die Folge-Units (Guard in Datei- und Ordner-RPCs, Existenzprüfung in ShareEntity) sind angelegt"
+
+  - id: decide-finance-exchange-rate-storage
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Entscheidung Luke: Fremdwährungs-Belege mit Wechselkurs (speichern ja/nein) oder nur Währung ohne Kurs?"
+    scope: >
+      Gefunden in fix-finance-invoice-quote-create-dropped-fields (Iteration 59). Das FE sendet bei
+      CHF/USD-Rechnungen `exchange_rate` (`InvoiceFormDialog.tsx:230`) und zeigt den Wert beim Bearbeiten
+      wieder an (`:153`, `editInvoice.exchange_rate`). Im Backend gibt es dafür keine Spalte, kein Proto-Feld,
+      kein Modell — `exchange_rate` kommt in keiner Go-, SQL- oder Spec-Datei vor. Die Spec sagt an anderer
+      Stelle ausdrücklich: ohne gespeicherten Kurs berichtet der Server pro Währung (`openapi.yaml` ~12222). Seit
+      der Fix-Unit nimmt das Gateway `currency` an und ignoriert `exchange_rate` (Spec vermerkt das).
+      Offene Fragen: (1) Soll der Kurs am Beleg gespeichert werden (Migration auf `invoices`/`quotes`, Proto,
+      Anzeige)? (2) Wird er nur dokumentarisch geführt oder rechnet etwas damit (DATEV-Export, Berichte,
+      offene Posten in Tenant-Währung)? (3) Sonst: das FE-Feld entfernen.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/biz/datev/exporter.go
+    done_when:
+      - "Entscheidung zu (1)-(3) steht; bei 'speichern' ist die Fix-Unit mit Migration (tenant_id/RLS unverändert), Proto und Spec angelegt"
+
+  - id: fe-branchen-follow-ups-from-shape-minor
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Entscheidung/Arbeit Luke bzw. Nico (Desktop, nicht Backend): drei FE-Themen aus fix-branchen-shape-minor (Iteration 63)"
+    scope: >
+      Aus fix-branchen-shape-minor, Backend-Seite erledigt, Rest liegt im Desktop. (1) Rapporte: das Gateway
+      nimmt jetzt `weather`, `temperature`, `work_start`, `work_end`, `break_minutes`, `project_name` bei
+      `POST` und `PATCH /rapporte/reports` an und speichert sie (Migration 162 hatte die Spalten schon). Das FE
+      sendet sie aber nicht: `RapportePage.tsx:981` schickt nur title/description/author_id/report_date, und
+      `rapporte-adapter.ts:24-29` setzt Wetter 'sunny', 10 Grad, 08:00-17:00, 60 min fest. Erfasste Werte
+      gehen also weiter verloren, bis `CreateReportInput`/`UpdateReportInput` die Felder tragen und der
+      Adapter sie liest (Zeiten kommen als `HH:MM:SS` zurück). (2) Fuhrpark: `FuhrparkPage.tsx:85` mappt
+      `tire_change -> tires`, das FE speichert aber `service_type: 'tires'` (`:1702`); beim Lesen fällt `tires`
+      auf `service` zurück. Das Backend speichert den String unverändert, die Zuordnung `tires` fehlt im
+      FE-`typeMap`. (3) Vermietung: das FE schickt `new Date(startDate + 'T00:00:00').toISOString()`
+      (`VermietungPage.tsx:396`), die Spalte ist TIMESTAMPTZ mit GiST-Überlappungsprüfung, und die Anzeige
+      schneidet `.slice(0, 10)` — bei UTC+ erscheint der Starttag einen Tag zu früh. Entscheidung: Verträge
+      verwenden reine Daten; sollen Mieten das auch (Spalte DATE, Überlappung auf daterange, Migration) oder
+      sendet das FE den Tag in der Mandantenzone? Nicht latent: betrifft jede Miete in Deutschland.
+    sources:
+      - desktop/src/renderer/src/modules/rapporte/RapportePage.tsx
+      - desktop/src/renderer/src/api/rapporte-adapter.ts
+      - desktop/src/renderer/src/modules/fuhrpark/FuhrparkPage.tsx
+      - desktop/src/renderer/src/modules/vermietung/VermietungPage.tsx
+    done_when:
+      - "(1) und (2) im FE behoben und per Screenshot-QA abgenommen; (3) entschieden, bei Umstellung auf DATE ist die Migrations-Unit angelegt"
+
+  - id: decide-hr-self-service-permissions-for-member-manager
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Produktentscheidung Luke: welche HR-Rechte bekommen member und manager, und wird der Guard für Genehmigen/Ablehnen von hr:write abgespalten"
+    scope: >
+      Gefunden in fix-hr-leave-list-ignores-user-filter (Iteration 64), gegen die lokale DB gemessen:
+      `hr:read` und `hr:write` hängen NUR an der Rolle `admin` (Migration 129; Migration 224 hat member und
+      manager nur Schichten, Booking, Inventar, Einkauf und `hr:time_*` gegeben). Damit bekommt jeder
+      Nicht-Admin auf `/hr/leave/*` und `/hr/time/*` ein 403 — Urlaubsantrag stellen, Saldo, Stempeluhr,
+      Self-Service-Ansicht. Ob das Absicht ist (HR bis zum Pilot nur für Admin), steht nirgends. Ein bloßes
+      Seed-Grant von `hr:write` an member wäre falsch: derselbe Key schützt `approve`/`reject`/`cancel`
+      (`route_hr.go:80-84`), jeder Mitarbeiter könnte dann Anträge genehmigen. Der Weg wäre ein feinerer Key
+      (`hr:leave:create` o. ä.), additiv per `RequirePermissionAny` neben dem groben, mit Seed-Migration für
+      member (Scope `own`). Die Own-Scope-Filter sind seit Iteration 64 an `GET /hr/leave/requests[/{id}]`
+      vorhanden (Key `hr:read`), das Gegenstück für Saldo (`/balance/{userId}`) und Zeiteinträge fehlt.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/migrations/000129_seed_missing_module_permissions.up.sql
+      - backend/migrations/000224_seed_module_manager_member_permissions.up.sql
+    done_when:
+      - "Entscheidung steht: HR bleibt admin-only oder member/manager bekommen Self-Service; bei 'Self-Service' ist die Fix-Unit mit Seed-Migration, additivem Guard und Own-Scope an Saldo und Zeiteinträgen angelegt"
+
+  - id: fe-hr-employee-documents-adapter-and-upload
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Arbeit Luke bzw. Nico (Desktop, nicht Backend): FE-Adapter für Personalakte-Dokumente und echter Datei-Upload, aus fix-hr-employee-documents-fe-contract (Iteration 65)"
+    scope: >
+      Das Gateway ist hier richtig, der Bruch liegt im Desktop. (1) `GET /hr/employees/{id}/documents`,
+      `/hr/me/documents` und `/hr/employees/{id}/documents/categories` liefern snake_case (`category_id`,
+      `file_name`, `file_size`, `created_at`, `uploaded_by_name`, `is_system`), wie jede Proto-Antwort
+      (`response.go` `UseProtoNames`). `EmployeeDocument` und `HRDocumentCategory` (`hr-types.ts:262/280`)
+      sind camelCase, `hrEmployeeApi.listDocuments`/`listDocumentCategories` (`hr-client.ts:922/935`)
+      adaptieren nicht, obwohl der Rest von `hr-client.ts` es tut (`adaptEmployee`, `adaptLeaveRequest`
+      u. a.). Folge: `DokumenteTab.tsx:51` filtert nach `d.categoryId` und findet nie etwas, die
+      Kategorie-Zähler sind leer, `b.createdAt.localeCompare` stürzt bei `undefined` ab, ab zwei
+      Dokumenten; `ProfileSections.tsx` zeigt `fileName`/`categoryName` leer. Fix: `adaptEmployeeDocument`
+      und `adaptDocumentCategory` in `hr-client.ts`. Das Gateway auf camelCase umzustellen wäre falsch (bricht
+      die Konvention und `PersonnelDocuments.tsx`, das snake_case liest). (2) Upload: `DokumenteTab.tsx:130-131`
+      sendet `fileId: 'file-<Date.now()>'` und als Rückfall `categoryId: 'hrcat-other'`; das Gateway lehnt
+      beides mit 400 ab (`uploadDocumentHTTPReq`, `validate:"omitempty,uuid"`), und die Spalte
+      `file_id` ist UUID. Der Tab lädt nie eine Datei hoch. Nötig: erst Presign-Upload (Muster
+      `internal/chat/file/minio_store.go`), dann die echte `file_id` senden; Kategorie-ID nur aus der
+      geladenen Kategorieliste, kein Rückfall-String. Das Backend nimmt `categoryId`/`fileId` (camelCase)
+      schon an.
+    sources:
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/api/hr-types.ts
+      - desktop/src/renderer/src/modules/profil/tabs/DokumenteTab.tsx
+      - desktop/src/renderer/src/modules/team/ProfileSections.tsx
+      - backend/internal/gateway/route_hr.go
+    done_when:
+      - "Adapter im FE, Tab filtert nach Kategorie und sortiert ohne Absturz, per Screenshot-QA mit einem echten Dokument abgenommen; Upload lädt vor dem Anlegen hoch und liefert 201"
+
+  # ========================================================================================
+  # NACHBEARBEITUNG LAUF 15 (2026-10-24): Reste aus dem gezielten Post-Run-Review (drei
+  # Reviews: Auth/Akteur/Tenant, Antwortformen gegen Desktop-Leser, Nebenläufigkeit und
+  # Datenverlust). Die `decide-*`/`fe-*`-Units direkt darüber hat Lauf 15 selbst abgelegt.
+  #
+  # IM REVIEW GEFIXT (auf backend-loop, PR #27) und deshalb hier NICHT als Unit:
+  #   - 8cc079ce inventar: Bestand nur noch über die gesperrte Bewegungs-Transaktion
+  #     (UpdateItem schrieb den Bestand aus einem ungesperrten Read zurück und löschte so
+  #     parallel gebuchte Wareneingänge; AdjustStock/TransferStock ohne Tx)
+  #   - 0763765e inbox: Manager sehen die Mitgliederliste privater Team-Postfächer
+  #   - aabec10a hr: angelegter Mitarbeiter als {employee}
+  #   - 25a94aee desktop: Bestand nach Lagerbewegung neu laden
+  # BEWUSST OHNE UNIT (lean:-markiert, Trigger steht im Code):
+  #   - Company-/HR-Settings-Merge im Gateway: Read-Modify-Write ohne Versionsprüfung, der
+  #     spätere von zwei gleichzeitigen Admin-Saves gewinnt.
+  #   - DSAR ohne Fahrtenbuch hängt an `decide-trip-logs-driver-user-fk`.
+  # ========================================================================================
+
+  - id: fix-inventar-movement-result-after-commit
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml, kleiner Fix"
+    scope: >
+      `RecordMovement` liest nach dem Commit der Bewegungs-Tx das Movement per `GetMovement`
+      nach, `AdjustStock` das Item per `GetItem` (seit 8cc079ce). Scheitert dieser zweite Read
+      (Pool, ctx-Abbruch), meldet der Aufrufer einen Fehler, obwohl gebucht ist; ein Retry bucht
+      doppelt, es gibt keinen Idempotency-Key auf diesen Routen. Fix: Item und Movement aus der
+      Tx zurückgeben (`UPDATE … RETURNING` aller Item-Spalten, Movement aus den bekannten
+      Eingaben plus `created_at` per `RETURNING`).
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+    done_when:
+      - RecordMovement und AdjustStock lesen nach dem Commit nichts mehr nach
+      - go test -count=1 ./internal/inventar/ ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: harden-decode-empty-body-only-on-action-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml"
+    scope: >
+      `4b7eae35` lässt `decodeAndValidate` (`gateway/helpers.go`) JEDEN fehlenden Body als `{}`
+      lesen, nicht nur bei den Aktions-Buttons des Desktops. Handler ohne `validate`-Tags
+      nehmen damit einen leeren PUT/POST an, z. B. `putRolePermissionsRequest` (setzt die Grants
+      der Rolle auf leer), `putUserOverridesRequest`, `setMeetingLockHTTPRequest`,
+      `toggleDNDRequest`, `updateContractRequest`. Kein Leck (`{}` ging vorher auch), aber
+      Härtungsverlust an der Trust-Boundary: ein FE-Fehler ohne Body leert still Daten. Fix:
+      `decodeAndValidateOptional` (in `19d52ef1` eingeführt, in `4b7eae35` wieder entfernt)
+      zurückholen und nur an den Aktions-Routen aus Lauf 15 Iteration 22/23 verwenden;
+      `decodeAndValidate` lehnt fehlenden Body wieder mit 400 ab. Vorher die Desktop-Aufrufer
+      jeder umgestellten Route greppen (Lehre Lauf 14).
+    sources:
+      - backend/internal/gateway/helpers.go
+    done_when:
+      - Leerer Body auf PUT /auth/roles/{id}/permissions ergibt 400 (Test)
+      - Aktions-Routen ohne Body (quote convert, dunning detect/escalate, bank match, inventur book) bleiben 2xx (Test)
+      - go test -count=1 ./internal/gateway/ gruen inkl. TestOpenAPIRouteDrift
+
+  - id: fix-latent-partial-update-resets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml, Sammel-Unit"
+    scope: >
+      Drei latente Update-Fälle, heute ohne Folge, weil der Desktop immer alle Felder bzw. das
+      Feld nie sendet: (1) `PUT /notifications/quiet-hours` ohne `enabled`/`is_active`/`days`
+      schreibt `enabled=false` und `days=1..7` (`route_notification.go` `quietHoursRPCFields`);
+      Merge mit dem gespeicherten Wert wie bei `ChangePreference`. (2) `PUT /finance/invoices/{id}`
+      mit `due_date` UND `payment_terms_days`: die Zahlungsfrist überschreibt das Datum still
+      (`invoice/service.go` Update); explizites `due_date` soll gewinnen. Terms ohne Zahl
+      ("Sofort fällig") werden verworfen. (3) Erstes `PUT /hr/settings` ohne Policy-Felder
+      schreibt 0 statt der Defaults (`route_hr.go` NotFound-Zweig).
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/gateway/route_hr.go
+    done_when:
+      - je Fall ein Test, der den Teil-Request zeigt und den gespeicherten Wert behält
+      - go test -count=1 ./internal/gateway/ ./internal/biz/invoice/ gruen
+
+  - id: fix-work-delete-task-on-open-projects
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml"
+    scope: >
+      `c3734957` öffnet Projekte per Flag (`projectsOpenToTenant`, `work_grpc.go`) für alle
+      Projekt-Berechtigten: ansehen, bearbeiten, Mitglieder. `task.Service.Delete`
+      (`work/task/service.go`) verlangt weiter Projektmitgliedschaft und liefert
+      `ErrNotProjectMember`: ein Nutzer sieht das Projekt, kann dort aber keine Aufgabe löschen.
+      Mitgliedschaftsprüfung an dasselbe Flag koppeln.
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - Nicht-Mitglied löscht eine Aufgabe in einem offenen Projekt (Test), in einem geschlossenen nicht
+      - go test -count=1 ./internal/work/... ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: decide-video-recording-delete-admin
+    phase: 4
+    service: video
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: darf ein Tenant-Admin (oder recordings:admin) fremde Aufnahmen löschen?"
+    target: "Entscheidung Luke, danach Fix-Unit"
+    scope: >
+      Seit `c16e739e` darf nur der Starter oder ein Host/Co-Host eine Aufnahme löschen
+      (`video_grpc.go` `authorizeRecordingOwner`). Aufnahmen ohne Meeting (Call-Aufnahmen) kann
+      nur der Starter löschen, ein Admin gar nicht (`/recordings/{id}/cleanup` ist ein anderer
+      Pfad). Unabhängig von der Entscheidung ein Fehler: ist das Meeting gelöscht, liefert
+      `IsHostOrCoHost` einen Fehler und der Aufrufer bekommt 500 statt 403.
+    sources:
+      - backend/internal/server/video_grpc.go
+    done_when:
+      - Entscheidung dokumentiert; 403 statt 500 bei gelöschtem Meeting
+
+  - id: decide-team-inbox-manager-self-add-and-delete
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Reichweite von kommunikation:team_inbox:manage"
+    target: "Entscheidung Luke"
+    scope: >
+      `kommunikation:team_inbox:manage` erlaubt seit `ec495841`, Mitglieder in jedem
+      Team-Postfach zu verwalten. Damit kann sich ein Manager selbst als Admin in ein PRIVATES
+      Postfach eintragen und dessen Nachrichten lesen. Und `DeleteTeamInbox` bleibt Team-Admin-
+      Sache, ein Manager ohne Mitgliedschaft bekommt dort 403. Frage: (a) so lassen und
+      dokumentieren, (b) Selbst-Hinzufügen per Manage-Waiver verbieten, (c) Löschen ebenfalls
+      unter `manage`?
+    sources:
+      - backend/internal/inbox/team/service.go
+      - backend/internal/server/inbox_grpc.go
+    done_when:
+      - Entscheidung dokumentiert
+
+  - id: decide-gobd-integrity-check-on-every-download
+    phase: 4
+    service: finance
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "GEPARKT bis zum ersten Mandanten mit nennenswertem Archiv (Last-Thema)"
+    target: "Messung mit echtem Archiv"
+    scope: >
+      Seit `ee63b341` streamt jeder GoBD-Download das ganze Objekt aus MinIO durch SHA-256 und
+      schreibt ein `integrity_check`-Event (fatal, bewusst: eine unprotokollierte Prüfung
+      beweist nichts) plus das Access-Event. Bei Massen-Exports Last und Tabellenwachstum.
+      Option: Prüfung nur, wenn die letzte älter als N Stunden ist. Ein manipuliertes Dokument
+      ist per Download nicht mehr abrufbar, bis der Befund geklärt ist (gewollt, erzeugt
+      Support-Anfragen).
+    sources:
+      - backend/internal/biz/gobdarchive/service.go
+    done_when:
+      - Messung bzw. Entscheidung dokumentiert

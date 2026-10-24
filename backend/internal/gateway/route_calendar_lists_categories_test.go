@@ -347,7 +347,7 @@ func TestHandleListHolidays_InvalidEndFormat(t *testing.T) {
 func TestHandleListHolidays_ReachesRPC(t *testing.T) {
 	routes := NewCalendarRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/calendar/holidays?country_code=DE", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/calendar/holidays?country_code=DE&year=2026", nil)
 	req = withAuth(req, uuid.New().String(), testTenantID)
 	routes.HandleListHolidays(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)

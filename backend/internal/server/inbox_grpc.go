@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -709,6 +710,15 @@ func (s *InboxGRPCServer) BulkArchive(ctx context.Context, req *inboxv1.BulkArch
 // Team Inboxes (8 RPCs)
 // ============================================================================
 
+// withTeamManage marks ctx so the team service waives its per-inbox admin check
+// for callers holding kommunikation:team_inbox:manage (forwarded by the gateway).
+func withTeamManage(ctx context.Context) context.Context {
+	if slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermTeamInboxManage) {
+		return team.WithManageAll(ctx)
+	}
+	return ctx
+}
+
 func (s *InboxGRPCServer) CreateTeamInbox(ctx context.Context, req *inboxv1.CreateTeamInboxRequest) (*inboxv1.CreateTeamInboxResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -777,7 +787,7 @@ func (s *InboxGRPCServer) UpdateTeamInbox(ctx context.Context, req *inboxv1.Upda
 		existing.Visibility = visibilityToString(*req.Visibility)
 	}
 
-	if err := s.teamService.UpdateTeamInbox(ctx, existing, userID); err != nil {
+	if err := s.teamService.UpdateTeamInbox(withTeamManage(ctx), existing, userID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -862,7 +872,7 @@ func (s *InboxGRPCServer) AddTeamMember(ctx context.Context, req *inboxv1.AddTea
 		Role:        teamMemberRoleToString(req.Role),
 	}
 
-	if err := s.teamService.AddMember(ctx, tenantID, actorID, member); err != nil {
+	if err := s.teamService.AddMember(withTeamManage(ctx), tenantID, actorID, member); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -892,7 +902,7 @@ func (s *InboxGRPCServer) RemoveTeamMember(ctx context.Context, req *inboxv1.Rem
 		return nil, status.Error(codes.InvalidArgument, "invalid member_user_id")
 	}
 
-	if err := s.teamService.RemoveMember(ctx, tenantID, teamInboxID, actorID, memberUserID); err != nil {
+	if err := s.teamService.RemoveMember(withTeamManage(ctx), tenantID, teamInboxID, actorID, memberUserID); err != nil {
 		return nil, mapInboxError(err)
 	}
 
@@ -915,7 +925,7 @@ func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.List
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
 	}
 
-	members, err := s.teamService.ListMembers(ctx, tenantID, teamInboxID, actorID)
+	members, err := s.teamService.ListMembers(withTeamManage(ctx), tenantID, teamInboxID, actorID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}

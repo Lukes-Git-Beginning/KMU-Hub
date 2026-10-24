@@ -412,6 +412,23 @@ func TestCreateInvoice(t *testing.T) {
 		assert.Equal(t, "Acme GmbH", resp.GetInvoice().GetCustomer().GetName())
 		assert.Equal(t, bizv1.InvoiceStatus_INVOICE_DRAFT, resp.GetInvoice().GetStatus())
 	})
+
+	t.Run("payment terms and currency from the request are stored", func(t *testing.T) {
+		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+		resp, err := srv.CreateInvoice(context.Background(), &bizv1.CreateInvoiceRequest{
+			TenantId:     tenantID.String(),
+			CreatedBy:    uuid.New().String(),
+			Customer:     &bizv1.CustomerSnapshot{Name: "Acme GmbH"},
+			LineItems:    []*bizv1.LineItem{lineItem()},
+			InvoiceDate:  "2026-03-01",
+			PaymentTerms: "14 Tage netto",
+			Currency:     "CHF",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "CHF", resp.GetInvoice().GetCurrency())
+		assert.Equal(t, "14 Tage netto", resp.GetInvoice().GetPaymentTerms())
+		assert.Equal(t, "2026-03-15", resp.GetInvoice().GetDueDate())
+	})
 }
 
 func TestGetInvoice(t *testing.T) {
@@ -502,7 +519,7 @@ func TestSendInvoice(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, numberSeq, nil)
-		_, err := srv.SendInvoice(context.Background(), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
+		_, err := srv.SendInvoice(bizActorCtx(tenantID), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
@@ -513,7 +530,7 @@ func TestSendInvoice(t *testing.T) {
 		repo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, numberSeq, nil)
 
-		_, err := srv.SendInvoice(context.Background(), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
+		_, err := srv.SendInvoice(bizActorCtx(tenantID), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
@@ -523,7 +540,7 @@ func TestSendInvoice(t *testing.T) {
 		repo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, numberSeq, nil)
 
-		resp, err := srv.SendInvoice(context.Background(), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
+		resp, err := srv.SendInvoice(bizActorCtx(tenantID), &bizv1.SendInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, "RE-2026-0001", resp.GetInvoice().GetInvoiceNumber())
 		assert.Equal(t, bizv1.InvoiceStatus_INVOICE_SENT, resp.GetInvoice().GetStatus())
@@ -568,7 +585,7 @@ func TestCancelInvoice(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
-		_, err := srv.CancelInvoice(context.Background(), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
+		_, err := srv.CancelInvoice(bizActorCtx(tenantID), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
@@ -579,7 +596,7 @@ func TestCancelInvoice(t *testing.T) {
 		repo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 
-		_, err := srv.CancelInvoice(context.Background(), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
+		_, err := srv.CancelInvoice(bizActorCtx(tenantID), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
@@ -590,7 +607,7 @@ func TestCancelInvoice(t *testing.T) {
 		repo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 
-		_, err := srv.CancelInvoice(context.Background(), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
+		_, err := srv.CancelInvoice(bizActorCtx(tenantID), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
 		requireGRPCCode(t, err, codes.Internal)
 	})
 
@@ -600,7 +617,7 @@ func TestCancelInvoice(t *testing.T) {
 		repo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 
-		resp, err := srv.CancelInvoice(context.Background(), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
+		resp, err := srv.CancelInvoice(bizActorCtx(tenantID), &bizv1.CancelInvoiceRequest{TenantId: tenantID.String(), Id: inv.ID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, bizv1.InvoiceStatus_INVOICE_CANCELLED, resp.GetInvoice().GetStatus())
 	})
@@ -1192,7 +1209,7 @@ func TestSendCreditNote(t *testing.T) {
 
 	t.Run("invalid id", func(t *testing.T) {
 		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, cnNumberSeq)
-		_, err := srv.SendCreditNote(context.Background(), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
+		_, err := srv.SendCreditNote(bizActorCtx(tenantID), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: "not-a-uuid"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
@@ -1202,7 +1219,7 @@ func TestSendCreditNote(t *testing.T) {
 		cnRepo.notes[cn.ID] = cn
 		srv := newFinanceTestServer(newStubInvoiceRepo(), cnRepo, newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, cnNumberSeq)
 
-		_, err := srv.SendCreditNote(context.Background(), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: cn.ID.String()})
+		_, err := srv.SendCreditNote(bizActorCtx(tenantID), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: cn.ID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
@@ -1212,7 +1229,7 @@ func TestSendCreditNote(t *testing.T) {
 		cnRepo.notes[cn.ID] = cn
 		srv := newFinanceTestServer(newStubInvoiceRepo(), cnRepo, newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, cnNumberSeq)
 
-		resp, err := srv.SendCreditNote(context.Background(), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: cn.ID.String()})
+		resp, err := srv.SendCreditNote(bizActorCtx(tenantID), &bizv1.SendCreditNoteRequest{TenantId: tenantID.String(), Id: cn.ID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, "GS-2026-0001", resp.GetCreditNote().GetCreditNoteNumber())
 		assert.Equal(t, bizv1.CreditNoteStatus_CREDIT_SENT, resp.GetCreditNote().GetStatus())

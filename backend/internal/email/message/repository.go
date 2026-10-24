@@ -16,12 +16,25 @@ type ListOpts struct {
 	SortDir string
 }
 
+// ListFilter narrows List beyond a single folder: the unified inbox, a label
+// view and the unread/starred filters. Zero values mean "no restriction".
+type ListFilter struct {
+	FolderID    uuid.UUID   // uuid.Nil: not restricted to one folder
+	AccountIDs  []uuid.UUID // nil: any account; empty non-nil slice matches nothing
+	InboxOnly   bool        // only messages in an inbox-type folder
+	LabelID     uuid.UUID   // uuid.Nil: no label restriction
+	UnreadOnly  bool
+	StarredOnly bool
+	SearchQuery string
+}
+
 // Repository defines the interface for email message persistence.
 type Repository interface {
 	Create(ctx context.Context, msg *models.EmailMessage) error
 	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailMessage, error)
 	GetByFolderUID(ctx context.Context, folderID uuid.UUID, uid uint32) (*models.EmailMessage, error)
 	ListByFolder(ctx context.Context, folderID uuid.UUID, opts ListOpts) ([]*models.EmailMessage, int, error)
+	List(ctx context.Context, f ListFilter, opts ListOpts) ([]*models.EmailMessage, int, error)
 	ListByThread(ctx context.Context, threadID uuid.UUID) ([]*models.EmailMessage, error)
 	Search(ctx context.Context, accountID uuid.UUID, query string, opts ListOpts) ([]*models.EmailMessage, int, error)
 	UpdateFlags(ctx context.Context, id uuid.UUID, isRead, isStarred *bool) error

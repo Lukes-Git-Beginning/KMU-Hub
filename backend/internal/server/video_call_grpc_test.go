@@ -1457,28 +1457,58 @@ func TestGetRecordingDownloadURL_NonParticipantDenied(t *testing.T) {
 	requireGRPCCode(t, err, codes.PermissionDenied)
 }
 
-// TestDeleteRecording_NoParticipantOrInitiatorCheck documents the finding required
-// by this unit's notes: unlike StopRecording (initiator-or-host authz) and
-// GetRecordingDownloadURL (participant ACL), DeleteRecording performs NO check at
-// all — any recording ID a caller can guess/enumerate within the tenant can be
-// soft-deleted by ANY user, participant or not. The handler comment
-// "Authorization handled at gateway level" is false: HandleDeleteRecording in
-// route_video.go has no RequirePermission wrapper and does not check req.UserId
-// against the recording's participants either. Documented per this unit's scope
-// ("Befund fuers Journal, nicht etwas, das diese Unit nebenbei einbaut") — not
-// fixed here.
-func TestDeleteRecording_NoParticipantOrInitiatorCheck(t *testing.T) {
+// DeleteRecording follows the StopRecording rule: only the initiator or a meeting
+// host/co-host may delete. Anyone else (participant or not) gets PermissionDenied
+// and the recording stays untouched.
+func TestDeleteRecording_StrangerDenied(t *testing.T) {
 	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
 	recID := uuid.New()
 	initiator := uuid.New()
 	stranger := uuid.New()
 	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusCompleted, StartedBy: &initiator, CreatedAt: time.Now()}
-	// stranger is never added to participantUsers[recID] — not a participant, not the initiator.
+	ts.recRepo.participantUsers[recID] = []uuid.UUID{stranger}
 
-	_, err := ts.srv.DeleteRecording(context.Background(), &videov1.DeleteRecordingRequest{
-		RecordingId: recID.String(),
-		UserId:      stranger.String(),
-	})
-	require.NoError(t, err, "gap: a non-participant successfully deleted someone else's recording")
+	_, err := ts.srv.DeleteRecording(callCtxAuth(tenantID, stranger), &videov1.DeleteRecordingRequest{RecordingId: recID.String(), UserId: stranger.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	assert.Equal(t, recording.RecordingStatusCompleted, ts.recRepo.recordings[recID].Status)
+}
+
+func TestDeleteRecording_InitiatorAllowed(t *testing.T) {
+	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
+	recID := uuid.New()
+	initiator := uuid.New()
+	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusCompleted, StartedBy: &initiator, CreatedAt: time.Now()}
+
+	_, err := ts.srv.DeleteRecording(callCtxAuth(tenantID, initiator), &videov1.DeleteRecordingRequest{RecordingId: recID.String()})
+	require.NoError(t, err)
 	assert.Equal(t, recording.RecordingStatusFailed, ts.recRepo.recordings[recID].Status)
+}
+
+func TestDeleteRecording_MeetingHostAllowed(t *testing.T) {
+	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
+	organizer := uuid.New()
+	starter := uuid.New()
+
+	meetingResp := seedMeeting(t, ts.srv, ts.meetingRepo, tenantID, organizer)
+	zero := 0
+	ts.recRepo.pendingOverride = &zero
+	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: starter.String(), MeetingId: &meetingResp.Id})
+	require.NoError(t, err)
+
+	_, err = ts.srv.DeleteRecording(callCtxAuth(tenantID, organizer), &videov1.DeleteRecordingRequest{RecordingId: rec.Id})
+	require.NoError(t, err)
+}
+
+func TestDeleteRecording_MissingCallerUnauthenticated(t *testing.T) {
+	ts := newTestVideoCallServer()
+	recID := uuid.New()
+	initiator := uuid.New()
+	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusCompleted, StartedBy: &initiator, CreatedAt: time.Now()}
+
+	_, err := ts.srv.DeleteRecording(callCtxTenant(uuid.New()), &videov1.DeleteRecordingRequest{RecordingId: recID.String(), UserId: initiator.String()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+	assert.Equal(t, recording.RecordingStatusCompleted, ts.recRepo.recordings[recID].Status)
 }

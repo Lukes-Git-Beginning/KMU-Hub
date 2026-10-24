@@ -336,16 +336,6 @@ func TestHandleConvertQuoteToInvoice_InvalidJSON(t *testing.T) {
 	assertErrorContains(t, rec, "invalid request body")
 }
 
-func TestHandleConvertQuoteToInvoice_MissingInvoiceDate(t *testing.T) {
-	routes := NewBizRoutes(registryWithService("biz"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/finance/quotes/"+testQuoteID+"/convert", jsonBody(t, map[string]interface{}{}))
-	req = withTenantID(req, testTenantID)
-	req = withChiURLParam(req, "id", testQuoteID)
-	routes.HandleConvertQuoteToInvoice(rec, req)
-	assertValidationError(t, rec, "invoice_date")
-}
-
 func TestHandleConvertQuoteToInvoice_InvalidDueDate(t *testing.T) {
 	routes := NewBizRoutes(registryWithService("biz"))
 	rec := httptest.NewRecorder()

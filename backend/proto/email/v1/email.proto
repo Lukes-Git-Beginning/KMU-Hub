@@ -293,6 +293,13 @@ message ListMessagesRequest {
   string search = 4;
   string sort_by = 5;
   bool sort_desc = 6;
+  // Optional narrowing. view="unified" lists the inboxes of the caller's accounts (folder_id empty);
+  // label_id lists messages carrying the label across folders; filter is all|unread|starred.
+  // account_id (must belong to the caller) limits unified/label views to one account.
+  string account_id = 7;
+  string view = 8;
+  string filter = 9;
+  string label_id = 10;
 }
 
 message ListMessagesResponse {

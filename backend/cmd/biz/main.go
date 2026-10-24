@@ -33,7 +33,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/biz/invoice"
 	"github.com/kmuhub/kmuhub/internal/biz/lexware"
 	"github.com/kmuhub/kmuhub/internal/biz/payment"
-	"github.com/kmuhub/kmuhub/internal/biz/pdf"
 	"github.com/kmuhub/kmuhub/internal/biz/quote"
 	"github.com/kmuhub/kmuhub/internal/biz/recurring"
 	"github.com/kmuhub/kmuhub/internal/cache"
@@ -44,7 +43,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
-	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
 	"github.com/kmuhub/kmuhub/internal/server"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
@@ -155,6 +153,7 @@ func main() {
 	// =========================================================================
 	quoteSvc := quote.NewService(quoteRepo, numberSeqRepo, companySettingsRepo, dealUpdater, pool)
 	invoiceSvc := invoice.NewService(invoiceRepo, numberSeqRepo, companySettingsRepo, quoteRepo, pool)
+	wireFinanceEventEmitters(pool, invoiceSvc, quoteSvc)
 	creditNoteSvc := creditnote.NewService(creditNoteRepo, invoiceRepo, numberSeqRepo, pool)
 	// Wire the GoBD storno path: cancelling a sent invoice issues a reversing
 	// credit note and cancels the invoice atomically (cyclic-free: each side
@@ -179,17 +178,6 @@ func main() {
 		}),
 	}, companySettingsRepo)
 	dashboardSvc := dashboard.NewService(dashboardRepo)
-
-	// PDF generator with company settings defaults
-	settings, settingsErr := companySettingsRepo.GetByTenantID(ctx, uuid.Nil)
-	if settingsErr != nil || settings == nil {
-		settings = &models.CompanySettings{
-			AccentColor:              "#1a73e8",
-			DefaultPaymentTermsDays:  30,
-			DefaultQuoteValidityDays: 30,
-		}
-	}
-	pdfGen := pdf.NewGenerator(*settings)
 
 	// DATEV exporter. The Buchungsstapel builder is constructed once and shared
 	// by the GoBD download and the DATEV API upload — both must render the same
@@ -260,7 +248,6 @@ func main() {
 		paymentSvc,
 		dunningSvc,
 		dashboardSvc,
-		pdfGen,
 		datevBatchBuilder,
 		companySettingsRepo,
 		workTimeRepo,

@@ -52,6 +52,8 @@ type CreateInput struct {
 	HasVideoCall bool
 	CategoryID   *uuid.UUID
 	AttendeeIDs  []uuid.UUID
+	// ReminderMinutes are stored with the event; same limits as SetReminders.
+	ReminderMinutes []int
 }
 
 // Create creates a new calendar event
@@ -72,6 +74,10 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 		if err := ValidateRRule(*input.RRule); err != nil {
 			return nil, err
 		}
+	}
+
+	if err := validateReminderMinutes(input.ReminderMinutes); err != nil {
+		return nil, err
 	}
 
 	// Check calendar permissions
@@ -160,6 +166,12 @@ func (s *Service) Create(ctx context.Context, actorID uuid.UUID, input CreateInp
 		s.emitEvent(ctx, "calendar.event.invited", actorID, eventID, input.CalendarID, []string{attendeeID.String()})
 	}
 
+	if len(input.ReminderMinutes) > 0 {
+		if remErr := s.repo.SetReminders(ctx, eventID, input.ReminderMinutes); remErr != nil {
+			slog.Warn("failed to set reminders", "event_id", eventID, "error", remErr)
+		}
+	}
+
 	// Emit creation event
 	s.emitEvent(ctx, "calendar.event.created", actorID, eventID, input.CalendarID, nil)
 
@@ -188,6 +200,8 @@ type UpdateInput struct {
 	IsAllDay     *bool
 	CategoryID   *uuid.UUID
 	HasVideoCall *bool
+	// RRule replaces the recurrence rule; an empty string removes it.
+	RRule *string
 }
 
 // UpdateEvent updates a non-recurring event
@@ -201,6 +215,12 @@ func (s *Service) UpdateEvent(ctx context.Context, eventID, actorID, tenantID uu
 	if evt.CreatedBy != actorID {
 		if permErr := s.requireCalendarEditPermission(ctx, evt.CalendarID, actorID, evt.TenantID); permErr != nil {
 			return nil, permErr
+		}
+	}
+
+	if changes.RRule != nil && *changes.RRule != "" {
+		if rruleErr := ValidateRRule(*changes.RRule); rruleErr != nil {
+			return nil, rruleErr
 		}
 	}
 
@@ -485,14 +505,8 @@ func (s *Service) ListAttendees(ctx context.Context, eventID, tenantID uuid.UUID
 
 // SetReminders sets reminders for an event (replaces all existing)
 func (s *Service) SetReminders(ctx context.Context, eventID, actorID, tenantID uuid.UUID, minutesBefore []int) error {
-	if len(minutesBefore) > 3 {
-		return ErrReminderLimitExceeded
-	}
-
-	for _, m := range minutesBefore {
-		if m <= 0 {
-			return ErrInvalidReminderMinutes
-		}
+	if err := validateReminderMinutes(minutesBefore); err != nil {
+		return err
 	}
 
 	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
@@ -676,6 +690,26 @@ func applyEventChanges(evt *models.CalendarEvent, changes UpdateInput) {
 			evt.LiveKitRoomName = &roomName
 		}
 	}
+	if changes.RRule != nil {
+		if *changes.RRule == "" {
+			evt.RRule = nil
+		} else {
+			evt.RRule = changes.RRule
+		}
+	}
+}
+
+// validateReminderMinutes enforces the reminder limits shared by Create and SetReminders.
+func validateReminderMinutes(minutesBefore []int) error {
+	if len(minutesBefore) > 3 {
+		return ErrReminderLimitExceeded
+	}
+	for _, m := range minutesBefore {
+		if m <= 0 {
+			return ErrInvalidReminderMinutes
+		}
+	}
+	return nil
 }
 
 // emitEvent sends a notification event if emitter is set

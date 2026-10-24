@@ -711,6 +711,28 @@ func TestUpdateBookingPage_Success(t *testing.T) {
 	assert.Equal(t, "New Name", resp.Page.CompanyName)
 }
 
+func TestUpdateBookingPage_EmptyLogoClearsAndOmittedKeeps(t *testing.T) {
+	repo := newStubBookingRepo()
+	tenantID := uuid.New()
+	logo := "https://x.test/logo.png"
+	page := &models.BookingPage{ID: uuid.New(), TenantID: tenantID, Slug: "team-standup", CompanyName: "Acme", LogoURL: &logo}
+	repo.pages[page.ID] = page
+	repo.pagesBySlug[page.Slug] = page
+	srv := newBookingServer(repo)
+
+	name := "Acme 2"
+	resp, err := srv.UpdateBookingPage(ctxWithTenant(tenantID), &calv1.UpdateBookingPageRequest{Id: page.ID.String(), CompanyName: &name})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Page.LogoUrl, "an unset logo_url must leave the logo alone")
+	assert.Equal(t, logo, resp.Page.GetLogoUrl())
+
+	empty := ""
+	resp, err = srv.UpdateBookingPage(ctxWithTenant(tenantID), &calv1.UpdateBookingPageRequest{Id: page.ID.String(), LogoUrl: &empty})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Page.GetLogoUrl(), "an explicit empty logo_url removes the logo")
+	assert.Nil(t, repo.pages[page.ID].LogoURL)
+}
+
 func TestUpdateBookingPage_NotFound(t *testing.T) {
 	repo := newStubBookingRepo()
 	srv := newBookingServer(repo)

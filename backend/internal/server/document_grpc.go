@@ -1028,23 +1028,53 @@ func (s *DocumentGRPCServer) ListSharedWithMe(ctx context.Context, req *document
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
 
-	fileShares, err := s.shareService.ListSharedWithMe(ctx, userID, "file")
+	fileShares, err := s.shareService.ListSharedWithMe(ctx, userID, models.ShareEntityFile)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	folderShares, err := s.shareService.ListSharedWithMe(ctx, userID, "folder")
+	folderShares, err := s.shareService.ListSharedWithMe(ctx, userID, models.ShareEntityFolder)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	// For now return empty lists - the full implementation would fetch file/folder details
-	return &documentv1.ListSharedWithMeResponse{
-		Files:   make([]*documentv1.DocumentFile, 0),
-		Folders: make([]*documentv1.DocumentFolder, 0),
-		Total:   int32(len(fileShares) + len(folderShares)),
-	}, nil
+	// A share row outlives its target: a trashed file or a removed folder is
+	// skipped here (and not counted), not reported as an error.
+	resp := &documentv1.ListSharedWithMeResponse{
+		Files:   make([]*documentv1.DocumentFile, 0, len(fileShares)),
+		Folders: make([]*documentv1.DocumentFolder, 0, len(folderShares)),
+		Shares:  make([]*documentv1.DocumentShare, 0, len(fileShares)+len(folderShares)),
+	}
+	for _, sh := range fileShares {
+		f, err := s.fileService.GetByID(ctx, sh.EntityID, tenantID)
+		if errors.Is(err, file.ErrFileNotFound) || errors.Is(err, file.ErrFileDeleted) {
+			continue
+		}
+		if err != nil {
+			return nil, mapDocumentError(err)
+		}
+		resp.Files = append(resp.Files, toProtoFile(f))
+		resp.Shares = append(resp.Shares, toProtoShare(sh))
+	}
+	for _, sh := range folderShares {
+		f, err := s.folderService.GetByID(ctx, tenantID, sh.EntityID)
+		if errors.Is(err, folder.ErrFolderNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, mapDocumentError(err)
+		}
+		resp.Folders = append(resp.Folders, toProtoFolder(f))
+		resp.Shares = append(resp.Shares, toProtoShare(sh))
+	}
+	resp.Total = int32(len(resp.Shares))
+
+	return resp, nil
 }
 
 // ============================================================================
@@ -1361,8 +1391,14 @@ func (s *DocumentGRPCServer) ListVirtualFiles(ctx context.Context, req *document
 
 	sourceType := virtualSourceFromProto(req.SourceType)
 
-	// Use Nil for userID since gateway handles auth context
-	files, total, err := s.virtualService.ListVirtualFiles(ctx, uuid.Nil, sourceType, limit, offset)
+	// The repository filters on the caller (channel membership, mailbox owner,
+	// task access), so a Nil user would match nothing and the view is empty.
+	userID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	files, total, err := s.virtualService.ListVirtualFiles(ctx, userID, sourceType, limit, offset)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}

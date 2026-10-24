@@ -61,7 +61,7 @@ func TestUpdateItem_UpdatesFieldsAndRejectsUnknownID(t *testing.T) {
 	item := newTestItem(t, repo, ctx, pool, tenantID, "Schraube", "SKU-UPD-1", 10, 2)
 
 	item.Name = "Schraube M10"
-	item.Quantity = 25
+	item.Quantity = 25 // ignored: stock only moves through movements
 	item.UpdatedAt = time.Now().UTC()
 	if err := repo.UpdateItem(ctx, item); err != nil {
 		t.Fatalf("UpdateItem: %v", err)
@@ -71,8 +71,8 @@ func TestUpdateItem_UpdatesFieldsAndRejectsUnknownID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetItem after update: %v", err)
 	}
-	if reloaded.Name != "Schraube M10" || reloaded.Quantity != 25 {
-		t.Fatalf("update did not persist: got name=%q quantity=%d", reloaded.Name, reloaded.Quantity)
+	if reloaded.Name != "Schraube M10" || reloaded.Quantity != 10 {
+		t.Fatalf("got name=%q quantity=%d, want name updated and quantity 10 kept", reloaded.Name, reloaded.Quantity)
 	}
 
 	unknown := &Item{ID: uuid.New(), TenantID: tenantID, Name: "x", SKU: "x", Unit: "Stk", UpdatedAt: time.Now().UTC()}

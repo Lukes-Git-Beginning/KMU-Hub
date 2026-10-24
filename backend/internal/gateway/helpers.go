@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -214,11 +216,15 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 
 // decodeAndValidate decodes the JSON request body into a value of type T and
 // validates it against its `validate` struct tags via the shared validation
-// package. On a decode error it writes a 400 with the contract-stable
-// {"error": "invalid request body"} shape; on a validation error it writes a
-// 400 with the structured {"error", "code": "validation_failed", "details": [...]}
-// body. In both failure cases it returns (zero, false) and the caller must
-// return immediately. On success it returns (value, true).
+// package. A request WITHOUT a body (io.EOF) is read as an empty object and
+// validated like any other, so required fields still fail with 400 while
+// handlers without required fields stay reachable for the desktop client's plain
+// action buttons, which send no body at all. On any other decode error it
+// writes a 400 with the contract-stable {"error": "invalid request body"} shape;
+// on a validation error it writes a 400 with the structured
+// {"error", "code": "validation_failed", "details": [...]} body. In both failure
+// cases it returns (zero, false) and the caller must return immediately. On
+// success it returns (value, true).
 //
 // This is the single entry point for "Parse → Validate" in thin handlers:
 //
@@ -228,7 +234,7 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 //	}
 func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
 	var req T
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return req, false
 	}

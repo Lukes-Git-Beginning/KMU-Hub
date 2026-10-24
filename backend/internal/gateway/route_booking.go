@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -105,10 +106,25 @@ type bookingServiceRequestItem struct {
 
 type updateBookingPageRequest struct {
 	CompanyName           *string                      `json:"company_name,omitempty"`
-	LogoURL               *string                      `json:"logo_url,omitempty"`
+	LogoURL               clearableString              `json:"logo_url"`
 	Services              []bookingServiceRequestItem  `json:"services,omitempty"    validate:"dive"`
 	AvailabilityRulesJSON *string                      `json:"availability_rules,omitempty"`
 	Active                *bool                        `json:"active,omitempty"`
+}
+
+// clearableString tells an omitted key from an explicit null or "": the editor sends
+// `logo_url: null` to remove the logo, which a plain *string reads as "not sent".
+type clearableString struct {
+	Set   bool
+	Value string
+}
+
+func (c *clearableString) UnmarshalJSON(b []byte) error {
+	c.Set = true
+	if string(b) == "null" {
+		return nil
+	}
+	return json.Unmarshal(b, &c.Value)
 }
 
 type publicBookingCustomerRequest struct {
@@ -151,7 +167,8 @@ func (br *BookingRoutes) HandleListBookingPages(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	// `pages` must stay present when the last page was deleted: booking-client.ts maps it unguarded.
+	response.ProtoListWrapped(w, http.StatusOK, "pages", resp.Pages, nil)
 }
 
 func (br *BookingRoutes) HandleCreateBookingPage(w http.ResponseWriter, r *http.Request) {
@@ -233,8 +250,8 @@ func (br *BookingRoutes) HandleUpdateBookingPage(w http.ResponseWriter, r *http.
 	if req.CompanyName != nil {
 		grpcReq.CompanyName = req.CompanyName
 	}
-	if req.LogoURL != nil {
-		grpcReq.LogoUrl = req.LogoURL
+	if req.LogoURL.Set {
+		grpcReq.LogoUrl = &req.LogoURL.Value // "" clears the logo
 	}
 	if len(req.Services) > 0 {
 		for _, svc := range req.Services {
