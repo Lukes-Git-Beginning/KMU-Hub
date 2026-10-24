@@ -1858,7 +1858,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 75,8 %"
     scope: >
       Fünf WebSocket-Brüche zwischen Hub und Desktop, gefunden in

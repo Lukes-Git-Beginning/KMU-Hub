@@ -261,6 +261,13 @@ type WSMessage struct {
 	LastName        string          `json:"last_name,omitempty"`
 	Message         json.RawMessage `json:"message,omitempty"`
 	Error           string          `json:"error,omitempty"`
+
+	// Flat variants the desktop reads/sends next to the nested `message`
+	// envelope: presence status, the presence.subscribe target list and the
+	// call payload (the incoming-call listener unwraps `call`).
+	Status  string          `json:"status,omitempty"`
+	UserIDs []string        `json:"user_ids,omitempty"`
+	Call    json.RawMessage `json:"call,omitempty"`
 }
 
 // SetPresenceService injects an optional presence service for WebSocket-based heartbeats
@@ -734,13 +741,15 @@ func (h *WebSocketHub) handleTypingIndicator(ctx context.Context, userID string,
 	firstName, lastName := h.getUserName(userID)
 
 	// Broadcast typing indicator to channel (except sender)
+	// The desktop subscribes to "typing.start"/"typing.stop" as event types, so the
+	// inbound type is echoed as the outbound one; Content keeps the legacy reading.
 	h.broadcastToChannelExcept(ctx, msg.ChannelID, userID, WSMessage{
-		Type:      WSTypingIndicator,
+		Type:      msg.Type,
 		ChannelID: msg.ChannelID,
 		UserID:    userID,
 		FirstName: firstName,
 		LastName:  lastName,
-		Content:   msg.Type, // "typing.start" or "typing.stop"
+		Content:   msg.Type,
 	})
 }
 
@@ -1205,12 +1214,14 @@ func (h *WebSocketHub) handlePresenceHeartbeat(ctx context.Context, conn *websoc
 
 // handlePresenceSubscribe registers the user as a subscriber to presence updates
 // for the user IDs listed in the message payload.
-// Message format: { "type": "presence.subscribe", "message": {"user_ids": ["id1", "id2"]} }
+// Message format: { "type": "presence.subscribe", "user_ids": ["id1", "id2"] } (desktop);
+// the legacy nested form { "message": {"user_ids": [...]} } is still understood.
 func (h *WebSocketHub) handlePresenceSubscribe(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
 	var payload struct {
 		UserIDs []string `json:"user_ids"`
 	}
-	if msg.Message != nil {
+	payload.UserIDs = msg.UserIDs
+	if len(payload.UserIDs) == 0 && msg.Message != nil {
 		if err := json.Unmarshal(msg.Message, &payload); err != nil {
 			h.sendError(ctx, conn, "invalid presence.subscribe payload")
 			return
@@ -1282,14 +1293,18 @@ func (h *WebSocketHub) tenantAllowsPresenceTarget(ctx context.Context, callerTen
 }
 
 // handlePresenceSetStatus handles a manual presence status change from the client.
-// Message format: { "type": "presence.set_status", "content": "away" }
+// Message format: { "type": "presence.set_status", "status": "away" } (desktop);
+// the legacy { "content": "away" } is still understood.
 func (h *WebSocketHub) handlePresenceSetStatus(ctx context.Context, conn *websocket.Conn, userID string, msg *WSMessage) {
 	if h.presenceService == nil {
 		h.sendError(ctx, conn, "presence service unavailable")
 		return
 	}
 
-	status := msg.Content
+	status := msg.Status
+	if status == "" {
+		status = msg.Content
+	}
 	if status == "" {
 		h.sendError(ctx, conn, "status is required for presence.set_status")
 		return
@@ -1381,6 +1396,7 @@ func (h *WebSocketHub) BroadcastPresenceUpdate(ctx context.Context, userID, stat
 	msg := WSMessage{
 		Type:    WSPresenceUpdate,
 		UserID:  userID,
+		Status:  status,
 		Message: mustMarshal(payload),
 	}
 
@@ -1395,6 +1411,7 @@ func (h *WebSocketHub) BroadcastCallIncoming(ctx context.Context, targetUserID s
 	h.sendToUser(ctx, targetUserID, WSMessage{
 		Type:    WSCallIncoming,
 		Message: mustMarshal(callData),
+		Call:    mustMarshal(callData),
 	})
 }
 
@@ -1403,6 +1420,7 @@ func (h *WebSocketHub) BroadcastCallEnded(ctx context.Context, targetUserID stri
 	h.sendToUser(ctx, targetUserID, WSMessage{
 		Type:    WSCallEnded,
 		Message: mustMarshal(callData),
+		Call:    mustMarshal(callData),
 	})
 }
 
