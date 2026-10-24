@@ -93,9 +93,12 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 			r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/campaign/{campaignId}", dr.HandleGetCampaignAgents)
 		})
 
-		// Outcomes
+		// Outcomes. Reading the list is part of an agent's own workflow (the workspace loads
+		// it to close a call), so calls:write opens the GET; creating, editing and deleting
+		// outcomes stays outcomes:manage.
+		outcomesRead := middleware.RequirePermissionAny([2]string{"dialer:outcomes", "manage"}, [2]string{"dialer:calls", "write"})
 		r.Route("/outcomes", func(r chi.Router) {
-			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Get("/", dr.HandleListCallOutcomes)
+			r.With(outcomesRead).Get("/", dr.HandleListCallOutcomes)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Post("/", dr.HandleCreateCallOutcome)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Put("/{id}", dr.HandleUpdateCallOutcome)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Delete("/{id}", dr.HandleDeleteCallOutcome)

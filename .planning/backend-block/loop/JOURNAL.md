@@ -146,3 +146,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: n.a. (nur Rollen-Grants, keine Validierungs- oder Antwortform-Änderung; die Aufrufer `KalenderPage.tsx:566-569`, `MessageBubble.tsx:306-328` sind die, die bisher 403 bekamen)
 - offen: Wirkt für member/manager erst nach Re-Login (Berechtigungen im JWT gebacken). Ein Kanal-Moderator (Kanalrolle admin/owner) darf fremde Nachrichten und Dateien in seinem Kanal löschen — das Modell kannte das schon, es war nur für Nicht-Admins unerreichbar; Scope `own` beschreibt die Absicht, das Gateway verengt nicht. Tenant-eigene Rollen, die vom member-Preset kopiert wurden, bekommen die Keys nicht (Migration trifft nur System-Presets). Kein Goroutinen-Code.
+
+## Iteration 9 — fix-dialer-outcomes-readable-by-agents — done — 2026-10-24 17:51
+- commit: (siehe git log, Subject `fix(dialer): let agents read the call outcome list through calls:write`)
+- gebaut: `GET /dialer/outcomes` additiv auf `RequirePermissionAny(dialer:outcomes:manage, dialer:calls:write)` (`route_dialer.go`, Variable `outcomesRead`). POST/PUT/DELETE der Outcomes bleiben `outcomes:manage`. Kein Seed nötig (member hält `dialer:calls:write`, Migration 000256). Sechs Router-Tests in `TestCapabilityGuards_AdditiveWiring`: GET mit `calls:write` offen, GET mit Alt-Key offen, GET ohne beide 403, POST/PUT/DELETE mit `calls:write` 403.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway komplett inkl. TestOpenAPIRouteDrift, middleware, testutil; gateway-Tests brauchen keine DB) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 76,7 % -> 76,7 % (nur Guard-Tests; Vorher-Wert aus Iteration 6-8, nicht separat neu gemessen)
+- mutations-probe: `calls:write` aus dem GET-Guard entfernt (`RequirePermission(outcomes, manage)`) -> `TestCapabilityGuards_AdditiveWiring/outcomes_list,_calls:write_grants_the_read` rot; zurückgedreht, Gateway-Suite wieder grün, Diff sauber.
+- verify vorgaenger: sauber (Commit 6be4a33f: reine Seed-Migration 000336 mit Down, keine Guard-Änderung, kein Stub, Tests vorhanden)
+- neue-units: `fix-dialer-agent-status-for-members` (VOR die erste `todo`-Unit gesetzt: Totalausfall — `GET`/`PUT /dialer/agent-status` verlangen `dialer:agent:manage`, das hat member nicht; Workspace lädt und setzt den eigenen Status, beides 403)
+- desktop-aufrufer: `GET /dialer/outcomes` -> `dialer-client.ts:416-419` -> `DialerWorkspacePage.tsx:68` `useOutcomes()` — Antwortform unverändert, nur der Zugriff wird erweitert -> passt.
+- offen: Kein Re-Login nötig (`dialer:calls:write` steckt bei member schon im Token). Der Spec-Eintrag an GET /dialer/outcomes wurde nicht angefasst (Route und Statuscodes unverändert).

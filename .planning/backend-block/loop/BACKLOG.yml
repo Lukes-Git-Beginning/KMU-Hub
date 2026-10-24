@@ -533,7 +533,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       TOTALAUSFALL für jeden Agenten (member): `GET /dialer/outcomes` (`route_dialer.go:~98`)
@@ -551,6 +551,33 @@ units:
       - "Router-Test: Token mit nur dialer:calls:write liest GET /dialer/outcomes (2xx)"
       - "Router-Test: dasselbe Token auf POST/PUT/DELETE der Outcomes -> 403"
       - "Mutations-Probe: calls:write aus dem GET-Guard entfernt, der Test wird rot"
+
+  - id: fix-dialer-agent-status-for-members
+    phase: 4
+    service: dialer
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,7 %"
+    scope: >
+      TOTALAUSFALL für jeden Agenten (member), gefunden in fix-dialer-outcomes-readable-by-agents:
+      `GET`/`PUT /dialer/agent-status` (`route_dialer.go:~91-93`) verlangen `dialer:agent:manage`
+      — das hat nur manager/admin (Migration 000256: member hält `dialer:calls:read|write`,
+      `dialer:campaigns:read`, `dialer:module:view`). Der Agenten-Workspace lädt und setzt den
+      eigenen Status (`DialerWorkspacePage.tsx:64/76` `useAgentStatus`/`useSetAgentStatus`),
+      beides 403. Die eigene Status-Route nimmt die User-ID aus dem Kontext
+      (`dialer_grpc.go:465/494`) — additiv `RequirePermissionAny(dialer:agent:manage,
+      dialer:calls:write)` an GET und PUT `/agent-status`. `GET /agent-status/campaign/{campaignId}`
+      (Agentenliste der Kampagne, Supervisor-Sicht) bleibt `agent:manage`. Kein Seed nötig.
+      REGEL 1 vorab belegen: `SetAgentStatus` darf nur den Aufrufer ändern (kein `user_id` im Body).
+    sources:
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/server/dialer_grpc.go
+      - desktop/src/renderer/src/api/dialer-client.ts
+    done_when:
+      - "Router-Test: Token mit nur dialer:calls:write liest und setzt /dialer/agent-status (2xx)"
+      - "Router-Test: dasselbe Token auf /agent-status/campaign/{id} -> 403"
+      - "Mutations-Probe: calls:write aus dem PUT-Guard entfernt, der Test wird rot"
 
   - id: fix-email-module-for-members
     phase: 4

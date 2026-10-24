@@ -653,6 +653,15 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"get next contact still requires calls:write only", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:campaigns:manage"}, denied},
 		{"get next contact with calls:write", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:calls:write"}, allowed},
 
+		// --- dialer: outcomes list is an agent's own read (workspace closes calls with it),
+		// the write routes stay outcomes:manage ---
+		{"outcomes list, calls:write grants the read", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:calls:write"}, allowed},
+		{"outcomes list, legacy manage key still grants it", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:outcomes:manage"}, allowed},
+		{"outcomes list, denied without either key", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:campaigns:read"}, denied},
+		{"outcome create, calls:write does not grant it", dialerRouter, "POST", "/api/v1/dialer/outcomes/", []string{"dialer:calls:write"}, denied},
+		{"outcome update, calls:write does not grant it", dialerRouter, "PUT", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
+		{"outcome delete, calls:write does not grant it", dialerRouter, "DELETE", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
+
 		// --- berichte: definitions ---
 		{"definition create, legacy key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:write"}, allowed},
 		{"definition create, catalogue key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:create"}, allowed},
