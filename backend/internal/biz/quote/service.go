@@ -242,6 +242,7 @@ type UpdateInput struct {
 	TaxMode         *string
 	LineItems       []models.LineItem // nil = no change, empty = error
 	ValidUntil      *time.Time
+	Currency        *string // ISO 4217; nil or empty = no change
 	Notes           *string
 	DealID          *uuid.UUID
 }
@@ -274,6 +275,9 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	}
 	if input.ValidUntil != nil {
 		quote.ValidUntil = input.ValidUntil
+	}
+	if input.Currency != nil && *input.Currency != "" {
+		quote.Currency = *input.Currency
 	}
 	if input.DealID != nil {
 		quote.DealID = input.DealID

@@ -482,6 +482,8 @@ message UpdateQuoteRequest {
   TaxMode tax_mode = 5;
   string valid_until = 6;
   string notes = 7;
+  // ISO 4217 code; empty keeps the stored currency.
+  string currency = 8;
 }
 
 message UpdateQuoteResponse {
@@ -606,6 +608,8 @@ message UpdateInvoiceRequest {
   string due_date = 8;
   string payment_terms = 9;
   string notes = 10;
+  // ISO 4217 code; empty keeps the stored currency.
+  string currency = 11;
 }
 
 message UpdateInvoiceResponse {

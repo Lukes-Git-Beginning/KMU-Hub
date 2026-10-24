@@ -2666,14 +2666,16 @@ func (x *ListQuotesResponse) GetTotal() int32 {
 }
 
 type UpdateQuoteRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Customer      *CustomerSnapshot      `protobuf:"bytes,3,opt,name=customer,proto3" json:"customer,omitempty"`
-	LineItems     []*LineItem            `protobuf:"bytes,4,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
-	TaxMode       TaxMode                `protobuf:"varint,5,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
-	ValidUntil    string                 `protobuf:"bytes,6,opt,name=valid_until,json=validUntil,proto3" json:"valid_until,omitempty"`
-	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Customer   *CustomerSnapshot      `protobuf:"bytes,3,opt,name=customer,proto3" json:"customer,omitempty"`
+	LineItems  []*LineItem            `protobuf:"bytes,4,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
+	TaxMode    TaxMode                `protobuf:"varint,5,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
+	ValidUntil string                 `protobuf:"bytes,6,opt,name=valid_until,json=validUntil,proto3" json:"valid_until,omitempty"`
+	Notes      string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	// ISO 4217 code; empty keeps the stored currency.
+	Currency      string `protobuf:"bytes,8,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2753,6 +2755,13 @@ func (x *UpdateQuoteRequest) GetValidUntil() string {
 func (x *UpdateQuoteRequest) GetNotes() string {
 	if x != nil {
 		return x.Notes
+	}
+	return ""
+}
+
+func (x *UpdateQuoteRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -3822,17 +3831,19 @@ func (x *ListInvoicesResponse) GetTotal() int32 {
 }
 
 type UpdateInvoiceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Customer      *CustomerSnapshot      `protobuf:"bytes,3,opt,name=customer,proto3" json:"customer,omitempty"`
-	LineItems     []*LineItem            `protobuf:"bytes,4,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
-	TaxMode       TaxMode                `protobuf:"varint,5,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
-	InvoiceDate   string                 `protobuf:"bytes,6,opt,name=invoice_date,json=invoiceDate,proto3" json:"invoice_date,omitempty"`
-	DeliveryDate  string                 `protobuf:"bytes,7,opt,name=delivery_date,json=deliveryDate,proto3" json:"delivery_date,omitempty"`
-	DueDate       string                 `protobuf:"bytes,8,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
-	PaymentTerms  string                 `protobuf:"bytes,9,opt,name=payment_terms,json=paymentTerms,proto3" json:"payment_terms,omitempty"`
-	Notes         string                 `protobuf:"bytes,10,opt,name=notes,proto3" json:"notes,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId     string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Customer     *CustomerSnapshot      `protobuf:"bytes,3,opt,name=customer,proto3" json:"customer,omitempty"`
+	LineItems    []*LineItem            `protobuf:"bytes,4,rep,name=line_items,json=lineItems,proto3" json:"line_items,omitempty"`
+	TaxMode      TaxMode                `protobuf:"varint,5,opt,name=tax_mode,json=taxMode,proto3,enum=biz.v1.TaxMode" json:"tax_mode,omitempty"`
+	InvoiceDate  string                 `protobuf:"bytes,6,opt,name=invoice_date,json=invoiceDate,proto3" json:"invoice_date,omitempty"`
+	DeliveryDate string                 `protobuf:"bytes,7,opt,name=delivery_date,json=deliveryDate,proto3" json:"delivery_date,omitempty"`
+	DueDate      string                 `protobuf:"bytes,8,opt,name=due_date,json=dueDate,proto3" json:"due_date,omitempty"`
+	PaymentTerms string                 `protobuf:"bytes,9,opt,name=payment_terms,json=paymentTerms,proto3" json:"payment_terms,omitempty"`
+	Notes        string                 `protobuf:"bytes,10,opt,name=notes,proto3" json:"notes,omitempty"`
+	// ISO 4217 code; empty keeps the stored currency.
+	Currency      string `protobuf:"bytes,11,opt,name=currency,proto3" json:"currency,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3933,6 +3944,13 @@ func (x *UpdateInvoiceRequest) GetPaymentTerms() string {
 func (x *UpdateInvoiceRequest) GetNotes() string {
 	if x != nil {
 		return x.Notes
+	}
+	return ""
+}
+
+func (x *UpdateInvoiceRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -14673,7 +14691,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\bper_page\x18\x05 \x01(\x05R\aperPage\"Q\n" +
 	"\x12ListQuotesResponse\x12%\n" +
 	"\x06quotes\x18\x01 \x03(\v2\r.biz.v1.QuoteR\x06quotes\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8b\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xa7\x02\n" +
 	"\x12UpdateQuoteRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x124\n" +
@@ -14683,7 +14701,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\btax_mode\x18\x05 \x01(\x0e2\x0f.biz.v1.TaxModeR\ataxMode\x12\x1f\n" +
 	"\vvalid_until\x18\x06 \x01(\tR\n" +
 	"validUntil\x12\x14\n" +
-	"\x05notes\x18\a \x01(\tR\x05notes\":\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\x12\x1a\n" +
+	"\bcurrency\x18\b \x01(\tR\bcurrency\":\n" +
 	"\x13UpdateQuoteResponse\x12#\n" +
 	"\x05quote\x18\x01 \x01(\v2\r.biz.v1.QuoteR\x05quote\"A\n" +
 	"\x12DeleteQuoteRequest\x12\x0e\n" +
@@ -14757,7 +14776,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\r_recurring_id\"Y\n" +
 	"\x14ListInvoicesResponse\x12+\n" +
 	"\binvoices\x18\x01 \x03(\v2\x0f.biz.v1.InvoiceR\binvoices\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xf4\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x90\x03\n" +
 	"\x14UpdateInvoiceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x124\n" +
@@ -14770,7 +14789,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\bdue_date\x18\b \x01(\tR\adueDate\x12#\n" +
 	"\rpayment_terms\x18\t \x01(\tR\fpaymentTerms\x12\x14\n" +
 	"\x05notes\x18\n" +
-	" \x01(\tR\x05notes\"B\n" +
+	" \x01(\tR\x05notes\x12\x1a\n" +
+	"\bcurrency\x18\v \x01(\tR\bcurrency\"B\n" +
 	"\x15UpdateInvoiceResponse\x12)\n" +
 	"\ainvoice\x18\x01 \x01(\v2\x0f.biz.v1.InvoiceR\ainvoice\"A\n" +
 	"\x12SendInvoiceRequest\x12\x0e\n" +

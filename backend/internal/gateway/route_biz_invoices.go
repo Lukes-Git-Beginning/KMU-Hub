@@ -187,7 +187,11 @@ type updateInvoiceRequest struct {
 	DeliveryDate string                  `json:"delivery_date" validate:"omitempty,datetime=2006-01-02"`
 	DueDate      string                  `json:"due_date"      validate:"omitempty,datetime=2006-01-02"`
 	PaymentTerms string                  `json:"payment_terms"`
-	Notes        string                  `json:"notes"`
+	// PaymentTermsDays is what the desktop edit form sends; an explicit
+	// payment_terms string wins (same rule as create).
+	PaymentTermsDays int    `json:"payment_terms_days" validate:"omitempty,min=1,max=365"`
+	Currency         string `json:"currency"           validate:"omitempty,iso4217"`
+	Notes            string `json:"notes"`
 }
 
 func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +217,11 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	paymentTerms := req.PaymentTerms
+	if paymentTerms == "" && req.PaymentTermsDays > 0 {
+		paymentTerms = fmt.Sprintf("%d Tage netto", req.PaymentTermsDays)
+	}
+
 	resp, err := client.UpdateInvoice(r.Context(), &bizv1.UpdateInvoiceRequest{
 		Id:           id,
 		TenantId:     tenantID,
@@ -222,7 +231,8 @@ func (b *BizRoutes) HandleUpdateInvoice(w http.ResponseWriter, r *http.Request) 
 		InvoiceDate:  req.InvoiceDate,
 		DeliveryDate: req.DeliveryDate,
 		DueDate:      req.DueDate,
-		PaymentTerms: req.PaymentTerms,
+		PaymentTerms: paymentTerms,
+		Currency:     req.Currency,
 		Notes:        req.Notes,
 	})
 	if err != nil {

@@ -1,0 +1,69 @@
+package server
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+
+	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
+)
+
+func TestUpdateInvoice_CarriesDatesTermsAndCurrency(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newStubInvoiceRepo()
+	inv := draftInvoice(tenantID)
+	repo.invoices[inv.ID] = inv
+	srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+
+	resp, err := srv.UpdateInvoice(context.Background(), &bizv1.UpdateInvoiceRequest{
+		TenantId: tenantID.String(), Id: inv.ID.String(),
+		InvoiceDate: "2026-05-01", DeliveryDate: "2026-04-28", PaymentTerms: "14 Tage netto", Currency: "CHF",
+	})
+	require.NoError(t, err)
+	got := resp.GetInvoice()
+	assert.Equal(t, "2026-05-01", got.GetInvoiceDate())
+	assert.Equal(t, "2026-04-28", got.GetDeliveryDate())
+	assert.Equal(t, "2026-05-15", got.GetDueDate())
+	assert.Equal(t, "14 Tage netto", got.GetPaymentTerms())
+	assert.Equal(t, "CHF", got.GetCurrency())
+}
+
+func TestUpdateInvoice_ExplicitDueDateAndBadDates(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newStubInvoiceRepo()
+	inv := draftInvoice(tenantID)
+	repo.invoices[inv.ID] = inv
+	srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+
+	resp, err := srv.UpdateInvoice(context.Background(), &bizv1.UpdateInvoiceRequest{
+		TenantId: tenantID.String(), Id: inv.ID.String(), InvoiceDate: "2026-05-01", DueDate: "2026-05-09",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "2026-05-09", resp.GetInvoice().GetDueDate())
+
+	for _, req := range []*bizv1.UpdateInvoiceRequest{
+		{InvoiceDate: "nope"}, {DeliveryDate: "nope"}, {DueDate: "nope"},
+	} {
+		req.TenantId, req.Id = tenantID.String(), inv.ID.String()
+		_, err := srv.UpdateInvoice(context.Background(), req)
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	}
+}
+
+func TestUpdateQuote_CarriesCurrency(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newStubQuoteRepo()
+	q := draftQuote(tenantID)
+	repo.quotes[q.ID] = q
+	srv := newQuoteTestServer(repo, &stubCompanySettingsRepo{}, nil)
+
+	resp, err := srv.UpdateQuote(context.Background(), &bizv1.UpdateQuoteRequest{
+		TenantId: tenantID.String(), Id: q.ID.String(), Currency: "USD",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "USD", resp.GetQuote().GetCurrency())
+}

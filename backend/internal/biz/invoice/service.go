@@ -392,7 +392,10 @@ type UpdateInput struct {
 	InvoiceDate      *time.Time
 	DeliveryDate     *time.Time
 	PaymentTermsDays *int
-	Notes            *string
+	// DueDate sets the due date explicitly; PaymentTermsDays wins when both are set.
+	DueDate  *time.Time
+	Currency *string // ISO 4217; nil or empty = no change
+	Notes    *string
 }
 
 // Update updates an existing invoice. ONLY draft invoices can be modified (GoBD enforcement).
@@ -433,13 +436,23 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	if input.Notes != nil {
 		inv.Notes = *input.Notes
 	}
+	if input.Currency != nil && *input.Currency != "" {
+		inv.Currency = *input.Currency
+	}
 	if input.InvoiceDate != nil {
+		// Without new terms the due date keeps its distance to the invoice date.
+		if input.PaymentTermsDays == nil && input.DueDate == nil {
+			inv.DueDate = inv.DueDate.Add(input.InvoiceDate.Sub(inv.InvoiceDate))
+		}
 		inv.InvoiceDate = *input.InvoiceDate
 	}
 	if input.DeliveryDate != nil {
 		inv.DeliveryDate = input.DeliveryDate
 	}
 
+	if input.DueDate != nil {
+		inv.DueDate = *input.DueDate
+	}
 	// Recalculate due date if payment terms or invoice date changed
 	if input.PaymentTermsDays != nil {
 		days := *input.PaymentTermsDays

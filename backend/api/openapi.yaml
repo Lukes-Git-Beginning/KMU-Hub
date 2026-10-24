@@ -43712,6 +43712,12 @@ components:
         valid_until:
           type: string
           format: date
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
+            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 
@@ -43989,6 +43995,22 @@ components:
           format: date
         payment_terms:
           type: string
+          description: >
+            Free text whose leading number is the due-date offset in days ("14 Tage netto").
+            Wins over `payment_terms_days` when both are sent.
+        payment_terms_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: >
+            Days from invoice_date to the due date (sent as "N Tage netto"). Absent keeps the due date;
+            a changed invoice_date without terms or due_date moves the due date by the same distance.
+        currency:
+          type: string
+          example: CHF
+          description: >
+            ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
+            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 

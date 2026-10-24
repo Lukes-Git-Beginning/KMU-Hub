@@ -136,6 +136,7 @@ type updateQuoteRequest struct {
 	LineItems  []*bizv1.LineItem       `json:"line_items"`
 	TaxMode    taxModeField            `json:"tax_mode"    validate:"omitempty,oneof=standard reverse_charge kleinunternehmer"`
 	ValidUntil string                  `json:"valid_until" validate:"omitempty,datetime=2006-01-02"`
+	Currency   string                  `json:"currency"    validate:"omitempty,iso4217"`
 	Notes      string                  `json:"notes"`
 }
 
@@ -169,6 +170,7 @@ func (b *BizRoutes) HandleUpdateQuote(w http.ResponseWriter, r *http.Request) {
 		LineItems:  req.LineItems,
 		TaxMode:    taxModeToProto(req.TaxMode),
 		ValidUntil: req.ValidUntil,
+		Currency:   req.Currency,
 		Notes:      req.Notes,
 	})
 	if err != nil {

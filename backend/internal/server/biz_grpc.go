@@ -399,6 +399,11 @@ func (s *BizGRPCServer) UpdateQuote(ctx context.Context, req *bizv1.UpdateQuoteR
 		input.ValidUntil = &t
 	}
 
+	if req.GetCurrency() != "" {
+		cur := req.GetCurrency()
+		input.Currency = &cur
+	}
+
 	if req.GetNotes() != "" {
 		notes := req.GetNotes()
 		input.Notes = &notes
@@ -708,6 +713,39 @@ func (s *BizGRPCServer) UpdateInvoice(ctx context.Context, req *bizv1.UpdateInvo
 			return nil, itemsErr
 		}
 		input.LineItems = items
+	}
+
+	if req.GetInvoiceDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetInvoiceDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid invoice_date")
+		}
+		input.InvoiceDate = &t
+	}
+	if req.GetDeliveryDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDeliveryDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid delivery_date")
+		}
+		input.DeliveryDate = &t
+	}
+	if req.GetDueDate() != "" {
+		t, parseErr := time.Parse("2006-01-02", req.GetDueDate())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid due_date")
+		}
+		input.DueDate = &t
+	}
+	// Same "30 Tage netto" convention as CreateInvoice.
+	if req.GetPaymentTerms() != "" {
+		var days int
+		if _, scanErr := fmt.Sscanf(req.GetPaymentTerms(), "%d", &days); scanErr == nil && days > 0 {
+			input.PaymentTermsDays = &days
+		}
+	}
+	if req.GetCurrency() != "" {
+		cur := req.GetCurrency()
+		input.Currency = &cur
 	}
 
 	if req.GetNotes() != "" {

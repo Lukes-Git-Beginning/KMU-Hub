@@ -2547,7 +2547,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-finance-invoice-quote-create-dropped-fields]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,0 %"
     scope: >
       Gefunden in fix-finance-invoice-quote-create-dropped-fields (Iteration 59). Das Bearbeiten
