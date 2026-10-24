@@ -2330,7 +2330,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-hr-employee-settings-calendar-documents-wire]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,8 %"
     scope: >
       VERDACHT (nicht reproduziert): `GET /hr/leave/requests` liest nur `employee_id`, `status`,
@@ -2619,4 +2619,29 @@ units:
       - desktop/src/renderer/src/modules/dashboard/widgets/KpiRevenue.tsx
     done_when:
       - "Dashboard liefert die drei Umsatzfelder (Router-/Service-Test), Proto regeneriert"
+      - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"
+
+  - id: fix-hr-time-analytics-wire-and-swap-idempotency
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,3 %"
+    scope: >
+      Rest aus `fix-hr-leave-list-ignores-user-filter` (Iteration 64, dort nur die Urlaubsliste gebaut).
+      Beide Punkte stammen aus einem Scan und sind NICHT gegen den Code geprüft: erst prüfen, dann bauen
+      oder begründet verwerfen. (1) `hrTimeApi.getAnalytics` (`hr-client.ts`) liest `range`,
+      `billable_minutes`, `worked_days`, `by_project[].name`; `GET /hr/time/analytics`
+      (`HandleGetTimeAnalytics`, `route_hr.go`) liefert sie angeblich nicht bzw. `project_name` statt `name`.
+      Zeigt das Dashboard dadurch NaN/leere Balken, ist es ein Wire-Fix am Gateway (Zähler 0 stehen lassen,
+      `ProtoFull`). (2) `createSwapRequest` (Schichttausch) ignoriert den Idempotency-Key aus dem Body, der
+      Client setzt ihn als Header — prüfen, welche der beiden Seiten die Middleware liest, und das Gateway
+      auf die gelesene Stelle bringen, statt das FE zu ändern.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/gateway/route_schichten.go
+      - desktop/src/renderer/src/api/hr-client.ts
+    done_when:
+      - "Je Punkt: Router-Test oder begründet verworfen (Journal)"
       - "Spec; Mutations-Probe; desktop-aufrufer-Zeile"

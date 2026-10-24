@@ -12584,11 +12584,18 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     get:
       summary: List leave requests (filtered)
+      description: >
+        A caller whose `hr:read` grant is narrowed to "own" always gets their own requests,
+        whatever `employee_id` or `user_id` say.
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
         - name: employee_id
           in: query
+          schema: { type: string, format: uuid }
+        - name: user_id
+          in: query
+          description: Alias of `employee_id` (a request's employee is the user who filed it); `employee_id` wins when both are set.
           schema: { type: string, format: uuid }
         - name: status
           in: query
@@ -12635,6 +12642,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LeaveRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such leave request, or it belongs to someone else and the caller's `hr:read` grant is narrowed to "own"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

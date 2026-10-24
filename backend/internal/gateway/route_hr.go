@@ -302,9 +302,25 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 	}
 	page, pageSize := parsePagination(r, 1, 50)
 
+	// A leave request's employee_id is the user id of whoever filed it. The self-service view asks
+	// with user_id; employee_id is the same filter under its HR name.
+	employeeID := r.URL.Query().Get("employee_id")
+	if employeeID == "" {
+		employeeID = r.URL.Query().Get("user_id")
+	}
+	// A grant narrowed to "own" overrides whatever the client asked for, otherwise the narrowing
+	// is a suggestion and the self-service list shows every request of the tenant.
+	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	if !ok {
+		return
+	}
+	if ownerID != nil {
+		employeeID = *ownerID
+	}
+
 	grpcReq := &hrv1.ListLeaveRequestsReq{
 		TenantId:   tenantID,
-		EmployeeId: r.URL.Query().Get("employee_id"),
+		EmployeeId: employeeID,
 		Status:     r.URL.Query().Get("status"),
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
@@ -338,11 +354,20 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	if !ok {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := client.GetLeaveRequest(r.Context(), &hrv1.GetLeaveRequestReq{Id: id})
 	if err != nil {
 		respondGRPCError(w, err)
+		return
+	}
+	// Someone else's request looks exactly like a missing one to a caller narrowed to "own".
+	if ownerID != nil && resp.LeaveRequest.GetEmployeeId() != *ownerID {
+		response.Error(w, http.StatusNotFound, "leave request not found")
 		return
 	}
 

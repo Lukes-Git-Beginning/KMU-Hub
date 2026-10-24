@@ -1580,3 +1580,28 @@ units:
       - desktop/src/renderer/src/modules/vermietung/VermietungPage.tsx
     done_when:
       - "(1) und (2) im FE behoben und per Screenshot-QA abgenommen; (3) entschieden, bei Umstellung auf DATE ist die Migrations-Unit angelegt"
+
+  - id: decide-hr-self-service-permissions-for-member-manager
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Produktentscheidung Luke: welche HR-Rechte bekommen member und manager, und wird der Guard für Genehmigen/Ablehnen von hr:write abgespalten"
+    scope: >
+      Gefunden in fix-hr-leave-list-ignores-user-filter (Iteration 64), gegen die lokale DB gemessen:
+      `hr:read` und `hr:write` hängen NUR an der Rolle `admin` (Migration 129; Migration 224 hat member und
+      manager nur Schichten, Booking, Inventar, Einkauf und `hr:time_*` gegeben). Damit bekommt jeder
+      Nicht-Admin auf `/hr/leave/*` und `/hr/time/*` ein 403 — Urlaubsantrag stellen, Saldo, Stempeluhr,
+      Self-Service-Ansicht. Ob das Absicht ist (HR bis zum Pilot nur für Admin), steht nirgends. Ein bloßes
+      Seed-Grant von `hr:write` an member wäre falsch: derselbe Key schützt `approve`/`reject`/`cancel`
+      (`route_hr.go:80-84`), jeder Mitarbeiter könnte dann Anträge genehmigen. Der Weg wäre ein feinerer Key
+      (`hr:leave:create` o. ä.), additiv per `RequirePermissionAny` neben dem groben, mit Seed-Migration für
+      member (Scope `own`). Die Own-Scope-Filter sind seit Iteration 64 an `GET /hr/leave/requests[/{id}]`
+      vorhanden (Key `hr:read`), das Gegenstück für Saldo (`/balance/{userId}`) und Zeiteinträge fehlt.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/migrations/000129_seed_missing_module_permissions.up.sql
+      - backend/migrations/000224_seed_module_manager_member_permissions.up.sql
+    done_when:
+      - "Entscheidung steht: HR bleibt admin-only oder member/manager bekommen Self-Service; bei 'Self-Service' ist die Fix-Unit mit Seed-Migration, additivem Guard und Own-Scope an Saldo und Zeiteinträgen angelegt"
