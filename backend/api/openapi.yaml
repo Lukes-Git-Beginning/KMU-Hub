@@ -41755,6 +41755,7 @@ components:
         project_id:
           type: string
           format: uuid
+          description: Omit for a standalone task ("Meine Aufgaben"); it then has no project, status or task number.
         title:
           type: string
           maxLength: 500

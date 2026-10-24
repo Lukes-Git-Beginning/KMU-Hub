@@ -1697,7 +1697,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,4 %"
     scope: >
       TOTALAUSFALL "Meine Aufgaben -> Neue Aufgabe", für jeden Nutzer. `handleCreateStandaloneTask`

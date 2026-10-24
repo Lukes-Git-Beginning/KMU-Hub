@@ -127,18 +127,6 @@ func TestHandleCreateTask_MissingFields(t *testing.T) {
 	assertValidationError(t, rec, "title")
 }
 
-func TestHandleCreateTask_MissingProjectID(t *testing.T) {
-	routes := NewWorkRoutes(registryWithService("work"))
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/tasks", jsonBody(t, map[string]interface{}{
-		"title": "My Task",
-	}))
-	req = withAuth(req, "user-123", testTenantID)
-	routes.HandleCreateTask(rec, req)
-	assertStatus(t, rec, http.StatusBadRequest)
-	assertValidationError(t, rec, "project_id")
-}
-
 func TestHandleCreateTask_InvalidProjectIDUUID(t *testing.T) {
 	routes := NewWorkRoutes(registryWithService("work"))
 	rec := httptest.NewRecorder()

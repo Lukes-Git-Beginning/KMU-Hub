@@ -16,7 +16,7 @@ import (
 // ============================================================================
 
 type createTaskRequest struct {
-	ProjectID    string                    `json:"project_id" validate:"required,uuid"`
+	ProjectID    string                    `json:"project_id" validate:"omitempty,uuid"`
 	Title        string                    `json:"title" validate:"required"`
 	Description  *string                   `json:"description,omitempty"`
 	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`

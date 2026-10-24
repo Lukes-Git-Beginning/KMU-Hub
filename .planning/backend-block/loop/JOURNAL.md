@@ -594,3 +594,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - coverage-delta: internal/inbox/team 68,4 -> 77,1 · internal/work/task 67,4 -> 71,7 · internal/rapporte 79,6 -> 82,5 · (10 weitere)
 - offen mit entscheidungsbedarf: 13 von 41 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
 - minuten je iteration: 6,3 (264 gesamt)
+
+## Iteration 43 — fix-work-create-task-without-project — done — 2026-10-25 00:04
+- commit: (siehe git log, Subject `fix(gateway): allow POST /tasks without a project_id for standalone tasks`)
+- gebaut: `createTaskRequest.ProjectID` von `required,uuid` auf `omitempty,uuid`; leer geht als `project_id ""` an den gRPC-Server (der es längst als projektlos behandelt). Spec: Beschreibung am Feld (`required` stand dort schon nicht). Der alte Test `MissingProjectID` (erwartete 400) ist entfernt, ersetzt durch drei Tests über echten gRPC-Hop.
+- gate: build ok | vet ok | lint ok | test ok (gateway + `-p 1 ./internal/work/...`; mit parallelen Paketen riss die lokale DB mit "too many clients") | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst, stattdessen DB-Test unter `kmuhub_app`)
+- coverage: internal/gateway 77,4 % -> 77,4 % (Branch-neutral: Änderung ist ein Tag, die neuen Tests belegen Verhalten) · internal/work/task (neuer DB-Test, nicht gemessen)
+- mutations-probe: `validate:"required,uuid"` wieder gesetzt -> `TestWorkWire_CreateTaskWithoutProjectReachesTheService` rot (400 statt 201); zurückgedreht, grün.
+- verify vorgaenger: sauber (Iteration 42 war reiner Scan, keine Code-Änderung)
+- neue-units: keine
+- desktop-aufrufer: POST /tasks -> `MyTasksPage.handleCreateStandaloneTask` (Zeile 507) sendet `{title, priority, assignee_id}` ohne `project_id` -> passt jetzt (201 `{task}`); `TaskCreateDialog` sendet weiter `project_id` -> unverändert.
+- offen: DB-Test `TestStandaloneTask_RealSQL` (kmuhub_app) bestätigt NULL-Projekt/-Status, Auftauchen unter `assignee_id` und Isolation zum fremden Mandanten. Spec sagt weiter `priority` required, der Handler nicht (FE sendet es immer) — nicht angefasst. Keine Goroutinen (`-race` erst in CI).

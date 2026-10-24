@@ -24,6 +24,12 @@ const testWorkTaskUserID = "33333333-3333-3333-3333-333333333333"
 type workTaskWireStub struct {
 	workv1.UnimplementedWorkServiceServer
 	updated *workv1.UpdateTaskRequest
+	created *workv1.CreateTaskRequest
+}
+
+func (s *workTaskWireStub) CreateTask(_ context.Context, r *workv1.CreateTaskRequest) (*workv1.CreateTaskResponse, error) {
+	s.created = r
+	return &workv1.CreateTaskResponse{Task: &workv1.TaskProto{Id: testWorkTaskID, Title: r.GetTitle()}}, nil
 }
 
 func (s *workTaskWireStub) UpdateTask(_ context.Context, r *workv1.UpdateTaskRequest) (*workv1.UpdateTaskResponse, error) {
