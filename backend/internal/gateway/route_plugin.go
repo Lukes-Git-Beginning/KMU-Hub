@@ -126,7 +126,7 @@ func (pr *PluginRoutes) HandleListManifests(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetManifests())
+	response.ProtoListWrapped(w, http.StatusOK, "manifests", resp.GetManifests(), nil)
 }
 
 func (pr *PluginRoutes) HandleCreateManifest(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +218,7 @@ func (pr *PluginRoutes) HandleListInstallations(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetInstallations())
+	response.ProtoListWrapped(w, http.StatusOK, "installations", resp.GetInstallations(), nil)
 }
 
 func (pr *PluginRoutes) HandleInstallPlugin(w http.ResponseWriter, r *http.Request) {
@@ -452,7 +452,7 @@ func (pr *PluginRoutes) HandleListValidationRules(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetRules())
+	response.ProtoListWrapped(w, http.StatusOK, "rules", resp.GetRules(), nil)
 }
 
 func (pr *PluginRoutes) HandleCreateValidationRule(w http.ResponseWriter, r *http.Request) {
@@ -542,7 +542,7 @@ func (pr *PluginRoutes) HandleListWorkflowRules(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetRules())
+	response.ProtoListWrapped(w, http.StatusOK, "rules", resp.GetRules(), nil)
 }
 
 func (pr *PluginRoutes) HandleCreateWorkflowRule(w http.ResponseWriter, r *http.Request) {
@@ -625,7 +625,7 @@ func (pr *PluginRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetTemplates())
+	response.ProtoListWrapped(w, http.StatusOK, "templates", resp.GetTemplates(), nil)
 }
 
 type applyTemplateHTTPReq struct {
@@ -695,7 +695,7 @@ func (pr *PluginRoutes) HandleListExecutionLogs(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.ProtoList(w, http.StatusOK, resp.GetLogs())
+	response.ProtoListWrapped(w, http.StatusOK, "logs", resp.GetLogs(), nil)
 }
 
 func parseIntParam(s string) (int, error) {

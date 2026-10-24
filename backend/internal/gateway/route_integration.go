@@ -120,7 +120,7 @@ func (ir *IntegrationRoutes) HandleListConfigs(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (ir *IntegrationRoutes) HandleGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +139,7 @@ func (ir *IntegrationRoutes) HandleGetConfig(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 type createConfigRequest struct {
@@ -177,7 +177,7 @@ func (ir *IntegrationRoutes) HandleCreateConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 type updateConfigRequest struct {
@@ -228,7 +228,7 @@ func (ir *IntegrationRoutes) HandleUpdateConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (ir *IntegrationRoutes) HandleDeleteConfig(w http.ResponseWriter, r *http.Request) {
@@ -310,7 +310,7 @@ func (ir *IntegrationRoutes) HandleListMappings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 type createMappingRequest struct {
@@ -353,7 +353,7 @@ func (ir *IntegrationRoutes) HandleCreateMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 type updateMappingRequest struct {
@@ -392,7 +392,7 @@ func (ir *IntegrationRoutes) HandleUpdateMapping(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (ir *IntegrationRoutes) HandleDeleteMapping(w http.ResponseWriter, r *http.Request) {

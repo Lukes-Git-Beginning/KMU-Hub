@@ -32078,8 +32078,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginManifest" }
+                type: object
+                required: [manifests]
+                properties:
+                  manifests:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginManifest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -32198,8 +32202,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginInstallation" }
+                type: object
+                required: [installations]
+                properties:
+                  installations:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginInstallation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -32469,8 +32477,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginValidationRule" }
+                type: object
+                required: [rules]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginValidationRule" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -32588,8 +32600,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginWorkflowRule" }
+                type: object
+                required: [rules]
+                properties:
+                  rules:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginWorkflowRule" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -32705,8 +32721,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginIndustryTemplate" }
+                type: object
+                required: [templates]
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginIndustryTemplate" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -32771,8 +32791,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/PluginExecutionLog" }
+                type: object
+                required: [logs]
+                properties:
+                  logs:
+                    type: array
+                    items: { $ref: "#/components/schemas/PluginExecutionLog" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
