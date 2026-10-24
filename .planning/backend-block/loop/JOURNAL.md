@@ -999,3 +999,14 @@ Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes beleg
 - neue-units: keine
 - desktop-aufrufer: `useResources.ts:34-41` sendet `resource_type`/`min_capacity`/`tag`/`is_active` -> kommen jetzt im RPC-Filter an -> passt; `useResources.ts:70` sendet `date` -> Verfügbarkeit liefert statt 400 den Tag -> passt. `RoomBookingView.tsx:243` ruft `useResources()` ohne Parameter (unverändert), `useResourceAvailability` hat weiter keinen Aufrufer.
 - offen: (1) `date` wird als UTC-Tag gelesen, nicht als Berliner Tag; für Buchungen nahe Mitternacht kann das am Rand um 1–2 h verschoben sein — falls das FE die Ansicht baut, besser `start`/`end` senden. (2) `is_active=false` liefert aktive UND inaktive Ressourcen (RPC-Grenze). (3) `go test -race` lokal nicht möglich. (4) Arbeitsbaum CRLF/LF-gemischt, im Commit nur eigene Dateien.
+
+## Iteration 69 — fix-email-attachment-key-collision-same-filename — done — 2026-10-24 02:31
+- commit: (siehe git log, Subject `fix(email): give every attachment upload its own object key and keep the filename inside it`)
+- gebaut: `Store.Upload` schreibt den Key jetzt als `email-attachments/<account>/<uid>/<uuid>/<name>`; `<name>` ist der Dateiname auf ein Pfadsegment reduziert (`objectName`: `path.Base`, Backslash als Trenner, leer/`.`/`..` -> `attachment`). Zwei Anhänge einer Mail mit gleichem Namen (Inline-`image.png`) überschreiben sich nicht mehr, `../` und `/` verlassen das Präfix nicht. Schnittstelle `ObjectStore` unverändert; Download/Presign lesen den gespeicherten `minio_key`, Altbestand bleibt gültig, keine Datenmigration. Der Fix sitzt an der gemeinsamen Stelle, einziger Aufrufer ist `Service.CreateFromStream`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/email/...` komplett, 0 Skips; DATABASE_URL als `kmuhub_app`) | migration n.a. | rls-smoke n.a.
+- coverage: internal/email/attachment 91,2 % -> 91,7 % (selbst gemessen, vorher = HEAD-Stand von `store.go`/`store_test.go`)
+- mutations-probe: UUID-Segment durch Konstante ersetzt -> `…SameAccountUIDAndFilenameDoesNotCollide` und `…FilenameCannotLeaveItsPrefix` rot; `objectName(filename)` -> rohes `filename` -> `…FilenameCannotLeaveItsPrefix` rot. Beide zurückgedreht (`cp` der Sicherung, `cmp` sauber). Der bestehende Test `…WritesUnderAccountScopedKey` pinnte den alten Key exakt und wurde auf Präfix/Suffix angepasst.
+- verify vorgaenger: sauber (`1e7251f3`: nur Gateway-Handler, Spec, Tests; kein Proto/Migration/Guard/neue Route).
+- neue-units: keine
+- desktop-aufrufer: n.a. (Key ist intern, nirgends in einer Antwort; `grep minio_key` in der Wire-Form nicht geprüft nötig, Download geht über den gespeicherten Key)
+- offen: (1) Nicht gegen echtes MinIO gelaufen, nur gegen den S3-Stub des Pakets. (2) Alte Objekte, die sich durch die Kollision schon überschrieben haben, sind nicht rekonstruierbar. (3) `go test -race` lokal nicht möglich. (4) Arbeitsbaum CRLF/LF-gemischt, im Commit nur eigene Dateien.

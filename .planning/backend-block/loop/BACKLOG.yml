@@ -2486,7 +2486,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Gefunden in cov-email-attachment (Iteration 51), aus dem Code gelesen, nicht gegen eine
       echte Mail reproduziert. `Store.Upload` baut den MinIO-Key aus

@@ -126,16 +126,16 @@ func TestStore_UploadWritesUnderAccountScopedKey(t *testing.T) {
 		t.Fatalf("Upload: %v", err)
 	}
 
-	wantKey := "email-attachments/" + accountID.String() + "/42/rechnung.pdf"
-	if key != wantKey {
-		t.Fatalf("key = %q, want %q", key, wantKey)
+	prefix := "email-attachments/" + accountID.String() + "/42/"
+	if !strings.HasPrefix(key, prefix) || !strings.HasSuffix(key, "/rechnung.pdf") {
+		t.Fatalf("key = %q, want %s<unique>/rechnung.pdf", key, prefix)
 	}
-	stored, ok := stub.object("mail/" + wantKey)
+	stored, ok := stub.object("mail/" + key)
 	if !ok || string(stored) != payload {
-		t.Fatalf("object at mail/%s = %q (present=%v), want %q", wantKey, stored, ok, payload)
+		t.Fatalf("object at mail/%s = %q (present=%v), want %q", key, stored, ok, payload)
 	}
 	stub.mu.Lock()
-	gotType := stub.contentType["mail/"+wantKey]
+	gotType := stub.contentType["mail/"+key]
 	stub.mu.Unlock()
 	if gotType != "application/pdf" {
 		t.Fatalf("stored Content-Type = %q, want application/pdf", gotType)
@@ -162,6 +162,57 @@ func TestStore_UploadSameFilenameOfDifferentMessagesDoesNotCollide(t *testing.T)
 	b2, _ := stub.object("mail/" + k2)
 	if string(b1) != "eins" || string(b2) != "zwei" {
 		t.Fatalf("objects = %q / %q, want eins / zwei", b1, b2)
+	}
+}
+
+func TestStore_UploadSameAccountUIDAndFilenameDoesNotCollide(t *testing.T) {
+	store, stub := newStoreAgainstStub(t)
+	accountID := uuid.New()
+
+	k1, err := store.Upload(context.Background(), accountID, 7, "image.png", strings.NewReader("erstes"), 6, "image/png")
+	if err != nil {
+		t.Fatalf("Upload 1: %v", err)
+	}
+	k2, err := store.Upload(context.Background(), accountID, 7, "image.png", strings.NewReader("zweites"), 7, "image/png")
+	if err != nil {
+		t.Fatalf("Upload 2: %v", err)
+	}
+
+	if k1 == k2 {
+		t.Fatalf("both attachments got key %q, the second would overwrite the first", k1)
+	}
+	b1, _ := stub.object("mail/" + k1)
+	b2, _ := stub.object("mail/" + k2)
+	if string(b1) != "erstes" || string(b2) != "zweites" {
+		t.Fatalf("objects = %q / %q, want erstes / zweites", b1, b2)
+	}
+}
+
+func TestStore_UploadFilenameCannotLeaveItsPrefix(t *testing.T) {
+	store, _ := newStoreAgainstStub(t)
+	accountID := uuid.New()
+	prefix := "email-attachments/" + accountID.String() + "/3/"
+
+	cases := map[string]string{
+		"../../other/secret.pdf": "secret.pdf",
+		"a/b/c.pdf":              "c.pdf",
+		`..\..\win.pdf`:         "win.pdf",
+		"":                       "attachment",
+		"..":                     "attachment",
+	}
+	for filename, wantName := range cases {
+		key, err := store.Upload(context.Background(), accountID, 3, filename, strings.NewReader("x"), 1, "application/pdf")
+		if err != nil {
+			t.Fatalf("Upload(%q): %v", filename, err)
+		}
+		rest, ok := strings.CutPrefix(key, prefix)
+		if !ok {
+			t.Fatalf("Upload(%q) key %q left the prefix %q", filename, key, prefix)
+		}
+		unique, name, _ := strings.Cut(rest, "/")
+		if _, err := uuid.Parse(unique); err != nil || name != wantName {
+			t.Fatalf("Upload(%q) key %q: segment %q / name %q, want uuid / %q", filename, key, unique, name, wantName)
+		}
 	}
 }
 
