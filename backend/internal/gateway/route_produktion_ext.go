@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -105,16 +106,23 @@ func (pr *ProduktionRoutes) HandleListBOMs(w http.ResponseWriter, r *http.Reques
 
 	page, pageSize := parsePagination(r, 1, 20)
 
-	resp, err := client.ListBOMs(r.Context(), &produktionv1.ListBOMsRequest{
+	grpcReq := &produktionv1.ListBOMsRequest{
 		TenantId: tenantID.String(),
 		Page:     int32(page),
 		PageSize: int32(pageSize),
-	})
+	}
+	if a := r.URL.Query().Get("active"); a != "" {
+		if active, parseErr := strconv.ParseBool(a); parseErr == nil {
+			grpcReq.Active = &active
+		}
+	}
+
+	resp, err := client.ListBOMs(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateBOM(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +182,7 @@ func (pr *ProduktionRoutes) HandleCreateBOM(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleGetBOM(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +210,7 @@ func (pr *ProduktionRoutes) HandleGetBOM(w http.ResponseWriter, r *http.Request)
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleUpdateBOM(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +255,7 @@ func (pr *ProduktionRoutes) HandleUpdateBOM(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleDeleteBOM(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +315,7 @@ func (pr *ProduktionRoutes) HandleListWorkSteps(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +360,7 @@ func (pr *ProduktionRoutes) HandleCreateWorkStep(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -397,7 +405,7 @@ func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleDeleteWorkStep(w http.ResponseWriter, r *http.Request) {
@@ -634,7 +642,7 @@ func (pr *ProduktionRoutes) HandleListQualityChecks(w http.ResponseWriter, r *ht
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (pr *ProduktionRoutes) HandleCreateQualityCheck(w http.ResponseWriter, r *http.Request) {
@@ -685,7 +693,7 @@ func (pr *ProduktionRoutes) HandleCreateQualityCheck(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (pr *ProduktionRoutes) HandleGetQualityCheck(w http.ResponseWriter, r *http.Request) {
@@ -713,5 +721,5 @@ func (pr *ProduktionRoutes) HandleGetQualityCheck(w http.ResponseWriter, r *http
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }

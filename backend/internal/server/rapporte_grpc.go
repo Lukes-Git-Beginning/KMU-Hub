@@ -50,6 +50,14 @@ func (s *RapporteGRPCServer) CreateReport(ctx context.Context, req *rapportev1.C
 		AuthorID:    authorID,
 		Lat:         req.Lat,
 		Lon:         req.Lon,
+		FieldDetails: rapporte.FieldDetails{
+			Weather:      rapporteNonEmpty(req.GetWeather()),
+			Temperature:  req.Temperature,
+			WorkStart:    rapporteNonEmpty(req.GetWorkStart()),
+			WorkEnd:      rapporteNonEmpty(req.GetWorkEnd()),
+			BreakMinutes: rapporteIntPtr(req.BreakMinutes),
+			ProjectName:  rapporteNonEmpty(req.GetProjectName()),
+		},
 	}
 	if req.GetReportDate() != "" {
 		rd, parseErr := time.Parse("2006-01-02", req.GetReportDate())
@@ -100,6 +108,14 @@ func (s *RapporteGRPCServer) UpdateReport(ctx context.Context, req *rapportev1.U
 		Description: req.Description,
 		Lat:         req.Lat,
 		Lon:         req.Lon,
+		FieldDetails: rapporte.FieldDetails{
+			Weather:      req.Weather,
+			Temperature:  req.Temperature,
+			WorkStart:    req.WorkStart,
+			WorkEnd:      req.WorkEnd,
+			BreakMinutes: rapporteIntPtr(req.BreakMinutes),
+			ProjectName:  req.ProjectName,
+		},
 	}
 	if req.ReportDate != nil {
 		rd, parseErr := time.Parse("2006-01-02", *req.ReportDate)
@@ -1065,4 +1081,20 @@ func mapRapporteError(err error) error {
 		slog.Error("unhandled rapporte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
+}
+
+// rapporteNonEmpty maps the proto3 "empty string = not given" convention to a nil pointer.
+func rapporteNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+func rapporteIntPtr(v *int32) *int {
+	if v == nil {
+		return nil
+	}
+	i := int(*v)
+	return &i
 }

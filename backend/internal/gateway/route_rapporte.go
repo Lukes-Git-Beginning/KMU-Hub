@@ -137,6 +137,13 @@ type createReportRequest struct {
 	Lat         *float64 `json:"lat,omitempty"`
 	Lon         *float64 `json:"lon,omitempty"`
 	ReportDate  string   `json:"report_date,omitempty"`
+	// Site-diary fields the report form collects.
+	Weather      string   `json:"weather,omitempty"`
+	Temperature  *float64 `json:"temperature,omitempty"`
+	WorkStart    string   `json:"work_start,omitempty"` // HH:MM
+	WorkEnd      string   `json:"work_end,omitempty"`   // HH:MM
+	BreakMinutes *int32   `json:"break_minutes,omitempty"`
+	ProjectName  string   `json:"project_name,omitempty"`
 }
 
 type updateReportRequest struct {
@@ -145,6 +152,13 @@ type updateReportRequest struct {
 	Lat         *float64 `json:"lat,omitempty"`
 	Lon         *float64 `json:"lon,omitempty"`
 	ReportDate  *string  `json:"report_date,omitempty"`
+	// Site-diary fields; an omitted key keeps the stored value.
+	Weather      *string  `json:"weather,omitempty"`
+	Temperature  *float64 `json:"temperature,omitempty"`
+	WorkStart    *string  `json:"work_start,omitempty"`
+	WorkEnd      *string  `json:"work_end,omitempty"`
+	BreakMinutes *int32   `json:"break_minutes,omitempty"`
+	ProjectName  *string  `json:"project_name,omitempty"`
 }
 
 type approveRejectRequest struct {
@@ -254,6 +268,13 @@ func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Requ
 		Lat:         req.Lat,
 		Lon:         req.Lon,
 		ReportDate:  req.ReportDate,
+
+		Weather:      req.Weather,
+		Temperature:  req.Temperature,
+		WorkStart:    req.WorkStart,
+		WorkEnd:      req.WorkEnd,
+		BreakMinutes: req.BreakMinutes,
+		ProjectName:  req.ProjectName,
 	}
 
 	resp, err := client.CreateReport(r.Context(), grpcReq)
@@ -322,6 +343,13 @@ func (rr *RapporteRoutes) HandleUpdateReport(w http.ResponseWriter, r *http.Requ
 		Lat:         req.Lat,
 		Lon:         req.Lon,
 		ReportDate:  req.ReportDate,
+
+		Weather:      req.Weather,
+		Temperature:  req.Temperature,
+		WorkStart:    req.WorkStart,
+		WorkEnd:      req.WorkEnd,
+		BreakMinutes: req.BreakMinutes,
+		ProjectName:  req.ProjectName,
 	}
 
 	resp, err := client.UpdateReport(r.Context(), grpcReq)
@@ -772,7 +800,7 @@ func (rr *RapporteRoutes) HandleGetReportStats(w http.ResponseWriter, r *http.Re
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *http.Request) {

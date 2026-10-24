@@ -1550,3 +1550,33 @@ units:
       - backend/internal/biz/datev/exporter.go
     done_when:
       - "Entscheidung zu (1)-(3) steht; bei 'speichern' ist die Fix-Unit mit Migration (tenant_id/RLS unverändert), Proto und Spec angelegt"
+
+  - id: fe-branchen-follow-ups-from-shape-minor
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Entscheidung/Arbeit Luke bzw. Nico (Desktop, nicht Backend): drei FE-Themen aus fix-branchen-shape-minor (Iteration 63)"
+    scope: >
+      Aus fix-branchen-shape-minor, Backend-Seite erledigt, Rest liegt im Desktop. (1) Rapporte: das Gateway
+      nimmt jetzt `weather`, `temperature`, `work_start`, `work_end`, `break_minutes`, `project_name` bei
+      `POST` und `PATCH /rapporte/reports` an und speichert sie (Migration 162 hatte die Spalten schon). Das FE
+      sendet sie aber nicht: `RapportePage.tsx:981` schickt nur title/description/author_id/report_date, und
+      `rapporte-adapter.ts:24-29` setzt Wetter 'sunny', 10 Grad, 08:00-17:00, 60 min fest. Erfasste Werte
+      gehen also weiter verloren, bis `CreateReportInput`/`UpdateReportInput` die Felder tragen und der
+      Adapter sie liest (Zeiten kommen als `HH:MM:SS` zurück). (2) Fuhrpark: `FuhrparkPage.tsx:85` mappt
+      `tire_change -> tires`, das FE speichert aber `service_type: 'tires'` (`:1702`); beim Lesen fällt `tires`
+      auf `service` zurück. Das Backend speichert den String unverändert, die Zuordnung `tires` fehlt im
+      FE-`typeMap`. (3) Vermietung: das FE schickt `new Date(startDate + 'T00:00:00').toISOString()`
+      (`VermietungPage.tsx:396`), die Spalte ist TIMESTAMPTZ mit GiST-Überlappungsprüfung, und die Anzeige
+      schneidet `.slice(0, 10)` — bei UTC+ erscheint der Starttag einen Tag zu früh. Entscheidung: Verträge
+      verwenden reine Daten; sollen Mieten das auch (Spalte DATE, Überlappung auf daterange, Migration) oder
+      sendet das FE den Tag in der Mandantenzone? Nicht latent: betrifft jede Miete in Deutschland.
+    sources:
+      - desktop/src/renderer/src/modules/rapporte/RapportePage.tsx
+      - desktop/src/renderer/src/api/rapporte-adapter.ts
+      - desktop/src/renderer/src/modules/fuhrpark/FuhrparkPage.tsx
+      - desktop/src/renderer/src/modules/vermietung/VermietungPage.tsx
+    done_when:
+      - "(1) und (2) im FE behoben und per Screenshot-QA abgenommen; (3) entschieden, bei Umstellung auf DATE ist die Migrations-Unit angelegt"

@@ -19633,7 +19633,7 @@ paths:
               properties:
                 description: { type: string }
                 severity: { type: string, enum: [minor, moderate, major, totalled] }
-                reported_by: { type: string, format: uuid }
+                reported_by: { type: string, description: "A user UUID, or the reporter's name as free text (the name moves into notes and the caller is recorded)" }
                 photo_keys: { type: array, items: { type: string } }
                 cost_cents: { type: integer, format: int64 }
                 notes: { type: string }
@@ -19757,16 +19757,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [date, start_location, end_location, purpose, driver_name]
+              required: [date, start_location, end_location]
               properties:
                 date: { type: string, format: date }
                 start_location: { type: string }
                 end_location: { type: string }
-                purpose: { type: string }
+                purpose: { type: string, description: "Required unless is_private is true (400 otherwise)" }
                 start_km: { type: integer, format: int64 }
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
-                driver_name: { type: string }
+                driver_name: { type: string, description: "Optional" }
                 business_partner: { type: string }
                 notes: { type: string }
       responses:
@@ -19882,6 +19882,7 @@ paths:
       operationId: listUpcomingVehicleServices
       security: [{ bearerAuth: [] }]
       parameters:
+        - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
         - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
       responses:
@@ -20618,6 +20619,7 @@ paths:
         - { name: vehicle_id, in: query, required: true, schema: { type: string, format: uuid } }
         - { name: from, in: query, schema: { type: string, format: date-time } }
         - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 10000 }, description: "Maximum number of positions; omitted or out of range means the service default" }
       responses:
         "200":
           description: GPS positions
@@ -20640,6 +20642,8 @@ paths:
       tags: [fuhrpark]
       operationId: checkVehiclesTuevDue
       security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
       responses:
         "200":
           description: TUV-due vehicle list
@@ -21775,6 +21779,12 @@ paths:
                 lat: { type: number, format: double, nullable: true }
                 lon: { type: number, format: double, nullable: true }
                 report_date: { type: string, description: "Date in YYYY-MM-DD format; defaults to today if omitted" }
+                weather: { type: string, maxLength: 50, description: "sunny|cloudy|rainy|snowy as the desktop sends it" }
+                temperature: { type: number, format: double, minimum: -99, maximum: 99 }
+                work_start: { type: string, description: "HH:MM" }
+                work_end: { type: string, description: "HH:MM" }
+                break_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                project_name: { type: string, maxLength: 200 }
       responses:
         "201":
           description: Report created
@@ -21835,6 +21845,12 @@ paths:
                 lat: { type: number, format: double, nullable: true }
                 lon: { type: number, format: double, nullable: true }
                 report_date: { type: string, description: "YYYY-MM-DD" }
+                weather: { type: string, maxLength: 50, description: "sunny|cloudy|rainy|snowy as the desktop sends it" }
+                temperature: { type: number, format: double, minimum: -99, maximum: 99 }
+                work_start: { type: string, description: "HH:MM" }
+                work_end: { type: string, description: "HH:MM" }
+                break_minutes: { type: integer, minimum: 0, maximum: 1440 }
+                project_name: { type: string, maxLength: 200 }
       responses:
         "200":
           description: Updated report
@@ -32765,6 +32781,7 @@ paths:
       operationId: listProductionBOMs
       security: [{ bearerAuth: [] }]
       parameters:
+        - { name: active, in: query, schema: { type: boolean }, description: "Only active (true) or only inactive (false) BOMs; omitted lists all" }
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/page_size"
       responses:

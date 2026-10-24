@@ -231,18 +231,21 @@ func TestHandleCreateTripLog_MissingDate(t *testing.T) {
 	assertValidationError(t, rec, "date")
 }
 
-func TestHandleCreateTripLog_MissingDriverName(t *testing.T) {
+// A business trip needs its purpose (§ 6 EStG); the driver name is optional and a private
+// trip needs neither (see TestBranchenShape_FuhrparkTripLogPrivateTripNeedsNeitherPurposeNorDriver).
+func TestHandleCreateTripLog_BusinessTripWithoutPurpose(t *testing.T) {
 	routes := NewFuhrparkRoutes(registryWithService("fuhrpark"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/fuhrpark/vehicles/550e8400-e29b-41d4-a716-446655440000/trip-logs",
 		jsonBody(t, map[string]interface{}{
 			"date": "2026-08-01", "start_location": "Berlin", "end_location": "Hamburg",
-			"purpose": "delivery",
+			"driver_name": "Max Mustermann",
 		}))
 	req = withAuth(req, "user-123", testTenantID)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleCreateTripLog(rec, req)
-	assertValidationError(t, rec, "driver_name")
+	assertStatus(t, rec, 400)
+	assertErrorContains(t, rec, "purpose is required")
 }
 
 func TestHandleCreateTripLog_InvalidVehicleIDUUID(t *testing.T) {

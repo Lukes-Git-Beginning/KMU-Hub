@@ -2284,7 +2284,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,8 %"
     scope: >
       Sammelunit, in dieser Reihenfolge, jeweils eigener Test. PRODUKTION: (a) `defects_found`/

@@ -195,10 +195,10 @@ message CreateReportRequest {
   optional double lon = 6;
   string report_date = 7; // YYYY-MM-DD, empty = today
   string weather = 8;
-  double temperature = 9;
+  optional double temperature = 9;
   string work_start = 10;
   string work_end = 11;
-  int32 break_minutes = 12;
+  optional int32 break_minutes = 12;
   string project_name = 13;
 }
 

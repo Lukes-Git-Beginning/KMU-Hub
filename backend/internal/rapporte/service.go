@@ -34,6 +34,19 @@ type CreateReportInput struct {
 	Lat         *float64
 	Lon         *float64
 	ReportDate  *time.Time
+	FieldDetails
+}
+
+// FieldDetails are the site-diary fields of a report (weather, working hours, project).
+// A nil member means "not given": on create the column stays NULL, on update the stored
+// value stays.
+type FieldDetails struct {
+	Weather      *string
+	Temperature  *float64
+	WorkStart    *string // HH:MM
+	WorkEnd      *string // HH:MM
+	BreakMinutes *int
+	ProjectName  *string
 }
 
 // UpdateReportInput contains fields that can be updated on a report.
@@ -45,6 +58,7 @@ type UpdateReportInput struct {
 	Lat         *float64
 	Lon         *float64
 	ReportDate  *time.Time
+	FieldDetails
 }
 
 // ListReportsInput contains pagination and filtering for report listing.
@@ -136,6 +150,57 @@ func validateGPS(lat, lon *float64) error {
 	return nil
 }
 
+// validate rejects values the NUMERIC(5,2)/TIME columns cannot hold, so a bad value is a
+// 400 instead of a database error. Working hours are normalised to HH:MM.
+func (d *FieldDetails) validate() error {
+	if d.Temperature != nil && (*d.Temperature < -99 || *d.Temperature > 99) {
+		return ErrInvalidInput
+	}
+	if d.BreakMinutes != nil && (*d.BreakMinutes < 0 || *d.BreakMinutes > 24*60) {
+		return ErrInvalidInput
+	}
+	for _, hhmm := range []**string{&d.WorkStart, &d.WorkEnd} {
+		if *hhmm == nil {
+			continue
+		}
+		t, err := time.Parse("15:04", **hhmm)
+		if err != nil {
+			return ErrInvalidInput
+		}
+		v := t.Format("15:04")
+		*hhmm = &v
+	}
+	if d.Weather != nil && len(*d.Weather) > 50 {
+		return ErrInvalidInput
+	}
+	if d.ProjectName != nil && len(*d.ProjectName) > 200 {
+		return ErrInvalidInput
+	}
+	return nil
+}
+
+// apply copies the given members onto the report.
+func (d *FieldDetails) apply(r *WorkReport) {
+	if d.Weather != nil {
+		r.Weather = d.Weather
+	}
+	if d.Temperature != nil {
+		r.Temperature = d.Temperature
+	}
+	if d.WorkStart != nil {
+		r.WorkStart = d.WorkStart
+	}
+	if d.WorkEnd != nil {
+		r.WorkEnd = d.WorkEnd
+	}
+	if d.BreakMinutes != nil {
+		r.BreakMinutes = d.BreakMinutes
+	}
+	if d.ProjectName != nil {
+		r.ProjectName = d.ProjectName
+	}
+}
+
 // CreateReport creates a new work report in Draft status.
 func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (*WorkReport, error) {
 	title := strings.TrimSpace(input.Title)
@@ -143,6 +208,9 @@ func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (*W
 		return nil, ErrInvalidInput
 	}
 	if err := validateGPS(input.Lat, input.Lon); err != nil {
+		return nil, err
+	}
+	if err := input.validate(); err != nil {
 		return nil, err
 	}
 
@@ -165,6 +233,7 @@ func (s *Service) CreateReport(ctx context.Context, input CreateReportInput) (*W
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
+	input.apply(report)
 
 	if err := s.repo.CreateReport(ctx, report); err != nil {
 		return nil, fmt.Errorf("create work report: %w", err)
@@ -214,6 +283,10 @@ func (s *Service) UpdateReport(ctx context.Context, input UpdateReportInput) (*W
 	if input.ReportDate != nil {
 		report.ReportDate = *input.ReportDate
 	}
+	if err := input.validate(); err != nil {
+		return nil, err
+	}
+	input.apply(report)
 
 	report.UpdatedAt = time.Now()
 
