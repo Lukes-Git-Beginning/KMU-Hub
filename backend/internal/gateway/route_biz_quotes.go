@@ -306,7 +306,7 @@ func (b *BizRoutes) HandleConvertQuoteToInvoice(w http.ResponseWriter, r *http.R
 	}
 	id := chi.URLParam(r, "id")
 
-	req, ok := decodeAndValidate[convertQuoteRequest](w, r)
+	req, ok := decodeAndValidateOptional[convertQuoteRequest](w, r)
 	if !ok {
 		return
 	}

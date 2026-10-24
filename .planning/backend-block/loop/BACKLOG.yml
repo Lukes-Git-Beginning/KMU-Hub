@@ -1216,7 +1216,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       `decodeAndValidate` (`gateway/helpers.go:~235-250`) lässt seit `4b7eae35` JEDEN fehlenden

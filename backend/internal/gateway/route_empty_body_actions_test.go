@@ -101,3 +101,23 @@ func TestEmptyBodyActions_RequiredFieldsStillFailWithoutBody(t *testing.T) {
 		})
 	}
 }
+
+// The strict default: a missing body is a 400 where the handler takes a body and no desktop caller
+// sends none. An empty PUT must not become an all-zero request that clears a role's grants or a
+// user's overrides. The handlers are called directly; the 400 comes before any RPC.
+func TestEmptyBodyActions_StrictHandlersRefuseAMissingBody(t *testing.T) {
+	const id = "550e8400-e29b-41d4-a716-446655440000"
+	auth := NewAuthRoutes(registryWithService("auth"))
+
+	cases := map[string]func(http.ResponseWriter, *http.Request){
+		"set role permissions": auth.HandleSetRolePermissions,
+		"set user overrides":   auth.HandleSetUserOverrides,
+	}
+	for name, handler := range cases {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler(rec, noBodyRequest(http.MethodPut, "/x", id))
+			assertStatus(t, rec, http.StatusBadRequest)
+		})
+	}
+}

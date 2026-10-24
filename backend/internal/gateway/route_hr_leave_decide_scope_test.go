@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -63,7 +64,7 @@ type tokenShape struct {
 }
 
 func (tk tokenShape) request(method, target string) *http.Request {
-	return withPermissions(withScopes(withAuth(httptest.NewRequest(method, target, nil), leaveCallerID, testTenantID), tk.scopes), tk.perms...)
+	return withPermissions(withScopes(withAuth(httptest.NewRequest(method, target, strings.NewReader("{}")), leaveCallerID, testTenantID), tk.scopes), tk.perms...)
 }
 
 const decideTarget = "/api/v1/hr/leave/requests/55555555-5555-5555-5555-555555555555"

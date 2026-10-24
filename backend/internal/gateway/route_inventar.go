@@ -1254,7 +1254,7 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 		return
 	}
 
-	req, ok := decodeAndValidate[bookInventurDifferencesRequest](w, r)
+	req, ok := decodeAndValidateOptional[bookInventurDifferencesRequest](w, r)
 	if !ok {
 		return
 	}

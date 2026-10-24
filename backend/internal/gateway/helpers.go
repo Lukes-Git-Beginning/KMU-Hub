@@ -280,12 +280,12 @@ func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested str
 
 // decodeAndValidate decodes the JSON request body into a value of type T and
 // validates it against its `validate` struct tags via the shared validation
-// package. A request WITHOUT a body (io.EOF) is read as an empty object and
-// validated like any other, so required fields still fail with 400 while
-// handlers without required fields stay reachable for the desktop client's plain
-// action buttons, which send no body at all. On any other decode error it
-// writes a 400 with the contract-stable {"error": "invalid request body"} shape;
-// on a validation error it writes a 400 with the structured
+// package. A request WITHOUT a body (io.EOF) is a 400: a handler that takes a
+// body must not run on an all-zero struct (an empty PUT would otherwise clear a
+// role's grants or a user's overrides). Action buttons that legitimately send no
+// body use decodeAndValidateOptional. On any decode error it writes a 400 with
+// the contract-stable {"error": "invalid request body"} shape; on a validation
+// error it writes a 400 with the structured
 // {"error", "code": "validation_failed", "details": [...]} body. In both failure
 // cases it returns (zero, false) and the caller must return immediately. On
 // success it returns (value, true).
@@ -297,8 +297,20 @@ func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested str
 //	    return
 //	}
 func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, false)
+}
+
+// decodeAndValidateOptional is decodeAndValidate for actions whose body is optional: a request
+// WITHOUT a body (io.EOF) is read as an empty object and validated like any other, so required
+// fields still fail with 400. The desktop client sends no body at all for plain action buttons
+// (quote convert, bank match confirmation, inventory "book differences").
+func decodeAndValidateOptional[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, true)
+}
+
+func decodeJSONBody[T any](w http.ResponseWriter, r *http.Request, emptyOK bool) (T, bool) {
 	var req T
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && (!emptyOK || !errors.Is(err, io.EOF)) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return req, false
 	}

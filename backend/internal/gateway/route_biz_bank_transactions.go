@@ -154,7 +154,7 @@ func (b *BizRoutes) HandleMatchBankTransaction(w http.ResponseWriter, r *http.Re
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	req, ok := decodeAndValidate[matchBankTransactionRequest](w, r)
+	req, ok := decodeAndValidateOptional[matchBankTransactionRequest](w, r)
 	if !ok {
 		return
 	}
