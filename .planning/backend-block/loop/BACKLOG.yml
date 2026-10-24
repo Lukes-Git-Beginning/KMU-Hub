@@ -2043,7 +2043,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,6 %"
     scope: >
       Gefunden in scan-fe-gateway-shape-dashboard-settings-search-modules (Iteration 52).

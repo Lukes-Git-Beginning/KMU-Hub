@@ -804,3 +804,14 @@ Grants (lokale DB): `settings:read|write`, `search:read`, `notifications:*`, `us
 | `useCRMSearch` / `CRMSearchPage` | GET /search | `q`, `types`, `limit` | `data.results` | `{results}` | ja, wenn ein CRM-Lesekey da ist | ja (nicht vertieft, Lauf 15) |
 
 Nebenbefunde ohne UI-Bruch, verworfen: Gateway ignoriert den Query-Parameter `modules` von `useGlobalSearch` (kein Aufrufer übergibt ihn, `SearchBar.tsx:135`); `searchEmail` ist ein bewusster leerer Stub (Kommentar im Code, kein Fake-Treffer).
+
+## Iteration 53 — fix-global-search-result-shape-and-links — done — 2026-10-25 01:40
+- commit: (siehe git log, Subject `fix(gateway): flatten global search hits and link them to routes that exist`)
+- gebaut: `route_search_global.go` baut aus den Proto-Treffern die flache Form `globalSearchItem` (`id,title,description,url,entity_type` bzw. `file_name,mime_type,content_text`). CRM-`url` je `entity_type`: contact `/kontakte?contact=<id>`, company `/kontakte/firmen/<id>`, deal `/kontakte/pipeline/<id>`, activity `/kontakte/aktivitaeten`; Dokumente `/dokumente`. Leere Treffer jetzt `[]` statt `null`. OpenAPI: neues Schema `GlobalSearchItem`, `GlobalSearchModuleResult.results` verweist darauf.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/gateway`, 5470 PASS, 0 SKIP, `TestOpenAPIRouteDrift` ok) | `swagger-cli validate` ok | migration n.a. | rls-smoke n.a. (keine Tabelle)
+- coverage: internal/gateway 77,6 % -> 77,6 % (Handler-Zeilen waren schon abgedeckt, die neuen Tests beweisen die Wire-Form)
+- mutations-probe: CRM-Firmen-URL auf `/kontakte/<id>` -> `TestGlobalSearchWire_CRMHitsAreFlatAndLinkToExistingRoutes` rot; `Results: items` zurück auf `resp.Results` -> alle drei `TestGlobalSearchWire_*` rot; zurückgedreht (Backup-Kopie), Diff sauber.
+- verify vorgaenger: sauber (`a6d8920f`: nur Journal/Backlog, kein Code)
+- neue-units: keine
+- desktop-aufrufer: `SearchBar.tsx` (`getResultUrl` nimmt `item.url`, Zeile 78; `navigate` Zeile 218) und `useGlobalSearch.ts` (`GlobalSearchResultItem`) gegen `App.tsx` geprüft: `/kontakte` (+ `?contact=` in `modules/kontakte/KontaktePage.tsx:118`), `/kontakte/firmen/:id`, `/kontakte/pipeline/:id`, `/kontakte/aktivitaeten`, `/dokumente` sind alle registriert. FE liest `title`, `file_name`, `content_text`, `description` jetzt befüllt. Nicht gegen einen Browser gefahren.
+- offen: Die Tests fahren Loopback-gRPC-Stubs, keinen echten CRM-/Document-Service mit DB. Aktivitäts-Treffer öffnen nur die Liste (kein Detail-Route im FE); Dokument-Treffer ebenso (kein Deep-Link). Das Mail-Modul bleibt der leere Stub.

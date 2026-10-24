@@ -52109,21 +52109,52 @@ components:
 
     GlobalSearchModuleResult:
       type: object
-      description: Result set for one search backend. Item shape in `results` is module-specific (e.g. CRM SearchResult, document FileSearchResult) — see the search and documents tags for the underlying record shapes.
+      description: Result set for one search backend. Hits are flattened by the gateway into GlobalSearchItem; the raw CRM/Documents proto shapes do not reach the client.
       properties:
         module:
           type: string
           enum: [crm, documents, email]
         results:
           type: array
+          description: Always an array (empty when nothing matched), never null.
           items:
-            type: object
-            additionalProperties: true
+            $ref: "#/components/schemas/GlobalSearchItem"
         total:
           type: integer
         error:
           type: string
           description: Present only if this module's search failed or timed out; other modules still return normally
+
+    GlobalSearchItem:
+      type: object
+      required: [id, title, url]
+      properties:
+        id:
+          type: string
+          description: Entity ID (CRM record or document file)
+        title:
+          type: string
+        description:
+          type: string
+          description: CRM subtitle; omitted for documents
+        url:
+          type: string
+          description: >-
+            Desktop route that opens the hit. CRM contact -> `/kontakte?contact=<id>`,
+            company -> `/kontakte/firmen/<id>`, deal -> `/kontakte/pipeline/<id>`,
+            activity -> `/kontakte/aktivitaeten`; documents -> `/dokumente` (no deep link to a file).
+        entity_type:
+          type: string
+          description: CRM only (contact, company, deal, activity)
+        file_name:
+          type: string
+          description: Documents only
+        mime_type:
+          type: string
+          description: Documents only
+        content_text:
+          type: string
+          description: Documents only; the matching snippet
 
     GlobalSearchResponse:
       type: object
