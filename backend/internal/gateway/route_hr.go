@@ -1706,7 +1706,17 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		merged.MaxDailyHours = cur.GetMaxDailyHours()
 		merged.BreakAfterHours = cur.GetBreakAfterHours()
 	case status.Code(err) == codes.NotFound:
-		// First save of this tenant: nothing stored to keep.
+		// First save of this tenant: nothing stored to keep, so start from the column
+		// defaults instead of zeros.
+		// lean: mirrors the defaults of migrations 000046 and 000213; read them from the
+		// HR service once a third place needs them.
+		merged.AuThresholdDays = 3
+		merged.ShowAbsenceReason = true
+		merged.DefaultAnnualLeaveDays = 20
+		merged.Timezone = "Europe/Berlin"
+		merged.WorkHoursPerDay = 8
+		merged.MaxDailyHours = 10
+		merged.BreakAfterHours = 6
 	default:
 		respondGRPCError(w, err)
 		return

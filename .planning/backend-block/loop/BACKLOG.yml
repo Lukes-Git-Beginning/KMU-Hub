@@ -1179,7 +1179,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/biz/invoice 62,6 %"
     scope: >
       Drei latente Teil-Update-Fälle aus dem Post-Run-Review von Lauf 15, bei der Vorbereitung

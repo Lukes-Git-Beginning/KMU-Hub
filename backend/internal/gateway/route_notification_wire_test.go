@@ -154,6 +154,41 @@ func TestQuietHours_PutKeepsServiceVocabulary(t *testing.T) {
 	assertStatus(t, rec, http.StatusBadRequest)
 }
 
+func TestQuietHours_PartialPutKeepsTheStoredSchedule(t *testing.T) {
+	h, stub := newNotificationWireRouter(t)
+	stub.quietHours = &notificationv1.QuietHoursInfo{
+		StartTime: "20:00", EndTime: "06:00", Timezone: "Europe/Zurich",
+		DaysOfWeek: []int32{7, 6}, Enabled: true,
+	}
+
+	// Only the times: weekdays, switch and timezone stay.
+	rec := doNotification(t, h, http.MethodPut, "/api/v1/notifications/quiet-hours", map[string]any{
+		"start_time": "21:00", "end_time": "05:00",
+	})
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, "21:00", stub.updateQH.StartTime)
+	assert.Equal(t, "05:00", stub.updateQH.EndTime)
+	assert.Equal(t, "Europe/Zurich", stub.updateQH.Timezone)
+	assert.Equal(t, []int32{7, 6}, stub.updateQH.DaysOfWeek)
+	assert.True(t, stub.updateQH.Enabled)
+
+	// Only the switch: times, weekdays and timezone stay.
+	rec = doNotification(t, h, http.MethodPut, "/api/v1/notifications/quiet-hours", map[string]any{"is_active": false})
+	assertStatus(t, rec, http.StatusOK)
+	assert.False(t, stub.updateQH.Enabled)
+	assert.Equal(t, "20:00", stub.updateQH.StartTime)
+	assert.Equal(t, "06:00", stub.updateQH.EndTime)
+	assert.Equal(t, "Europe/Zurich", stub.updateQH.Timezone)
+	assert.Equal(t, []int32{7, 6}, stub.updateQH.DaysOfWeek)
+
+	// Only the weekdays.
+	rec = doNotification(t, h, http.MethodPut, "/api/v1/notifications/quiet-hours", map[string]any{"days": []int{1, 2}})
+	assertStatus(t, rec, http.StatusOK)
+	assert.Equal(t, []int32{1, 2}, stub.updateQH.DaysOfWeek)
+	assert.True(t, stub.updateQH.Enabled)
+	assert.Equal(t, "20:00", stub.updateQH.StartTime)
+}
+
 func TestQuietHours_GetWithAndWithoutRecord(t *testing.T) {
 	h, stub := newNotificationWireRouter(t)
 

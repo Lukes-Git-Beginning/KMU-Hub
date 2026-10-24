@@ -596,6 +596,8 @@ func (s *BizGRPCServer) CreateInvoice(ctx context.Context, req *bizv1.CreateInvo
 		var days int
 		if _, scanErr := fmt.Sscanf(req.GetPaymentTerms(), "%d", &days); scanErr == nil && days > 0 {
 			input.PaymentTermsDays = days
+		} else {
+			input.PaymentTerms = req.GetPaymentTerms()
 		}
 	}
 
@@ -741,6 +743,9 @@ func (s *BizGRPCServer) UpdateInvoice(ctx context.Context, req *bizv1.UpdateInvo
 		var days int
 		if _, scanErr := fmt.Sscanf(req.GetPaymentTerms(), "%d", &days); scanErr == nil && days > 0 {
 			input.PaymentTermsDays = &days
+		} else {
+			terms := req.GetPaymentTerms()
+			input.PaymentTerms = &terms
 		}
 	}
 	if req.GetCurrency() != "" {
