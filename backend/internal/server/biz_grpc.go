@@ -2807,7 +2807,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, creditnote.ErrInvoiceAlreadyCredited):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, creditnote.ErrNoLineItems):
+	case errors.Is(err, creditnote.ErrNoLineItems),
+		errors.Is(err, creditnote.ErrCreditExceedsInvoice):
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Outbound e-invoice errors. An invoice that misses a value the standard

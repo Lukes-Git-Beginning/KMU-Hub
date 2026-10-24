@@ -14,4 +14,8 @@ var (
 	// ErrInvoiceAlreadyCredited is returned when an automatic Storno is requested
 	// for an invoice that already carries a sent credit note (would over-credit).
 	ErrInvoiceAlreadyCredited = errors.New("invoice already has a sent credit note; resolve the storno manually")
+	// ErrCreditExceedsInvoice is returned when a credit note, added to the credit
+	// notes the invoice already carries, would exceed the invoice's gross total.
+	// The text reaches the user unchanged (the FE shows it as a toast).
+	ErrCreditExceedsInvoice = errors.New("Die Gutschrift übersteigt den noch gutschreibbaren Rechnungsbetrag") //nolint:staticcheck // user-facing German message
 )

@@ -10931,6 +10931,11 @@ paths:
   /api/v1/finance/credit-notes:
     post:
       summary: Create a credit note
+      description: >
+        The credit note's gross total, added to the credit notes (drafts included) the
+        invoice already carries, may not exceed the invoice's gross total. Otherwise the
+        request is rejected with 400 and a German message naming the amount still
+        creditable. Concurrent requests against one invoice are serialized.
       tags: [credit-notes]
       security: [{ bearerAuth: [] }]
       requestBody:

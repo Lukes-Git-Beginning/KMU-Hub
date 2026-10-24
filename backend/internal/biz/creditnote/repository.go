@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/models"
 )
@@ -13,6 +14,12 @@ import (
 // Repository defines the interface for credit note persistence.
 type Repository interface {
 	Create(ctx context.Context, cn *models.CreditNote) error
+	// CreateInTx performs Create within a caller-owned transaction (used by the
+	// service to check the over-credit limit and insert under one invoice lock).
+	CreateInTx(ctx context.Context, tx pgx.Tx, cn *models.CreditNote) error
+	// SumGrossByInvoiceInTx returns the gross total of every credit note (draft and
+	// sent) already issued against the invoice, read inside the caller's transaction.
+	SumGrossByInvoiceInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error)
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.CreditNote, error)
 	Update(ctx context.Context, cn *models.CreditNote) error
 	// UpdateInTx performs Update within a caller-owned transaction (used by Send to
@@ -39,6 +46,10 @@ type ListFilter struct {
 // InvoiceReader provides read access to invoices for validation.
 type InvoiceReader interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error)
+	// LockForCreditInTx takes a row lock (SELECT ... FOR UPDATE) on the invoice inside
+	// the caller's transaction and returns its status and gross total, so concurrent
+	// credit notes against the same invoice are serialized.
+	LockForCreditInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID) (status string, gross decimal.Decimal, err error)
 }
 
 // InvoiceStatusUpdater flips an invoice's status inside a caller-owned tx.

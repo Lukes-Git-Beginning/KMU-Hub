@@ -930,7 +930,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/creditnote 49,5 %"
     decided: 2026-10-24
     decision: >-
