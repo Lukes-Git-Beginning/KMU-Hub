@@ -57,6 +57,10 @@ func NewWorkGRPCServer(
 	labelService *label.Service,
 	customFieldService *customfield.Service,
 ) *WorkGRPCServer {
+	// Same switch as the project calls: seeing a project and working in it must agree.
+	if taskService != nil {
+		taskService.SetOpenProjects(projectsOpenToTenant)
+	}
 	return &WorkGRPCServer{
 		projectService:     projectService,
 		statusService:      statusService,

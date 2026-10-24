@@ -825,7 +825,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/work/task 67,4 % · internal/server 75,3 %"
     scope: >
       Aus dem Post-Run-Review von Lauf 15, bei der Vorbereitung BREITER verifiziert als in

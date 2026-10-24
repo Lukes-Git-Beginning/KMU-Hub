@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/work/project"
 )
 
 // --- Mock Repository ---
@@ -227,6 +228,9 @@ func (m *mockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, 
 
 type mockProjectRepo struct {
 	members map[string]*models.ProjectMember // key: "projectID:userID"
+	// tenants maps a project to its tenant; GetByID only knows registered ones
+	// (anything else answers nil, nil as before).
+	tenants map[uuid.UUID]uuid.UUID
 }
 
 func newMockProjectRepo() *mockProjectRepo {
@@ -249,7 +253,7 @@ func (m *mockProjectRepo) GetMember(_ context.Context, projectID, userID uuid.UU
 	key := projectID.String() + ":" + userID.String()
 	member, ok := m.members[key]
 	if !ok {
-		return nil, ErrNotProjectMember
+		return nil, project.ErrNotProjectMember
 	}
 	return member, nil
 }
@@ -262,7 +266,10 @@ func (m *mockProjectRepo) IsMember(_ context.Context, projectID, userID uuid.UUI
 
 // Unused methods - satisfy interface
 func (m *mockProjectRepo) Create(_ context.Context, _ *models.Project) error { return nil }
-func (m *mockProjectRepo) GetByID(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*models.Project, error) {
+func (m *mockProjectRepo) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Project, error) {
+	if owner, ok := m.tenants[id]; ok && owner != tenantID {
+		return nil, project.ErrNotFound
+	}
 	return nil, nil
 }
 func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool, _ bool) ([]models.ProjectWithDetails, error) {
@@ -1132,4 +1139,92 @@ func TestService_UpdateDueDate(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// --- Open projects: a non-member works in every project of the tenant ---
+
+func TestService_OpenProjects_NonMemberWorksOnTasks(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, nonMember := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "Open", CreatedBy: nonMember})
+	if err != nil {
+		t.Fatalf("create as non-member in an open project: %v", err)
+	}
+
+	title := "Renamed"
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{Title: &title}, nonMember); err != nil {
+		t.Fatalf("update as non-member: %v", err)
+	}
+	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); err != nil {
+		t.Fatalf("move as non-member: %v", err)
+	}
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); err != nil {
+		t.Fatalf("delete as non-member: %v", err)
+	}
+}
+
+func TestService_OpenProjects_ViewerStaysReadOnly(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, viewer := uuid.New(), uuid.New(), uuid.New()
+	projRepo.addMember(projectID, viewer, models.ProjectRoleViewer)
+
+	if _, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "x", CreatedBy: viewer}); !errors.Is(err, ErrViewerCannotEdit) {
+		t.Fatalf("explicit viewer must not write even in an open project, got %v", err)
+	}
+}
+
+func TestService_OpenProjects_ForeignTenantProjectIsRefused(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	ownTenant, otherTenant, projectID := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: otherTenant}
+
+	_, err := svc.Create(ctx, CreateInput{TenantID: ownTenant, ProjectID: &projectID, Title: "x", CreatedBy: uuid.New()})
+	if !errors.Is(err, project.ErrNotFound) {
+		t.Fatalf("a project of another tenant must stay unreachable, got %v", err)
+	}
+	if len(repo.tasks) != 0 {
+		t.Fatalf("a task was created in a foreign project")
+	}
+}
+
+func TestService_ClosedProjects_NonMemberStillRefused(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo) // open defaults to false
+
+	tenantID, projectID, member, nonMember := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	projRepo.addMember(projectID, member, models.ProjectRoleMember)
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "x", CreatedBy: member})
+	if err != nil {
+		t.Fatalf("member create: %v", err)
+	}
+
+	title := "y"
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{Title: &title}, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("update: want ErrNotProjectMember, got %v", err)
+	}
+	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("move: want ErrNotProjectMember, got %v", err)
+	}
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("delete: want ErrNotProjectMember, got %v", err)
+	}
 }

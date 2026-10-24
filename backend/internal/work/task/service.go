@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -20,6 +21,9 @@ type Service struct {
 	repo         Repository
 	projectRepo  project.Repository
 	eventEmitter EventEmitter
+	// openProjects: a project member-less caller may work on the tasks of any
+	// project of the tenant (see SetOpenProjects).
+	openProjects bool
 }
 
 // NewService creates a new task service
@@ -33,6 +37,39 @@ func NewService(repo Repository, projectRepo project.Repository) *Service {
 // SetEventEmitter sets the optional event emitter for notification events.
 func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
+}
+
+// SetOpenProjects makes every project of the tenant editable for any caller who
+// reached the service through a project permission: a missing membership then
+// counts as editor. An explicit viewer membership still blocks writes. The
+// server passes the same switch it hands the project service as isAdmin, so
+// "I can see this project" and "I can work in it" never diverge.
+func (s *Service) SetOpenProjects(open bool) {
+	s.openProjects = open
+}
+
+// requireProjectEditor is the one membership check for every task write.
+// Closed (default): the actor must be a member and not a viewer. Open: a
+// non-member is an editor, but the project must exist in the tenant — the
+// membership lookup used to be the only thing that kept a foreign project ID out.
+func (s *Service) requireProjectEditor(ctx context.Context, projectID, tenantID, actorID uuid.UUID) error {
+	member, err := s.projectRepo.GetMember(ctx, projectID, actorID)
+	if err != nil {
+		if !s.openProjects {
+			return ErrNotProjectMember
+		}
+		if !errors.Is(err, project.ErrNotProjectMember) {
+			return fmt.Errorf("project member: %w", err)
+		}
+		if _, getErr := s.projectRepo.GetByID(ctx, projectID, tenantID); getErr != nil {
+			return fmt.Errorf("project: %w", getErr)
+		}
+		return nil
+	}
+	if member.Role == models.ProjectRoleViewer {
+		return ErrViewerCannotEdit
+	}
+	return nil
 }
 
 // resolveActorName best-effort resolves a user's display name for event actor
@@ -88,12 +125,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 
 	// Check project membership if project_id is set
 	if input.ProjectID != nil {
-		member, err := s.projectRepo.GetMember(ctx, *input.ProjectID, input.CreatedBy)
-		if err != nil {
-			return nil, ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return nil, ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *input.ProjectID, input.TenantID, input.CreatedBy); err != nil {
+			return nil, err
 		}
 	}
 
@@ -214,12 +247,8 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 
 	// Check project membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return nil, ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return nil, ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return nil, err
 		}
 	}
 
@@ -396,12 +425,8 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 
 	// Check membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return err
 		}
 	}
 
@@ -473,12 +498,8 @@ func (s *Service) Delete(ctx context.Context, tenantID, taskID uuid.UUID, actorI
 
 	// Check project membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return err
 		}
 	}
 
