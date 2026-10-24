@@ -766,6 +766,45 @@ func TestCreateVersion_Success(t *testing.T) {
 	assert.Equal(t, userID, version.CreatedBy)
 }
 
+func TestSnapshotVersion_FreezesTheFilesOwnContent(t *testing.T) {
+	svc, repo, store := newTestService()
+	tenant := uuid.New()
+	seeded := seedFileForTenant(repo, tenant)
+	userID := uuid.New()
+	label := "Vor Abnahme"
+
+	version, err := svc.SnapshotVersion(context.Background(), seeded.ID, tenant, userID, &label)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, version.VersionNumber)
+	assert.Equal(t, seeded.FileSize, version.FileSize, "size comes from the file")
+	assert.Equal(t, userID, version.CreatedBy)
+	require.NotNil(t, version.VersionLabel)
+	assert.Equal(t, label, *version.VersionLabel)
+	assert.True(t, store.uploaded[version.StorageKey], "the copy was uploaded under the version's own key")
+	assert.NotEqual(t, seeded.StorageKey, version.StorageKey)
+	assert.Equal(t, 2, repo.files[seeded.ID].CurrentVersion)
+}
+
+func TestSnapshotVersion_RefusesForeignTrashedAndUnreadableFiles(t *testing.T) {
+	svc, repo, store := newTestService()
+	tenant := uuid.New()
+	seeded := seedFileForTenant(repo, tenant)
+
+	_, err := svc.SnapshotVersion(context.Background(), seeded.ID, uuid.New(), uuid.New(), nil)
+	assert.ErrorIs(t, err, ErrFileNotFound, "another tenant's file")
+
+	seeded.IsDeleted = true
+	_, err = svc.SnapshotVersion(context.Background(), seeded.ID, tenant, uuid.New(), nil)
+	assert.ErrorIs(t, err, ErrFileDeleted)
+
+	seeded.IsDeleted = false
+	store.failDownload = true
+	_, err = svc.SnapshotVersion(context.Background(), seeded.ID, tenant, uuid.New(), nil)
+	require.Error(t, err)
+	assert.Equal(t, 1, repo.files[seeded.ID].CurrentVersion, "a failed copy leaves the file untouched")
+}
+
 func TestGetVersionDownloadURL_Success(t *testing.T) {
 	svc, repo, _ := newTestService()
 	tenant := uuid.New()

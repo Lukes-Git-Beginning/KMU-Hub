@@ -1382,7 +1382,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/document/file 84,2 %"
     scope: >
       TEILAUSFALL Dokumente: „Neue Version anlegen“ im Versionsverlauf scheitert immer mit
@@ -1413,6 +1413,44 @@ units:
       - "Test: Datei eines fremden Mandanten -> 404"
       - "Mutations-Probe: Route entfernt, der Test wird rot (405)"
       - "Spec ergänzt, swagger-cli validate grün"
+
+  - id: fix-wopi-putfile-discards-the-saved-body
+    phase: 4
+    service: document
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,1 % · internal/document/wopi 0 % (nicht gemessen)"
+    scope: >
+      TOTALAUSFALL Office-Bearbeitung (WOPI): was OnlyOffice/Collabora beim Speichern per
+      `POST /wopi/files/{id}/contents` schickt, geht verloren. `WOPIFileAdapter.CreateVersion`
+      (`gateway/wopi_adapter.go:~83`) liest den Body mit `io.ReadAll`, wirft ihn weg
+      (`_ = body`) und ruft `CreateFileVersion` mit leerem `storage_key`. Die RPC war bis
+      Iteration 33 ein Stub, der nichts speicherte und trotzdem Erfolg meldete; seit
+      `fix-document-version-create-route` friert sie den AKTUELLEN Dateistand ein (kopiert die
+      unveränderten Bytes) — jeder Autosave legt jetzt eine inhaltsgleiche Version
+      „Auto-saved via WOPI“ an, der bearbeitete Inhalt kommt weiterhin nirgends an.
+      Richtig: der Body muss im Service landen (`file.Service.CreateVersion` mit
+      `VersionInput.Reader` kann das schon). Optionen: (a) WOPI-Handler ruft den Service nicht
+      über den Adapter, sondern über einen gRPC-Weg mit Inhalt (Client-Streaming-RPC oder Bytes
+      im Request; Größenlimit des gRPC-Servers beachten, `max_recv_msg_size`), (b) Upload per
+      Presign-Muster (`chat/file/minio_store.go`) und die RPC nimmt einen vom Server
+      geprüften Key. Nicht: einen vom Client benannten `storage_key` ungeprüft übernehmen.
+      Bis dahin ehrlicher Fehler statt stiller Verlust (HTTP 500 an den Editor) erwägen.
+      Wenn eine Proto-Änderung nötig ist: regenerieren (`protoc` direkt, `make` fehlt in Git Bash).
+      ENTSCHEIDUNG vor dem Bauen prüfen: läuft OnlyOffice/Collabora in Produktion überhaupt
+      (Compose, `WOPI_*`-Env)? Ist es dort aus, ist das ein Befund ohne Dringlichkeit.
+    sources:
+      - backend/internal/gateway/wopi_adapter.go
+      - backend/internal/document/wopi/handler.go
+      - backend/internal/server/document_grpc.go
+      - backend/internal/document/file/service.go
+      - backend/proto/document/v1/document.proto
+    done_when:
+      - "Test: PUT/POST contents mit Body X -> die neue Version enthält X (Store-Inhalt geprüft, nicht nur der Versionszähler)"
+      - "Test: fremder Mandant im WOPI-Token -> 404, nichts gespeichert"
+      - "Kein Autosave legt eine inhaltsgleiche Version an"
+      - "Mutations-Probe: Body wieder verwerfen, der Test wird rot"
 
   - id: fix-document-unshare-by-share-id
     phase: 4

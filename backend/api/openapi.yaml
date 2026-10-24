@@ -31478,6 +31478,46 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+    post:
+      summary: Freeze the current state of a document file as a new version
+      description: >-
+        Requires documents:write or documents:version:restore permission. Uploads nothing: the new
+        version is a copy of the file's current content, taken from the file itself. Only
+        version_label is read from the body; a storage key, size or author sent along is ignored
+        (the author is the caller). The file's current_version moves to the new number.
+      tags: [documents]
+      operationId: createDocumentFileVersion
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version_label:
+                  type: string
+                  maxLength: 255
+      responses:
+        "201":
+          description: Version created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { $ref: "#/components/schemas/DocumentFileVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The file is in the trash
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/documents/files/{id}/versions/revert:
     post:
       summary: Revert a document file to a previous version

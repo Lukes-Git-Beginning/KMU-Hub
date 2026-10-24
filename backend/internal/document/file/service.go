@@ -884,6 +884,34 @@ func (s *Service) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID 
 	return version, nil
 }
 
+// SnapshotVersion freezes the file's current content as a new, optionally labelled
+// version. The content is read from the file's own storage key (tenant-scoped
+// lookup), never from caller-supplied keys, so a client cannot attach a foreign
+// object to a file.
+func (s *Service) SnapshotVersion(ctx context.Context, fileID, tenantID, userID uuid.UUID, label *string) (*models.DocumentFileVersion, error) {
+	file, err := s.repo.GetByID(ctx, fileID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if file.IsDeleted {
+		return nil, ErrFileDeleted
+	}
+
+	reader, err := s.store.Download(ctx, file.StorageKey)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+
+	return s.CreateVersion(ctx, fileID, tenantID, VersionInput{
+		Reader:   reader,
+		FileSize: file.FileSize,
+		MimeType: file.MimeType,
+		Label:    label,
+		UserID:   userID,
+	})
+}
+
 // ListVersions returns all versions for a file, newest first.
 func (s *Service) ListVersions(ctx context.Context, fileID uuid.UUID) ([]*models.DocumentFileVersion, error) {
 	return s.repo.ListVersions(ctx, fileID)

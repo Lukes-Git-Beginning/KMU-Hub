@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -634,30 +636,43 @@ func (s *DocumentGRPCServer) GetFileVersionDownloadURL(ctx context.Context, req 
 	}, nil
 }
 
+// maxVersionLabelLen mirrors document_file_versions.version_label VARCHAR(255).
+const maxVersionLabelLen = 255
+
+// CreateFileVersion freezes the file's current content as a new version. Only
+// file_id and version_label of the request count: the content comes from the
+// file itself and the author from the caller's JWT, so storage_key, file_size and
+// created_by in the request are ignored.
 func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documentv1.CreateFileVersionRequest) (*documentv1.CreateFileVersionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	createdBy, err := uuid.Parse(req.CreatedBy)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	var label *string
+	if l := strings.TrimSpace(req.VersionLabel); l != "" {
+		if utf8.RuneCountInString(l) > maxVersionLabelLen {
+			return nil, status.Error(codes.InvalidArgument, "version_label too long")
+		}
+		label = &l
+	}
+
+	v, err := s.fileService.SnapshotVersion(ctx, fileID, tenantID, actorID, label)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+		return nil, mapDocumentError(err)
 	}
 
-	// Note: For gRPC version creation, we don't have a reader. This RPC is for
-	// metadata-only version recording when the storage_key is already known.
-	// WOPI PutFile uses the file service directly (not via gRPC).
-	v := &documentv1.DocumentFileVersion{
-		FileId:       req.FileId,
-		StorageKey:   req.StorageKey,
-		FileSize:     req.FileSize,
-		CreatedBy:    createdBy.String(),
-		VersionLabel: req.VersionLabel,
-	}
-	_ = fileID // Used for validation
-
-	return &documentv1.CreateFileVersionResponse{Version: v}, nil
+	return &documentv1.CreateFileVersionResponse{Version: toProtoFileVersion(v)}, nil
 }
 
 func (s *DocumentGRPCServer) ListFileVersions(ctx context.Context, req *documentv1.ListFileVersionsRequest) (*documentv1.ListFileVersionsResponse, error) {

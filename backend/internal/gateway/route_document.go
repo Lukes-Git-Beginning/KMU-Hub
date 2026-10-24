@@ -128,6 +128,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(docShareLinkCreate).Post("/{id}/share-links", d.HandleCreateShareLink)
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
+		r.With(docVersionRestore).Post("/{id}/versions", d.HandleCreateFileVersion)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
 		r.With(docDownload).Get("/{id}/versions/{versionId}/download", d.HandleGetFileVersionDownloadURL)
 		// Entity links
@@ -1087,6 +1088,39 @@ func (d *DocumentRoutes) HandleGetFileVersionDownloadURL(w http.ResponseWriter, 
 		"content_type": resp.ContentType,
 		"file_size":    resp.FileSize,
 	})
+}
+
+// createVersionRequest carries only the label: the new version freezes the
+// file's current content, so storage key, size and author are never taken from
+// the body (the gRPC server reads the file and the JWT instead).
+type createVersionRequest struct {
+	VersionLabel string `json:"version_label" validate:"omitempty,max=255"`
+}
+
+func (d *DocumentRoutes) HandleCreateFileVersion(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+
+	req, ok := decodeAndValidate[createVersionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateFileVersion(r.Context(), &documentv1.CreateFileVersionRequest{
+		FileId:       fileID,
+		VersionLabel: req.VersionLabel,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"version": resp.Version})
 }
 
 type revertVersionRequest struct {
