@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strings"
@@ -84,39 +85,68 @@ func RequirePermission(resource, action string) func(http.Handler) http.Handler 
 // three-segment catalogue form ("documents:file"). That is the same line
 // PostgresRepository.GetEffectivePermissions draws with `resource LIKE '%:%'`.
 func RequirePermissionAny(first [2]string, rest ...[2]string) func(http.Handler) http.Handler {
-	fineSet := make(map[string]bool, len(rest)+1)
-	coarseSet := make(map[string]bool, len(rest)+1)
-	fineKeys := make([]string, 0, len(rest)+1)
-
-	for _, p := range append([][2]string{first}, rest...) {
-		key := p[0] + ":" + p[1]
-		if strings.Contains(p[0], ":") {
-			fineSet[key] = true
-			fineKeys = append(fineKeys, key)
-			continue
-		}
-		coarseSet[key] = true
-	}
+	set := newPermissionAnySet(append([][2]string{first}, rest...))
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			coarseCounts := len(coarseSet) > 0
-			if coarseCounts && len(fineKeys) > 0 {
-				for _, denied := range GetDeniedPermissions(r.Context()) {
-					if slices.Contains(fineKeys, denied) {
-						coarseCounts = false
-						break
-					}
-				}
-			}
-
-			for _, p := range GetUserPermissions(r.Context()) {
-				if fineSet[p] || (coarseCounts && coarseSet[p]) {
-					next.ServeHTTP(w, r)
-					return
-				}
+			if set.heldBy(r.Context()) {
+				next.ServeHTTP(w, r)
+				return
 			}
 			response.Error(w, http.StatusForbidden, "insufficient permissions")
 		})
 	}
+}
+
+// HoldsAnyPermission reports whether the caller would pass
+// RequirePermissionAny(first, rest...), deny overrides included. It is for a
+// handler that serves several sources behind one route and has to drop the
+// ones the caller may not read, instead of refusing the whole request.
+func HoldsAnyPermission(ctx context.Context, first [2]string, rest ...[2]string) bool {
+	return newPermissionAnySet(append([][2]string{first}, rest...)).heldBy(ctx)
+}
+
+// permissionAnySet is the key split RequirePermissionAny judges a token
+// against; see there for why coarse and fine keys are treated differently.
+type permissionAnySet struct {
+	fineSet   map[string]bool
+	coarseSet map[string]bool
+	fineKeys  []string
+}
+
+func newPermissionAnySet(pairs [][2]string) permissionAnySet {
+	s := permissionAnySet{
+		fineSet:   make(map[string]bool, len(pairs)),
+		coarseSet: make(map[string]bool, len(pairs)),
+		fineKeys:  make([]string, 0, len(pairs)),
+	}
+	for _, p := range pairs {
+		key := p[0] + ":" + p[1]
+		if strings.Contains(p[0], ":") {
+			s.fineSet[key] = true
+			s.fineKeys = append(s.fineKeys, key)
+			continue
+		}
+		s.coarseSet[key] = true
+	}
+	return s
+}
+
+func (s permissionAnySet) heldBy(ctx context.Context) bool {
+	coarseCounts := len(s.coarseSet) > 0
+	if coarseCounts && len(s.fineKeys) > 0 {
+		for _, denied := range GetDeniedPermissions(ctx) {
+			if slices.Contains(s.fineKeys, denied) {
+				coarseCounts = false
+				break
+			}
+		}
+	}
+
+	for _, p := range GetUserPermissions(ctx) {
+		if s.fineSet[p] || (coarseCounts && s.coarseSet[p]) {
+			return true
+		}
+	}
+	return false
 }

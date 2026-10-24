@@ -626,7 +626,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       TOTALAUSFALL, VERIFIZIERT: die globale Suche im Header (`components/header/SearchBar.tsx:135`,
@@ -1928,3 +1928,28 @@ units:
     done_when:
       - "DB-Test als kmuhub_app: Upload legt einen Anhang an, der Besitzer lädt ihn herunter, ein zweiter Nutzer bekommt NotFound"
       - "go test -count=1 ./internal/server/ ./internal/email/... grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: seed-search-read-for-remaining-presets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [fix-global-search-for-members]
+    status: todo
+    coverage_start: "internal/auth 77,9 %"
+    scope: >
+      Gefunden in fix-global-search-for-members (Lauf 16, Iteration 12): Migration 338 gibt
+      `search:read` nur member und manager. Die System-Presets `readonly`, `it_admin` und
+      `hr_admin` halten `crm:contact:read` und `documents:file:read`, bekommen in der
+      Header-Suche (`SearchBar.tsx`, ungated) aber weiter 403. Seit Iteration 12 fragt das
+      Gateway jede Quelle nur mit deren eigenem Lese-Key ab (`readableCRMSearchTypes`,
+      `documentSearchReadKeys`, `emailSearchReadKeys` in `route_search_global.go`) — der Grant
+      gibt also nichts frei, was die Rolle nicht schon in ihrem Modul lesen darf. Seed
+      `search:read` (Scope all) an readonly, it_admin, hr_admin. `extern` bekommt ihn bewusst
+      NICHT (Gast; Dokumentensuche tenantweit wäre mehr, als ein Gast in der Oberfläche sieht).
+    sources:
+      - backend/migrations/000338_seed_search_read_for_members.up.sql
+      - backend/internal/auth/preset_search_read_db_test.go
+      - backend/internal/gateway/route_search_global.go
+    done_when:
+      - "DB-Test als kmuhub_app: readonly, it_admin, hr_admin halten search:read, extern nicht"
+      - "Migration up/down/up, zweites up No-op, down entfernt genau die drei Grants"

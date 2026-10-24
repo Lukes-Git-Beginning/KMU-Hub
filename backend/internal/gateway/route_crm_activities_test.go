@@ -412,7 +412,7 @@ func TestHandleSearch_LimitClamp(t *testing.T) {
 	for _, qs := range cases {
 		t.Run(qs, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/search"+qs, nil)
+			req := withPermissions(httptest.NewRequest(http.MethodGet, "/api/v1/search"+qs, nil), "contacts:read", "deals:read")
 			routes.HandleSearch(rec, req)
 			assertStatus(t, rec, http.StatusServiceUnavailable)
 		})

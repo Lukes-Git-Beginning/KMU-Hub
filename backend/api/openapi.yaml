@@ -3322,7 +3322,12 @@ paths:
             maxLength: 200
         - name: types
           in: query
-          description: Entity types to search (comma-separated). Default searches all.
+          description: >-
+            Entity types to search (comma-separated; a repeated parameter works too).
+            Default searches all. Types the caller may not list (contact, company and
+            activity need contacts/companies/activities:read or crm:contact:read, deal
+            needs deals:read or crm:deal:read) are dropped; if none is left, the answer
+            is an empty result.
           schema:
             type: string
             example: contact,company,deal,activity
@@ -3344,6 +3349,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -35728,8 +35735,10 @@ paths:
         Requires search:read permission. Fans out to the CRM, Documents, and
         Email services in parallel with a 500ms budget; a slow or failing
         module is reported via its own `error` field instead of failing the
-        whole request. Email search is not yet implemented and always
-        returns an empty result set.
+        whole request. A module the caller may not read is left out of
+        `modules`, and CRM returns only the entity types the caller may list
+        (same keys as GET /api/v1/search). Email search is not yet
+        implemented and always returns an empty result set.
       tags: [search]
       operationId: globalSearch
       security: [{ bearerAuth: [] }]

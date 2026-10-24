@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -363,7 +364,22 @@ func (c *CRMRoutes) HandleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entityTypes := r.URL.Query()["types"]
+	// The spec and the desktop (TaskLinkField.tsx) send one comma-separated
+	// value; repeated parameters stay accepted.
+	var requested []string
+	for _, v := range r.URL.Query()["types"] {
+		for _, et := range strings.Split(v, ",") {
+			if et = strings.TrimSpace(et); et != "" {
+				requested = append(requested, et)
+			}
+		}
+	}
+	// Without this, a caller holding only crm:contact:read would find deals.
+	entityTypes := readableCRMSearchTypes(r.Context(), requested)
+	if len(entityTypes) == 0 {
+		response.Proto(w, http.StatusOK, &crmv1.SearchResponse{})
+		return
+	}
 	limit := 20
 
 	if l := r.URL.Query().Get("limit"); l != "" {

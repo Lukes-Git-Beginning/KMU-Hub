@@ -181,9 +181,15 @@ func (c *CRMRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handle
 	})
 
 	// Search
+	// Any key that lists one of the searchable entity types opens the route;
+	// HandleSearch then drops the types the caller may not list.
 	r.Route("/api/v1/search", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.Get("/", c.HandleSearch)
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"contacts", "read"}, [2]string{"crm:contact", "read"},
+			[2]string{"companies", "read"}, [2]string{"deals", "read"},
+			[2]string{"crm:deal", "read"}, [2]string{"activities", "read"},
+		)).Get("/", c.HandleSearch)
 	})
 
 	// Saved Filters
