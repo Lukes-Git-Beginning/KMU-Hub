@@ -915,3 +915,15 @@ Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `P
 - neue-units: keine
 - desktop-aufrufer: `POST /hr/leave/sick` -> `AbwesenheitenTab.tsx:129` (`useRecordSickLeave`, sendet `start_date`/`end_date`/`notes`) -> passt, Antwortform unverändert · `PUT /hr/employees/me` -> `hr-hooks.ts:571` `useUpdateSelfProfile` (kein Komponenten-Aufrufer) -> Form unverändert · `GET /hr/time/projects` -> `ManualEntryDialog.tsx:43` -> Antwortform unverändert, nur der Key kommt hinzu.
 - offen: Punkt (3) wirkt erst nach Re-Login (Permissions im JWT); (1)/(2) sofort, `hr:self` ist schon im Token. Ende-zu-Ende als member erst in `e2e-member-daily-work` / CI. Den Seed prüft nur die SQL-Probe, kein Go-Test gegen die Preset-Keys.
+
+## Iteration 59 — feat-e2e-register-with-role-helper — done — 2026-10-25 01:36
+- commit: (siehe git log, Subject `test(e2e): add a role-aware register helper and a reporting-line fixture`)
+- gebaut: `test/e2e/helpers_test.go`: `promoteToRole(t, userID, role)` (`member|manager|admin`, nur System-Presets) und `registerAndLoginWithRole(t, base, role)` (registrieren, einloggen, befördern, neu einloggen; member ohne Beförderung). `promoteToAdmin` und `registerAndLoginAdmin` sind jetzt dünne Aufrufer (keine Duplikation, E-Mail-Präfix `e2e-admin-…` und Nachname `Admin` unverändert, `work_members_test.go:102` prüft ihn). `setReportingLine(t, employeeUserID, managerUserID)` setzt `hr_employee_profiles.manager_user_id` per SQL und scheitert laut, wenn es das Profil nicht gibt (0 Zeilen). Gemeinsamer `connectDB`-Helfer. Veralteten Kommentar („read-only member role“) korrigiert.
+- entscheidung: Registrierung legt eine `member`-Zeile an (`service.go:108`). Produktion ersetzt bei einer Rollenänderung den ganzen Satz (`UpdateAdminUser` -> `replaceUserRoles`). Darum tauscht `manager` die member-Zeile gegen manager, sonst würde der Manager-Token um member-Keys verbreitert und könnte eine Lücke im manager-Preset verdecken. `admin` bleibt wie bisher additiv zu member (bestehende Flows unverändert).
+- gate: build n.a. | vet ok (`go vet -tags=e2e ./test/e2e/`) | lint: gofmt sauber (auf LF-Stand), golangci-lint mit `--build-tags e2e` meldet nur Altbestand (bodyclose in `auth_test.go`, ungenutztes `errorResponse`) und `setReportingLine` als ungenutzt, bis `e2e-member-hr-self-service` ihn aufruft | test n.a. (E2E läuft nur gegen den vollen Stack) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a. (Testhelfer)
+- verify vorgaenger: sauber (`fd8a7d96`: Guards additiv über `selfWrite`, Migration 000341 mit Down, kein Proto, keine neue Route)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Helfer nur kompiliert und gevettet, nicht gegen den Stack gelaufen; der erste echte Lauf ist `e2e-member-hr-self-service` bzw. CI. Seed-Namen geprüft: lokale DB hält die Presets `member`, `manager`, `admin` mit `tenant_id IS NULL`. Der `admin`-Pfad ist semantisch unverändert, trägt aber ebenfalls erst in CI.

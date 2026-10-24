@@ -2313,7 +2313,7 @@ units:
     service: e2e
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       `test/e2e/helpers_test.go` hat `registerAndLogin` (member) und `registerAndLoginAdmin`
