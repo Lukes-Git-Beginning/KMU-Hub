@@ -585,7 +585,9 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp.Dashboard)
+	// ProtoFull: a month without revenue must arrive as 0, not as a missing key (the widgets
+	// divide by it), and empty lists as [].
+	response.ProtoFull(w, http.StatusOK, resp.Dashboard)
 }
 
 // ============================================================================

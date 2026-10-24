@@ -264,3 +264,34 @@ func TestService_GetDashboard_StatusBreakdown(t *testing.T) {
 	assert.Equal(t, 15, dashboard.StatusBreakdown.Paid)
 	assert.Equal(t, 3, dashboard.StatusBreakdown.Cancelled)
 }
+
+func TestService_GetDashboard_RevenueThisAndLastMonthComeFromTheSeriesTail(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	repo.metrics = &Metrics{RevenueByMonth: []models.MonthlyRevenuePoint{
+		{Month: "2026-01-01", Revenue: decimal.NewFromInt(1)},
+		{Month: "2026-02-01", Revenue: decimal.NewFromInt(42)},
+		{Month: "2026-03-01", Revenue: decimal.NewFromInt(47)},
+	}}
+
+	dash, err := svc.GetDashboard(context.Background(), uuid.New(), time.Now(), time.Now())
+	require.NoError(t, err)
+
+	assert.True(t, dash.RevenueThisMonth.Equal(decimal.NewFromInt(47)), "this month = last series entry")
+	assert.True(t, dash.RevenueLastMonth.Equal(decimal.NewFromInt(42)), "last month = second to last")
+	assert.Len(t, dash.RevenueByMonth, 3)
+}
+
+func TestService_GetDashboard_NoSeriesYieldsEmptyListAndZeroRevenue(t *testing.T) {
+	repo := NewMockRepository()
+	svc := NewService(repo)
+	repo.metrics = &Metrics{}
+
+	dash, err := svc.GetDashboard(context.Background(), uuid.New(), time.Now(), time.Now())
+	require.NoError(t, err)
+
+	assert.NotNil(t, dash.RevenueByMonth, "must serialize as [] not null")
+	assert.Empty(t, dash.RevenueByMonth)
+	assert.True(t, dash.RevenueThisMonth.IsZero())
+	assert.True(t, dash.RevenueLastMonth.IsZero())
+}

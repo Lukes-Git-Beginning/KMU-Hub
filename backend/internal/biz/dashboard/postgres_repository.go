@@ -79,6 +79,41 @@ func (r *PostgresRepository) GetDashboardMetrics(ctx context.Context, tenantID u
 	}
 	metrics.MonthsInRange = months
 
+	// Query 1b: paid revenue per calendar month for the last 12 months (same basis and
+	// currency scoping as total_paid); generate_series keeps months without revenue.
+	monthRows, err := r.pool.Query(ctx,
+		`SELECT to_char(m, 'YYYY-MM-DD'), COALESCE(SUM(i.gross_total), 0)::text
+		FROM generate_series(
+			date_trunc('month', $2::date) - interval '11 months',
+			date_trunc('month', $2::date),
+			interval '1 month') AS m
+		LEFT JOIN finance_invoices i
+			ON i.tenant_id = $1 AND i.status = 'paid'
+			AND i.invoice_date >= m AND i.invoice_date < m + interval '1 month'
+			AND i.currency = COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR')
+		GROUP BY m
+		ORDER BY m`,
+		tenantID, dateTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer monthRows.Close()
+	for monthRows.Next() {
+		var month, revenue string
+		if err = monthRows.Scan(&month, &revenue); err != nil {
+			return nil, err
+		}
+		revenueDec, parseErr := parseDecimal(revenue)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		metrics.RevenueByMonth = append(metrics.RevenueByMonth, models.MonthlyRevenuePoint{Month: month, Revenue: revenueDec})
+	}
+	if err = monthRows.Err(); err != nil {
+		return nil, err
+	}
+
 	// Query 2: Pipeline metrics from quotes within date range.
 	// lean: same tenant-default-currency scoping as Query 1 above — quotesPending/
 	// quotesTotal/quotesAccepted stay currency-agnostic (they're counts, not sums),

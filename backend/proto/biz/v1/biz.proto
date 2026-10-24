@@ -395,6 +395,17 @@ message FinanceDashboard {
   repeated Invoice recent_invoices = 10;
   repeated Quote expiring_quotes = 11;
   repeated DunningRecord pending_dunnings = 12;
+  // Paid-invoice revenue (same basis as total_paid) of the current and the previous calendar
+  // month, plus a 12-month series ending with the current month (zero months included).
+  // double, not decimal string: the dashboard widgets chart these figures and read numbers.
+  double revenue_this_month = 13;
+  double revenue_last_month = 14;
+  repeated MonthlyRevenue monthly_revenue = 15;
+}
+
+message MonthlyRevenue {
+  string month = 1;                // First day of the month, YYYY-MM-DD
+  double revenue = 2;
 }
 
 message DATEVExportRequest {

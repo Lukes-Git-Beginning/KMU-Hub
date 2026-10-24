@@ -43,6 +43,15 @@ func (s *Service) GetDashboard(ctx context.Context, tenantID uuid.UUID, dateFrom
 		ExpiringQuotes:  metrics.ExpiringQuotes,
 		PendingDunnings: metrics.PendingDunnings,
 		RevenueForecast: forecast,
+		RevenueByMonth:  metrics.RevenueByMonth,
+	}
+
+	// The series ends with the current month; the one before it is the previous month.
+	if n := len(dashboard.RevenueByMonth); n >= 1 {
+		dashboard.RevenueThisMonth = dashboard.RevenueByMonth[n-1].Revenue
+	}
+	if n := len(dashboard.RevenueByMonth); n >= 2 {
+		dashboard.RevenueLastMonth = dashboard.RevenueByMonth[n-2].Revenue
 	}
 
 	// Ensure nil slices become empty arrays for clean JSON serialization
@@ -54,6 +63,9 @@ func (s *Service) GetDashboard(ctx context.Context, tenantID uuid.UUID, dateFrom
 	}
 	if dashboard.PendingDunnings == nil {
 		dashboard.PendingDunnings = []*models.DunningRecord{}
+	}
+	if dashboard.RevenueByMonth == nil {
+		dashboard.RevenueByMonth = []models.MonthlyRevenuePoint{}
 	}
 
 	slog.Info("dashboard loaded",

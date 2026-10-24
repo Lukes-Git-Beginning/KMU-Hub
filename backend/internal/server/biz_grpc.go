@@ -1815,6 +1815,16 @@ func toProtoDashboard(d *models.FinanceDashboard) *bizv1.FinanceDashboard {
 		AverageDealSize:  d.Pipeline.AverageDealSize.String(),
 		RevenueForecast:  d.RevenueForecast.String(),
 		StatusBreakdown:  statusBreakdown,
+		// lean: float64 for display-only widget figures (the FE charts numbers); the
+		// monetary totals above stay decimal strings. Upgrade if these ever feed a booking.
+		RevenueThisMonth: d.RevenueThisMonth.InexactFloat64(),
+		RevenueLastMonth: d.RevenueLastMonth.InexactFloat64(),
+	}
+	for _, p := range d.RevenueByMonth {
+		fd.MonthlyRevenue = append(fd.MonthlyRevenue, &bizv1.MonthlyRevenue{
+			Month:   p.Month,
+			Revenue: p.Revenue.InexactFloat64(),
+		})
 	}
 
 	for _, inv := range d.RecentInvoices {

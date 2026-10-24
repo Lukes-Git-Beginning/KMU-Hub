@@ -404,6 +404,17 @@ type FinanceDashboard struct {
 	ExpiringQuotes  []*Quote               `json:"expiring_quotes"`
 	PendingDunnings []*DunningRecord       `json:"pending_dunnings"`
 	RevenueForecast decimal.Decimal        `json:"revenue_forecast"`
+	// Paid-invoice revenue of the current and previous calendar month and the 12-month
+	// series they come from (oldest first, ending with the current month).
+	RevenueThisMonth decimal.Decimal       `json:"revenue_this_month"`
+	RevenueLastMonth decimal.Decimal       `json:"revenue_last_month"`
+	RevenueByMonth   []MonthlyRevenuePoint `json:"monthly_revenue"`
+}
+
+// MonthlyRevenuePoint is the paid-invoice revenue of one calendar month.
+type MonthlyRevenuePoint struct {
+	Month   string          `json:"month"` // first day of the month, YYYY-MM-DD
+	Revenue decimal.Decimal `json:"revenue"`
 }
 
 // RevenueMetrics holds the revenue aggregation data.

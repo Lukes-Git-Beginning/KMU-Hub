@@ -2598,7 +2598,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,2 %"
     scope: >
       Rest aus `fix-finance-lexware-sync-status-dashboard-minor-wire` (Iteration 62, dort nur der

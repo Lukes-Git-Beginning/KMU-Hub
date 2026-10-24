@@ -22,6 +22,9 @@ type Metrics struct {
 	MonthlyRevenue decimal.Decimal
 	// MonthsInRange is the number of months covered by the date range.
 	MonthsInRange int
+	// RevenueByMonth is the paid-invoice revenue of the 12 calendar months ending with the
+	// month of dateTo, oldest first, zero months included. Independent of dateFrom.
+	RevenueByMonth []models.MonthlyRevenuePoint
 }
 
 // Repository defines the interface for dashboard data aggregation.

@@ -44846,6 +44846,24 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DunningRecord"
+        revenue_this_month:
+          type: number
+          description: Paid-invoice revenue (same basis as total_paid) of the current calendar month, tenant default currency.
+        revenue_last_month:
+          type: number
+          description: Same for the previous calendar month.
+        monthly_revenue:
+          type: array
+          description: Paid-invoice revenue of the last 12 calendar months, oldest first, ending with the current month; months without revenue are included with revenue 0.
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                format: date
+                description: First day of the month
+              revenue:
+                type: number
 
     # =========================================================================
     # HR Schemas

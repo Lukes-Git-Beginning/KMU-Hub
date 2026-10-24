@@ -689,12 +689,21 @@ func TestGetFinanceDashboard(t *testing.T) {
 			StatusBreakdown: models.InvoiceStatusBreakdown{Draft: 1, Sent: 2, Overdue: 1, Paid: 3, Cancelled: 0},
 			MonthlyRevenue:  decimal.NewFromInt(600),
 			MonthsInRange:   6,
+			RevenueByMonth: []models.MonthlyRevenuePoint{
+				{Month: "2026-02-01", Revenue: decimal.RequireFromString("42300.5")},
+				{Month: "2026-03-01", Revenue: decimal.NewFromInt(47500)},
+			},
 		}}
 		srv := newDashboardTestServer(repo)
 		resp, err := srv.GetFinanceDashboard(context.Background(), &bizv1.GetFinanceDashboardRequest{TenantId: tenantID.String()})
 		require.NoError(t, err)
 		assert.Equal(t, "1000", resp.GetDashboard().GetTotalInvoiced())
 		assert.Equal(t, int32(3), resp.GetDashboard().GetQuotesPending())
+		assert.InDelta(t, 47500, resp.GetDashboard().GetRevenueThisMonth(), 0.001)
+		assert.InDelta(t, 42300.5, resp.GetDashboard().GetRevenueLastMonth(), 0.001)
+		require.Len(t, resp.GetDashboard().GetMonthlyRevenue(), 2)
+		assert.Equal(t, "2026-02-01", resp.GetDashboard().GetMonthlyRevenue()[0].GetMonth())
+		assert.InDelta(t, 42300.5, resp.GetDashboard().GetMonthlyRevenue()[0].GetRevenue(), 0.001)
 	})
 
 	t.Run("repo error maps to internal", func(t *testing.T) {

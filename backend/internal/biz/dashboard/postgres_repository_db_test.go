@@ -428,3 +428,46 @@ func TestGetDashboardMetrics_CanceledContextReturnsError(t *testing.T) {
 		t.Fatal("GetDashboardMetrics with a canceled context: got nil error, want one")
 	}
 }
+
+// TestGetDashboardMetrics_RevenueByMonthIsPaidOnlyTenantScopedAndComplete pins the
+// 12-month series: paid invoices only, own tenant only, one entry per month (zero
+// months included), oldest first, ending with the month of dateTo.
+func TestGetDashboardMetrics_RevenueByMonthIsPaidOnlyTenantScopedAndComplete(t *testing.T) {
+	pool, tenantA, ctxA := newDashboardFixture(t)
+	tenantB := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantB, "Dashboard Tenant B")
+	repo := NewPostgresRepository(pool)
+
+	dateTo := time.Date(2026, 3, 20, 0, 0, 0, 0, time.UTC)
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "100.00", "invoice_date": "2026-03-02"})
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "50.50", "invoice_date": "2026-03-19"})
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "70.00", "invoice_date": "2026-02-28"})
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "9.00", "invoice_date": "2025-04-10"})
+	// Outside the window (before the oldest month), unpaid, and another tenant: none may count.
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "1000.00", "invoice_date": "2025-03-31"})
+	seedInvoice(t, pool, tenantA, map[string]any{"status": models.InvoiceStatusSent, "gross_total": "800.00", "invoice_date": "2026-03-05"})
+	seedInvoice(t, pool, tenantB, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "99999.00", "invoice_date": "2026-03-05"})
+
+	metrics, err := repo.GetDashboardMetrics(ctxA, tenantA, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), dateTo)
+	if err != nil {
+		t.Fatalf("GetDashboardMetrics: %v", err)
+	}
+
+	series := metrics.RevenueByMonth
+	if len(series) != 12 {
+		t.Fatalf("len(RevenueByMonth) = %d, want 12", len(series))
+	}
+	if series[0].Month != "2025-04-01" || series[11].Month != "2026-03-01" {
+		t.Errorf("series runs %s .. %s, want 2025-04-01 .. 2026-03-01", series[0].Month, series[11].Month)
+	}
+	want := map[string]string{"2025-04-01": "9", "2026-02-01": "70", "2026-03-01": "150.5"}
+	for _, p := range series {
+		w := mustDecimal(t, "0")
+		if s, ok := want[p.Month]; ok {
+			w = mustDecimal(t, s)
+		}
+		if !p.Revenue.Equal(w) {
+			t.Errorf("month %s revenue = %s, want %s", p.Month, p.Revenue, w)
+		}
+	}
+}
