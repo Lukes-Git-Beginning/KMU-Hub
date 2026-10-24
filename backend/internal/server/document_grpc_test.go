@@ -895,11 +895,12 @@ func TestDocumentHandlers_Validation(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
-	t.Run("ShareEntity_InvalidSharedBy", func(t *testing.T) {
+	t.Run("ShareEntity_MissingCaller", func(t *testing.T) {
+		// shared_by from the client is ignored; the caller comes from the context.
 		_, err := newTestDocumentServer().ShareEntity(tenantCtx, &documentv1.ShareEntityRequest{
-			EntityId: someID, SharedWithUserId: someID, SharedBy: "bogus",
+			EntityId: someID, SharedWithUserId: someID, SharedBy: someID,
 		})
-		requireGRPCCode(t, err, codes.InvalidArgument)
+		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 
 	t.Run("UnshareEntity_InvalidEntityID", func(t *testing.T) {

@@ -1482,36 +1482,6 @@ units:
     done_when:
       - "Menü zeigt nur Übergänge, die der Automat annimmt; ein 409 erzeugt einen sichtbaren Fehlerhinweis"
 
-  - id: decide-document-share-access-effect
-    phase: 4
-    service: document
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: (1) `read` = ansehen, Vorschau, herunterladen, Versionsliste;
-      `write` = zusätzlich umbenennen und neue Version hochladen. Löschen bleibt beim Besitzer. (2)
-      Ein Ordner-Share vererbt auf Dateien und Unterordner. (3) Kein Weiterteilen durch den
-      Empfänger. (4) `ShareEntity` prüft Existenz und Besitz bzw. `write` des Teilenden. Folge-
-      Units: Guard in Datei- und Ordner-RPCs, Prüfung in ShareEntity.
-    scope: >
-      Gefunden in cov-document-share (Iteration 53), von fix-document-shared-with-me-and-share-effect
-      (Iteration 54) bewusst nicht gebaut. `share.Service.CheckAccess`/`HasAccess` hat außerhalb des
-      Pakets KEINEN Aufrufer: weder Datei- noch Ordner-Zugriff prüft `document_shares`. Eine Freigabe
-      erscheint jetzt in "Mit mir geteilt", bewirkt sonst aber nichts — der Empfänger kann die Datei
-      nicht öffnen, wenn die Dokument-Routen auf Besitz/Raum prüfen. Offene Fragen: (1) Gibt `read`
-      Download/Vorschau/Versionsliste, `write` Umbenennen/Neue Version/Löschen? (2) Erbt ein Ordner-Share
-      die Dateien und Unterordner? (3) Darf der Empfänger weiterteilen? (4) Prüft `ShareEntity`, dass
-      der Teilende die Entität besitzt oder `write` hat (heute nur `documents:share`-Guard, keine
-      Existenz-/Besitzprüfung)?
-    sources:
-      - backend/internal/document/share/service.go
-      - backend/internal/server/document_grpc.go
-      - backend/internal/gateway/route_document.go
-    done_when:
-      - "Entscheidung zu (1)-(4) steht; die Folge-Units (Guard in Datei- und Ordner-RPCs, Existenzprüfung in ShareEntity) sind angelegt"
-
   - id: decide-finance-exchange-rate-storage
     phase: 4
     service: gateway
@@ -1750,6 +1720,15 @@ units:
       Team/Projekt für Mitglieder, Freigaben öffnen einzeln, Ordner vererben — 4 Units
       (Guard-Helper opus, Lesepfade, Schreibpfade; ~25 RPCs, Suche/Listen mit Filter in der
       Query), Bestandsdaten-Migration nötig.
+      Aus `decide-document-share-access-effect` übernommen (Entscheidung Luke 2026-10-24):
+      `read` = ansehen, Vorschau, herunterladen, Versionsliste; `write` = zusätzlich umbenennen
+      und neue Version hochladen; Löschen beim Besitzer; ein Ordner-Share vererbt auf Dateien und
+      Unterordner; kein Weiterteilen. TEIL (4) ERLEDIGT in Iteration 25
+      (`fix-document-share-entity-checks`): ShareEntity verlangt eine lebende Entität im Mandanten
+      und deren Besitzer (`owner_id` bzw. `created_by`), UnshareEntity nur Teilender oder
+      Besitzer; der Teilende kommt aus dem Kontext, nicht aus `shared_by`. Ohne Admin-Waiver
+      (Rollen reisen nicht über gRPC) — ein Admin teilt und entzieht fremde Dateien also nicht;
+      wird in der Schreibpfad-Unit über die Whitelist (Regel 5) nachgezogen.
     sources:
       - backend/internal/server/document_grpc.go
       - backend/internal/document/

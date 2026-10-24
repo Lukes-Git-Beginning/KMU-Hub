@@ -953,9 +953,19 @@ func (s *DocumentGRPCServer) ShareEntity(ctx context.Context, req *documentv1.Sh
 		return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
 	}
 
-	sharedBy, err := uuid.Parse(req.SharedBy)
+	// The sharer is the authenticated caller; the client-supplied shared_by is ignored.
+	sharedBy, err := actorIDFromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid shared_by")
+		return nil, err
+	}
+
+	// Only the owner may share, so a recipient cannot pass a share on.
+	ownerID, err := s.shareableEntityOwner(ctx, tenantID, req.EntityType, entityID)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != sharedBy {
+		return nil, status.Error(codes.PermissionDenied, "only the owner may share this "+req.EntityType)
 	}
 
 	input := share.ShareInput{
@@ -981,27 +991,69 @@ func (s *DocumentGRPCServer) UnshareEntity(ctx context.Context, req *documentv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
 	}
 
+	sharedWithUserID, err := uuid.Parse(req.SharedWithUserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
+	}
+
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	caller, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	// UnshareEntity in share service uses shareID; here we look up by entity+user
 	shares, err := s.shareService.ListByEntity(ctx, req.EntityType, entityID)
 	if err != nil {
 		return nil, mapDocumentError(err)
 	}
 
-	sharedWithUserID, err := uuid.Parse(req.SharedWithUserId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
-	}
-
 	for _, sh := range shares {
-		if sh.SharedWithUserID == sharedWithUserID {
-			if err := s.shareService.UnshareEntity(ctx, sh.ID); err != nil {
-				return nil, mapDocumentError(err)
-			}
-			return &documentv1.UnshareEntityResponse{}, nil
+		if sh.SharedWithUserID != sharedWithUserID {
+			continue
 		}
+		// Only whoever created the share or the entity's owner may withdraw it.
+		if sh.SharedBy != caller {
+			ownerID, ownerErr := s.shareableEntityOwner(ctx, tenantID, req.EntityType, entityID)
+			if ownerErr != nil || ownerID != caller {
+				return nil, status.Error(codes.PermissionDenied, "only the sharer or the owner may withdraw this share")
+			}
+		}
+		if err := s.shareService.UnshareEntity(ctx, sh.ID); err != nil {
+			return nil, mapDocumentError(err)
+		}
+		return &documentv1.UnshareEntityResponse{}, nil
 	}
 
 	return nil, status.Error(codes.NotFound, "share not found")
+}
+
+// shareableEntityOwner returns the owner of a live file (owner_id) or folder
+// (created_by) of the tenant. A missing, trashed or foreign entity is NotFound,
+// an unknown entity type InvalidArgument.
+func (s *DocumentGRPCServer) shareableEntityOwner(ctx context.Context, tenantID uuid.UUID, entityType string, entityID uuid.UUID) (uuid.UUID, error) {
+	switch entityType {
+	case models.ShareEntityFile:
+		f, err := s.fileService.GetByID(ctx, entityID, tenantID)
+		if errors.Is(err, file.ErrFileDeleted) {
+			return uuid.Nil, status.Error(codes.NotFound, file.ErrFileNotFound.Error())
+		}
+		if err != nil {
+			return uuid.Nil, mapDocumentError(err)
+		}
+		return f.OwnerID, nil
+	case models.ShareEntityFolder:
+		f, err := s.folderService.GetByID(ctx, tenantID, entityID)
+		if err != nil {
+			return uuid.Nil, mapDocumentError(err)
+		}
+		return f.CreatedBy, nil
+	default:
+		return uuid.Nil, mapDocumentError(share.ErrInvalidEntityType)
+	}
 }
 
 func (s *DocumentGRPCServer) ListShares(ctx context.Context, req *documentv1.ListSharesRequest) (*documentv1.ListSharesResponse, error) {

@@ -1074,7 +1074,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/document/share 96,8 % · internal/server 75,3 %"
     decided: 2026-10-24
     decision: >-
@@ -1106,6 +1106,42 @@ units:
       - "Test: fremder Mandant abgewiesen"
       - "BACKLOG-NEXT: decide-document-access-baseline angelegt"
       - "Mutations-Probe: Besitzprüfung entfernt, der Test wird rot"
+
+  - id: fix-document-unshare-route-by-share-id
+    phase: 4
+    service: document
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/server 75,6 % · internal/gateway 77,1 %"
+    scope: >
+      TOTALAUSFALL, gefunden in Iteration 25 (fix-document-share-entity-checks): "Freigabe
+      entfernen" funktioniert für JEDEN Nutzer nicht. Das FE ruft `DELETE
+      /api/v1/documents/shares/{shareId}` (`desktop/src/renderer/src/api/clients/document-client.ts:415-418`,
+      `ShareDialog.tsx:90`), das Gateway kennt nur `DELETE /api/v1/documents/shares/` mit
+      JSON-Body `{entity_type, entity_id, shared_with_user_id}` (`route_document.go:162`,
+      `HandleUnshareEntity`) — der FE-Pfad trifft keine Route (404/405). Fix am Backend, weil
+      Desktop-Code nicht angefasst wird: neue Route `DELETE /api/v1/documents/shares/{id}`
+      (Pfad-Eintrag in `openapi.yaml` im selben Commit, gleicher Guard `docShareManage`, Antwort
+      `{"unshared": true}`). Dafür fehlt ein RPC, der eine Freigabe per ID auflöst:
+      `UnshareEntityRequest` (`proto/document/v1/document.proto:~578`) um ein optionales
+      `share_id` ergänzen (Regen im selben Commit, `make proto-document` o. ä.) bzw. einen
+      `UnshareByID`-RPC anlegen — beim Bauen entscheiden und im Journal begründen. Im Server die
+      Freigabe mandantengescoped laden (Repo hat `ListByEntity`/`GetUserPermission`, aber kein
+      `GetByID`; neue Abfrage mit `tenant_id`-Filter), dann dieselbe Berechtigung wie in
+      `UnshareEntity` (nur Teilender oder Besitzer, `shareableEntityOwner` in
+      `server/document_grpc.go`). Die alte Body-Route bleibt (additiv).
+    sources:
+      - backend/internal/gateway/route_document.go
+      - backend/internal/server/document_grpc.go
+      - backend/internal/document/share/
+      - backend/proto/document/v1/document.proto
+      - desktop/src/renderer/src/api/clients/document-client.ts
+    done_when:
+      - "Test: DELETE /documents/shares/{id} ruft den RPC mit der Share-ID, Antwort {unshared:true}; ungültige UUID -> 400"
+      - "DB-Test: Teilender und Besitzer löschen, Dritter -> PermissionDenied, fremder Mandant -> NotFound"
+      - "openapi.yaml-Pfad vorhanden, swagger-cli validate ok, TestOpenAPIRouteDrift grün"
+      - "Mutations-Probe: Berechtigungsprüfung entfernt, der Test wird rot"
 
   - id: fix-inventar-movement-result-after-commit
     phase: 4
