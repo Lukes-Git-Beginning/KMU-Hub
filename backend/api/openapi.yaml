@@ -39931,7 +39931,7 @@ components:
           type: string
         salutation:
           type: string
-          enum: [Herr, Frau]
+          enum: [Herr, Frau, ""]
         mobile:
           type: string
         department:
@@ -39952,10 +39952,10 @@ components:
           type: string
         category:
           type: string
-          enum: [employee, customer, partner]
+          enum: [employee, customer, partner, ""]
         status:
           type: string
-          enum: [active, prospect, inactive]
+          enum: [active, prospect, inactive, ""]
         tag_ids:
           type: array
           items:
@@ -39992,7 +39992,7 @@ components:
           type: string
         salutation:
           type: string
-          enum: [Herr, Frau]
+          enum: [Herr, Frau, ""]
         mobile:
           type: string
         department:
@@ -40013,10 +40013,10 @@ components:
           type: string
         category:
           type: string
-          enum: [employee, customer, partner]
+          enum: [employee, customer, partner, ""]
         status:
           type: string
-          enum: [active, prospect, inactive]
+          enum: [active, prospect, inactive, ""]
         custom_fields:
           type: object
           additionalProperties: true
