@@ -176,8 +176,6 @@ func (s *AuthGRPCServer) ListUsers(ctx context.Context, req *authv1.ListUsersReq
 
 	var infos []*authv1.UserInfo
 	for _, u := range users {
-		roles, _ := s.authService.CheckPermission(ctx, u.ID, "", "")
-		_ = roles
 		infos = append(infos, toUserInfo(u, nil))
 	}
 

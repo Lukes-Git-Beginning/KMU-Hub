@@ -773,9 +773,10 @@ paths:
             default: 1
         - name: page_size
           in: query
+          description: Users per page. Values above 100 (the auth service ceiling) are clamped to 100.
           schema:
             type: integer
-            default: 20
+            default: 100
       responses:
         "200":
           description: Users list
@@ -23182,11 +23183,10 @@ paths:
             minimum: 0
         - name: limit
           in: query
-          description: Rows per page (1-100, default 50). Wins over page_size.
+          description: Rows per page (default 50). Values above 200 are clamped to 200. Wins over page_size.
           schema:
             type: integer
             minimum: 1
-            maximum: 100
         - name: page
           in: query
           schema:

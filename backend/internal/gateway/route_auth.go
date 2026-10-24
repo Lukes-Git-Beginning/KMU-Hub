@@ -348,6 +348,11 @@ func (a *AuthRoutes) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// userListPageSizeMax is the largest page the auth service serves (it falls back to 20 above 100).
+// It is also the default, so a caller that sends no paging, like the team module tab, sees every
+// user up to that ceiling instead of the first 20.
+const userListPageSizeMax = 100
+
 func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 	client, err := a.getAuthClient()
 	if err != nil {
@@ -355,9 +360,10 @@ func (a *AuthRoutes) HandleListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	page, pageSize := parsePaginationMax(r, 1, userListPageSizeMax, userListPageSizeMax)
 	resp, err := client.ListUsers(r.Context(), &authv1.ListUsersRequest{
-		Page:     1,
-		PageSize: 20,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

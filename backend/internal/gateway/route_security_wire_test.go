@@ -175,10 +175,20 @@ func TestSecurityWire_AuditOffsetLimitSelectsSecondPage(t *testing.T) {
 	assert.EqualValues(t, 40, stub.gotListFilter.GetOffset())
 	assert.EqualValues(t, 20, stub.gotListFilter.GetLimit())
 
-	// an unusable limit falls back to the default window
+	// the roles tab asks for 200 rows and gets them; more than the ceiling is clamped to it,
+	// not replaced by the default window (the tab used to come back with 50 rows, mostly empty)
+	securityWireCall(t, sr.HandleListAuditEntries, http.MethodGet, "/audit?offset=10&limit=200", nil)
+	assert.EqualValues(t, 10, stub.gotListFilter.GetOffset())
+	assert.EqualValues(t, 200, stub.gotListFilter.GetLimit())
 	securityWireCall(t, sr.HandleListAuditEntries, http.MethodGet, "/audit?offset=10&limit=100000", nil)
 	assert.EqualValues(t, 10, stub.gotListFilter.GetOffset())
-	assert.EqualValues(t, 50, stub.gotListFilter.GetLimit())
+	assert.EqualValues(t, auditPageSizeMax, stub.gotListFilter.GetLimit())
+
+	// an unparsable or non-positive limit still falls back to the default window
+	for _, q := range []string{"limit=abc", "limit=0", "limit=-5"} {
+		securityWireCall(t, sr.HandleListAuditEntries, http.MethodGet, "/audit?"+q, nil)
+		assert.EqualValues(t, 50, stub.gotListFilter.GetLimit(), q)
+	}
 }
 
 func TestSecurityWire_AuditDateFiltersReachTheServiceAndExport(t *testing.T) {

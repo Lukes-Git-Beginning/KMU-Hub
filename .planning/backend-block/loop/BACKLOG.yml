@@ -1597,7 +1597,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       Zwei stille Kappungen in der Administration.
