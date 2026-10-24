@@ -5964,7 +5964,11 @@ paths:
               $ref: "#/components/schemas/SetUserProjectPreferenceRequest"
       responses:
         "200":
-          description: Preference saved
+          description: Preference saved; the stored preference, flat like the GET
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProjectPreferenceResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":

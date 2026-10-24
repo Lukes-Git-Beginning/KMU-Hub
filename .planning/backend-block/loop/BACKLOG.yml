@@ -1733,7 +1733,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,4 %"
     scope: >
       Gespeicherte Ansicht/Sortierung eines Projekts wird nie wiederhergestellt. `GET

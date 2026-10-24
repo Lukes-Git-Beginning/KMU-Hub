@@ -605,3 +605,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: POST /tasks -> `MyTasksPage.handleCreateStandaloneTask` (Zeile 507) sendet `{title, priority, assignee_id}` ohne `project_id` -> passt jetzt (201 `{task}`); `TaskCreateDialog` sendet weiter `project_id` -> unverändert.
 - offen: DB-Test `TestStandaloneTask_RealSQL` (kmuhub_app) bestätigt NULL-Projekt/-Status, Auftauchen unter `assignee_id` und Isolation zum fremden Mandanten. Spec sagt weiter `priority` required, der Handler nicht (FE sendet es immer) — nicht angefasst. Keine Goroutinen (`-race` erst in CI).
+
+## Iteration 44 — fix-work-project-preference-flat-wire — done — 2026-10-25 00:09
+- commit: (siehe git log, Subject `fix(gateway): return the project preference flat so the saved view is restored`)
+- gebaut: `GET` und `PUT /projects/{id}/preferences` schreiben die Felder von `resp.Preference` flach (`response.ProtoFull`, damit ein gespeichertes `list_sort_desc: false` nicht entfällt) statt unter `{"preference":{…}}`. Spec: `UserProjectPreferenceResponse` stand schon flach da, die PUT-200-Antwort bekam dasselbe Schema (`swagger-cli validate` ok).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway komplett) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy angefasst)
+- coverage: internal/gateway 77,4 % -> 77,4 % (Änderung ist ein Aufruf-Tausch, die neuen Tests belegen Verhalten, keine neuen Branches)
+- mutations-probe: GET/PUT wieder auf `response.Proto(wr, 200, resp)` gestellt -> beide neuen Tests (`TestWorkWire_ProjectPreferenceSavedThenReadIsFlat`, `…DefaultsAreFlatAndKeepFalse`) rot; zurückgedreht, grün, Diff sauber.
+- verify vorgaenger: sauber (79d4c632: Tag-Änderung + Spec + Tests über echten gRPC-Hop, DB-Test unter kmuhub_app, kein Proto/Guard/Route neu)
+- neue-units: keine
+- desktop-aufrufer: GET/PUT /projects/{id}/preferences -> `useProjectPreference`/`useSetPreference` (`useProjects.ts:129/433`) -> `ProjectDetailPage.tsx:94/99` (`prefData?.view_type`) und `TaskListView.tsx:241-247` (`list_group_by`, `list_sort_by`, `list_sort_desc`) lesen flach -> passt jetzt; `useSetPreference` wertet die PUT-Antwort nicht aus, invalidiert nur die Query.
+- offen: Keine Goroutinen (`-race` erst in CI). Der Server-Default (`list`/`status`/`sort_order`) bleibt; `TaskListView` fällt ohne Preference auf `created_at` zurück, mit Server-Default dagegen auf `sort_order` — FE-Eigenheit, kein Backend-Befund.

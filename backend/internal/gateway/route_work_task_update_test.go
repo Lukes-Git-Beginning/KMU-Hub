@@ -25,6 +25,8 @@ type workTaskWireStub struct {
 	workv1.UnimplementedWorkServiceServer
 	updated *workv1.UpdateTaskRequest
 	created *workv1.CreateTaskRequest
+	// pref is the stored project preference; nil means "nothing saved yet".
+	pref *workv1.UserProjectPreferenceProto
 }
 
 func (s *workTaskWireStub) CreateTask(_ context.Context, r *workv1.CreateTaskRequest) (*workv1.CreateTaskResponse, error) {
