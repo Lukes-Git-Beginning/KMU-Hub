@@ -219,7 +219,7 @@ func (dr *DialerRoutes) HandleListCampaigns(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleGetCampaign(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +273,7 @@ func (dr *DialerRoutes) HandleGetCampaign(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +313,7 @@ func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleStartCampaign(w http.ResponseWriter, r *http.Request) {
@@ -339,7 +339,7 @@ func (dr *DialerRoutes) HandleStartCampaign(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandlePauseCampaign(w http.ResponseWriter, r *http.Request) {
@@ -365,7 +365,7 @@ func (dr *DialerRoutes) HandlePauseCampaign(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleArchiveCampaign(w http.ResponseWriter, r *http.Request) {
@@ -429,7 +429,7 @@ func (dr *DialerRoutes) HandleAddContactsToCampaign(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleListCampaignContacts(w http.ResponseWriter, r *http.Request) {
@@ -465,7 +465,7 @@ func (dr *DialerRoutes) HandleListCampaignContacts(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Request) {
@@ -498,7 +498,7 @@ func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSkipContact(w http.ResponseWriter, r *http.Request) {
@@ -588,7 +588,7 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -637,7 +637,7 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSaveCallNotes(w http.ResponseWriter, r *http.Request) {
@@ -740,7 +740,7 @@ func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Request) {
@@ -769,7 +769,7 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetCampaignAgents(w http.ResponseWriter, r *http.Request) {
@@ -792,7 +792,7 @@ func (dr *DialerRoutes) HandleGetCampaignAgents(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -820,7 +820,7 @@ func (dr *DialerRoutes) HandleListCallOutcomes(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleCreateCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -848,7 +848,7 @@ func (dr *DialerRoutes) HandleCreateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -899,7 +899,7 @@ func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleDeleteCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -949,7 +949,7 @@ func (dr *DialerRoutes) HandleGetCampaignDashboard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.Request) {
@@ -976,7 +976,7 @@ func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
