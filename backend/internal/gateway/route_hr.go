@@ -172,12 +172,18 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		[2]string{"hr", "read"}, [2]string{"team:documents", "view"},
 	)
 
+	// The team directory (pickers, team page, org chart) for everyone holding team:employee:read
+	// (member scope all, manager scope team, migration 000256); hr:read is admin-only (000129).
+	// Without hr:read the list answers with the directory projection, see HandleListEmployees.
+	directoryRead := middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"team:employee", "read"})
+
 	// Employee profiles
 	r.Route("/api/v1/hr/employees", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListEmployees)
+		r.With(directoryRead).Get("/", h.HandleListEmployees)
 		r.With(middleware.RequirePermission("hr", "admin")).Post("/", h.HandleCreateEmployee)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/me", h.HandleGetSelfProfile)
+		// The caller's own full profile; the handler reads the id from the token only.
+		r.With(directoryRead).Get("/me", h.HandleGetSelfProfile)
 		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
 		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
@@ -1089,6 +1095,15 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reached through team:employee:read alone: only the directory fields leave the gateway.
+	if !callerHasPermission(r, "hr:read") {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"employees": employeeDirectory(resp.Employees),
+			"total":     resp.Total,
+		})
+		return
+	}
+
 	employeesJSON, err := hrMarshalSlice(resp.Employees)
 	if err != nil {
 		slog.Error("proto json marshal failed", "error", err)
@@ -1100,6 +1115,43 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		"employees": employeesJSON,
 		"total":     resp.Total,
 	})
+}
+
+// employeeDirectoryEntry is the team directory's wire shape: what the people pickers, the team
+// page and the org chart read, and nothing else. Contract, leave days, start date, address,
+// emergency contact, exit details and is_minor stay behind hr:read. An explicit type rather
+// than a cleared proto, so a new profile field never leaks by default. omitempty matches the
+// protojson encoding of the full shape.
+type employeeDirectoryEntry struct {
+	ID            string `json:"id,omitempty"`
+	UserID        string `json:"user_id,omitempty"`
+	UserName      string `json:"user_name,omitempty"`
+	UserEmail     string `json:"user_email,omitempty"`
+	Department    string `json:"department,omitempty"`
+	PositionTitle string `json:"position_title,omitempty"`
+	ManagerUserID string `json:"manager_user_id,omitempty"`
+	ManagerName   string `json:"manager_name,omitempty"`
+	Status        string `json:"status,omitempty"`
+}
+
+// lean: tenant-wide directory even at manager scope team — a people picker needs every
+// colleague and these fields are not confidential in a KMU; narrow when a tenant asks for it.
+func employeeDirectory(profiles []*hrv1.EmployeeProfile) []employeeDirectoryEntry {
+	out := make([]employeeDirectoryEntry, 0, len(profiles))
+	for _, p := range profiles {
+		out = append(out, employeeDirectoryEntry{
+			ID:            p.GetId(),
+			UserID:        p.GetUserId(),
+			UserName:      p.GetUserName(),
+			UserEmail:     p.GetUserEmail(),
+			Department:    p.GetDepartment(),
+			PositionTitle: p.GetPositionTitle(),
+			ManagerUserID: p.GetManagerUserId(),
+			ManagerName:   p.GetManagerName(),
+			Status:        p.GetStatus(),
+		})
+	}
+	return out
 }
 
 func (h *HRRoutes) HandleGetSelfProfile(w http.ResponseWriter, r *http.Request) {

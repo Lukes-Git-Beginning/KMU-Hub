@@ -415,7 +415,7 @@ units:
     service: hr
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/server 75,3 %"
     scope: >
       TOTALAUSFALL, VERIFIZIERT bei der Vorbereitung: `GET /hr/employees` (und `/hr/employees/me`,

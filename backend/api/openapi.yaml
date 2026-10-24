@@ -13170,6 +13170,10 @@ paths:
   /api/v1/hr/employees:
     get:
       summary: List employees
+      description: >
+        Requires hr:read or team:employee:read. A caller without hr:read gets the team directory
+        projection: each item carries only id, user_id, user_name, user_email, department,
+        position_title, manager_user_id, manager_name and status.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -13178,7 +13182,7 @@ paths:
         - { name: page_size, in: query, schema: { type: integer } }
       responses:
         "200":
-          description: Employee list
+          description: Employee list (full profiles with hr:read, directory projection otherwise)
           content:
             application/json:
               schema:
@@ -13191,6 +13195,8 @@ paths:
                   total: { type: integer }
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           description: Failed to serialize the response
         "503":
@@ -13267,6 +13273,7 @@ paths:
   /api/v1/hr/employees/me:
     get:
       summary: Get own employee profile
+      description: Requires hr:read or team:employee:read. The profile is always the caller's own (id from the token).
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       responses:
@@ -13280,6 +13287,8 @@ paths:
                 properties:
                   employee:
                     $ref: "#/components/schemas/EmployeeProfile"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:

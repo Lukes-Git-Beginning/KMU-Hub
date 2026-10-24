@@ -1829,3 +1829,54 @@ units:
       - desktop/src/renderer/src/modules/vermietung/VermietungPage.tsx
     done_when:
       - "Board/Kalender/Vermietung zeigen mit >200 Einträgen alle oder einen ehrlichen Hinweis, per Screenshot-QA abgenommen"
+
+  # Aus Lauf 16, Iteration 6 (`fix-hr-employee-directory-for-members`):
+
+  - id: decide-absence-calendar-for-members
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Darf ein member sehen, WER abwesend ist, und in welcher Grobklasse? Die Route liefert heute die Abwesenheitsart im Klartext (`leave_type_name` 'Krankheit', Gesundheitsdatum Art. 9 DSGVO); für member nur nach Projektion freigeben"
+    target: "Luke, danach Loop"
+    scope: >
+      `GET /hr/absences/calendar` (`route_hr.go`, Guard `hr:read`, admin-only) speist den
+      Abwesenheitskalender der Team-Seite (`team/AbsenceCalendar.tsx`) und das Dashboard. Für
+      member/manager 403 = leerer Kalender. Die Antwort (`AbsenceEntry`) trägt `employee_name`,
+      `department`, Zeitraum, `leave_type_name`, `leave_type_color`, `total_days`; die Query
+      (`biz/hr/absence/postgres_repository.go`) nimmt alle genehmigten Anträge inkl. Leave-Type
+      `krank` (Seed in 000046). Bei der Directory-Unit bewusst NICHT umgestellt. Vorschlag:
+      `RequirePermissionAny(hr:read, team:absence:read)` und für Aufrufer ohne `hr:read` eine
+      schmale Projektion (Name, Abteilung, Zeitraum, Grobklasse `absent`, neutrale Farbe — ohne
+      Art und ohne Tageszahl); manager mit Scope team ggf. mit Art für die Berichtslinie.
+      Achtung: member hält `team:absence:read` auf Scope `all` (000256).
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/absence/postgres_repository.go
+      - desktop/src/renderer/src/modules/team/AbsenceCalendar.tsx
+    done_when:
+      - "Sichtbarkeitsregel für member und manager entschieden; daraus eine Backend-Unit mit Router-Test, der die Abwesenheit von leave_type_name für member prüft"
+
+  - id: fe-team-card-contract-type-default-full-time
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Seit Lauf 16 bekommt ein member/manager `GET /hr/employees` als Verzeichnis-Projektion
+      ohne `contract_type`. `adaptEmployee` (`api/hr-client.ts:130`) macht daraus über
+      `normaliseContractType` den Default `full_time`, und die Mitarbeiterkarte
+      (`team/TeamPage.tsx:990`) zeigt dann bei JEDEM Kollegen „Vollzeit“ — falsch für Teilzeit
+      und Minijob. Fix: `contractType` optional lassen, wenn das Feld fehlt, und die Zeile in
+      der Karte ausblenden. Weitere Default-Fallen derselben Art: `workDaysPerWeek ?? 5`,
+      `annualLeaveDays ?? 0`, `startDate ?? ''` — prüfen, ob eine Verzeichnis-Ansicht sie
+      anzeigt.
+    sources:
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/modules/team/TeamPage.tsx
+    done_when:
+      - "Mitarbeiterkarte als member zeigt keinen erfundenen Vertragstyp, per Screenshot-QA abgenommen"
