@@ -2384,7 +2384,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestContactAndDealDesktopBodyFlow` als member: Kontakt anlegen und ändern mit
