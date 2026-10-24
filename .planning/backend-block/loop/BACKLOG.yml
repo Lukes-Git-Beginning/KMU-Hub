@@ -584,7 +584,7 @@ units:
     service: email
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/email/account 48,4 % · internal/email/message 70,4 %"
     scope: >
       TOTALAUSFALL, VERIFIZIERT: das E-Mail-Modul ist für jeden Nicht-Admin komplett 403. Alle
@@ -1900,3 +1900,31 @@ units:
       - "Coverage internal/work/task selbst gemessen vorher/nachher im Journal"
       - "Mutations-Probe: eine Prüfzeile gebrochen, ein neuer Test wird rot"
       - "go test -count=1 ./internal/work/task/ grün, DATABASE_URL gesetzt, 0 Skips"
+
+  - id: fix-email-attachment-upload-nil-message-fk
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 75,3 %"
+    scope: >
+      Gefunden in fix-email-module-for-members (Lauf 16, Iteration 11), lokal an der DB belegt:
+      `UploadAttachment` (`server/email_grpc.go`) legt den Anhang mit `message_id = uuid.Nil` an
+      („pre-send upload"), aber `email_attachments.message_id` ist `NOT NULL REFERENCES
+      email_messages(id)` (`email_attachments_message_id_fkey`, Migration 041). Jeder Upload
+      scheitert damit am Fremdschlüssel (500). Heute kein sichtbarer Totalausfall: der Hook
+      `useUploadAttachment` in `api/hooks/useEmail.ts:416` hat keinen Komponenten-Aufrufer.
+      Außerdem ist ein Pre-Send-Anhang ohne Nachricht keinem Postfach zuzuordnen; die
+      Besitzprüfung (`ownMessage`) lässt ihn deshalb nicht herunterladen. Fix-Optionen prüfen:
+      Anhang erst beim Senden/Entwurf an die Nachricht hängen (Entwurf zuerst anlegen, dann
+      Upload mit `message_id` des Entwurfs) oder `account_id`-Spalte + nullable `message_id`
+      per Migration. Die Wahl muss die Besitzprüfung erhalten (Anhang -> Konto -> Aufrufer).
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/email/attachment/service.go
+      - backend/migrations/000041_create_email_tables.up.sql
+      - desktop/src/renderer/src/api/hooks/useEmail.ts
+    done_when:
+      - "DB-Test als kmuhub_app: Upload legt einen Anhang an, der Besitzer lädt ihn herunter, ein zweiter Nutzer bekommt NotFound"
+      - "go test -count=1 ./internal/server/ ./internal/email/... grün, DATABASE_URL gesetzt, 0 Skips"

@@ -122,63 +122,76 @@ func (e *EmailRoutes) getEmailClient() (emailv1.EmailServiceClient, error) {
 
 // RegisterRoutes registers all Email HTTP routes.
 func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// The email:mailbox keys open what a mailbox owner does with their own
+	// mail. The email server confines every route behind them to the caller's
+	// own accounts (ownAccount/ownMessage in server/email_grpc.go), so they are
+	// safe to hand to every employee. Account provisioning (it dials any host),
+	// rules (tenant-wide, applied to every mailbox), label catalogue writes,
+	// shared-template edits, the contact mail history and CRM import/export
+	// reach beyond one mailbox and stay on the coarse keys.
+	var (
+		boxRead   = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
+		boxWrite  = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
+		boxDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
+	)
+
 	// Email Accounts
 	r.Route("/api/v1/email/accounts", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateAccount)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleGetAccount)
-		r.With(middleware.RequirePermission("email", "read")).Get("/list", e.HandleListAccounts)
+		r.With(boxRead).Get("/", e.HandleGetAccount)
+		r.With(boxRead).Get("/list", e.HandleListAccounts)
 		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateAccount)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteAccount)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/default", e.HandleSetDefaultAccount)
+		r.With(boxWrite).Post("/{id}/default", e.HandleSetDefaultAccount)
 		r.With(middleware.RequirePermission("email", "write")).Post("/test", e.HandleTestConnection)
 	})
 
 	// Folders
 	r.Route("/api/v1/email/folders", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListFolders)
-		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetFolder)
-		r.With(middleware.RequirePermission("email", "write")).Post("/sync", e.HandleSyncFolders)
+		r.With(boxRead).Get("/", e.HandleListFolders)
+		r.With(boxRead).Get("/{id}", e.HandleGetFolder)
+		r.With(boxWrite).Post("/sync", e.HandleSyncFolders)
 	})
 
 	// Messages
 	r.Route("/api/v1/email/messages", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListMessages)
-		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetMessage)
-		r.With(middleware.RequirePermission("email", "read")).Get("/thread/{threadId}", e.HandleGetThreadMessages)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/read", e.HandleMarkRead)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/unread", e.HandleMarkUnread)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/star", e.HandleToggleStar)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/move", e.HandleMoveToFolder)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/labels", e.HandleAssignMessageLabels)
-		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteMessage)
+		r.With(boxRead).Get("/", e.HandleListMessages)
+		r.With(boxRead).Get("/{id}", e.HandleGetMessage)
+		r.With(boxRead).Get("/thread/{threadId}", e.HandleGetThreadMessages)
+		r.With(boxWrite).Post("/{id}/read", e.HandleMarkRead)
+		r.With(boxWrite).Post("/{id}/unread", e.HandleMarkUnread)
+		r.With(boxWrite).Post("/{id}/star", e.HandleToggleStar)
+		r.With(boxWrite).Post("/{id}/move", e.HandleMoveToFolder)
+		r.With(boxWrite).Post("/{id}/labels", e.HandleAssignMessageLabels)
+		r.With(boxDelete).Delete("/{id}", e.HandleDeleteMessage)
 		// "write" is the floor; HandleBulkMessageAction itself requires
 		// "email:delete" additionally when action == "delete", matching the
 		// single-message DELETE route above instead of letting bulk act as a
 		// backdoor around it.
-		r.With(middleware.RequirePermission("email", "write")).Post("/bulk", e.HandleBulkMessageAction)
+		r.With(boxWrite).Post("/bulk", e.HandleBulkMessageAction)
 	})
 
 	// Send/Compose
 	r.Route("/api/v1/email/send", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleSendEmail)
-		r.With(middleware.RequirePermission("email", "write")).Post("/draft", e.HandleSaveDraft)
-		r.With(middleware.RequirePermission("email", "write")).Post("/reply", e.HandleReplyEmail)
-		r.With(middleware.RequirePermission("email", "write")).Post("/forward", e.HandleForwardEmail)
+		r.With(boxWrite).Post("/", e.HandleSendEmail)
+		r.With(boxWrite).Post("/draft", e.HandleSaveDraft)
+		r.With(boxWrite).Post("/reply", e.HandleReplyEmail)
+		r.With(boxWrite).Post("/forward", e.HandleForwardEmail)
 	})
 
 	// Signatures
 	r.Route("/api/v1/email/signatures", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListSignatures)
-		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetSignature)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateSignature)
-		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateSignature)
-		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteSignature)
-		r.With(middleware.RequirePermission("email", "write")).Post("/{id}/default", e.HandleSetDefaultSignature)
+		r.With(boxRead).Get("/", e.HandleListSignatures)
+		r.With(boxRead).Get("/{id}", e.HandleGetSignature)
+		r.With(boxWrite).Post("/", e.HandleCreateSignature)
+		r.With(boxWrite).Put("/{id}", e.HandleUpdateSignature)
+		r.With(boxDelete).Delete("/{id}", e.HandleDeleteSignature)
+		r.With(boxWrite).Post("/{id}/default", e.HandleSetDefaultSignature)
 	})
 
 	// Rules (Regeln & Filter)
@@ -194,7 +207,7 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Labels
 	r.Route("/api/v1/email/labels", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailLabels)
+		r.With(boxRead).Get("/", e.HandleListEmailLabels)
 		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailLabel)
 		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailLabel)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailLabel)
@@ -203,36 +216,36 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Templates (Vorlagen & Quicktexte)
 	r.Route("/api/v1/email/templates", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailTemplates)
-		r.With(middleware.RequirePermission("email", "read")).Get("/{id}", e.HandleGetEmailTemplate)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailTemplate)
+		r.With(boxRead).Get("/", e.HandleListEmailTemplates)
+		r.With(boxRead).Get("/{id}", e.HandleGetEmailTemplate)
+		r.With(boxWrite).Post("/", e.HandleCreateEmailTemplate)
 		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateEmailTemplate)
 		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailTemplate)
-		r.With(middleware.RequirePermission("email", "read")).Post("/{id}/render", e.HandleRenderEmailTemplate)
+		r.With(boxRead).Post("/{id}/render", e.HandleRenderEmailTemplate)
 	})
 
 	// CRM Links
 	r.Route("/api/v1/email/links", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/message/{messageId}", e.HandleGetEmailContactLinks)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleLinkEmailToContact)
-		r.With(middleware.RequirePermission("email", "write")).Delete("/", e.HandleUnlinkEmailFromContact)
+		r.With(boxRead).Get("/message/{messageId}", e.HandleGetEmailContactLinks)
+		r.With(boxWrite).Post("/", e.HandleLinkEmailToContact)
+		r.With(boxWrite).Delete("/", e.HandleUnlinkEmailFromContact)
 		r.With(middleware.RequirePermission("email", "read")).Get("/contact/{contactId}", e.HandleGetContactEmails)
 	})
 
 	// Sync
 	r.Route("/api/v1/email/sync", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "write")).Post("/trigger", e.HandleTriggerSync)
-		r.With(middleware.RequirePermission("email", "read")).Get("/status", e.HandleGetSyncStatus)
-		r.With(middleware.RequirePermission("email", "write")).Post("/read-flag", e.HandleSetReadFlag)
+		r.With(boxWrite).Post("/trigger", e.HandleTriggerSync)
+		r.With(boxRead).Get("/status", e.HandleGetSyncStatus)
+		r.With(boxWrite).Post("/read-flag", e.HandleSetReadFlag)
 	})
 
 	// Attachments
 	r.Route("/api/v1/email/attachments", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "write")).Post("/upload", e.HandleUploadAttachment)
-		r.With(middleware.RequirePermission("email", "read")).Get("/{id}/download", e.HandleGetAttachmentDownloadURL)
+		r.With(boxWrite).Post("/upload", e.HandleUploadAttachment)
+		r.With(boxRead).Get("/{id}/download", e.HandleGetAttachmentDownloadURL)
 	})
 
 	// Contact Import/Export
@@ -279,7 +292,12 @@ func (e *EmailRoutes) HandleGetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only the coarse email:read (admin provisioning) may look up another
+	// user's account; everyone else always gets their own, whatever user_id says.
 	userID := r.URL.Query().Get("user_id")
+	if userID == "" || !callerHasPermission(r, "email:read") {
+		userID = middleware.GetUserID(r.Context())
+	}
 	resp, err := client.GetEmailAccount(r.Context(), &emailv1.GetEmailAccountRequest{UserId: userID})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -640,7 +658,8 @@ func (e *EmailRoutes) HandleBulkMessageAction(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if dto.Action == "delete" && !slices.Contains(middleware.GetUserPermissions(r.Context()), "email:delete") {
+	perms := middleware.GetUserPermissions(r.Context())
+	if dto.Action == "delete" && !slices.Contains(perms, "email:delete") && !slices.Contains(perms, "email:mailbox:delete") {
 		response.Error(w, http.StatusForbidden, "insufficient permissions")
 		return
 	}

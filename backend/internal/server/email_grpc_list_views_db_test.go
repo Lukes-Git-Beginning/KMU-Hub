@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/email/account"
+	"github.com/kmuhub/kmuhub/internal/email/attachment"
 	"github.com/kmuhub/kmuhub/internal/email/message"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -51,7 +52,7 @@ func newListViewsFixture(t *testing.T) *listViewsFixture {
 	accSvc := account.NewService(account.NewPostgresRepository(pool), nil)
 	return &listViewsFixture{
 		pool:     pool,
-		srv:      NewEmailGRPCServer(accSvc, msgSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil),
+		srv:      NewEmailGRPCServer(accSvc, msgSvc, nil, nil, attachment.NewService(attachment.NewPostgresRepository(pool), nil), nil, nil, nil, nil, nil, nil, nil),
 		repo:     repo,
 		tenantID: tenantID,
 	}
@@ -263,4 +264,58 @@ func TestEmailGRPC_ListMessages_UnifiedLabelAndFilterViews(t *testing.T) {
 		_, err := f.srv.ListMessages(f.ctx(f.tenantID, uuid.Nil), &emailv1.ListMessagesRequest{View: "unified"})
 		require.Equal(t, codes.Unauthenticated, status.Code(err))
 	})
+}
+
+// TestMailbox_DB_SecondUserSeesNothingOfTheFirst runs the mailbox owner check of
+// fix-email-module-for-members against Postgres as kmuhub_app: two employees of one
+// tenant, RLS lets both rows through, the owner check must not. B gets NotFound for
+// A's account, folders and messages and cannot send from A's account; A still can.
+func TestMailbox_DB_SecondUserSeesNothingOfTheFirst(t *testing.T) {
+	f := newListViewsFixture(t)
+	a, b := f.user(t, f.tenantID), f.user(t, f.tenantID)
+	acctA := f.account(t, f.tenantID, a, true)
+	inboxA := f.folder(t, f.tenantID, acctA, models.FolderTypeInbox)
+	msgA := f.msg(t, f.tenantID, acctA, inboxA, 1, false, false)
+	asA, asB := f.ctx(f.tenantID, a), f.ctx(f.tenantID, b)
+
+	_, err := f.srv.GetMessage(asA, &emailv1.GetMessageRequest{Id: msgA.String()})
+	require.NoError(t, err, "the owner reads their own mail")
+	list, err := f.srv.ListFolders(asA, &emailv1.ListFoldersRequest{AccountId: acctA.String()})
+	require.NoError(t, err)
+	require.Len(t, list.Folders, 1)
+
+	for name, call := range map[string]func() error{
+		"get message": func() error { _, e := f.srv.GetMessage(asB, &emailv1.GetMessageRequest{Id: msgA.String()}); return e },
+		"list folders": func() error {
+			_, e := f.srv.ListFolders(asB, &emailv1.ListFoldersRequest{AccountId: acctA.String()})
+			return e
+		},
+		"get folder": func() error { _, e := f.srv.GetFolder(asB, &emailv1.GetFolderRequest{Id: inboxA.String()}); return e },
+		"list folder messages": func() error {
+			_, e := f.srv.ListMessages(asB, &emailv1.ListMessagesRequest{FolderId: inboxA.String()})
+			return e
+		},
+		"mark read": func() error { _, e := f.srv.MarkRead(asB, &emailv1.MarkReadRequest{Id: msgA.String()}); return e },
+		"set default": func() error {
+			_, e := f.srv.SetDefaultEmailAccount(asB, &emailv1.SetDefaultEmailAccountRequest{Id: acctA.String()})
+			return e
+		},
+		"send from A": func() error {
+			_, e := f.srv.SendEmail(asB, &emailv1.SendEmailRequest{AccountId: acctA.String(), To: []*emailv1.EmailAddress{{Email: "x@example.com"}}})
+			return e
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, codes.NotFound, status.Code(call()))
+		})
+	}
+
+	unified, err := f.srv.ListMessages(asB, &emailv1.ListMessagesRequest{View: "unified"})
+	require.NoError(t, err)
+	require.Empty(t, unified.Messages, "B's unified inbox holds none of A's mail")
+
+	var read bool
+	require.NoError(t, f.pool.QueryRow(testutil.WithTenantCtx(context.Background(), f.tenantID),
+		"SELECT is_read FROM email_messages WHERE id = $1", msgA).Scan(&read))
+	require.False(t, read, "B's mark-read must not have touched A's message")
 }

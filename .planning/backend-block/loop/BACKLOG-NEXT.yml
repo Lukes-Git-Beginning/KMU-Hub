@@ -1880,3 +1880,65 @@ units:
       - desktop/src/renderer/src/modules/team/TeamPage.tsx
     done_when:
       - "Mitarbeiterkarte als member zeigt keinen erfundenen Vertragstyp, per Screenshot-QA abgenommen"
+
+  - id: decide-email-account-self-setup-and-dial-guard
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: darf ein member sein Postfach selbst anlegen, und welche Hosts darf der Server dafür anwählen (Self-Hosted mit internem Mailserver vs. SSRF-Schutz)?"
+    target: "Luke, danach Loop-Unit"
+    scope: >
+      Gefunden in fix-email-module-for-members (Lauf 16, Iteration 11). Seit Migration 337
+      hat member/manager `email:mailbox:*` und kann EIGENE Postfächer lesen, senden, sortieren.
+      Ein Postfach ANLEGEN, ändern, löschen und die Verbindung testen bleibt auf `email:write`/
+      `email:delete` (nur admin), aus zwei Gründen: (1) `account.Service.TestConnection` und der
+      Sync wählen jeden Host:Port an, den der Body nennt (`imapclient.DialTLS`, kein Filter wie
+      `security/safehttp`) — für jeden member geöffnet wäre das ein Portscan-Orakel ins
+      Docker-Netz (Postgres, Redis, MinIO); (2) `CreateEmailAccount` nimmt `user_id` aus dem
+      Body, ein member könnte Konten für andere anlegen. Folge heute: ein member sieht die
+      Mail-Seite, kann aber kein Konto einrichten — ein Admin muss es per `POST
+      /email/accounts` mit dessen `user_id` anlegen (ob das Desktop dafür eine Oberfläche hat,
+      prüfen). Zu entscheiden: (a) Self-Setup für member ja/nein; (b) wenn ja: Dial-Filter
+      nach safehttp-Muster (öffentliche Adressen) mit Ausnahme-Liste für Self-Hosted-Kunden mit
+      internem Mailserver, `user_id` serverseitig auf den Aufrufer pinnen, Update/Delete nur
+      eigenes Konto.
+    sources:
+      - backend/internal/email/account/service.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/gateway/route_email.go
+      - backend/internal/security/safehttp/client.go
+    done_when:
+      - "Entscheidung Self-Setup und Dial-Regel im Journal; daraus eine Loop-Unit mit Router- und Service-Tests"
+
+  - id: decide-email-tenant-wide-mail-objects
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Besitzmodell für Regeln, Labels, geteilte Vorlagen und den Mailverlauf am Kontakt fehlt; wer darf was?"
+    target: "Luke, danach Loop-Unit"
+    scope: >
+      Gefunden in fix-email-module-for-members. Vier E-Mail-Flächen haben KEIN Besitzmodell und
+      bleiben deshalb auf den groben `email:*`-Keys (nur admin): (1) Regeln — `email_rules` ohne
+      `user_id`, `ApplyAll` wendet jede Regel auf die Nachrichten ALLER Postfächer des Tenants
+      an (`rule.Service.ApplyAll`); ein member mit Regel-Recht könnte fremde Mails verschieben/
+      löschen. Pro-Nutzer-Regeln brauchen Spalte + Scope beim Anwenden. (2) Label-Katalog —
+      tenantweit; member darf Labels lesen und zuweisen (eigene Nachricht), anlegen/umbenennen/
+      löschen nicht. (3) Vorlagen — `UpdateEmailTemplate`/`DeleteEmailTemplate`: jeder, der eine
+      geteilte Vorlage sieht, darf sie ändern, löschen oder durch Umstellen auf `personal`
+      an sich ziehen (`template/service.go` Update); deshalb PUT/DELETE nur admin — damit kann
+      ein member auch seine EIGENE persönliche Vorlage nicht ändern. (4) `GET
+      /email/links/contact/{id}` (`ContactDetailPanel.tsx:243`) liefert alle mit dem Kontakt
+      verknüpften Mails aller Mitarbeiter — Team-Kundenhistorie oder nur eigene? Für member
+      heute 403 (die Kachel bleibt leer). RulesDialog in `MailsPage.tsx` gibt member 403.
+    sources:
+      - backend/internal/email/rule/
+      - backend/internal/email/label/
+      - backend/internal/email/template/service.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/gateway/route_email.go
+    done_when:
+      - "Regel je Fläche entschieden; daraus Loop-Units (Migration für rule.user_id falls pro Nutzer, Service-Scope, Router-Tests)"
