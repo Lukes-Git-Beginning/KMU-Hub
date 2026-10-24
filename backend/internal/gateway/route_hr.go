@@ -1821,26 +1821,55 @@ func (h *HRRoutes) HandleGetTimeAnalytics(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	dayTrendJSON, err := hrMarshalSlice(resp.DayTrend)
-	if err != nil {
-		slog.Error("proto json marshal failed", "error", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error")
-		return
+	// The analytics view divides by worked_days and labels the project bars with `name`, so both
+	// must be present: worked_days is derived from the trend, project_name is mirrored as name.
+	// billable_minutes stays 0 until work time entries carry a billable flag (the table has none).
+	// lean: hand-built maps instead of a proto change; add the fields to GetTimeAnalyticsResp when
+	// a second consumer needs them.
+	rangeOut := "week"
+	if rangeParam == "month" {
+		rangeOut = "month"
 	}
-	byProjectJSON, err := hrMarshalSlice(resp.ByProject)
-	if err != nil {
-		slog.Error("proto json marshal failed", "error", err)
-		response.Error(w, http.StatusInternalServerError, "internal server error")
-		return
+	workedDays := 0
+	periodStart, periodEnd := "", ""
+	dayTrend := make([]map[string]any, 0, len(resp.DayTrend))
+	for i, d := range resp.DayTrend {
+		if d.NetMinutes > 0 {
+			workedDays++
+		}
+		if i == 0 {
+			periodStart = d.Date
+		}
+		periodEnd = d.Date
+		dayTrend = append(dayTrend, map[string]any{
+			"date":             d.Date,
+			"net_minutes":      d.NetMinutes,
+			"target_minutes":   d.TargetMinutes,
+			"billable_minutes": 0,
+		})
+	}
+	byProject := make([]map[string]any, 0, len(resp.ByProject))
+	for _, p := range resp.ByProject {
+		byProject = append(byProject, map[string]any{
+			"project_id":   p.ProjectId,
+			"project_name": p.ProjectName,
+			"name":         p.ProjectName,
+			"minutes":      p.Minutes,
+		})
 	}
 
 	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"range":             rangeOut,
+		"period_start":      periodStart,
+		"period_end":        periodEnd,
 		"total_minutes":     resp.TotalMinutes,
+		"billable_minutes":  0,
 		"target_minutes":    resp.TargetMinutes,
 		"overtime_minutes":  resp.OvertimeMinutes,
 		"avg_daily_minutes": resp.AvgDailyMinutes,
-		"day_trend":         dayTrendJSON,
-		"by_project":        byProjectJSON,
+		"worked_days":       workedDays,
+		"day_trend":         dayTrend,
+		"by_project":        byProject,
 	})
 }
 

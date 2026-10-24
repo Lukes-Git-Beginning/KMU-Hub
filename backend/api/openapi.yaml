@@ -52884,12 +52884,21 @@ components:
 
     HrTimeAnalytics:
       type: object
-      description: hr.v1.GetTimeAnalyticsResp serialized via response.JSON (no timestamp fields).
+      description: >
+        Built from hr.v1.GetTimeAnalyticsResp plus derived fields. worked_days counts the days of
+        the trend with booked time; billable_minutes is always 0 (work time entries carry no
+        billable flag yet).
+      required: [range, period_start, period_end, total_minutes, billable_minutes, target_minutes, overtime_minutes, avg_daily_minutes, worked_days, day_trend, by_project]
       properties:
+        range: { type: string, enum: [week, month] }
+        period_start: { type: string, description: "First day of the trend (YYYY-MM-DD); empty when the trend is empty." }
+        period_end: { type: string, description: "Last day of the trend (YYYY-MM-DD); empty when the trend is empty." }
         total_minutes: { type: integer }
+        billable_minutes: { type: integer }
         target_minutes: { type: integer }
         overtime_minutes: { type: integer }
         avg_daily_minutes: { type: integer }
+        worked_days: { type: integer }
         day_trend:
           type: array
           items: { $ref: "#/components/schemas/HrTimeDayTrendEntry" }
@@ -52903,12 +52912,14 @@ components:
         date: { type: string, format: date }
         net_minutes: { type: integer }
         target_minutes: { type: integer }
+        billable_minutes: { type: integer }
 
     HrTimeProjectBreakdown:
       type: object
       properties:
         project_id: { type: string, format: uuid }
         project_name: { type: string }
+        name: { type: string, description: "Same value as project_name (the name the desktop view reads)." }
         minutes: { type: integer }
 
     HrTimeBalance:

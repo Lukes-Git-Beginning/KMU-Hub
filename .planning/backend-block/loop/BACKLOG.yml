@@ -2626,7 +2626,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,3 %"
     scope: >
       Rest aus `fix-hr-leave-list-ignores-user-filter` (Iteration 64, dort nur die Urlaubsliste gebaut).
