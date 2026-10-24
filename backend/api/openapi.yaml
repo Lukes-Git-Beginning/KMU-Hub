@@ -27848,6 +27848,7 @@ paths:
                 currency: { type: string, description: "ISO 4217 code, e.g. EUR", example: EUR }
                 batch_number: { type: string }
                 linked_purchase_order: { type: string }
+                serial_numbers: { type: array, items: { type: string }, description: "Replaces the stored list; an empty array clears it; omitted or null leaves it unchanged." }
       responses:
         "200":
           description: Updated item

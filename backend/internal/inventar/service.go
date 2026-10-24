@@ -61,6 +61,9 @@ type UpdateItemInput struct {
 	Currency            *string
 	BatchNumber         *string
 	LinkedPurchaseOrder *string
+	// SerialNumbers replaces the stored list when non-nil; an empty non-nil
+	// slice clears it. Nil leaves it unchanged.
+	SerialNumbers []string
 }
 
 // ListItemsInput contains pagination and filtering for item listing.
@@ -281,6 +284,9 @@ func (s *Service) UpdateItem(ctx context.Context, input UpdateItemInput) (*Item,
 	}
 	if input.LinkedPurchaseOrder != nil {
 		item.LinkedPurchaseOrder = input.LinkedPurchaseOrder
+	}
+	if input.SerialNumbers != nil {
+		item.SerialNumbers = input.SerialNumbers
 	}
 
 	item.UpdatedAt = time.Now()

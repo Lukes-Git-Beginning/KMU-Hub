@@ -115,6 +115,9 @@ func (s *InventarGRPCServer) UpdateItem(ctx context.Context, req *inventarv1.Upd
 	if req.MinQuantity != nil {
 		input.MinQuantity = req.MinQuantity
 	}
+	if req.SerialNumbers != nil {
+		input.SerialNumbers = append([]string{}, req.SerialNumbers.GetValues()...)
+	}
 	if req.LocationId != nil {
 		locID, parseErr := uuid.Parse(*req.LocationId)
 		if parseErr != nil {

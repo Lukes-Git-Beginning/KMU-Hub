@@ -87,3 +87,30 @@ func TestInventarFields_RejectsUnknownCurrencyAndNegativePrice(t *testing.T) {
 	}
 	assert.Nil(t, stub.create, "invalid input never reaches the service")
 }
+
+func TestInventarFields_UpdateSerialNumbersAbsentIsUnsetEmptyClears(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       []string
+		set        bool
+	}{
+		{"absent", `{"category":"x"}`, nil, false},
+		{"null", `{"serial_numbers":null}`, nil, false},
+		{"empty list", `{"serial_numbers":[]}`, nil, true},
+		{"list", `{"serial_numbers":["a1","b2"]}`, []string{"a1", "b2"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			routes, stub := newInventarFieldsRoutes(t)
+			rec := httptest.NewRecorder()
+			routes.HandleUpdateItem(rec, taxModeRequest(http.MethodPatch, tc.body))
+			assertStatus(t, rec, http.StatusOK)
+			require.NotNil(t, stub.update)
+			if !tc.set {
+				assert.Nil(t, stub.update.SerialNumbers, "no key means unchanged")
+				return
+			}
+			require.NotNil(t, stub.update.SerialNumbers)
+			assert.Equal(t, tc.want, stub.update.GetSerialNumbers().GetValues())
+		})
+	}
+}

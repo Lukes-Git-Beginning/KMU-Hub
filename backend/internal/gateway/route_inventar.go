@@ -196,6 +196,8 @@ type updateItemRequest struct {
 	Currency            *string  `json:"currency,omitempty"              validate:"omitempty,iso4217"`
 	BatchNumber         *string  `json:"batch_number,omitempty"`
 	LinkedPurchaseOrder *string  `json:"linked_purchase_order,omitempty"`
+	// SerialNumbers: absent/null leaves the list alone, [] clears it.
+	SerialNumbers []string `json:"serial_numbers"`
 }
 
 type adjustStockRequest struct {
@@ -391,6 +393,9 @@ func (ir *InventarRoutes) HandleUpdateItem(w http.ResponseWriter, r *http.Reques
 	}
 	if req.MinQuantity != nil {
 		grpcReq.MinQuantity = req.MinQuantity
+	}
+	if req.SerialNumbers != nil {
+		grpcReq.SerialNumbers = &inventarv1.SerialNumberList{Values: req.SerialNumbers}
 	}
 
 	resp, err := client.UpdateItem(r.Context(), grpcReq)

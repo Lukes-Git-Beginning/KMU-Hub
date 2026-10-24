@@ -2574,7 +2574,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,1 %"
     scope: >
       Abfall aus `fix-inventar-create-update-dropped-fields`: `PATCH /inventar/items/{id}` nimmt

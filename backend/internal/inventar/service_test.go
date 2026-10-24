@@ -1229,3 +1229,23 @@ func TestService_TransferStock_InsufficientSource(t *testing.T) {
 	// No movements must have been recorded
 	assert.Len(t, repo.movements, 0)
 }
+
+func TestService_UpdateItem_SerialNumbersReplaceClearOrStay(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Bohrer", "P-010", 5, 1)
+	item.SerialNumbers = []string{"old-1", "old-2"}
+
+	updated, err := svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID, SerialNumbers: []string{"n-1"}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"n-1"}, updated.SerialNumbers)
+
+	updated, err = svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"n-1"}, updated.SerialNumbers, "nil leaves the list alone")
+
+	updated, err = svc.UpdateItem(context.Background(), UpdateItemInput{TenantID: tenantID, ItemID: item.ID, SerialNumbers: []string{}})
+	require.NoError(t, err)
+	assert.Empty(t, updated.SerialNumbers, "an empty non-nil list clears it")
+}
