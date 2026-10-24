@@ -1758,6 +1758,13 @@ units:
       `authHeaders()`), Methode an die Gateway-Route anpassen. Wo die Route fehlt
       (team-worktime, unread-inbox, read-all, birthdays): Widget/Funktion ausblenden oder
       `decide-ghost-routes-without-backend-capability`.
+      Nachtrag 2026-10-25 (Lauf 16, Iteration 52): dieselbe Klasse bei der Anpassungs-Fläche —
+      `i18n/useLabelOverlay.ts:131` (lädt beim Start die Label-Overrides, 401 -> `if (!res.ok) return`,
+      der Overlay greift nie), `api/hooks/useLabelOverrides.ts:31/37` (Begriffe-Editor, GET und PUT)
+      und `api/hooks/useCustomFields.ts:27-68` (Felder lesen/anlegen/ändern/löschen). Die Gateway-
+      Routen unter `/api/v1/customization/*` sind in Ordnung (Lesen ohne Guard, Schreiben mit
+      `admin:customization:manage`); nur der Authorization-Header fehlt. Die Fläche ist für den Loop
+      gesperrt (Customization-Vertrag wechselt), der Fix gehört ins FE.
     sources:
       - desktop/src/renderer/src/api/hooks/
       - desktop/src/renderer/src/api/utils/authenticatedFetch.ts

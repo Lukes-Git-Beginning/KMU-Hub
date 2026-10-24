@@ -2038,12 +2038,56 @@ units:
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch gesammelt in einer Unit am Ende oder begründet verworfen"
 
-  - id: scan-fe-gateway-shape-dashboard-settings-search-modules
+  - id: fix-global-search-result-shape-and-links
     phase: 4
     service: gateway
     model: sonnet
     deps: []
     status: todo
+    coverage_start: "internal/gateway 77,6 %"
+    scope: >
+      Gefunden in scan-fe-gateway-shape-dashboard-settings-search-modules (Iteration 52).
+      Die Kopfzeilen-Suche (`SearchBar.tsx`, `GET /api/v1/search/global`) ist für JEDEN Treffer
+      kaputt, nicht nur im Randfall: `route_search_global.go` reicht die rohen Proto-Slices
+      durch (`resp.Results`), das FE liest aber eine flache Form.
+      (1) Dokumente: Treffer kommen als `{file:{id,filename,mime_type,...},rank,snippet}`.
+      Das FE liest `item.id`, `item.title || item.file_name`, `item.content_text`
+      (`SearchBar.tsx:497/514`) — alles `undefined`: leerer Titel, React-Key `undefined`,
+      Link `/dokumente/undefined`.
+      (2) CRM: Treffer kommen als `{id,entity_type,title,subtitle,score}`; das FE zeigt
+      `company - email` (beides fehlt, Beschreibung bleibt leer) und navigiert ohne `item.url`
+      nach `/kontakte/<id>` (`getResultUrl`, Zeile 79-82). Diese Route gibt es nicht:
+      `App.tsx` kennt nur `/kontakte?contact=<id>` (`KontaktePage.tsx:118`),
+      `/kontakte/firmen/<id>`, `/kontakte/pipeline/<id>`. Firmen-, Deal- und Aktivitäts-Treffer
+      landen dort mit einer Firmen-/Deal-/Aktivitäts-ID.
+      (3) `results` ist bei leerer Antwort `null` statt `[]` (nil-Slice); das FE schützt mit `?.`,
+      die Wire-Regel gilt trotzdem.
+      Fix im Gateway (Handler baut aus den Proto-Treffern eine schmale Wire-Form, die der
+      FE-Typ `GlobalSearchResultItem` beschreibt): `{id,title,description,url,entity_type?}`.
+      CRM: `description = subtitle`; `url` nach `entity_type`: contact -> `/kontakte?contact=<id>`,
+      company -> `/kontakte/firmen/<id>`, deal -> `/kontakte/pipeline/<id>`, activity ->
+      `/kontakte/aktivitaeten` (kein Detail-Route). Dokumente: `id=file.id`, `title=file_name=
+      file.filename`, `mime_type`, `content_text=snippet`, `url=/dokumente` (die Seite kennt
+      keinen Deep-Link auf eine Datei — nicht erfinden). Leere Listen als `[]`.
+      KEINE neue Route, kein Proto, kein FE-Code (Desktop liest `item.url` schon).
+    sources:
+      - backend/internal/gateway/route_search_global.go
+      - backend/internal/gateway/route_search_global_test.go
+      - desktop/src/renderer/src/components/header/SearchBar.tsx
+      - desktop/src/renderer/src/api/hooks/useGlobalSearch.ts
+      - backend/proto/document/v1/document.proto (FileSearchResult)
+      - backend/proto/crm/v1/crm.proto (SearchResult)
+    done_when:
+      - "Handler-Test mit Loopback-gRPC-Stub (Muster route_dialer_wire_test.go): ein Dokument- und je ein CRM-Treffer pro entity_type liefern die flache Form mit dem richtigen url; leere Antwort -> `results: []`"
+      - "Mutations-Probe: url-Mapping bzw. Flattening zurückgedreht -> Test rot"
+      - "desktop-aufrufer-Zeile nennt SearchBar.tsx und die Route, auf die jeder url-Typ zeigt (gegen App.tsx geprüft)"
+
+  - id: scan-fe-gateway-shape-dashboard-settings-search-modules
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Querschnitt, ~25 Endpunkte, die JEDER Nutzer beim Start lädt: `useDashboard`,

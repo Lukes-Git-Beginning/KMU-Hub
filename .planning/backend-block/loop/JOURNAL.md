@@ -770,3 +770,37 @@ Idempotency: `authenticatedRequest` setzt `Idempotency-Key` an jedem POST/PUT/PA
 - neue-units: keine
 - desktop-aufrufer: je Typ in `dialer-client.ts` gegen null-Prüfungen gegengelesen — `Campaign`, `CampaignContact`, `DialerCallSession`, `CallOutcome`, `AgentStatusEntry`, `CampaignDashboard`, `AgentDashboard` tragen alle optionalen Felder als `string | null`/`number | null`, passt zu `null` aus `ProtoFull`. Im ganzen Dialer-Modul gibt es keine `=== undefined`-Prüfung auf eine Antwortspalte (einzige Treffer: lokaler Filter-State `contactStatusFilter`, `selectedAgent !== null`). Die Dashboards (`AgentDashboardPage.tsx`, `CampaignProgressStrip.tsx`, `CampaignDetailPage.tsx`) bekommen `calls_per_hour`/`outcome_breakdown` jetzt immer. Nicht gegen einen Browser gefahren.
 - offen: Die Gateway-Tests fahren einen gRPC-Stub (leere Messages), keinen echten Dialer-Service mit DB; ein Browser-Smoke der beiden Dashboards bei einem Agenten ohne Anrufe steht aus.
+
+## Iteration 52 — scan-fe-gateway-shape-dashboard-settings-search-modules — done — 2026-10-25 01:30
+- commit: (siehe git log, Subject `chore(loop): record the dashboard, settings and search scan and queue its fix unit`)
+- gebaut: Scan, kein Code. Ein Totalausfall-Fund (Kopfzeilen-Suche, jeder Treffer) als `fix-global-search-result-shape-and-links` VOR die erste todo-Unit gelegt; Label-/Custom-Field-Hooks ohne Authorization-Header an die bestehende Sammel-Unit in BACKLOG-NEXT gehängt.
+- gate: n.a. (kein Code; `backlog-check.py --preflight` sauber, beide YAML laden)
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`86e6f547`: 19 Handler Proto -> ProtoFull + Test; keine neue Route, kein Guard, kein Proto, keine Tabelle)
+- neue-units: `fix-global-search-result-shape-and-links` (Totalausfall: vor die erste todo-Unit gesetzt, Position direkt vor diesem Scan)
+- desktop-aufrufer: Tabelle unten, je Hook gegen die Gateway-Route gelesen (Mocks nicht als Beleg gewertet).
+- offen: Rollen-Grants aus der lokalen DB (`role_permissions`), nicht aus Produktion. Dashboard-Widgets selbst (MyTasks, Calendar, Activities, CRM-Karten) hängen an Modul-Guards und gehören zu `scan-role-matrix-remaining`; hier nur Layout und Einstellungen. `GET /dashboard/team-worktime` und `/birthdays` sind bekannt (NEXT).
+
+Grants (lokale DB): `settings:read|write`, `search:read`, `notifications:*`, `users:read`, `module-leads:read` = member UND manager. `license:read`, `module-grants:read` = nur manager (+admin); `license:write`, `module-grants:write`, `module-leads:write` = nur admin. `readonly` hat weder `settings:read` noch `search:read`.
+
+| Hook / Aufrufer | Route | Body/Query | FE-Typ | Antwortform | member | passt |
+|---|---|---|---|---|---|---|
+| `useDashboardLayout`, `stores/dashboard.ts` `initFromServer` | GET /dashboard/layout | – | `data.layout`, `data.active_widgets` mit `?? []` | `{layout,active_widgets,is_custom,updated_at}` (`response.JSON`) | ja (nur `RequireAuthenticated`, kein Key); Pool stempelt `app.tenant_id` aus ctx, RLS-Policy `tenant_isolation` | ja |
+| `debouncedServerSync`, `useSaveDashboardLayout` | PUT /dashboard/layout | `{layout:[{i,x,y,w,h}],active_widgets:[]}` | – | Layout-Echo | ja | ja (`json.RawMessage`, leeres Array ist 2 Bytes und besteht die Längenprüfung) |
+| `resetToDefaults`, `useResetDashboard` | DELETE /dashboard/layout | – | – | Layout | ja | ja |
+| `useDashboardDefaults` / Save | GET/PUT /dashboard/defaults/{role} | – | – | – | nein (`RequireRole("admin")`), Absicht, nur Admin-UI | ja |
+| `useGetUserSettings`, `loadModuleSettings` (≈40 Stores) | GET /settings/{module}/user, /tenant | – | `{entries:[{key,value}]}`, `entries ?? []` | `response.Proto`: leer -> `{}` | ja (`settings:read`) | ja |
+| `usePutUserSettings`, `saveModuleSettings` | PUT /settings/{module}/user | `{settings:{k:v}}` | `entries` im Echo | Proto | ja (`settings:write`); Service nimmt jeden nicht leeren Modul-/Key-Namen | ja |
+| `saveModuleSettings(...,'tenant',...)` | PUT /settings/{module}/tenant | `{settings}` | Fehler wird verschluckt | Proto | nur Admin/Modul-Leiter (Service-RBAC `ErrNotModuleLead`); member schreibt über `settings:write` bis zum Service, dort 403 — Block S, erledigt | ja (still) |
+| – (kein FE-Aufrufer) | GET/PUT /users/preferences | `{preferences}` | – | Proto | ja | n.a. (nur `types.ts`) |
+| – (kein FE-Aufrufer; `stores/moduleLeads.ts` nur persist) | GET /tenant/module-leads/me | – | – | `{module_ids,is_admin}` | ja | n.a. |
+| `useTenantModules` | GET /admin/license | – | `data.modules ?? []` | gewrappt | **nein (403)**, Aufrufer nur Admin-Hub `LicenseAdminHubTab` | ja, kein Startpfad |
+| `useModuleAssignments`, `useUserModules` | GET /tenant/module-grants | – | `data.grants ?? []` | gewrappt | nein für member, ja für manager; Aufrufer nur Team-Profil (`ProfileSections`, `MemberProfileContent`), Default `[]` — degradiert, bricht nicht | ja |
+| `useBilling` | – | – | – | – | – | n.a. (Mock-Layer, kein Backend-Call) |
+| `useFeatureFlags` | GET /feature-flags | – | `data.flags[key]`, fail-closed | `{flags,version}` | ja (`RequireAuthenticated`) | ja |
+| `useLabelOverlay.ts:131`, `useLabelOverrides.ts:31/37`, `useCustomFields.ts` | GET/PUT /customization/labels, /fields | `locale`, `layer`, `overrides` | – | – | Route ja (Lesen ohne Guard), **FE schickt keinen Authorization-Header -> 401 für alle** | **nein** -> BACKLOG-NEXT (Sammel-Unit raw fetch; Fläche gesperrt) |
+| `useGlobalSearch` / `SearchBar.tsx` | GET /search/global | `q`, `limit`, `modules?` (Gateway ignoriert `modules`) | `{query,modules:[{module,results,total,error?}]}`, Item flach `{id,title,description,url,...}` | Roh-Proto: Dokument `{file:{...},rank,snippet}`, CRM `{id,entity_type,title,subtitle,score}`, leer = `null` | ja (`search:read`, Migration 338) | **nein** -> `fix-global-search-result-shape-and-links` |
+| `useCRMSearch` / `CRMSearchPage` | GET /search | `q`, `types`, `limit` | `data.results` | `{results}` | ja, wenn ein CRM-Lesekey da ist | ja (nicht vertieft, Lauf 15) |
+
+Nebenbefunde ohne UI-Bruch, verworfen: Gateway ignoriert den Query-Parameter `modules` von `useGlobalSearch` (kein Aufrufer übergibt ihn, `SearchBar.tsx:135`); `searchEmail` ist ein bewusster leerer Stub (Kommentar im Code, kein Fake-Treffer).
