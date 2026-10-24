@@ -43,7 +43,7 @@ func TestNotificationAdapter_FetchNewMessages_MapsFields(t *testing.T) {
 			NotificationID: "n-1", Title: "Urlaub genehmigt", Body: "Dein Antrag wurde angenommen",
 			ModuleName: "HR", DeepLink: "/hr/leave/42", ReceivedAt: receivedAt,
 		},
-		{NotificationID: "n-2", Title: "Hinweis", Body: strings.Repeat("y", 250)},
+		{NotificationID: "n-2", Title: "Hinweis", Body: strings.Repeat("y", 199) + "ü" + strings.Repeat("y", 50)},
 	}}
 
 	got, err := NewNotificationAdapter(client).FetchNewMessages(context.Background(), userID, time.Time{})
@@ -64,7 +64,7 @@ func TestNotificationAdapter_FetchNewMessages_MapsFields(t *testing.T) {
 	assert.Nil(t, first.SenderID)
 
 	assert.Equal(t, "System", got[1].SenderName, "notifications without a module come from System")
-	assert.Len(t, got[1].Preview, 200)
+	assert.Equal(t, strings.Repeat("y", 199), got[1].Preview, "preview is cut before the umlaut that straddles byte 200")
 }
 
 func TestNotificationAdapter_FetchNewMessages_NilClientDegradesGracefully(t *testing.T) {

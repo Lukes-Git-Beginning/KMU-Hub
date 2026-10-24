@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -229,6 +230,28 @@ func TestService_Create(t *testing.T) {
 			if preview != "This is a comment" {
 				t.Errorf("expected activity preview 'This is a comment', got %q", preview)
 			}
+		}
+	})
+
+	t.Run("activity preview is cut on a rune boundary", func(t *testing.T) {
+		taskRepo.activities = nil
+		_, err := svc.Create(ctx, CreateInput{
+			TaskID:   taskID,
+			Content:  strings.Repeat("a", 199) + "ü" + strings.Repeat("a", 50),
+			AuthorID: authorID,
+		})
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if len(taskRepo.activities) != 1 || taskRepo.activities[0].NewValue == nil {
+			t.Fatalf("expected one activity with a preview, got %d", len(taskRepo.activities))
+		}
+		var preview string
+		if err := json.Unmarshal(*taskRepo.activities[0].NewValue, &preview); err != nil {
+			t.Fatalf("unmarshal preview: %v", err)
+		}
+		if want := strings.Repeat("a", 199) + "..."; preview != want {
+			t.Errorf("expected preview cut before the umlaut (%d bytes), got %q", len(want), preview)
 		}
 	})
 

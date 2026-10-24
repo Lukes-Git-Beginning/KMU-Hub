@@ -61,7 +61,7 @@ func TestEmailAdapter_FetchNewMessages_MapsFields(t *testing.T) {
 			ThreadID: "thread-1", MessageID: "msg-1", FromName: "Erika Muster",
 			FromEmail: "erika@kunde.de", Subject: "Angebot", Body: "kurz", ReceivedAt: receivedAt,
 		},
-		{ThreadID: "thread-2", MessageID: "msg-2", Body: strings.Repeat("x", 250)},
+		{ThreadID: "thread-2", MessageID: "msg-2", Body: strings.Repeat("x", 199) + "ü" + strings.Repeat("x", 50)},
 	}}
 
 	got, err := NewEmailAdapter(client).FetchNewMessages(context.Background(), userID, time.Time{})
@@ -81,7 +81,7 @@ func TestEmailAdapter_FetchNewMessages_MapsFields(t *testing.T) {
 	assert.Equal(t, "/mails/msg-1", first.DeepLink)
 	assert.Equal(t, receivedAt, first.ReceivedAt)
 
-	assert.Len(t, got[1].Preview, 200, "preview is capped at 200 bytes")
+	assert.Equal(t, strings.Repeat("x", 199), got[1].Preview, "preview is cut before the umlaut that straddles byte 200")
 	assert.NotEqual(t, first.ID, got[1].ID)
 }
 

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/google/uuid"
@@ -186,5 +187,15 @@ func TestEnvelopeToMessage(t *testing.T) {
 
 		assert.Len(t, msg.Preview, 200)
 		assert.Equal(t, longSubject[:200], msg.Preview)
+	})
+
+	t.Run("umlaut straddling byte 200 does not leave invalid UTF-8 in the preview", func(t *testing.T) {
+		subject := strings.Repeat("a", 199) + "ü" + strings.Repeat("a", 50)
+		env := &MessageEnvelope{UID: 1, Subject: subject}
+
+		msg := w.envelopeToMessage(env, folder, date)
+
+		assert.True(t, utf8.ValidString(msg.Preview), "preview must be storable in a TEXT column")
+		assert.Equal(t, strings.Repeat("a", 199), msg.Preview)
 	})
 }

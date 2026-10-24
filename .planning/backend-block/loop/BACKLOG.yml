@@ -2518,7 +2518,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     scope: >
       Gefunden in cov-inbox-adapter (Iteration 52), aus dem Code gelesen. Die Vorschau wird an
       sechs Stellen mit `s[:200]` auf BYTES gekürzt: `inbox/adapter/{email,chat,guest,notification}_adapter.go`,

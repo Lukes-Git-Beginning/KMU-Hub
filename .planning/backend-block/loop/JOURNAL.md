@@ -1010,3 +1010,14 @@ Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes beleg
 - neue-units: keine
 - desktop-aufrufer: n.a. (Key ist intern, nirgends in einer Antwort; `grep minio_key` in der Wire-Form nicht geprüft nötig, Download geht über den gespeicherten Key)
 - offen: (1) Nicht gegen echtes MinIO gelaufen, nur gegen den S3-Stub des Pakets. (2) Alte Objekte, die sich durch die Kollision schon überschrieben haben, sind nicht rekonstruierbar. (3) `go test -race` lokal nicht möglich. (4) Arbeitsbaum CRLF/LF-gemischt, im Commit nur eigene Dateien.
+
+## Iteration 70 — fix-preview-truncation-splits-utf8 — done — 2026-10-24 02:33
+- commit: (siehe git log, Subject `fix(email): cut previews on a rune boundary instead of splitting multi-byte characters`)
+- gebaut: Neues Mini-Paket `internal/textutil` mit `TruncateBytes(s, max)` (kürzt auf die letzte Rune-Grenze <= max Bytes per `utf8.RuneStart`). Alle sechs Stellen nutzen es: `email/sync/worker.go` (Betreff -> `email_messages.preview`, die live Stelle), die vier Inbox-Adapter (chat, email, guest, notification) und `work/comment/service.go` (Aktivitäts-Vorschau, `...`-Suffix bleibt). Vorher: Umlaut/ß auf Byte 200 -> ungültiges UTF-8 -> Postgres 22021 beim Insert der Mail.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/textutil/`, `./internal/inbox/...`, `./internal/email/...`, `./internal/work/...`; DATABASE_URL als `kmuhub_app`, keine Skips) | migration n.a. | rls-smoke n.a.
+- coverage: internal/textutil neu, 100,0 % (vorher Paket nicht vorhanden); `coverage_start` n.a.
+- mutations-probe: Schleife in `TruncateBytes` per `for false && …` stillgelegt -> `textutil`, `inbox/adapter` (vier Fixtures mit Umlaut auf Byte 200), `email/sync` und `work/comment` alle rot; zurückgedreht (`cmp` sauber). Die Adapter-Fixtures wurden von 250×ASCII auf 199×ASCII + `ü` + 50×ASCII umgestellt, die Länge-200-Assertions auf den erwarteten 199-Zeichen-Wert.
+- verify vorgaenger: sauber (`814ee8d2`: nur `email/attachment/store.go` + Test, kein Proto/Migration/Guard/Route).
+- neue-units: keine
+- desktop-aufrufer: n.a. (Vorschau bleibt ein String, nur die Schnittstelle liegt jetzt auf einer Rune-Grenze; kein Antwortform- oder Validierungswechsel)
+- offen: (1) Der Mail-Sync-Insert wurde nicht gegen echtes Postgres mit einem Umlaut-Betreff gefahren; Beleg ist der Unit-Test der Vorschau auf `utf8.ValidString`. (2) `automation/action/notification_actions.go:60` hat ein eigenes `truncate` mit `s[:maxLen]` (Bytes), Ziel ist eine Benachrichtigung — nicht Teil dieser Unit, nicht geprüft, ob das in einen TEXT-Insert fließt. (3) Arbeitsbaum CRLF/LF-gemischt, im Commit nur eigene Dateien.

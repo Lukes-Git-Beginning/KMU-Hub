@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 )
 
 // NotificationClient is a local interface for the notification service to avoid import cycles.
@@ -64,10 +65,7 @@ func (a *NotificationAdapter) FetchNewMessages(ctx context.Context, userID uuid.
 
 	result := make([]models.InboxMessage, 0, len(notifications))
 	for _, notif := range notifications {
-		preview := notif.Body
-		if len(preview) > 200 {
-			preview = preview[:200]
-		}
+		preview := textutil.TruncateBytes(notif.Body, 200)
 
 		senderName := "System"
 		if notif.ModuleName != "" {

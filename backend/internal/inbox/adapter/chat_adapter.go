@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 )
 
 // ChatClient is a local interface for the chat gRPC service to avoid import cycles.
@@ -68,10 +69,7 @@ func (a *ChatAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, si
 
 	result := make([]models.InboxMessage, 0, len(messages))
 	for _, msg := range messages {
-		preview := msg.Body
-		if len(preview) > 200 {
-			preview = preview[:200]
-		}
+		preview := textutil.TruncateBytes(msg.Body, 200)
 
 		subject := msg.ChannelName
 		if msg.IsDM {

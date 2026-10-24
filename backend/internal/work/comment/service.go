@@ -13,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
+	"github.com/kmuhub/kmuhub/internal/textutil"
 	"github.com/kmuhub/kmuhub/internal/work/task"
 )
 
@@ -96,7 +97,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*TaskCommentWi
 	// Log task activity
 	preview := content
 	if len(preview) > 200 {
-		preview = preview[:200] + "..."
+		preview = textutil.TruncateBytes(preview, 200) + "..."
 	}
 	newVal := jsonString(preview)
 	_ = s.taskRepo.CreateActivity(ctx, &models.TaskActivity{

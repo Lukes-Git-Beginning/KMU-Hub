@@ -75,7 +75,7 @@ func TestChatAdapter_FetchNewMessages_MapsDMsAndMentions(t *testing.T) {
 			},
 			{
 				MessageID: "msg-2", ChannelID: "dm-1", ChannelName: "",
-				IsDM: true, AuthorID: authorID, AuthorName: "Alice", Body: strings.Repeat("x", 250),
+				IsDM: true, AuthorID: authorID, AuthorName: "Alice", Body: strings.Repeat("x", 199) + "ü" + strings.Repeat("x", 50),
 				ReceivedAt: receivedAt,
 			},
 		},
@@ -98,7 +98,7 @@ func TestChatAdapter_FetchNewMessages_MapsDMsAndMentions(t *testing.T) {
 
 	dm := got[1]
 	assert.Equal(t, "Direktnachricht", dm.Subject)
-	assert.Len(t, dm.Preview, 200, "preview must be truncated to 200 chars")
+	assert.Equal(t, strings.Repeat("x", 199), dm.Preview, "preview is cut before the umlaut that straddles byte 200")
 }
 
 func TestChatAdapter_FetchNewMessages_NilClientDegradesGracefully(t *testing.T) {

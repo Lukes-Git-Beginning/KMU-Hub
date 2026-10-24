@@ -93,7 +93,7 @@ func TestGuestAdapter_FetchNewMessages(t *testing.T) {
 
 	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 	older := fx.guestMessage(t, pool, "Hallo, ich habe eine Frage", base, false)
-	newer := fx.guestMessage(t, pool, strings.Repeat("z", 250), base.Add(time.Minute), false)
+	newer := fx.guestMessage(t, pool, strings.Repeat("z", 199) + "ü" + strings.Repeat("z", 50), base.Add(time.Minute), false)
 	fx.guestMessage(t, pool, "wieder gelöscht", base.Add(2*time.Minute), true)
 
 	// An agent reply in the same channel carries created_by, not a guest session.
@@ -120,7 +120,7 @@ func TestGuestAdapter_FetchNewMessages(t *testing.T) {
 		assert.Equal(t, "/chat/"+fx.channel.String(), m.DeepLink)
 		assert.True(t, base.Equal(m.ReceivedAt), "received_at = %s, want %s", m.ReceivedAt, base)
 
-		assert.Len(t, got[0].Preview, 200, "preview is capped at 200 bytes")
+		assert.Equal(t, strings.Repeat("z", 199), got[0].Preview, "preview is cut before the umlaut that straddles byte 200")
 	})
 
 	t.Run("since is exclusive", func(t *testing.T) {
