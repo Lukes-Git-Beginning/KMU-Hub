@@ -13391,13 +13391,17 @@ paths:
   /api/v1/hr/employees/{id}:
     get:
       summary: Get employee by ID
+      description: >
+        Requires hr:read or team:employee:read. A caller without hr:read gets the team directory
+        projection of this one employee (id, user_id, user_name, user_email, department,
+        position_title, manager_user_id, manager_name, status), same as the list.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Employee profile, wrapped as `{employee}`
+          description: Employee profile (full with hr:read, directory projection otherwise), wrapped as `{employee}`
           content:
             application/json:
               schema:

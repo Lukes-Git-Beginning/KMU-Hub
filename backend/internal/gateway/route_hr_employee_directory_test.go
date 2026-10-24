@@ -166,9 +166,60 @@ func TestEmployeeDirectory_WithoutEitherKeyIsRefused(t *testing.T) {
 		router.ServeHTTP(rec, noKey.request(http.MethodGet, path))
 		assertStatus(t, rec, http.StatusForbidden)
 	}
+}
 
-	// A single foreign profile stays behind hr:read.
+func getEmployee(t *testing.T, router http.Handler, tk tokenShape, userID string) map[string]any {
+	t.Helper()
 	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, directoryMemberToken.request(http.MethodGet, "/api/v1/hr/employees/"+leaveOtherID))
-	assertStatus(t, rec, http.StatusForbidden)
+	router.ServeHTTP(rec, tk.request(http.MethodGet, "/api/v1/hr/employees/"+userID))
+	assertStatus(t, rec, http.StatusOK)
+	var body struct {
+		Employee map[string]any `json:"employee"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.NotNil(t, body.Employee, "the profile window reads `{employee}`")
+	return body.Employee
+}
+
+// The colleague's profile window (Team page, deep link team/member/:id) must open for member and
+// manager, with the directory fields and nothing of the contract, the address or the exit.
+func TestEmployeeDirectory_SingleProfileForDirectoryReadersIsTheProjection(t *testing.T) {
+	stub, router := newEmployeeDirectoryRouter(t)
+
+	for name, tk := range map[string]tokenShape{"member": directoryMemberToken, "manager": directoryManagerToken} {
+		t.Run(name, func(t *testing.T) {
+			emp := getEmployee(t, router, tk, leaveOtherID)
+			assert.Equal(t, leaveOtherID, stub.gotUserID)
+			for _, f := range directoryHiddenFields {
+				assert.NotContains(t, emp, f, "a directory reader must not see %s", f)
+			}
+			assert.Equal(t, map[string]any{
+				"id":              "44444444-4444-4444-4444-444444444444",
+				"user_id":         leaveOtherID,
+				"user_name":       "Erika Muster",
+				"user_email":      "erika@example.test",
+				"department":      "Vertrieb",
+				"position_title":  "Account Manager",
+				"manager_user_id": leaveOtherID,
+				"manager_name":    "Max Chef",
+				"status":          "active",
+			}, emp)
+		})
+	}
+}
+
+func TestEmployeeDirectory_SingleProfileWithHRReadKeepsTheFullProto(t *testing.T) {
+	_, router := newEmployeeDirectoryRouter(t)
+
+	for name, tk := range map[string]tokenShape{
+		"admin":        {perms: []string{"hr:read", "team:employee:read"}, scopes: map[string]string{"hr:read": auth.ScopeAll, "team:employee:read": auth.ScopeAll}},
+		"legacy token": {perms: []string{"hr:read"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			emp := getEmployee(t, router, tk, leaveOtherID)
+			for _, f := range []string{"annual_leave_days", "address_city", "emergency_contact_name", "start_date", "is_minor", "contract_type"} {
+				assert.Contains(t, emp, f, "hr:read keeps %s", f)
+			}
+		})
+	}
 }

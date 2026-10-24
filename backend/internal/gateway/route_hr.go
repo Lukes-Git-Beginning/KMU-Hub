@@ -185,7 +185,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		// The caller's own full profile; the handler reads the id from the token only.
 		r.With(directoryRead).Get("/me", h.HandleGetSelfProfile)
 		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
+		r.With(directoryRead).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
 		// team:employee:offboard is in the catalogue since 000256 and assigned
 		// to admin and hr_admin, so no seed migration is needed here.
@@ -1134,22 +1134,26 @@ type employeeDirectoryEntry struct {
 	Status        string `json:"status,omitempty"`
 }
 
+func directoryEntryOf(p *hrv1.EmployeeProfile) employeeDirectoryEntry {
+	return employeeDirectoryEntry{
+		ID:            p.GetId(),
+		UserID:        p.GetUserId(),
+		UserName:      p.GetUserName(),
+		UserEmail:     p.GetUserEmail(),
+		Department:    p.GetDepartment(),
+		PositionTitle: p.GetPositionTitle(),
+		ManagerUserID: p.GetManagerUserId(),
+		ManagerName:   p.GetManagerName(),
+		Status:        p.GetStatus(),
+	}
+}
+
 // lean: tenant-wide directory even at manager scope team — a people picker needs every
 // colleague and these fields are not confidential in a KMU; narrow when a tenant asks for it.
 func employeeDirectory(profiles []*hrv1.EmployeeProfile) []employeeDirectoryEntry {
 	out := make([]employeeDirectoryEntry, 0, len(profiles))
 	for _, p := range profiles {
-		out = append(out, employeeDirectoryEntry{
-			ID:            p.GetId(),
-			UserID:        p.GetUserId(),
-			UserName:      p.GetUserName(),
-			UserEmail:     p.GetUserEmail(),
-			Department:    p.GetDepartment(),
-			PositionTitle: p.GetPositionTitle(),
-			ManagerUserID: p.GetManagerUserId(),
-			ManagerName:   p.GetManagerName(),
-			Status:        p.GetStatus(),
-		})
+		out = append(out, directoryEntryOf(p))
 	}
 	return out
 }
@@ -1188,6 +1192,13 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		respondGRPCError(w, err)
+		return
+	}
+
+	// Reached through team:employee:read alone: the colleague's profile window gets the same
+	// directory fields as the list, nothing of contract, address or exit details.
+	if !callerHasPermission(r, "hr:read") {
+		response.JSON(w, http.StatusOK, map[string]interface{}{"employee": directoryEntryOf(resp.Employee)})
 		return
 	}
 
