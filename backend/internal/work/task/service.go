@@ -228,14 +228,15 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 
 // UpdateInput contains the data that can be updated on a task
 type UpdateInput struct {
-	Title       *string
-	Description *string
-	StatusID    *uuid.UUID
-	Priority    *string
-	AssigneeID  *uuid.UUID // uuid.Nil to clear
-	StartDate   *time.Time
-	DueDate     *time.Time
-	SortOrder   *float64
+	Title        *string
+	Description  *string
+	StatusID     *uuid.UUID
+	Priority     *string
+	AssigneeID   *uuid.UUID // uuid.Nil to clear
+	StartDate    *time.Time
+	DueDate      *time.Time
+	ClearDueDate bool // removes the due date; wins over DueDate
+	SortOrder    *float64
 }
 
 // Update updates an existing task
@@ -337,7 +338,12 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		task.Priority = *input.Priority
 	}
 
-	if input.DueDate != nil {
+	if input.ClearDueDate {
+		if task.DueDate != nil {
+			_ = s.logFieldChange(ctx, taskID, actorID, models.TaskActionDueDateChanged, "due_date", task.DueDate.Format(time.DateOnly), "")
+			task.DueDate = nil
+		}
+	} else if input.DueDate != nil {
 		old := ""
 		if task.DueDate != nil {
 			old = task.DueDate.Format(time.DateOnly)

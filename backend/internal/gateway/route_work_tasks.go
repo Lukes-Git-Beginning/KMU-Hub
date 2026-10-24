@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -204,13 +205,14 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 }
 
 type updateTaskRequest struct {
-	Title        *string                   `json:"title,omitempty" validate:"omitempty,min=1"`
-	Description  *string                   `json:"description,omitempty"`
-	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
-	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
-	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
-	StartDate    *string                   `json:"start_date,omitempty"`
-	DueDate      *string                   `json:"due_date,omitempty"`
+	Title       *string `json:"title,omitempty" validate:"omitempty,min=1"`
+	Description *string `json:"description,omitempty"`
+	StatusID    *string `json:"status_id,omitempty" validate:"omitempty,uuid"`
+	Priority    *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
+	AssigneeID  *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	StartDate   *string `json:"start_date,omitempty"`
+	// DueDate is raw so an explicit null (clear) differs from an absent key (keep).
+	DueDate      json.RawMessage           `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
 
@@ -259,13 +261,22 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 		}
 		grpcReq.StartDate = t
 	}
-	if req.DueDate != nil {
-		t, parseErr := parseTimestamp(*req.DueDate)
-		if parseErr != nil {
-			response.Error(wr, http.StatusBadRequest, "invalid due_date format")
-			return
+	if len(req.DueDate) > 0 {
+		if string(req.DueDate) == "null" {
+			grpcReq.ClearDueDate = true
+		} else {
+			var due string
+			if json.Unmarshal(req.DueDate, &due) != nil {
+				response.Error(wr, http.StatusBadRequest, "invalid due_date format")
+				return
+			}
+			t, parseErr := parseTimestamp(due)
+			if parseErr != nil {
+				response.Error(wr, http.StatusBadRequest, "invalid due_date format")
+				return
+			}
+			grpcReq.DueDate = t
 		}
-		grpcReq.DueDate = t
 	}
 	for _, cf := range req.CustomFields {
 		grpcReq.CustomFields = append(grpcReq.CustomFields, &workv1.CustomFieldValueInput{

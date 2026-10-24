@@ -868,6 +868,7 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 		t := req.DueDate.AsTime()
 		input.DueDate = &t
 	}
+	input.ClearDueDate = req.ClearDueDate
 
 	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
 	if err != nil {

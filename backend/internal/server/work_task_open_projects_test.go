@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -57,5 +58,38 @@ func TestWorkGRPC_NonMemberWorksOnTasksOfAnOpenProject(t *testing.T) {
 	_, err := srv.DeleteTask(ctx, &workv1.DeleteTaskRequest{Id: taskID.String()})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("closed projects: want PermissionDenied, got %v", err)
+	}
+}
+
+// clear_due_date travels over the gRPC handler into the service; absent keeps the date.
+func TestWorkGRPC_UpdateTaskClearDueDate(t *testing.T) {
+	taskRepo := newWorkTaskMockRepo()
+	projRepo := &nonMemberProjectRepo{}
+	taskSvc := task.NewService(taskRepo, projRepo)
+	taskSvc.SetOpenProjects(true)
+	srv := NewWorkGRPCServer(
+		project.NewService(projRepo), wstatus.NewService(&statusStubRepo{}), taskSvc, taskRepo,
+		comment.NewService(newCommentAuthzMockRepo(), taskRepo), timeentry.NewService(&timeentryStubRepo{}),
+		label.NewService(newLabelMockRepo()), customfield.NewService(&customfieldStubRepo{}),
+	)
+
+	userID, tenantID, projectID, taskID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	ctx := context.WithValue(ctxWithActor(userID), middleware.TenantIDKey, tenantID.String())
+	due := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID, ProjectID: &projectID, Title: "due", DueDate: &due}}
+
+	title := "renamed"
+	if _, err := srv.UpdateTask(ctx, &workv1.UpdateTaskRequest{Id: taskID.String(), UpdatedBy: userID.String(), Title: &title}); err != nil {
+		t.Fatalf("UpdateTask without clear: %v", err)
+	}
+	if taskRepo.tasks[taskID].DueDate == nil {
+		t.Fatal("an update without clear_due_date must keep the date")
+	}
+
+	if _, err := srv.UpdateTask(ctx, &workv1.UpdateTaskRequest{Id: taskID.String(), UpdatedBy: userID.String(), ClearDueDate: true}); err != nil {
+		t.Fatalf("UpdateTask with clear: %v", err)
+	}
+	if taskRepo.tasks[taskID].DueDate != nil {
+		t.Fatalf("clear_due_date must remove the date, got %v", taskRepo.tasks[taskID].DueDate)
 	}
 }

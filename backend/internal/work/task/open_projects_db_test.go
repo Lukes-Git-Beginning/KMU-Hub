@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -79,5 +80,54 @@ func TestOpenProjects_RealSQL(t *testing.T) {
 	}
 	if err := closed.Delete(ctxOwn, tenantOwn, created.ID, nonMember); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted task must be gone, got %v", err)
+	}
+}
+
+// TestUpdate_ClearDueDate_RealSQL: ClearDueDate writes NULL through the real repository;
+// an update without it keeps the stored date.
+func TestUpdate_ClearDueDate_RealSQL(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Clear Due Date Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	owner := seedWorkUser(t, pool, tenantID)
+	defer testutil.CleanupRow(t, pool, "users", owner)
+	projectID := seedWorkProject(t, pool, tenantID, owner)
+	defer testutil.CleanupRow(t, pool, "projects", projectID)
+	taskID := seedWorkTask(t, pool, tenantID, projectID, owner, "due")
+	defer testutil.CleanupRow(t, pool, "tasks", taskID)
+
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	svc := NewService(NewPostgresRepository(pool), project.NewPostgresRepository(pool))
+	svc.SetOpenProjects(true) // membership is not under test here
+
+	due := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	got, err := svc.Update(ctx, tenantID, taskID, UpdateInput{DueDate: &due}, owner)
+	if err != nil || got.DueDate == nil {
+		t.Fatalf("set due date: %v / %v", err, got)
+	}
+
+	title := "renamed"
+	got, err = svc.Update(ctx, tenantID, taskID, UpdateInput{Title: &title}, owner)
+	if err != nil || got.DueDate == nil {
+		t.Fatalf("an update without ClearDueDate must keep the date: %v / %v", err, got)
+	}
+
+	got, err = svc.Update(ctx, tenantID, taskID, UpdateInput{ClearDueDate: true}, owner)
+	if err != nil {
+		t.Fatalf("clear due date: %v", err)
+	}
+	if got.DueDate != nil {
+		t.Fatalf("due date must be gone, got %v", got.DueDate)
+	}
+
+	// Clearing a date that is already gone is a no-op, not an error.
+	if _, err := svc.Update(ctx, tenantID, taskID, UpdateInput{ClearDueDate: true}, owner); err != nil {
+		t.Fatalf("clearing twice: %v", err)
 	}
 }

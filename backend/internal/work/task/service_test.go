@@ -1228,3 +1228,33 @@ func TestService_ClosedProjects_NonMemberStillRefused(t *testing.T) {
 		t.Errorf("delete: want ErrNotProjectMember, got %v", err)
 	}
 }
+
+func TestService_UpdateClearDueDate(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	svc := NewService(repo, newMockProjectRepo())
+
+	userID := uuid.New()
+	due := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	created, _ := svc.Create(ctx, CreateInput{Title: "t", CreatedBy: userID, DueDate: &due})
+
+	activitiesBefore := len(repo.activities)
+	got, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{ClearDueDate: true}, userID)
+	if err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if got.DueDate != nil {
+		t.Errorf("due date must be cleared, got %v", got.DueDate)
+	}
+	if len(repo.activities) != activitiesBefore+1 || repo.activities[len(repo.activities)-1].Action != models.TaskActionDueDateChanged {
+		t.Error("expected one due_date_changed activity")
+	}
+
+	// Already cleared: no further activity.
+	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{ClearDueDate: true}, userID); err != nil {
+		t.Fatalf("clear twice: %v", err)
+	}
+	if len(repo.activities) != activitiesBefore+1 {
+		t.Error("clearing an absent date must not log an activity")
+	}
+}

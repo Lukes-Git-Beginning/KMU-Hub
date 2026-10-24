@@ -492,6 +492,8 @@ message UpdateTaskRequest {
   repeated CustomFieldValueInput custom_fields = 9;
   repeated string label_ids = 10;
   optional google.protobuf.Timestamp start_date = 11;
+  // true removes the due date (due_date is then ignored); absent due_date keeps it.
+  bool clear_due_date = 12;
 }
 
 message UpdateTaskResponse {

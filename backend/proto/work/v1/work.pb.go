@@ -3452,18 +3452,20 @@ func (x *ListTasksResponse) GetTotal() int32 {
 }
 
 type UpdateTaskRequest struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Id            string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title         *string                  `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                  `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	StatusId      *string                  `protobuf:"bytes,4,opt,name=status_id,json=statusId,proto3,oneof" json:"status_id,omitempty"`
-	Priority      *string                  `protobuf:"bytes,5,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
-	AssigneeId    *string                  `protobuf:"bytes,6,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
-	DueDate       *timestamppb.Timestamp   `protobuf:"bytes,7,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
-	UpdatedBy     string                   `protobuf:"bytes,8,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
-	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
-	LabelIds      []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
-	StartDate     *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	state        protoimpl.MessageState   `protogen:"open.v1"`
+	Id           string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title        *string                  `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description  *string                  `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	StatusId     *string                  `protobuf:"bytes,4,opt,name=status_id,json=statusId,proto3,oneof" json:"status_id,omitempty"`
+	Priority     *string                  `protobuf:"bytes,5,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
+	AssigneeId   *string                  `protobuf:"bytes,6,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
+	DueDate      *timestamppb.Timestamp   `protobuf:"bytes,7,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
+	UpdatedBy    string                   `protobuf:"bytes,8,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	CustomFields []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	LabelIds     []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	StartDate    *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	// true removes the due date (due_date is then ignored); absent due_date keeps it.
+	ClearDueDate  bool `protobuf:"varint,12,opt,name=clear_due_date,json=clearDueDate,proto3" json:"clear_due_date,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3573,6 +3575,13 @@ func (x *UpdateTaskRequest) GetStartDate() *timestamppb.Timestamp {
 		return x.StartDate
 	}
 	return nil
+}
+
+func (x *UpdateTaskRequest) GetClearDueDate() bool {
+	if x != nil {
+		return x.ClearDueDate
+	}
+	return false
 }
 
 type UpdateTaskResponse struct {
@@ -9166,7 +9175,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_id\"S\n" +
 	"\x11ListTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xac\x04\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xd2\x04\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
@@ -9182,7 +9191,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tlabel_ids\x18\n" +
 	" \x03(\tR\blabelIds\x12>\n" +
 	"\n" +
-	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01B\b\n" +
+	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01\x12$\n" +
+	"\x0eclear_due_date\x18\f \x01(\bR\fclearDueDateB\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +

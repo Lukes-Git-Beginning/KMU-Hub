@@ -852,12 +852,48 @@ units:
       - "Mutations-Probe: Offen-Zweig entfernt, der Nicht-Mitglied-Test wird rot"
       - "go test -count=1 ./internal/work/... ./internal/server/ grün, DATABASE_URL gesetzt, 0 Skips"
 
+  - id: fix-work-task-quick-complete-ignored
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,1 % · internal/work/task 68,9 %"
+    scope: >
+      TOTALAUSFALL, gefunden in fix-work-task-update-dropped-fields (Lauf 16, Iteration 19): die
+      Abhaken-Checkbox auf der Kanban-Karte (`KanbanCard.tsx:~109`) und in "Meine Aufgaben"
+      (`MyTasksPage.tsx:~548`) sendet `PUT /tasks/{id}` mit `{completed_at, is_closed}`. Der
+      Gateway (`updateTaskRequest`) kennt beide Felder nicht, der Handler antwortet 200, der
+      Desktop zeigt "Aufgabe abgeschlossen" - und nichts ist passiert. Für jeden Nutzer. Laut
+      FE-Kommentar (`useTasks.ts:~196`) war das als Demo-MSW-Pfad gedacht; er läuft aber
+      unbedingt gegen das echte Backend. Der echte Abschluss ist `status_id` auf einen Status
+      mit `is_closed` (Service setzt dann `CompletedAt`, `service.go` Update). Bau: Gateway
+      nimmt `is_closed` (bool-Zeiger) an; Service löst es für Aufgaben MIT Projekt auf: true ->
+      erster Status des Projekts mit `is_closed` (kleinste sort_order), false -> erster
+      Status ohne `is_closed`; ohne Projekt (`project_id` NULL) kein Status möglich -> Entscheidung:
+      `completed_at` direkt setzen/löschen (Spalte existiert) oder 409 mit Hinweis. Ist beides
+      unklar, den Projektlos-Fall nach BACKLOG-NEXT, den Projekt-Fall trotzdem bauen. `completed_at`
+      aus dem Body ignorieren (Server-Zeit gilt). Status-Lookup tenant-gescoped. Wire-Antwort
+      enthält `is_closed`/`completed_at` bereits (gegen `TaskItem` prüfen). Desktop-Aufrufer:
+      beide Stellen lesen, Antwort nach Abhaken prüfen.
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/work/task/service.go
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/status/service.go
+      - desktop/src/renderer/src/modules/work/kanban/KanbanCard.tsx
+      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
+    done_when:
+      - "Router-Test (echter gRPC-Stub) und DB-Test: is_closed=true setzt den geschlossenen Status und completed_at, is_closed=false öffnet wieder"
+      - "Test: fremder Mandant bleibt NotFound, Projekt ohne geschlossenen Status liefert einen klaren Fehler statt 200"
+      - "Mutations-Probe: Auflösung entfernt, der Abhaken-Test wird rot"
+
   - id: fix-work-task-update-dropped-fields
     phase: 4
     service: work
     model: sonnet
     deps: [fix-work-task-ops-on-open-projects]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/work/task 67,4 %"
     scope: >
       STILLER DATENVERLUST, bei der Vorbereitung aus dem Request-Abgleich: `useTasks.ts:185-205`
@@ -2095,3 +2131,33 @@ units:
       - "Test: Approve/Reject mit fremder reviewer_id im Body verbucht die JWT-User-ID"
       - "Journal-Zeile desktop-aufrufer: das FE sendet reviewer_id weiter, bekommt weiter dieselbe Antwortform"
       - "Mutations-Probe: Gateway nimmt wieder den Body-Wert, der Test wird rot"
+
+  - id: fix-work-task-move-projectless-task-to-project
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,1 % · internal/work/task 68,9 %"
+    scope: >
+      Gefunden in fix-work-task-update-dropped-fields (Lauf 16, Iteration 19): "In Projekt
+      verschieben" in "Meine Aufgaben" (`MyTasksPage.tsx:~534`) sendet `PUT /tasks/{id}` mit
+      `{project_id}`. `updateTaskRequest` kennt das Feld nicht, `task.UpdateInput` hat kein
+      ProjectID: 200, Toast "verschoben", nichts passiert. Der Service kennt Aufgaben ohne Projekt
+      (`existing.ProjectID != nil` in Update), nur der Gateway-Create verlangt `project_id`.
+      Bau: `project_id` im Update-Body (uuid), durchreichen bis `UpdateInput.ProjectID`; erlaubt
+      NUR für Aufgaben, die noch KEIN Projekt haben (Projekt-zu-Projekt-Verschieben bleibt aus,
+      eigene Entscheidung wegen Status/Labels/Custom-Fields). Ziel-Projekt: `requireProjectEditor`
+      (Offen-Modus gilt) + tenant-gescopter GetByID. `status_id` der Aufgabe auf den ersten
+      nicht geschlossenen Status des Zielprojekts setzen. Proto: neues optionales Feld in
+      UpdateTaskRequest, Regen. Spec-Eintrag für das Feld.
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/work/task/service.go
+      - backend/internal/work/task/postgres_repository.go
+      - backend/proto/work/v1/work.proto
+      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
+    done_when:
+      - "DB-Test: projektlose Aufgabe landet im Zielprojekt mit offenem Status; Aufgabe mit Projekt bleibt unverändert (Fehler 409/400)"
+      - "Test: Projekt eines anderen Mandanten -> NotFound, kein Eintrag"
+      - "Mutations-Probe: Tenant-Prüfung des Zielprojekts entfernt, der Test wird rot"
