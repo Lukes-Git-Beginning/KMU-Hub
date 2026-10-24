@@ -484,6 +484,13 @@ func (s *FuhrparkGRPCServer) ListDamages(ctx context.Context, req *fuhrparkv1.Li
 		st := fuhrpark.DamageStatus(*req.Status)
 		input.Status = &st
 	}
+	if req.ReportedBy != nil {
+		id, parseErr := uuid.Parse(*req.ReportedBy)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid reported_by: %v", parseErr)
+		}
+		input.ReportedBy = &id
+	}
 
 	damages, total, err := s.svc.ListDamages(ctx, input)
 	if err != nil {
@@ -1071,6 +1078,10 @@ func (s *FuhrparkGRPCServer) UpdateVehicleBooking(ctx context.Context, req *fuhr
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
 	}
 
+	if ownErr := s.ensureBookingOwner(ctx, tenantID, id, req.GetOwnerUserId()); ownErr != nil {
+		return nil, ownErr
+	}
+
 	input := fuhrpark.UpdateBookingInput{TenantID: tenantID, BookingID: id}
 	if req.StartsAt != nil {
 		t, parseErr := time.Parse(time.RFC3339, req.GetStartsAt())
@@ -1110,6 +1121,9 @@ func (s *FuhrparkGRPCServer) DeleteVehicleBooking(ctx context.Context, req *fuhr
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if ownErr := s.ensureBookingOwner(ctx, tenantID, id, req.GetOwnerUserId()); ownErr != nil {
+		return nil, ownErr
 	}
 	if delErr := s.svc.DeleteVehicleBooking(ctx, tenantID, id); delErr != nil {
 		return nil, mapFuhrparkError(delErr)
@@ -1280,6 +1294,9 @@ func (s *FuhrparkGRPCServer) UpdateDriverLicense(ctx context.Context, req *fuhrp
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
 	}
+	if ownErr := s.ensureDriverLicenseOwner(ctx, tenantID, id, req.GetOwnerUserId()); ownErr != nil {
+		return nil, ownErr
+	}
 	nextDue, err := time.Parse("2006-01-02", req.NextCheckDueDate)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid next_check_due_date: %v", err)
@@ -1318,6 +1335,37 @@ func (s *FuhrparkGRPCServer) UpdateDriverLicense(ctx context.Context, req *fuhrp
 	return &fuhrparkv1.UpdateDriverLicenseResponse{License: driverLicenseToProto(lic)}, nil
 }
 
+// ensureBookingOwner confines a booking write to its owner when the gateway set owner_user_id
+// (caller's booking scope is 'own'). Empty means unrestricted.
+func (s *FuhrparkGRPCServer) ensureBookingOwner(ctx context.Context, tenantID, bookingID uuid.UUID, ownerUserID string) error {
+	if ownerUserID == "" {
+		return nil
+	}
+	owner, err := uuid.Parse(ownerUserID)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid owner_user_id: %v", err)
+	}
+	if err := s.svc.EnsureBookingOwner(ctx, tenantID, bookingID, owner); err != nil {
+		return mapFuhrparkError(err)
+	}
+	return nil
+}
+
+// ensureDriverLicenseOwner is ensureBookingOwner for driver license checks.
+func (s *FuhrparkGRPCServer) ensureDriverLicenseOwner(ctx context.Context, tenantID, id uuid.UUID, ownerUserID string) error {
+	if ownerUserID == "" {
+		return nil
+	}
+	owner, err := uuid.Parse(ownerUserID)
+	if err != nil {
+		return status.Errorf(codes.InvalidArgument, "invalid owner_user_id: %v", err)
+	}
+	if err := s.svc.EnsureDriverLicenseOwner(ctx, tenantID, id, owner); err != nil {
+		return mapFuhrparkError(err)
+	}
+	return nil
+}
+
 func (s *FuhrparkGRPCServer) DeleteDriverLicense(ctx context.Context, req *fuhrparkv1.DeleteDriverLicenseRequest) (*fuhrparkv1.DeleteDriverLicenseResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -1326,6 +1374,9 @@ func (s *FuhrparkGRPCServer) DeleteDriverLicense(ctx context.Context, req *fuhrp
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
+	}
+	if ownErr := s.ensureDriverLicenseOwner(ctx, tenantID, id, req.GetOwnerUserId()); ownErr != nil {
+		return nil, ownErr
 	}
 	if err := s.svc.DeleteDriverLicense(ctx, tenantID, id); err != nil {
 		return nil, mapFuhrparkError(err)

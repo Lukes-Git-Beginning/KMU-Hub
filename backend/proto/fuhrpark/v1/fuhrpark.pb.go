@@ -1935,12 +1935,14 @@ func (x *ResolveDamageRequest) GetNotes() string {
 }
 
 type ListDamagesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	VehicleId     *string                `protobuf:"bytes,2,opt,name=vehicle_id,json=vehicleId,proto3,oneof" json:"vehicle_id,omitempty"`
-	Status        *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	VehicleId *string                `protobuf:"bytes,2,opt,name=vehicle_id,json=vehicleId,proto3,oneof" json:"vehicle_id,omitempty"`
+	Status    *string                `protobuf:"bytes,3,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Page      int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize  int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Set by the gateway for a caller whose damage:read scope is 'own': only damages this user reported.
+	ReportedBy    *string `protobuf:"bytes,6,opt,name=reported_by,json=reportedBy,proto3,oneof" json:"reported_by,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2008,6 +2010,13 @@ func (x *ListDamagesRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListDamagesRequest) GetReportedBy() string {
+	if x != nil && x.ReportedBy != nil {
+		return *x.ReportedBy
+	}
+	return ""
 }
 
 type DamageResponse struct {
@@ -5266,8 +5275,10 @@ type UpdateDriverLicenseRequest struct {
 	CheckedAt        string                 `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
 	NextCheckDueDate string                 `protobuf:"bytes,5,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"`
 	Notes            string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"` // optional
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Set by the gateway for a caller whose license scope is 'own': a check of another driver is NotFound.
+	OwnerUserId   string `protobuf:"bytes,7,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateDriverLicenseRequest) Reset() {
@@ -5342,6 +5353,13 @@ func (x *UpdateDriverLicenseRequest) GetNotes() string {
 	return ""
 }
 
+func (x *UpdateDriverLicenseRequest) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
+	}
+	return ""
+}
+
 type UpdateDriverLicenseResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	License       *DriverLicense         `protobuf:"bytes,1,opt,name=license,proto3" json:"license,omitempty"`
@@ -5389,6 +5407,7 @@ func (x *UpdateDriverLicenseResponse) GetLicense() *DriverLicense {
 type DeleteDriverLicenseRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerUserId   string                 `protobuf:"bytes,2,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"` // see UpdateDriverLicenseRequest
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5426,6 +5445,13 @@ func (*DeleteDriverLicenseRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteDriverLicenseRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteDriverLicenseRequest) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
 	}
 	return ""
 }
@@ -5812,12 +5838,14 @@ func (x *CreateVehicleBookingRequest) GetPurpose() string {
 
 // Optional so an omitted field stays untouched instead of being cleared.
 type UpdateVehicleBookingRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	StartsAt      *string                `protobuf:"bytes,2,opt,name=starts_at,json=startsAt,proto3,oneof" json:"starts_at,omitempty"`
-	EndsAt        *string                `protobuf:"bytes,3,opt,name=ends_at,json=endsAt,proto3,oneof" json:"ends_at,omitempty"`
-	Purpose       *string                `protobuf:"bytes,4,opt,name=purpose,proto3,oneof" json:"purpose,omitempty"`
-	Status        *string                `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	StartsAt *string                `protobuf:"bytes,2,opt,name=starts_at,json=startsAt,proto3,oneof" json:"starts_at,omitempty"`
+	EndsAt   *string                `protobuf:"bytes,3,opt,name=ends_at,json=endsAt,proto3,oneof" json:"ends_at,omitempty"`
+	Purpose  *string                `protobuf:"bytes,4,opt,name=purpose,proto3,oneof" json:"purpose,omitempty"`
+	Status   *string                `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// Set by the gateway for a caller whose booking scope is 'own': another user's booking is NotFound.
+	OwnerUserId   string `protobuf:"bytes,6,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5887,6 +5915,13 @@ func (x *UpdateVehicleBookingRequest) GetStatus() string {
 	return ""
 }
 
+func (x *UpdateVehicleBookingRequest) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
+	}
+	return ""
+}
+
 type VehicleBookingResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Booking       *VehicleBooking        `protobuf:"bytes,1,opt,name=booking,proto3" json:"booking,omitempty"`
@@ -5934,6 +5969,7 @@ func (x *VehicleBookingResponse) GetBooking() *VehicleBooking {
 type DeleteVehicleBookingRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerUserId   string                 `protobuf:"bytes,2,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"` // see UpdateVehicleBookingRequest
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5971,6 +6007,13 @@ func (*DeleteVehicleBookingRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteVehicleBookingRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteVehicleBookingRequest) GetOwnerUserId() string {
+	if x != nil {
+		return x.OwnerUserId
 	}
 	return ""
 }
@@ -6295,16 +6338,19 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x05notes\x18\x05 \x01(\tH\x02R\x05notes\x88\x01\x01B\x0e\n" +
 	"\f_resolved_byB\r\n" +
 	"\v_cost_centsB\b\n" +
-	"\x06_notes\"\xbd\x01\n" +
+	"\x06_notes\"\xf3\x01\n" +
 	"\x12ListDamagesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\"\n" +
 	"\n" +
 	"vehicle_id\x18\x02 \x01(\tH\x00R\tvehicleId\x88\x01\x01\x12\x1b\n" +
 	"\x06status\x18\x03 \x01(\tH\x01R\x06status\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x05 \x01(\x05R\bpageSizeB\r\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12$\n" +
+	"\vreported_by\x18\x06 \x01(\tH\x02R\n" +
+	"reportedBy\x88\x01\x01B\r\n" +
 	"\v_vehicle_idB\t\n" +
-	"\a_status\"=\n" +
+	"\a_statusB\x0e\n" +
+	"\f_reported_by\"=\n" +
 	"\x0eDamageResponse\x12+\n" +
 	"\x06damage\x18\x01 \x01(\v2\x13.fuhrpark.v1.DamageR\x06damage\"Z\n" +
 	"\x13ListDamagesResponse\x12-\n" +
@@ -6591,7 +6637,7 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
 	"\x05notes\x18\x06 \x01(\tR\x05notes\"S\n" +
 	"\x1bCreateDriverLicenseResponse\x124\n" +
-	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"\xda\x01\n" +
+	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"\xfe\x01\n" +
 	"\x1aUpdateDriverLicenseRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\x0flicense_classes\x18\x02 \x03(\tR\x0elicenseClasses\x12\x1f\n" +
@@ -6600,11 +6646,13 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\n" +
 	"checked_at\x18\x04 \x01(\tR\tcheckedAt\x12-\n" +
 	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
-	"\x05notes\x18\x06 \x01(\tR\x05notes\"S\n" +
+	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\"\n" +
+	"\rowner_user_id\x18\a \x01(\tR\vownerUserId\"S\n" +
 	"\x1bUpdateDriverLicenseResponse\x124\n" +
-	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\",\n" +
+	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"P\n" +
 	"\x1aDeleteDriverLicenseRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1d\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
+	"\rowner_user_id\x18\x02 \x01(\tR\vownerUserId\"\x1d\n" +
 	"\x1bDeleteDriverLicenseResponse\"\xba\x02\n" +
 	"\x0eVehicleBooking\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -6641,13 +6689,14 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
 	"\tstarts_at\x18\x03 \x01(\tR\bstartsAt\x12\x17\n" +
 	"\aends_at\x18\x04 \x01(\tR\x06endsAt\x12\x18\n" +
-	"\apurpose\x18\x05 \x01(\tR\apurpose\"\xda\x01\n" +
+	"\apurpose\x18\x05 \x01(\tR\apurpose\"\xfe\x01\n" +
 	"\x1bUpdateVehicleBookingRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
 	"\tstarts_at\x18\x02 \x01(\tH\x00R\bstartsAt\x88\x01\x01\x12\x1c\n" +
 	"\aends_at\x18\x03 \x01(\tH\x01R\x06endsAt\x88\x01\x01\x12\x1d\n" +
 	"\apurpose\x18\x04 \x01(\tH\x02R\apurpose\x88\x01\x01\x12\x1b\n" +
-	"\x06status\x18\x05 \x01(\tH\x03R\x06status\x88\x01\x01B\f\n" +
+	"\x06status\x18\x05 \x01(\tH\x03R\x06status\x88\x01\x01\x12\"\n" +
+	"\rowner_user_id\x18\x06 \x01(\tR\vownerUserIdB\f\n" +
 	"\n" +
 	"_starts_atB\n" +
 	"\n" +
@@ -6656,9 +6705,10 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\b_purposeB\t\n" +
 	"\a_status\"O\n" +
 	"\x16VehicleBookingResponse\x125\n" +
-	"\abooking\x18\x01 \x01(\v2\x1b.fuhrpark.v1.VehicleBookingR\abooking\"-\n" +
+	"\abooking\x18\x01 \x01(\v2\x1b.fuhrpark.v1.VehicleBookingR\abooking\"Q\n" +
 	"\x1bDeleteVehicleBookingRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
+	"\rowner_user_id\x18\x02 \x01(\tR\vownerUserId\"\x1e\n" +
 	"\x1cDeleteVehicleBookingResponse2\x86\x1e\n" +
 	"\x0fFuhrparkService\x12P\n" +
 	"\rCreateVehicle\x12!.fuhrpark.v1.CreateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12P\n" +

@@ -295,6 +295,8 @@ message ListDamagesRequest {
   optional string status = 3;
   int32 page = 4;
   int32 page_size = 5;
+  // Set by the gateway for a caller whose damage:read scope is 'own': only damages this user reported.
+  optional string reported_by = 6;
 }
 
 message DamageResponse {
@@ -602,9 +604,14 @@ message UpdateDriverLicenseRequest {
   string checked_at           = 4;
   string next_check_due_date  = 5;
   string notes                = 6; // optional
+  // Set by the gateway for a caller whose license scope is 'own': a check of another driver is NotFound.
+  string owner_user_id        = 7;
 }
 message UpdateDriverLicenseResponse { DriverLicense license = 1; }
-message DeleteDriverLicenseRequest  { string id = 1; }
+message DeleteDriverLicenseRequest  {
+  string id = 1;
+  string owner_user_id = 2; // see UpdateDriverLicenseRequest
+}
 message DeleteDriverLicenseResponse {}
 
 // ============================================================================
@@ -651,7 +658,12 @@ message UpdateVehicleBookingRequest {
   optional string ends_at    = 3;
   optional string purpose    = 4;
   optional string status     = 5;
+  // Set by the gateway for a caller whose booking scope is 'own': another user's booking is NotFound.
+  string owner_user_id       = 6;
 }
 message VehicleBookingResponse { VehicleBooking booking = 1; }
-message DeleteVehicleBookingRequest  { string id = 1; }
+message DeleteVehicleBookingRequest  {
+  string id = 1;
+  string owner_user_id = 2; // see UpdateVehicleBookingRequest
+}
 message DeleteVehicleBookingResponse {}

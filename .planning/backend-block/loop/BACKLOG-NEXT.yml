@@ -1689,6 +1689,19 @@ units:
       `finance:module:view` fehlt manager trotz `finance:read` (Modul-Kachel fehlt, Daten
       wären lesbar), Dokument-Freigaben anlegen. Lauf 16 (`scan-role-matrix-remaining`,
       `fix-branchen-member-self-service-grants`) ergänzt weitere Zeilen.
+      Aus `fix-branchen-member-self-service-grants` (Iteration 16, Migration 339 granted
+      Buchung/Führerschein/eigene Schäden/Arbeitsschritte/Übergabeprotokolle, alles andere NICHT):
+      - Fuhrpark Buchungen aller Kollegen sehen (`fuhrpark:booking:read` all): member sieht heute nur die
+        eigenen und erfährt die belegten Zeiten eines Fahrzeugs erst über 409 beim Buchen.
+        Empfehlung: schmale Verfügbarkeits-Route (Fahrzeug + Zeitfenster, ohne Nutzer/Zweck) statt `all`.
+      - Fuhrpark Schäden aller Fahrzeuge lesen (`fuhrpark:damage:read` all): member sieht nur selbst
+        gemeldete; bekannte Schäden fremder Meldungen stehen aber schon in `/vehicles/{id}/history`
+        (`vehicle:read`). Empfehlung: Lesen auf `all` heben, Schreiben (update/resolve) bleibt admin.
+      - Fuhrpark Schaden bearbeiten/auflösen (`damage:write`), Führerscheine anderer (`license:*` all),
+        Buchungen anderer ändern: bleiben admin (manager hält Buchung/Führerschein ebenfalls nur `own`).
+      - Produktion: Arbeitsschritte anlegen/löschen (`workstep:write`), Buchungen/Pläne: bleiben admin.
+      - Vermietung: Übergabeprotokoll ändern (`inspection:write`): bleibt admin; member legt an
+        (`inspection:create`) und liest jetzt, korrigiert aber nicht.
     sources:
       - backend/internal/gateway/
       - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql

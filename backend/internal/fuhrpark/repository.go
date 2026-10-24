@@ -23,8 +23,9 @@ type ListServicesFilter struct {
 
 // ListDamagesFilter holds optional filtering for damage list queries.
 type ListDamagesFilter struct {
-	VehicleID *uuid.UUID
-	Status    *DamageStatus
+	VehicleID  *uuid.UUID
+	Status     *DamageStatus
+	ReportedBy *uuid.UUID
 }
 
 // Repository defines the persistence interface for the fuhrpark module.
@@ -73,6 +74,7 @@ type Repository interface {
 
 	// Driver licenses
 	ListDriverLicenses(ctx context.Context, params ListDriverLicensesParams) ([]DriverLicense, int, error)
+	GetDriverLicense(ctx context.Context, tenantID, id uuid.UUID) (DriverLicense, error)
 	CreateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
 	UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
 	DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error

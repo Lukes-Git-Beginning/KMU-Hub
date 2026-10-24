@@ -255,6 +255,15 @@ func (r *stubFuhrparkRepo) CreateDriverLicense(_ context.Context, lic fuhrpark.D
 	return lic, nil
 }
 
+// GetDriverLicense answers with a license of a driver nobody else is: a caller narrowed to their own
+// id never matches it.
+func (r *stubFuhrparkRepo) GetDriverLicense(_ context.Context, tenantID, id uuid.UUID) (fuhrpark.DriverLicense, error) {
+	if r.err != nil {
+		return fuhrpark.DriverLicense{}, r.err
+	}
+	return fuhrpark.DriverLicense{ID: id, TenantID: tenantID, DriverID: uuid.New()}, nil
+}
+
 func (r *stubFuhrparkRepo) UpdateDriverLicense(_ context.Context, lic fuhrpark.DriverLicense) (fuhrpark.DriverLicense, error) {
 	if r.err != nil {
 		return fuhrpark.DriverLicense{}, r.err

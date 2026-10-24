@@ -159,8 +159,10 @@ type ListDamagesInput struct {
 	TenantID  uuid.UUID
 	VehicleID *uuid.UUID
 	Status    *DamageStatus
-	Page      int
-	PageSize  int
+	// ReportedBy narrows the list to damages this user reported (own-scope readers).
+	ReportedBy *uuid.UUID
+	Page       int
+	PageSize   int
 }
 
 // GetVehicleHistoryInput holds pagination for vehicle history.
@@ -680,8 +682,9 @@ func (s *Service) ListDamages(ctx context.Context, input ListDamagesInput) ([]*V
 	}
 	offset := (input.Page - 1) * input.PageSize
 	filter := ListDamagesFilter{
-		VehicleID: input.VehicleID,
-		Status:    input.Status,
+		VehicleID:  input.VehicleID,
+		Status:     input.Status,
+		ReportedBy: input.ReportedBy,
 	}
 	return s.repo.ListDamages(ctx, input.TenantID, filter, offset, input.PageSize)
 }
@@ -1053,6 +1056,32 @@ func (s *Service) UpdateVehicleBooking(ctx context.Context, input UpdateBookingI
 
 func isActiveBookingStatus(s BookingStatus) bool {
 	return slices.Contains(ActiveBookingStatuses, s)
+}
+
+// EnsureBookingOwner returns ErrBookingNotFound unless the booking belongs to owner. A foreign
+// booking is NotFound rather than forbidden so its existence does not leak. Used for callers whose
+// booking scope is 'own'; a booking's user_id never changes, so check-then-act is safe.
+func (s *Service) EnsureBookingOwner(ctx context.Context, tenantID, bookingID, owner uuid.UUID) error {
+	b, err := s.repo.GetBooking(ctx, tenantID, bookingID)
+	if err != nil {
+		return err
+	}
+	if b.UserID != owner {
+		return ErrBookingNotFound
+	}
+	return nil
+}
+
+// EnsureDriverLicenseOwner is EnsureBookingOwner for driver license checks.
+func (s *Service) EnsureDriverLicenseOwner(ctx context.Context, tenantID, id, owner uuid.UUID) error {
+	l, err := s.repo.GetDriverLicense(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if l.DriverID != owner {
+		return ErrDriverLicenseNotFound
+	}
+	return nil
 }
 
 // DeleteVehicleBooking removes a booking.

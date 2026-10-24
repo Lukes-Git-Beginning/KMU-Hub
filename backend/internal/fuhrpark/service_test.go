@@ -305,6 +305,9 @@ func (m *mockRepository) DeleteVehicleDocument(_ context.Context, _, _ uuid.UUID
 func (m *mockRepository) ListDriverLicenses(_ context.Context, _ ListDriverLicensesParams) ([]DriverLicense, int, error) {
 	return nil, 0, nil
 }
+func (m *mockRepository) GetDriverLicense(_ context.Context, _, _ uuid.UUID) (DriverLicense, error) {
+	return DriverLicense{}, ErrDriverLicenseNotFound
+}
 func (m *mockRepository) CreateDriverLicense(_ context.Context, lic DriverLicense) (DriverLicense, error) {
 	return lic, nil
 }

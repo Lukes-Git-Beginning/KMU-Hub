@@ -387,6 +387,11 @@ func (r *PostgresRepository) ListDamages(ctx context.Context, tenantID uuid.UUID
 		args = append(args, *filter.Status)
 		argNum++
 	}
+	if filter.ReportedBy != nil {
+		conditions = append(conditions, fmt.Sprintf("reported_by = $%d", argNum))
+		args = append(args, *filter.ReportedBy)
+		argNum++
+	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
@@ -945,6 +950,20 @@ func (r *PostgresRepository) UpdateDriverLicense(ctx context.Context, lic Driver
 		&updated.ID, &updated.TenantID, &updated.DriverID, &updated.LicenseClasses, &updated.ExpiryDate,
 		&updated.CheckedAt, &updated.NextCheckDueDate, &updated.Notes, &updated.CreatedAt, &updated.UpdatedAt)
 	return updated, err
+}
+
+func (r *PostgresRepository) GetDriverLicense(ctx context.Context, tenantID, id uuid.UUID) (DriverLicense, error) {
+	var l DriverLicense
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at
+		FROM driver_licenses WHERE id=$1 AND tenant_id=$2`,
+		id, tenantID).Scan(
+		&l.ID, &l.TenantID, &l.DriverID, &l.LicenseClasses, &l.ExpiryDate,
+		&l.CheckedAt, &l.NextCheckDueDate, &l.Notes, &l.CreatedAt, &l.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriverLicense{}, ErrDriverLicenseNotFound
+	}
+	return l, err
 }
 
 func (r *PostgresRepository) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
