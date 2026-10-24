@@ -815,3 +815,34 @@ Nebenbefunde ohne UI-Bruch, verworfen: Gateway ignoriert den Query-Parameter `mo
 - neue-units: keine
 - desktop-aufrufer: `SearchBar.tsx` (`getResultUrl` nimmt `item.url`, Zeile 78; `navigate` Zeile 218) und `useGlobalSearch.ts` (`GlobalSearchResultItem`) gegen `App.tsx` geprüft: `/kontakte` (+ `?contact=` in `modules/kontakte/KontaktePage.tsx:118`), `/kontakte/firmen/:id`, `/kontakte/pipeline/:id`, `/kontakte/aktivitaeten`, `/dokumente` sind alle registriert. FE liest `title`, `file_name`, `content_text`, `description` jetzt befüllt. Nicht gegen einen Browser gefahren.
 - offen: Die Tests fahren Loopback-gRPC-Stubs, keinen echten CRM-/Document-Service mit DB. Aktivitäts-Treffer öffnen nur die Liste (kein Detail-Route im FE); Dokument-Treffer ebenso (kein Deep-Link). Das Mail-Modul bleibt der leere Stub.
+
+## Iteration 54 — scan-fe-gateway-shape-crm-rest — done — 2026-10-25 01:55
+- commit: (siehe git log, Subject `chore(loop): record the CRM REST scan and queue its fix unit`)
+- gebaut: Scan, kein Produktivcode. Ein Totalausfall reproduziert (Kontakt anlegen/ändern mit dem Body des Kontaktformulars -> 400) und als `fix-contact-profile-fields-reject-empty-strings` VOR die erste todo-Unit gelegt. Zwei Probe-Tests liefen als Wegwerfdatei und sind wieder gelöscht (Diff sauber).
+- gate: n.a. (kein Code; `backlog-check.py --preflight` sauber)
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`56a18e08`: Handler-Umbau auf flache Wire-Form, Spec-Schema und Wire-Tests im selben Commit; keine neue Route, kein Guard, kein Proto, keine Tabelle)
+- neue-units: `fix-contact-profile-fields-reject-empty-strings` (Totalausfall: vor die erste todo-Unit gesetzt, direkt vor `scan-fe-gateway-shape-crm-rest`; schließt den Lead-Temperatur-Fall mit ein)
+- desktop-aufrufer: Tabelle unten, je Hook gegen den Gateway-Handler gelesen (Mocks nicht als Beleg).
+- offen: Der Fund ist am Validator reproduziert (`decodeAndValidate` mit dem FE-Body, 400 mit vier Feldern), nicht gegen einen laufenden Stack; die Fix-Unit verlangt den DB-Lauf. Rollen-Grants (member) für `contacts:*`, `saved_filters:*` nicht erneut geprüft, das gehört zu `scan-role-matrix-remaining`. Kontakt-Firma (Freitext `company` im Formular) und Deal-Kontakt/-Firma (`_contactName`/`_companyName` in `custom_fields`) werden vom FE nie als `company_id`/`contact_id` gesendet: kein 400, aber die Verknüpfung entsteht nicht — Datenverlust ohne Fehlermeldung, FE-Thema (Desktop-Code ändere ich nicht), hier nicht als Unit.
+
+| Hook / Aufrufer | Route | Body/Query | FE-Typ | Antwortform | passt |
+|---|---|---|---|---|---|
+| `useCreateContact` via `adapters.ts:uiFormToCreateRequest` (KontaktePage, Duplizieren, CSV-Import) | POST /contacts | alle Profilfelder als `''`, `custom_fields: []` | – | Proto | **nein** (400 bei leerer Anrede/Mobil/Kategorie/Status) -> `fix-contact-profile-fields-reject-empty-strings` |
+| `useUpdateContact` via `uiFormToUpdateRequest` | PUT /contacts/{id} | wie oben | – | Proto | **nein**, gleiche Ursache, gleiche Unit |
+| `useCreateContact` aus `ConvertLeadDialog`, `ContactsListPage` | POST /contacts | `email`/`phone` per `|| undefined` | – | Proto | ja (leere Felder fehlen im Body) |
+| `useContacts`, `useContact` | GET /contacts, /contacts/{id} | `page`, `page_size`, `search`, `company_id`, `tag_ids` | `data.contacts` | Proto (`contacts`, `total`) | ja |
+| `useDeleteContact` | DELETE /contacts/{id} | – | 409-Zweig | `{status}`, 409 über `respondGRPCError` | ja |
+| `useRequestContactErasure` | POST /contacts/{id}/gdpr/deletion-request | `{reason:''}` | `ContactErasureRequest` | Proto 201 | ja (`reason` ohne Tag) |
+| `useContactConsents` | GET /contacts/{id}/consents | – | `data.consents` als Map | Proto `ConsentSummary` = `{contact_id, consents:{typ:record}}` | ja (`granted:false` fehlt im JSON, FE liest `!!r?.granted`) |
+| `useConsentHistory` | GET /contacts/{id}/consents/{type}/history | – | `data.history ?? []` | `{history,total}`, leer = `null` | ja (`?? []`) |
+| `useGrantConsent` | POST /contacts/{id}/consents | `consent_type, source, legal_basis` (alle drei Pflicht) | – | Proto 201 | ja |
+| `useRevokeConsent` | DELETE /contacts/{id}/consents/{type} | `{notes}` | – | Proto | ja |
+| `useTimeline` | GET /contacts/{id}/timeline (+ Alias /crm/contacts/…) | `limit`, `offset` | `events`, `total` | flach, `metadata` entpackt (`route_crm_timeline_wire_test.go`) | ja (Lauf 15) |
+| `useSavedFilters` | GET /saved-filters | `entity_type` | `data.filters ?? []` | Proto `{filters}` | ja (nur Lesehook, kein FE-Schreibaufrufer) |
+| `useCompanies` (`toCompanyPayload`) | POST/PUT /companies | `domain`, `industry`, … per `|| undefined`, `tag_ids` | – | Proto | ja |
+| `useDeals` Create/Update (`toDealPayload`) | POST/PUT /deals | `stage_id`, `expected_close_date`/`notes` per `|| undefined`, `custom_fields: []` | – | Proto | ja (Länge/UUID-Tags greifen nur bei gesendeten Werten) |
+| `useMoveDeal` | POST /deals/{id}/stage | `{stage_id}` | – | Proto | ja |
+| `useCustomFields` | /customization/fields | roher fetch ohne Authorization | – | – | nein, bekannt -> BACKLOG-NEXT (Fläche gesperrt) |
+| `useLeads` | (Mock, kein Backend-Call) | – | camelCase `Lead` | Gateway-Wire `{lead:{firstName,…}}`/`{items,total}` camelCase = FE-Typ | Umstieg passt, bis auf `temperature:''` (siehe Fix-Unit) |

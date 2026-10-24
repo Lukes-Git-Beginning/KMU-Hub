@@ -2110,12 +2110,56 @@ units:
       - "Jede Abweichung, die die UI bricht, steht als Fix-Unit vor der ersten todo-Unit"
       - "Abweichungen ohne UI-Bruch gesammelt in einer Unit am Ende oder begründet verworfen"
 
-  - id: scan-fe-gateway-shape-crm-rest
+  - id: fix-contact-profile-fields-reject-empty-strings
     phase: 4
     service: gateway
     model: sonnet
     deps: []
     status: todo
+    coverage_start: "internal/gateway 77,6 %"
+    scope: >
+      TOTALAUSFALL (Lauf 16, Iteration 54 reproduziert): `POST /contacts` und `PUT /contacts/{id}`
+      scheitern mit 400 für JEDEN Nutzer, der das Kontaktformular ohne Anrede, ohne Mobilnummer
+      oder ohne Kategorie/Status speichert — also im Normalfall. Der Mapper
+      `desktop/.../modules/kontakte/adapters.ts:121-140` (`coreContactFields`) sendet absichtlich
+      `''` statt `undefined` (Kommentar: wer ein Feld leert, will es geleert haben), und
+      `ContactFormDialog.tsx:70/76` startet mit `salutation=''`, `mobile=''`. Das Gateway lehnt
+      `''` ab: `contactProfileFields` (`route_crm_contacts.go:25-39`) trägt
+      `validate:"omitempty,oneof=..."`/`omitempty,phone_dach` auf `*string`. Bei einem Zeiger
+      ungleich nil überspringt `omitempty` NICHT, wenn der Wert `""` ist (validator v10: `hasValue`
+      liefert für Zeiger true) -> Probe mit dem echten FE-Body:
+      `salutation: must be one of [Herr Frau]; mobile: must be a valid phone number; category:
+      must be one of [...]; status: must be one of [...]`. Der Service (`contact/service.go:60-103`,
+      `checkEnum`) nimmt `""` ausdrücklich an und dokumentiert "an empty string clears the
+      column" — der Vertrag steht, nur die Gateway-Tags widersprechen ihm. Das Duplizieren und
+      der CSV-Import in `KontaktePage.tsx:272/932` laufen über denselben Mapper und scheitern
+      ebenso. Gleiche Klasse: `updateLeadRequest.Temperature` (`route_crm_leads.go:135`, Kommentar
+      sagt "empty string clears the manual override", `oneof=hot warm cold` lehnt `""` ab).
+      Fix an der Wurzel: Tags so ändern, dass `""` durchgeht und nur ein nicht leerer Wert geprüft
+      wird (z. B. `phone_dach`/`oneof` nur bei `len>0` über einen kleinen gemeinsamen Validator
+      oder die Enum-Prüfung ganz dem Service überlassen, der sie schon macht). KEINE zweite
+      Validierungslogik im Handler. Tags auf `*string` mit `omitempty,min=1` (Namen, `FirstName`)
+      bleiben unverändert: ein leerer Name ist ein echter 400.
+    sources:
+      - backend/internal/gateway/route_crm_contacts.go
+      - backend/internal/gateway/route_crm_leads.go
+      - backend/internal/crm/contact/service.go
+      - desktop/src/renderer/src/modules/kontakte/adapters.ts
+      - desktop/src/renderer/src/modules/kontakte/ContactFormDialog.tsx
+    done_when:
+      - "Test mit dem WORTGETREUEN FE-Body (`''` in allen Profilfeldern, `custom_fields: []`) besteht decodeAndValidate für Create UND Update; Body-Quelle (Datei:Zeile) im Testkommentar"
+      - "Ein ungültiger NICHT leerer Wert (`salutation: Dr`, `mobile: abc`) bleibt 400"
+      - "Gleicher Test für `updateLeadRequest` mit `temperature: ''` (200) und `temperature: 'lukewarm'` (400)"
+      - "Mutations-Probe: Tag zurück auf den alten Stand -> Test rot"
+      - "Ende-zu-Ende gegen echte DB: Kontakt mit leerer Anrede anlegen, lesen, ändern (Leerstring leert die Spalte) — Journal nennt den Status"
+      - "Journal: desktop-aufrufer (KontaktePage, ContactsListPage, ContactDetailPage, ConvertLeadDialog) gegen die neue Annahme geprüft"
+
+  - id: scan-fe-gateway-shape-crm-rest
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       CRM-Reste, die Lauf 15 nicht abgedeckt hat: gespeicherte Filter, Custom Fields
