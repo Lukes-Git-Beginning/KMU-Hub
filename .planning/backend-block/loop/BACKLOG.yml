@@ -1568,7 +1568,7 @@ units:
     service: finance
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/biz/invoice 62,6 %"
     scope: >
       TEILAUSFALL Finanz-Dashboard: die Zeitraum-Presets ändern nichts. `FinanceDashboard.tsx:~80`

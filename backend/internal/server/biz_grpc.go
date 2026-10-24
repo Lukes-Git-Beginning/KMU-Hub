@@ -1264,9 +1264,10 @@ func (s *BizGRPCServer) GetFinanceDashboard(ctx context.Context, req *bizv1.GetF
 		return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 	}
 
-	now := time.Now()
-	dateFrom := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
-	dateTo := now
+	dateFrom, dateTo, err := dashboardRange(time.Now(), req.DateFrom, req.DateTo)
+	if err != nil {
+		return nil, err
+	}
 
 	dash, err := s.dashboardService.GetDashboard(ctx, tenantID, dateFrom, dateTo)
 	if err != nil {
@@ -1274,6 +1275,39 @@ func (s *BizGRPCServer) GetFinanceDashboard(ctx context.Context, req *bizv1.GetF
 	}
 
 	return &bizv1.GetFinanceDashboardResponse{Dashboard: toProtoDashboard(dash)}, nil
+}
+
+// dashboardRange resolves the dashboard's reporting range. Unset bounds default to January 1st of
+// the current year and now. date_to is inclusive (end of that day) and never lies in the future:
+// the monthly series and "this month" are anchored on it, so the desktop's whole-year preset
+// (ending 31 December) must keep meaning "up to today".
+func dashboardRange(now time.Time, from, to *string) (time.Time, time.Time, error) {
+	dateTo := now
+	endOfDay := now
+	if to != nil {
+		t, err := time.Parse("2006-01-02", *to)
+		if err != nil {
+			return time.Time{}, time.Time{}, status.Error(codes.InvalidArgument, "invalid date_to, expected YYYY-MM-DD")
+		}
+		endOfDay = t.AddDate(0, 0, 1).Add(-time.Nanosecond)
+		if endOfDay.Before(now) {
+			dateTo = endOfDay
+		}
+	}
+	// Without date_from the range starts on January 1st of the year date_to lies in.
+	dateFrom := time.Date(endOfDay.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	if from != nil {
+		t, err := time.Parse("2006-01-02", *from)
+		if err != nil {
+			return time.Time{}, time.Time{}, status.Error(codes.InvalidArgument, "invalid date_from, expected YYYY-MM-DD")
+		}
+		dateFrom = t
+		// A range that starts in the future is valid and simply empty; only an inverted one is an error.
+		if to != nil && endOfDay.Before(dateFrom) {
+			return time.Time{}, time.Time{}, status.Error(codes.InvalidArgument, "date_from must not be after date_to")
+		}
+	}
+	return dateFrom, dateTo, nil
 }
 
 // ============================================================================

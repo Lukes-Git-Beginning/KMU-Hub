@@ -471,3 +471,30 @@ func TestGetDashboardMetrics_RevenueByMonthIsPaidOnlyTenantScopedAndComplete(t *
 		}
 	}
 }
+
+// TestGetDashboardMetrics_InclusiveEndOfDayBoundCountsTheLastDay pins the bound the gRPC server
+// passes for date_to (23:59:59.999999999 of that day): an invoice dated on the last day and a
+// quote created at 15:00 that day belong to the range, the next day's do not.
+func TestGetDashboardMetrics_InclusiveEndOfDayBoundCountsTheLastDay(t *testing.T) {
+	pool, tenantID, ctx := newDashboardFixture(t)
+	repo := NewPostgresRepository(pool)
+
+	dateFrom := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	dateTo := time.Date(2026, 3, 31, 23, 59, 59, 999999999, time.UTC)
+
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "300.00", "invoice_date": "2026-03-31"})
+	seedInvoice(t, pool, tenantID, map[string]any{"status": models.InvoiceStatusPaid, "gross_total": "700.00", "invoice_date": "2026-04-01"})
+	seedQuote(t, pool, tenantID, map[string]any{"status": models.QuoteStatusSent, "created_at": time.Date(2026, 3, 31, 15, 0, 0, 0, time.UTC)})
+	seedQuote(t, pool, tenantID, map[string]any{"status": models.QuoteStatusSent, "created_at": time.Date(2026, 4, 1, 9, 0, 0, 0, time.UTC)})
+
+	metrics, err := repo.GetDashboardMetrics(ctx, tenantID, dateFrom, dateTo)
+	if err != nil {
+		t.Fatalf("GetDashboardMetrics: %v", err)
+	}
+	if want := mustDecimal(t, "300.00"); !metrics.Revenue.TotalPaid.Equal(want) {
+		t.Errorf("TotalPaid = %s, want %s (invoice on the last day counts, the next day's does not)", metrics.Revenue.TotalPaid, want)
+	}
+	if metrics.Pipeline.QuotesPending != 1 {
+		t.Errorf("QuotesPending = %d, want 1 (quote created on the last day counts, the next day's does not)", metrics.Pipeline.QuotesPending)
+	}
+}

@@ -12500,8 +12500,24 @@ paths:
   /api/v1/finance/dashboard:
     get:
       summary: Get finance dashboard data
+      description: >
+        Revenue, pipeline and the monthly series are computed for the given range (date_to inclusive,
+        never later than today). Stichtag figures (invoice status breakdown, recent invoices, expiring
+        quotes, pending dunnings) ignore it. Without parameters the range is 1 January of the current
+        year until today.
       tags: [finance-dashboard]
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: First day of the range (YYYY-MM-DD).
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          required: false
+          description: Last day of the range, inclusive (YYYY-MM-DD).
+          schema: { type: string, format: date }
       responses:
         "200":
           description: Dashboard metrics
@@ -12509,6 +12525,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceDashboard"
+        "400":
+          description: date_from or date_to is not a valid date, or date_from is after date_to
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
