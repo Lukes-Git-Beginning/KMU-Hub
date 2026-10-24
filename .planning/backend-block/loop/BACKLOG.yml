@@ -2457,7 +2457,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 75,9 %"
     scope: >
       Der Desktop und das Gateway benennen die Query-Parameter der Ressourcen-Routen verschieden.

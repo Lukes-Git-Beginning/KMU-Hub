@@ -8124,6 +8124,24 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: resource_type
+          in: query
+          description: Alias of `type` (sent by the desktop client); `type` wins when both are set
+          schema:
+            type: string
+            enum: [room, equipment, vehicle]
+        - name: tag
+          in: query
+          description: Alias of `tags` (sent by the desktop client); `tags` wins when both are set
+          schema:
+            type: string
+        - name: is_active
+          in: query
+          description: >
+            Desktop alias; `false` includes inactive resources like `include_inactive=true`
+            (the RPC cannot return inactive resources only), `true` keeps the default
+          schema:
+            type: boolean
       responses:
         "200":
           description: List of resources
@@ -8240,18 +8258,22 @@ paths:
         - $ref: "#/components/parameters/ResourceId"
         - name: start
           in: query
-          required: true
-          description: Range start (ISO 8601 / RFC 3339)
+          description: Range start (ISO 8601 / RFC 3339); required together with `end` unless `date` is given
           schema:
             type: string
             format: date-time
         - name: end
           in: query
-          required: true
-          description: Range end (ISO 8601 / RFC 3339)
+          description: Range end (ISO 8601 / RFC 3339); required together with `start` unless `date` is given
           schema:
             type: string
             format: date-time
+        - name: date
+          in: query
+          description: Single day (YYYY-MM-DD, UTC) as shorthand for start=date, end=date+1 day; ignored when `start`/`end` are present
+          schema:
+            type: string
+            format: date
       responses:
         "200":
           description: Availability information with existing bookings

@@ -3,10 +3,13 @@ package gateway
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -1051,6 +1054,16 @@ func (cr *CalendarRoutes) HandleDeleteEventCategory(wr http.ResponseWriter, r *h
 // Resource Handlers
 // ============================================================================
 
+// firstQueryValue returns the first non-empty value among the given query keys.
+func firstQueryValue(q url.Values, keys ...string) string {
+	for _, k := range keys {
+		if v := q.Get(k); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func (cr *CalendarRoutes) HandleListResources(wr http.ResponseWriter, r *http.Request) {
 	client, err := cr.getCalendarClient()
 	if err != nil {
@@ -1059,11 +1072,14 @@ func (cr *CalendarRoutes) HandleListResources(wr http.ResponseWriter, r *http.Re
 	}
 
 	q := r.URL.Query()
+	// The desktop hook (useResources.ts) sends resource_type, tag and is_active;
+	// they are accepted next to type, tags and include_inactive. The RPC can only
+	// widen the list to inactive rows, so is_active=false maps to include_inactive.
 	grpcReq := &calv1.ListResourcesRequest{
-		IncludeInactive: q.Get("include_inactive") == "true",
+		IncludeInactive: q.Get("include_inactive") == "true" || q.Get("is_active") == "false",
 	}
 
-	if resType := q.Get("type"); resType != "" {
+	if resType := firstQueryValue(q, "type", "resource_type"); resType != "" {
 		grpcReq.ResourceType = &resType
 	}
 	if minCapStr := q.Get("min_capacity"); minCapStr != "" {
@@ -1075,7 +1091,7 @@ func (cr *CalendarRoutes) HandleListResources(wr http.ResponseWriter, r *http.Re
 		mc := int32(minCap)
 		grpcReq.MinCapacity = &mc
 	}
-	if tagsStr := q.Get("tags"); tagsStr != "" {
+	if tagsStr := firstQueryValue(q, "tags", "tag"); tagsStr != "" {
 		grpcReq.Tags = strings.Split(tagsStr, ",")
 	}
 	if floor := q.Get("floor"); floor != "" {
@@ -1227,20 +1243,31 @@ func (cr *CalendarRoutes) HandleListResourceAvailability(wr http.ResponseWriter,
 	startStr := q.Get("start")
 	endStr := q.Get("end")
 
-	if startStr == "" || endStr == "" {
-		response.Error(wr, http.StatusBadRequest, "start and end query parameters are required")
-		return
-	}
-
-	start, err := parseTimestamp(startStr)
-	if err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid start time format")
-		return
-	}
-	end, err := parseTimestamp(endStr)
-	if err != nil {
-		response.Error(wr, http.StatusBadRequest, "invalid end time format")
-		return
+	var start, end *timestamppb.Timestamp
+	if dateStr := q.Get("date"); dateStr != "" && startStr == "" && endStr == "" {
+		// The desktop hook (useResourceAvailability) asks for one day: date=YYYY-MM-DD.
+		day, parseErr := time.Parse("2006-01-02", dateStr)
+		if parseErr != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid date format, expected YYYY-MM-DD")
+			return
+		}
+		start = timestamppb.New(day)
+		end = timestamppb.New(day.AddDate(0, 0, 1))
+	} else {
+		if startStr == "" || endStr == "" {
+			response.Error(wr, http.StatusBadRequest, "start and end query parameters are required")
+			return
+		}
+		start, err = parseTimestamp(startStr)
+		if err != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid start time format")
+			return
+		}
+		end, err = parseTimestamp(endStr)
+		if err != nil {
+			response.Error(wr, http.StatusBadRequest, "invalid end time format")
+			return
+		}
 	}
 
 	resp, err := client.ListResourceAvailability(r.Context(), &calv1.ListResourceAvailabilityRequest{

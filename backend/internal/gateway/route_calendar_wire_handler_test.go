@@ -30,6 +30,18 @@ type calendarStub struct {
 	gotCreate    *calv1.CreateEventRequest
 	gotUpdate    *calv1.UpdateEventRequest
 	gotHolidays  *calv1.ListHolidaysRequest
+	gotResources *calv1.ListResourcesRequest
+	gotAvail     *calv1.ListResourceAvailabilityRequest
+}
+
+func (s *calendarStub) ListResources(_ context.Context, r *calv1.ListResourcesRequest) (*calv1.ListResourcesResponse, error) {
+	s.gotResources = r
+	return &calv1.ListResourcesResponse{}, nil
+}
+
+func (s *calendarStub) ListResourceAvailability(_ context.Context, r *calv1.ListResourceAvailabilityRequest) (*calv1.ListResourceAvailabilityResponse, error) {
+	s.gotAvail = r
+	return &calv1.ListResourceAvailabilityResponse{}, nil
 }
 
 func (s *calendarStub) ListEventsInRange(_ context.Context, r *calv1.ListEventsInRangeRequest) (*calv1.ListEventsInRangeResponse, error) {
