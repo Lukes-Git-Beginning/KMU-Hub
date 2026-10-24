@@ -58,9 +58,13 @@ func (m *mockRepository) CreateItem(ctx context.Context, item *Item) error {
 	return nil
 }
 
+// UpdateItem mirrors the SQL: master data is replaced, the stored quantity stays.
 func (m *mockRepository) UpdateItem(ctx context.Context, item *Item) error {
 	if m.updateItemErr != nil {
 		return m.updateItemErr
+	}
+	if stored, ok := m.items[item.ID]; ok {
+		item.Quantity = stored.Quantity
 	}
 	m.items[item.ID] = item
 	return nil
@@ -347,12 +351,8 @@ func (m *mockRepository) CompleteInventurSessionTx(_ context.Context, tenantID, 
 // every movement against a scratch copy of the affected quantities first and
 // only mutates items/movements once all of them check out, giving the mock
 // the same all-or-nothing guarantee the real transaction provides.
-func (m *mockRepository) ApplyStockMovementTx(_ context.Context, tenantID uuid.UUID, movement StockMovementInput) (*Item, error) {
-	items, err := m.applyMovements(tenantID, []StockMovementInput{movement})
-	if err != nil {
-		return nil, err
-	}
-	return items[0], nil
+func (m *mockRepository) ApplyStockMovementsTx(_ context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	return m.applyMovements(tenantID, movements)
 }
 
 func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {

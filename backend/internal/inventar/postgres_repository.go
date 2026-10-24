@@ -40,15 +40,19 @@ func (r *PostgresRepository) CreateItem(ctx context.Context, item *Item) error {
 	return err
 }
 
+// UpdateItem writes the item's master data. It never writes quantity: the
+// caller read the row without a lock, so writing its quantity back would undo
+// a stock movement committed in between. Stock changes only through
+// ApplyStockMovementsTx and the other applyMovementsInTx paths.
 func (r *PostgresRepository) UpdateItem(ctx context.Context, item *Item) error {
 	ct, err := r.pool.Exec(ctx,
 		`UPDATE inventory_items
-		 SET name=$1, sku=$2, barcode=$3, quantity=$4, min_quantity=$5,
-		     unit=$6, location=$7, location_id=$8,
-		     category=$9, price=$10, currency=$11, batch_number=$12, serial_numbers=$13,
-		     linked_purchase_order=$14, updated_at=$15
-		 WHERE id=$16 AND tenant_id=$17 AND deleted_at IS NULL`,
-		item.Name, item.SKU, item.Barcode, item.Quantity, item.MinQuantity,
+		 SET name=$1, sku=$2, barcode=$3, min_quantity=$4,
+		     unit=$5, location=$6, location_id=$7,
+		     category=$8, price=$9, currency=$10, batch_number=$11, serial_numbers=$12,
+		     linked_purchase_order=$13, updated_at=$14
+		 WHERE id=$15 AND tenant_id=$16 AND deleted_at IS NULL`,
+		item.Name, item.SKU, item.Barcode, item.MinQuantity,
 		item.Unit, item.Location, item.LocationID,
 		item.Category, item.Price, item.Currency, item.BatchNumber, item.SerialNumbers,
 		item.LinkedPurchaseOrder, item.UpdatedAt, item.ID, item.TenantID,
@@ -619,23 +623,23 @@ func (r *PostgresRepository) CompleteInventurSessionTx(ctx context.Context, tena
 	return items, nil
 }
 
-// ApplyStockMovementTx applies a single stock movement atomically; see
+// ApplyStockMovementsTx applies the movements atomically, all or none; see
 // applyMovementsInTx for the locking and insufficient-stock semantics.
-func (r *PostgresRepository) ApplyStockMovementTx(ctx context.Context, tenantID uuid.UUID, movement StockMovementInput) (*Item, error) {
+func (r *PostgresRepository) ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return nil, fmt.Errorf("begin stock movement tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
 
-	items, err := r.applyMovementsInTx(ctx, tx, tenantID, []StockMovementInput{movement})
+	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
 	if err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit stock movement tx: %w", err)
 	}
-	return items[0], nil
+	return items, nil
 }
 
 // applyMovementsInTx applies each movement under the given transaction: the
@@ -643,7 +647,27 @@ func (r *PostgresRepository) ApplyStockMovementTx(ctx context.Context, tenantID 
 // the locked quantity, the new quantity is written, and the movement is
 // inserted. Shared by BookPickingListTx and CompleteInventurSessionTx so both
 // get the same all-or-nothing guarantee from a single implementation.
+//
+// With more than one item the rows are locked up front in id order, so two
+// transactions touching the same items in opposite order (a transfer A->B
+// against B->A, two picking lists) queue instead of deadlocking.
 func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+	if len(movements) > 1 {
+		ids := make([]uuid.UUID, 0, len(movements))
+		for _, mv := range movements {
+			ids = append(ids, mv.ItemID)
+		}
+		if _, err := tx.Exec(ctx,
+			`SELECT id FROM inventory_items
+			 WHERE id = ANY($1) AND tenant_id = $2 AND deleted_at IS NULL
+			 ORDER BY id
+			 FOR UPDATE`,
+			ids, tenantID,
+		); err != nil {
+			return nil, fmt.Errorf("lock items for stock movements: %w", err)
+		}
+	}
+
 	items := make([]*Item, 0, len(movements))
 	for _, mv := range movements {
 		var it Item

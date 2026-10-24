@@ -35,10 +35,11 @@ type Repository interface {
 	ListItems(ctx context.Context, tenantID uuid.UUID, filter ListItemsFilter, offset, limit int) ([]*Item, int, error)
 	SKUExists(ctx context.Context, tenantID uuid.UUID, sku string, excludeID *uuid.UUID) (bool, error)
 
-	// ApplyStockMovementTx changes one item's quantity and records the
-	// movement in a single transaction (row locked, insufficient stock
-	// rejected), so the history and the stock can never disagree.
-	ApplyStockMovementTx(ctx context.Context, tenantID uuid.UUID, movement StockMovementInput) (*Item, error)
+	// ApplyStockMovementsTx changes the items' quantities and records the
+	// movements in a single transaction (rows locked, insufficient stock
+	// rejected, all or none), so the history and the stock can never
+	// disagree. Returns one item per movement, in input order.
+	ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error)
 
 	// Movements
 	CreateMovement(ctx context.Context, movement *Movement) error

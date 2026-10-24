@@ -98,18 +98,27 @@ func (r *stubInventarRepo) CreateMovement(_ context.Context, movement *inventar.
 	return nil
 }
 
-func (r *stubInventarRepo) ApplyStockMovementTx(_ context.Context, tenantID uuid.UUID, mv inventar.StockMovementInput) (*inventar.Item, error) {
+func (r *stubInventarRepo) ApplyStockMovementsTx(_ context.Context, tenantID uuid.UUID, movements []inventar.StockMovementInput) ([]*inventar.Item, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
-	if r.itemQuantity+mv.Delta < 0 {
-		return nil, inventar.ErrInsufficientStock
+	// One stored quantity stands in for every item; persisted like the real
+	// transaction, so a GetItem afterwards reads the new stock.
+	for _, mv := range movements {
+		if r.itemQuantity+mv.Delta < 0 {
+			return nil, inventar.ErrInsufficientStock
+		}
 	}
-	r.applied = &inventar.Movement{
-		ID: mv.ID, TenantID: tenantID, ItemID: mv.ItemID,
-		MovementType: mv.MovementType, Quantity: mv.Delta, Reason: mv.Reason,
+	items := make([]*inventar.Item, 0, len(movements))
+	for _, mv := range movements {
+		r.itemQuantity += mv.Delta
+		r.applied = &inventar.Movement{
+			ID: mv.ID, TenantID: tenantID, ItemID: mv.ItemID,
+			MovementType: mv.MovementType, Quantity: mv.Delta, Reason: mv.Reason,
+		}
+		items = append(items, &inventar.Item{ID: mv.ItemID, TenantID: tenantID, Quantity: r.itemQuantity, MinQuantity: 0})
 	}
-	return &inventar.Item{ID: mv.ItemID, TenantID: tenantID, Quantity: r.itemQuantity + mv.Delta, MinQuantity: 0}, nil
+	return items, nil
 }
 
 func (r *stubInventarRepo) GetMovement(_ context.Context, tenantID, movementID uuid.UUID) (*inventar.Movement, error) {
