@@ -1,0 +1,794 @@
+# scan-role-matrix-remaining, Iteration 56, 2026-10-25. Probe: jede per chi.Walk registrierte /api/v1-Route mit den Grants aus role_permissions (lokale DB, Migration 340)
+# als member/manager/admin gegen den echten Router; "ja" = Guard passiert (503 = Handler ohne Backend erreicht), "nein" = 403 vom Guard.
+# key = einzelner Key, der dem member-Set hinzugefuegt die Route oeffnet (NOKEY = Rollen-Guard). Nur Routen, deren Pfad im Desktop-Quellcode vorkommt (ohne mocks/tests).
+method	route	member	manager	admin	key	klasse	desktop
+GET	/api/v1/activities	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;QuickActions.tsx;types.ts;useActivities.ts;useTaskActivities.ts
+POST	/api/v1/activities	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;QuickActions.tsx;types.ts;useActivities.ts;useTaskActivities.ts
+DELETE	/api/v1/activities/{id}	nein	nein	ja	activities:delete,crm:contact:delete	B (decide-member-manager-module-defaults)	ActivityFeed.tsx;AuswertungenPage.tsx;CRMLayout.tsx;CompanyDetailPage.tsx;ContactDetailPage.tsx;DealDetailPage.tsx;KontakteLayout.tsx
+GET	/api/v1/activities/{id}	ja	ja	ja		ok	ActivityFeed.tsx;AuswertungenPage.tsx;CRMLayout.tsx;CompanyDetailPage.tsx;ContactDetailPage.tsx;DealDetailPage.tsx;KontakteLayout.tsx
+PUT	/api/v1/activities/{id}	ja	ja	ja		ok	ActivityFeed.tsx;AuswertungenPage.tsx;CRMLayout.tsx;CompanyDetailPage.tsx;ContactDetailPage.tsx;DealDetailPage.tsx;KontakteLayout.tsx
+GET	/api/v1/admin/branding	ja	ja	ja		ok	AdminHubPage.tsx;module-settings-registry.tsx;types.ts
+PUT	/api/v1/admin/branding	ja	ja	ja		ok	AdminHubPage.tsx;module-settings-registry.tsx;types.ts
+GET	/api/v1/admin/caldav/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	caldav-client.ts;types.ts
+PUT	/api/v1/admin/caldav/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	caldav-client.ts;types.ts
+GET	/api/v1/admin/caldav/users	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	caldav-client.ts;types.ts
+DELETE	/api/v1/admin/caldav/users/{userId}/passwords	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	caldav-client.ts
+GET	/api/v1/admin/license	nein	ja	ja	license:read	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;types.ts;useTenantModules.ts
+PATCH	/api/v1/admin/license	nein	nein	ja	license:write	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;types.ts;useTenantModules.ts
+GET	/api/v1/admin/roles	nein	nein	ja	admin:role:read,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;RoleEditorPage.tsx;nav-items.ts;rbac-client.ts;types.ts
+POST	/api/v1/admin/roles	nein	nein	ja	admin:role:create,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;RoleEditorPage.tsx;nav-items.ts;rbac-client.ts;types.ts
+DELETE	/api/v1/admin/roles/{id}	nein	nein	ja	admin:role:delete,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	App.tsx;RoleEditorPage.tsx;RolesBuilderTab.tsx;rbac-client.ts
+PATCH	/api/v1/admin/roles/{id}	nein	nein	ja	admin:role:edit,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	App.tsx;RoleEditorPage.tsx;RolesBuilderTab.tsx;rbac-client.ts
+GET	/api/v1/admin/roles/{id}/permissions	nein	nein	ja	admin:role:read,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	rbac-client.ts
+PUT	/api/v1/admin/roles/{id}/permissions	nein	nein	ja	admin:role:edit,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	rbac-client.ts
+GET	/api/v1/admin/subscription	nein	ja	ja	license:read	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/admin/users	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;UserOverrideEditorPage.tsx;types.ts;useAdminUsers.ts
+POST	/api/v1/admin/users/invite	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts;useAdminUsers.ts
+PATCH	/api/v1/admin/users/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	App.tsx;types.ts;useAdminUsers.ts
+DELETE	/api/v1/admin/users/{id}/overrides	nein	nein	ja	admin:user_override:manage	admin (Konfiguration/Verwaltung, bewusst)	UserDetailModal.tsx;rbac-client.ts
+GET	/api/v1/admin/users/{id}/overrides	nein	nein	ja	admin:user_override:manage	admin (Konfiguration/Verwaltung, bewusst)	UserDetailModal.tsx;rbac-client.ts
+PUT	/api/v1/admin/users/{id}/overrides	nein	nein	ja	admin:user_override:manage	admin (Konfiguration/Verwaltung, bewusst)	UserDetailModal.tsx;rbac-client.ts
+GET	/api/v1/admin/users/{id}/permissions	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	rbac-client.ts
+POST	/api/v1/admin/users/{id}/resend-invite	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	useAdminUsers.ts
+POST	/api/v1/auth/2fa/admin-reset	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/auth/2fa/disable	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/auth/2fa/policy	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+PUT	/api/v1/auth/2fa/policy	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/auth/2fa/regenerate-codes	ja	ja	ja		ok	security-client.ts;types.ts
+POST	/api/v1/auth/2fa/setup	ja	ja	ja		ok	security-client.ts;types.ts
+POST	/api/v1/auth/2fa/validate	ja	ja	ja		ok	security-client.ts;types.ts
+POST	/api/v1/auth/2fa/verify	ja	ja	ja		ok	security-client.ts;types.ts
+POST	/api/v1/auth/change-password	ja	ja	ja		ok	types.ts
+POST	/api/v1/auth/forgot-password	ja	ja	ja		ok	auth-reset-client.ts;types.ts
+POST	/api/v1/auth/login	ja	ja	ja		ok	auth.ts;client.ts;handlers.ts;types.ts
+POST	/api/v1/auth/logout	ja	ja	ja		ok	auth.ts;handlers.ts;types.ts
+GET	/api/v1/auth/me	ja	ja	ja		ok	auth.ts;handlers.ts;types.ts
+GET	/api/v1/auth/me/permissions	ja	ja	ja		ok	permissions.ts;rbac-client.ts;types.ts
+PATCH	/api/v1/auth/profile	ja	ja	ja		ok	ProfilTab.tsx;types.ts
+POST	/api/v1/auth/refresh	ja	ja	ja		ok	auth.ts;client.ts;types.ts
+POST	/api/v1/auth/register	ja	ja	ja		ok	auth.ts;client.ts;types.ts
+POST	/api/v1/auth/reset-password	ja	ja	ja		ok	auth-reset-client.ts;types.ts
+DELETE	/api/v1/auth/sessions	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/auth/sessions	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/auth/sessions/all	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+DELETE	/api/v1/auth/sessions/{id}	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/automations	nein	ja	ja	automations:read,automatisierung:automations:read	B (decide-member-manager-module-defaults)	automation-client.ts;types.ts
+POST	/api/v1/automations	nein	ja	ja	automations:write,automatisierung:automations:create	B (decide-member-manager-module-defaults)	automation-client.ts;types.ts
+GET	/api/v1/automations/actions	nein	ja	ja	automations:read,automatisierung:automations:read	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/automations/dry-run	nein	ja	ja	automations:write,automatisierung:automations:create,automatisierung:automations:edit	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/automations/stats	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/automations/templates	nein	ja	ja	automations:write,automatisierung:automations:create	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/automations/test-condition	nein	ja	ja	automations:write,automatisierung:automations:create,automatisierung:automations:edit	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/automations/triggers	nein	ja	ja	automations:read,automatisierung:automations:read	B (decide-member-manager-module-defaults)	types.ts
+DELETE	/api/v1/automations/{id}	nein	ja	ja	automations:write,automatisierung:automations:delete	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/automations/{id}	nein	ja	ja	automations:read,automatisierung:automations:read	B (decide-member-manager-module-defaults)	types.ts
+PUT	/api/v1/automations/{id}	nein	ja	ja	automations:write,automatisierung:automations:edit	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/berichte/definitions	ja	ja	ja		ok	types.ts
+POST	/api/v1/berichte/definitions	ja	ja	ja		ok	types.ts
+GET	/api/v1/berichte/documents	ja	ja	ja		ok	types.ts
+POST	/api/v1/berichte/documents	ja	ja	ja		ok	types.ts
+GET	/api/v1/berichte/kpis	ja	ja	ja		ok	types.ts
+GET	/api/v1/berichte/schedules	ja	ja	ja		ok	types.ts
+POST	/api/v1/berichte/schedules	nein	ja	ja	berichte:reports:write,berichte:schedule:manage	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/berichte/templates	ja	ja	ja		ok	types.ts
+PUT	/api/v1/caldav/disable	ja	ja	ja		ok	caldav-client.ts;types.ts
+PUT	/api/v1/caldav/enable	ja	ja	ja		ok	caldav-client.ts;types.ts
+GET	/api/v1/caldav/passwords	ja	ja	ja		ok	caldav-client.ts;types.ts
+POST	/api/v1/caldav/passwords	ja	ja	ja		ok	caldav-client.ts;types.ts
+DELETE	/api/v1/caldav/passwords/{id}	ja	ja	ja		ok	caldav-client.ts
+GET	/api/v1/caldav/status	ja	ja	ja		ok	caldav-client.ts;types.ts
+POST	/api/v1/caldav/test	ja	ja	ja		ok	caldav-client.ts;types.ts
+GET	/api/v1/calendar/booking-pages	ja	ja	ja		ok	booking-client.ts;types.ts
+POST	/api/v1/calendar/booking-pages	nein	ja	ja	booking-pages:write,kalender:booking_page:manage	B (decide-member-manager-module-defaults)	booking-client.ts;types.ts
+DELETE	/api/v1/calendar/booking-pages/{id}	nein	ja	ja	booking-pages:delete,kalender:booking_page:manage	B (decide-member-manager-module-defaults)	booking-client.ts
+GET	/api/v1/calendar/booking-pages/{id}	ja	ja	ja		ok	booking-client.ts
+PUT	/api/v1/calendar/booking-pages/{id}	nein	ja	ja	booking-pages:write,kalender:booking_page:manage	B (decide-member-manager-module-defaults)	booking-client.ts
+POST	/api/v1/calendar/bookings	ja	ja	ja		ok	types.ts
+GET	/api/v1/calendar/browse	ja	ja	ja		ok	types.ts;useCalendars.ts
+GET	/api/v1/calendar/calendars	ja	ja	ja		ok	types.ts;useCalendars.ts
+POST	/api/v1/calendar/calendars	ja	ja	ja		ok	types.ts;useCalendars.ts
+DELETE	/api/v1/calendar/calendars/{id}	ja	ja	ja		ok	useCalendars.ts
+GET	/api/v1/calendar/calendars/{id}	ja	ja	ja		ok	useCalendars.ts
+PUT	/api/v1/calendar/calendars/{id}	ja	ja	ja		ok	useCalendars.ts
+GET	/api/v1/calendar/calendars/{id}/members	ja	ja	ja		ok	useCalendars.ts
+POST	/api/v1/calendar/calendars/{id}/members	ja	ja	ja		ok	useCalendars.ts
+DELETE	/api/v1/calendar/calendars/{id}/members/{userId}	ja	ja	ja		ok	useCalendars.ts
+DELETE	/api/v1/calendar/calendars/{id}/subscribe	ja	ja	ja		ok	useCalendars.ts
+POST	/api/v1/calendar/calendars/{id}/subscribe	ja	ja	ja		ok	useCalendars.ts
+GET	/api/v1/calendar/categories	ja	ja	ja		ok	types.ts;useCalendars.ts
+POST	/api/v1/calendar/categories	ja	ja	ja		ok	types.ts;useCalendars.ts
+DELETE	/api/v1/calendar/categories/{id}	ja	ja	ja		ok	useCalendars.ts
+GET	/api/v1/calendar/events	ja	ja	ja		ok	types.ts;useEvents.ts
+POST	/api/v1/calendar/events	ja	ja	ja		ok	types.ts;useEvents.ts
+DELETE	/api/v1/calendar/events/{id}	ja	ja	ja		ok	useEvents.ts
+GET	/api/v1/calendar/events/{id}	ja	ja	ja		ok	useEvents.ts
+PUT	/api/v1/calendar/events/{id}	ja	ja	ja		ok	useEvents.ts
+GET	/api/v1/calendar/events/{id}/attendees	ja	ja	ja		ok	useEvents.ts
+PUT	/api/v1/calendar/events/{id}/recurring	ja	ja	ja		ok	useEvents.ts
+GET	/api/v1/calendar/events/{id}/reminders	ja	ja	ja		ok	useEvents.ts
+PUT	/api/v1/calendar/events/{id}/reminders	ja	ja	ja		ok	useEvents.ts
+POST	/api/v1/calendar/events/{id}/rsvp	ja	ja	ja		ok	useEvents.ts
+GET	/api/v1/calendar/holidays	ja	ja	ja		ok	types.ts;useHolidays.ts
+POST	/api/v1/calendar/holidays/seed	nein	nein	ja	settings:tenant:manage	admin (Konfiguration/Verwaltung, bewusst)	types.ts;useHolidays.ts
+GET	/api/v1/calendar/preferences	ja	ja	ja		ok	types.ts;useCalendars.ts
+PUT	/api/v1/calendar/preferences	ja	ja	ja		ok	types.ts;useCalendars.ts
+GET	/api/v1/calendar/resources	ja	ja	ja		ok	types.ts;useResources.ts
+POST	/api/v1/calendar/resources	ja	ja	ja		ok	types.ts;useResources.ts
+POST	/api/v1/calendar/resources/bookings	ja	ja	ja		ok	useResources.ts
+DELETE	/api/v1/calendar/resources/bookings/{id}	ja	ja	ja		ok	useResources.ts
+DELETE	/api/v1/calendar/resources/{id}	nein	nein	ja	resources:delete	admin (Konfiguration/Verwaltung, bewusst)	useResources.ts
+GET	/api/v1/calendar/resources/{id}	ja	ja	ja		ok	useResources.ts
+PUT	/api/v1/calendar/resources/{id}	ja	ja	ja		ok	useResources.ts
+GET	/api/v1/calendar/resources/{id}/availability	ja	ja	ja		ok	useResources.ts
+GET	/api/v1/calendar/task-deadlines	ja	ja	ja		ok	types.ts;useEvents.ts
+GET	/api/v1/channels	ja	ja	ja		ok	handlers.ts;types.ts;useChannels.ts
+POST	/api/v1/channels	ja	ja	ja		ok	handlers.ts;types.ts;useChannels.ts
+GET	/api/v1/channels/dm	ja	ja	ja		ok	handlers.ts;types.ts;useChannels.ts
+POST	/api/v1/channels/dm	ja	ja	ja		ok	handlers.ts;types.ts;useChannels.ts
+GET	/api/v1/channels/unread	ja	ja	ja		ok	handlers.ts;types.ts;useChannels.ts
+DELETE	/api/v1/channels/{id}	ja	ja	ja		ok	ChatLayout.tsx;handlers.ts;types.ts;useChannels.ts;useUnreadInbox.ts
+GET	/api/v1/channels/{id}	ja	ja	ja		ok	ChatLayout.tsx;handlers.ts;types.ts;useChannels.ts;useUnreadInbox.ts
+PUT	/api/v1/channels/{id}	ja	ja	ja		ok	ChatLayout.tsx;handlers.ts;types.ts;useChannels.ts;useUnreadInbox.ts
+GET	/api/v1/channels/{id}/messages	ja	ja	ja		ok	handlers.ts
+POST	/api/v1/channels/{id}/messages	ja	ja	ja		ok	handlers.ts
+GET	/api/v1/chat/search	ja	ja	ja		ok	types.ts;useChatSearch.ts
+GET	/api/v1/companies	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;handlers.ts;types.ts;useCompanies.ts
+POST	/api/v1/companies	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;handlers.ts;types.ts;useCompanies.ts
+POST	/api/v1/companies/merge	nein	ja	ja	companies:write	B (decide-member-manager-module-defaults)	types.ts
+DELETE	/api/v1/companies/{id}	nein	nein	ja	companies:delete,crm:contact:delete	B (decide-member-manager-module-defaults)	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;ContactDetailPage.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useCompanies.ts
+GET	/api/v1/companies/{id}	ja	ja	ja		ok	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;ContactDetailPage.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useCompanies.ts
+PUT	/api/v1/companies/{id}	ja	ja	ja		ok	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;ContactDetailPage.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useCompanies.ts
+GET	/api/v1/contacts	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;ContactDetailPage.tsx;ContactDetailPanel.tsx;ContactFormDialog.tsx;CustomFieldPreview.tsx;CustomFieldRow.tsx;CustomFieldsManager.tsx;DuplicateDetectionDialog.tsx;Duplic
+POST	/api/v1/contacts	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;ContactDetailPage.tsx;ContactDetailPanel.tsx;ContactFormDialog.tsx;CustomFieldPreview.tsx;CustomFieldRow.tsx;CustomFieldsManager.tsx;DuplicateDetectionDialog.tsx;Duplic
+POST	/api/v1/contacts/export/csv	ja	ja	ja		ok	crm-import-client.ts;email-client.ts;types.ts
+POST	/api/v1/contacts/export/vcard	ja	ja	ja		ok	crm-import-client.ts;email-client.ts;types.ts
+POST	/api/v1/contacts/import/csv	nein	ja	ja	contacts:write,crm:import:run	B (decide-member-manager-module-defaults)	crm-import-client.ts;email-client.ts;types.ts
+POST	/api/v1/contacts/import/preview	nein	ja	ja	contacts:write,crm:import:run	B (decide-member-manager-module-defaults)	crm-import-client.ts;types.ts
+POST	/api/v1/contacts/import/vcard	nein	ja	ja	contacts:write,crm:import:run	B (decide-member-manager-module-defaults)	crm-import-client.ts;email-client.ts;types.ts
+POST	/api/v1/contacts/import/xlsx	nein	ja	ja	contacts:write,crm:import:run	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/contacts/merge	nein	ja	ja	contacts:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/contacts/referral-report	ja	ja	ja		ok	types.ts
+DELETE	/api/v1/contacts/{id}	nein	nein	ja	contacts:delete,crm:contact:delete	B (decide-member-manager-module-defaults)	ActivityFeed.tsx;CRMLayout.tsx;ContactDetailPanel.tsx;ContactsListPage.tsx;RecentContacts.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useContacts.ts
+GET	/api/v1/contacts/{id}	ja	ja	ja		ok	ActivityFeed.tsx;CRMLayout.tsx;ContactDetailPanel.tsx;ContactsListPage.tsx;RecentContacts.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useContacts.ts
+PUT	/api/v1/contacts/{id}	ja	ja	ja		ok	ActivityFeed.tsx;CRMLayout.tsx;ContactDetailPanel.tsx;ContactsListPage.tsx;RecentContacts.tsx;TaskLinkField.tsx;handlers.ts;types.ts;useContacts.ts
+GET	/api/v1/contacts/{id}/files	ja	ja	ja		ok	berichte-client.ts;useContacts.ts
+POST	/api/v1/contacts/{id}/files	ja	ja	ja		ok	berichte-client.ts;useContacts.ts
+GET	/api/v1/contacts/{id}/timeline	ja	ja	ja		ok	useTimeline.ts
+PUT	/api/v1/contacts/{id}/visibility	nein	ja	ja	contacts:write	B (decide-member-manager-module-defaults)	crm-import-client.ts
+GET	/api/v1/crm/contacts/{id}/timeline	ja	ja	ja		ok	useTimeline.ts
+GET	/api/v1/custom-fields	ja	ja	ja		ok	AnpassungenHubPage.tsx;CustomFieldsSection.tsx;CustomFieldsTab.tsx;DraftConfigProvider.tsx;EditorSurface.tsx;FelderPanel.tsx;FieldEditorModal.tsx;HelpdeskPage.tsx;SpaltenPanel.tsx;customization-sync.t
+POST	/api/v1/custom-fields	nein	ja	ja	custom_fields:write	admin (Konfiguration/Verwaltung, bewusst)	AnpassungenHubPage.tsx;CustomFieldsSection.tsx;CustomFieldsTab.tsx;DraftConfigProvider.tsx;EditorSurface.tsx;FelderPanel.tsx;FieldEditorModal.tsx;HelpdeskPage.tsx;SpaltenPanel.tsx;customization-sync.t
+GET	/api/v1/customization/fields	ja	ja	ja		ok	types.ts;useCustomFields.ts
+POST	/api/v1/customization/fields	nein	nein	ja	admin:customization:manage	admin (Konfiguration/Verwaltung, bewusst)	types.ts;useCustomFields.ts
+DELETE	/api/v1/customization/fields/{id}	nein	nein	ja	admin:customization:manage	admin (Konfiguration/Verwaltung, bewusst)	useCustomFields.ts
+GET	/api/v1/customization/fields/{id}	ja	ja	ja		ok	useCustomFields.ts
+PUT	/api/v1/customization/fields/{id}	nein	nein	ja	admin:customization:manage	admin (Konfiguration/Verwaltung, bewusst)	useCustomFields.ts
+GET	/api/v1/customization/labels	ja	ja	ja		ok	types.ts;useLabelOverlay.ts;useLabelOverrides.ts
+PUT	/api/v1/customization/labels	nein	nein	ja	admin:customization:manage	admin (Konfiguration/Verwaltung, bewusst)	types.ts;useLabelOverlay.ts;useLabelOverrides.ts
+GET	/api/v1/customization/value-sets	ja	ja	ja		ok	types.ts
+DELETE	/api/v1/dashboard/layout	ja	ja	ja		ok	dashboard.ts;types.ts;useDashboard.ts
+GET	/api/v1/dashboard/layout	ja	ja	ja		ok	dashboard.ts;types.ts;useDashboard.ts
+PUT	/api/v1/dashboard/layout	ja	ja	ja		ok	dashboard.ts;types.ts;useDashboard.ts
+GET	/api/v1/deals	ja	ja	ja		ok	CRMLayout.tsx;CRMSearchPage.tsx;DealPipeline.tsx;MailCrmPanel.tsx;QuickActions.tsx;handlers.ts;types.ts;useDeals.ts
+POST	/api/v1/deals	nein	ja	ja	crm:deal:create,deals:write	B (decide-member-manager-module-defaults)	CRMLayout.tsx;CRMSearchPage.tsx;DealPipeline.tsx;MailCrmPanel.tsx;QuickActions.tsx;handlers.ts;types.ts;useDeals.ts
+DELETE	/api/v1/deals/{id}	nein	ja	ja	crm:deal:delete,deals:delete	B (decide-member-manager-module-defaults)	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;useDeals.ts
+GET	/api/v1/deals/{id}	ja	ja	ja		ok	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;useDeals.ts
+PUT	/api/v1/deals/{id}	nein	ja	ja	crm:deal:edit,deals:write	B (decide-member-manager-module-defaults)	ActivityFeed.tsx;App.tsx;CRMLayout.tsx;KontakteLayout.tsx;TaskLinkField.tsx;handlers.ts;useDeals.ts
+GET	/api/v1/dialer/agent-status	ja	ja	ja		ok	types.ts
+PUT	/api/v1/dialer/agent-status	ja	ja	ja		ok	types.ts
+POST	/api/v1/dialer/calls	ja	ja	ja		ok	types.ts
+GET	/api/v1/dialer/campaigns	ja	ja	ja		ok	CampaignDetailPage.tsx;DialerLayout.tsx;DialerWorkspacePage.tsx;types.ts
+POST	/api/v1/dialer/campaigns	nein	ja	ja	dialer:campaigns:manage,dialer:campaigns:write	B (decide-member-manager-module-defaults)	CampaignDetailPage.tsx;DialerLayout.tsx;DialerWorkspacePage.tsx;types.ts
+DELETE	/api/v1/dialer/campaigns/{id}	nein	ja	ja	dialer:campaigns:manage,dialer:campaigns:write	B (decide-member-manager-module-defaults)	AgentDetailModal.tsx;CampaignCard.tsx
+GET	/api/v1/dialer/campaigns/{id}	ja	ja	ja		ok	AgentDetailModal.tsx;CampaignCard.tsx
+PUT	/api/v1/dialer/campaigns/{id}	nein	ja	ja	dialer:campaigns:manage,dialer:campaigns:write	B (decide-member-manager-module-defaults)	AgentDetailModal.tsx;CampaignCard.tsx
+GET	/api/v1/dialer/dashboard/agent	ja	ja	ja		ok	types.ts
+GET	/api/v1/dialer/outcomes	ja	ja	ja		ok	types.ts
+POST	/api/v1/dialer/outcomes	nein	ja	ja	dialer:outcomes:manage	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/dialer/supervisor	ja	ja	ja		ok	DialerLayout.tsx;types.ts
+GET	/api/v1/documents/files	ja	ja	ja		ok	document-client.ts;types.ts;useDocumentUpload.ts
+POST	/api/v1/documents/files	ja	ja	ja		ok	document-client.ts;types.ts;useDocumentUpload.ts
+POST	/api/v1/documents/files/upload	ja	ja	ja		ok	berichte-client.ts;types.ts
+DELETE	/api/v1/documents/files/{id}	nein	nein	ja	documents:delete,documents:file:delete	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	berichte-client.ts;document-client.ts;types.ts
+GET	/api/v1/documents/files/{id}	ja	ja	ja		ok	berichte-client.ts;document-client.ts;types.ts
+PUT	/api/v1/documents/files/{id}	ja	ja	ja		ok	berichte-client.ts;document-client.ts;types.ts
+GET	/api/v1/documents/files/{id}/activity	ja	ja	ja		ok	document-client.ts
+POST	/api/v1/documents/files/{id}/copy	ja	ja	ja		ok	document-client.ts
+GET	/api/v1/documents/files/{id}/download-url	ja	ja	ja		ok	document-client.ts
+DELETE	/api/v1/documents/files/{id}/links	ja	ja	ja		ok	document-client.ts
+GET	/api/v1/documents/files/{id}/links	ja	ja	ja		ok	document-client.ts
+POST	/api/v1/documents/files/{id}/links	ja	ja	ja		ok	document-client.ts
+POST	/api/v1/documents/files/{id}/move	ja	ja	ja		ok	document-client.ts
+GET	/api/v1/documents/files/{id}/versions	nein	nein	ja	documents:version:restore,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts
+POST	/api/v1/documents/files/{id}/versions	nein	nein	ja	documents:version:restore,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts
+POST	/api/v1/documents/files/{id}/versions/revert	nein	nein	ja	documents:version:restore,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts
+GET	/api/v1/documents/folders	ja	ja	ja		ok	document-client.ts;types.ts
+POST	/api/v1/documents/folders	ja	ja	ja		ok	document-client.ts;types.ts
+POST	/api/v1/documents/folders/initialize-team	nein	nein	ja	documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+POST	/api/v1/documents/folders/initialize-user	nein	nein	ja	documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+DELETE	/api/v1/documents/folders/{id}	nein	nein	ja	documents:delete,documents:file:delete	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+GET	/api/v1/documents/folders/{id}	ja	ja	ja		ok	document-client.ts;types.ts
+PUT	/api/v1/documents/folders/{id}	ja	ja	ja		ok	document-client.ts;types.ts
+GET	/api/v1/documents/folders/{id}/path	ja	ja	ja		ok	document-client.ts
+DELETE	/api/v1/documents/links/{id}	ja	ja	ja		ok	document-client.ts
+GET	/api/v1/documents/search	ja	ja	ja		ok	document-client.ts;types.ts
+DELETE	/api/v1/documents/shares	nein	ja	ja	documents:share:manage,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+POST	/api/v1/documents/shares	nein	ja	ja	documents:share:manage,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+GET	/api/v1/documents/shares/entity	ja	ja	ja		ok	document-client.ts;types.ts
+GET	/api/v1/documents/shares/shared-with-me	ja	ja	ja		ok	document-client.ts;types.ts
+DELETE	/api/v1/documents/shares/{id}	nein	ja	ja	documents:share:manage,documents:write	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+GET	/api/v1/documents/tags	ja	ja	ja		ok	document-client.ts;types.ts
+POST	/api/v1/documents/tags	ja	ja	ja		ok	document-client.ts;types.ts
+DELETE	/api/v1/documents/tags/file	ja	ja	ja		ok	document-client.ts;types.ts
+POST	/api/v1/documents/tags/file	ja	ja	ja		ok	document-client.ts;types.ts
+DELETE	/api/v1/documents/tags/{id}	nein	nein	ja	documents:delete	B (decide-member-manager-module-defaults; Modell: decide-document-access-baseline)	document-client.ts;types.ts
+GET	/api/v1/documents/virtual	ja	ja	ja		ok	document-client.ts;types.ts
+GET	/api/v1/documents/wopi/discovery	ja	ja	ja		ok	types.ts
+POST	/api/v1/documents/wopi/token	ja	ja	ja		ok	document-client.ts;types.ts
+GET	/api/v1/einkauf/catalog	ja	ja	ja		ok	types.ts
+POST	/api/v1/einkauf/catalog	nein	ja	ja	einkauf:catalog:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/einkauf/contracts	ja	ja	ja		ok	types.ts
+POST	/api/v1/einkauf/contracts	nein	ja	ja	einkauf:contract:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/einkauf/pos	ja	ja	ja		ok	types.ts
+POST	/api/v1/einkauf/pos	ja	ja	ja		ok	types.ts
+GET	/api/v1/einkauf/suppliers	ja	ja	ja		ok	types.ts
+POST	/api/v1/einkauf/suppliers	nein	ja	ja	einkauf:supplier:create,einkauf:supplier:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/email/accounts	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/accounts	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	types.ts
+GET	/api/v1/email/accounts/list	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/accounts/test	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+DELETE	/api/v1/email/accounts/{id}	nein	nein	ja	email:delete	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+PUT	/api/v1/email/accounts/{id}	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/attachments/upload	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/attachments/{id}/download	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/contacts/export/csv	nein	nein	ja	email:read	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/contacts/export/vcard	nein	nein	ja	email:read	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/contacts/import/csv	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/contacts/import/vcard	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+GET	/api/v1/email/folders	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/folders/sync	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/folders/{id}	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/labels	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/labels	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+DELETE	/api/v1/email/labels/{id}	nein	nein	ja	email:delete	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts
+PATCH	/api/v1/email/labels/{id}	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts
+DELETE	/api/v1/email/links	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/links	ja	ja	ja		ok	types.ts
+GET	/api/v1/email/links/contact/{contactId}	nein	nein	ja	email:read	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts
+GET	/api/v1/email/links/message/{messageId}	ja	ja	ja		ok	email-client.ts
+GET	/api/v1/email/messages	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/messages/bulk	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/messages/thread/{threadId}	ja	ja	ja		ok	email-client.ts
+DELETE	/api/v1/email/messages/{id}	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/messages/{id}	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/messages/{id}/labels	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/messages/{id}/move	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/messages/{id}/read	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/messages/{id}/star	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/messages/{id}/unread	ja	ja	ja		ok	email-client.ts
+GET	/api/v1/email/rules	nein	nein	ja	email:read	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/rules	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/rules/apply	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+DELETE	/api/v1/email/rules/{id}	nein	nein	ja	email:delete	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+PATCH	/api/v1/email/rules/{id}	nein	nein	ja	email:write	NEXT decide-email-account-self-setup-and-dial-guard / decide-email-tenant-wide-mail-objects	email-client.ts;types.ts
+POST	/api/v1/email/send	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/send/draft	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/send/forward	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/send/reply	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/signatures	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/signatures	ja	ja	ja		ok	types.ts
+DELETE	/api/v1/email/signatures/{id}	ja	ja	ja		ok	email-client.ts
+GET	/api/v1/email/signatures/{id}	ja	ja	ja		ok	email-client.ts
+PUT	/api/v1/email/signatures/{id}	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/signatures/{id}/default	ja	ja	ja		ok	email-client.ts
+POST	/api/v1/email/sync/read-flag	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/sync/status	ja	ja	ja		ok	email-client.ts;types.ts
+POST	/api/v1/email/sync/trigger	ja	ja	ja		ok	email-client.ts;types.ts
+GET	/api/v1/email/templates	ja	ja	ja		ok	types.ts
+POST	/api/v1/email/templates	ja	ja	ja		ok	types.ts
+GET	/api/v1/entity-tasks	ja	ja	ja		ok	types.ts;useTasks.ts
+GET	/api/v1/feature-flags	ja	ja	ja		ok	types.ts;useFeatureFlags.ts
+GET	/api/v1/files/presign-download	ja	ja	ja		ok	types.ts;useAvatarSrc.ts
+POST	/api/v1/files/presign-upload	ja	ja	ja		ok	presignUpload.ts;types.ts;useDocumentUpload.ts;vertraege-client.ts
+DELETE	/api/v1/files/{id}	ja	ja	ja		ok	OnlyOfficeEditor.tsx;berichte-client.ts;document-client.ts;presignUpload.ts;types.ts;useAvatarSrc.ts;useChatFileUpload.ts;useDocumentUpload.ts;useTaskFiles.ts;vertraege-client.ts
+GET	/api/v1/finance/bank-accounts	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/bank-accounts	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/bank-accounts/{id}/connect	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/bank-statements	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/finance/bank-statements/import	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/finance/bank-statements/{id}	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/finance/bank-transactions	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/bank-transactions/{id}/match	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/bank-transactions/{id}/reject-match	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/credit-notes	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/credit-notes	nein	ja	ja	finance:invoice:create,finance:invoice:delete,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/credit-notes/{id}	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/credit-notes/{id}/pdf	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/credit-notes/{id}/send	nein	ja	ja	finance:invoice:send,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/dashboard	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/datev/config	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+PUT	/api/v1/finance/datev/config	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+POST	/api/v1/finance/datev/disconnect	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+GET	/api/v1/finance/datev/oauth/authorize	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+GET	/api/v1/finance/datev/oauth/callback	ja	ja	ja		ok	types.ts
+GET	/api/v1/finance/datev/status	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+POST	/api/v1/finance/datev/upload	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+POST	/api/v1/finance/datev/upload/beleg/{invoice_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts
+GET	/api/v1/finance/datev/upload/logs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	datev-upload-client.ts;types.ts
+POST	/api/v1/finance/deals/{dealId}/quote	nein	ja	ja	finance:quote:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/document-chains	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/dunning	nein	ja	ja	finance:dunning:run,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/dunning/config	nein	ja	ja	finance:read,finance:settings:manage	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts;types.ts
+PUT	/api/v1/finance/dunning/config	nein	nein	ja	finance:admin,finance:settings:manage	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts;types.ts
+POST	/api/v1/finance/dunning/detect	nein	ja	ja	finance:dunning:run,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/dunning/{id}/escalate	nein	ja	ja	finance:dunning:run,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/dunning/{id}/notice	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/dunning/{id}/pdf	nein	ja	ja	finance:dunning:run,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/dunning/{id}/send	nein	ja	ja	finance:dunning:run,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+PUT	/api/v1/finance/dunning/{id}/status	nein	nein	ja	finance:admin	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts
+GET	/api/v1/finance/expenses	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts;useFinanceLedger.ts
+POST	/api/v1/finance/expenses	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts;useFinanceLedger.ts
+DELETE	/api/v1/finance/expenses/{id}	nein	nein	ja	finance:delete	B (decide-member-manager-module-defaults)	finance-client.ts
+PUT	/api/v1/finance/expenses/{id}	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/expenses/{id}/approve	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/expenses/{id}/receipt	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/expenses/{id}/reject	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/export/datev	nein	ja	ja	finance:export:run,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/export/datev	nein	ja	ja	finance:export:run,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/export/gobd	nein	nein	ja	finance:admin	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts;types.ts
+GET	/api/v1/finance/gobd-archive	ja	ja	ja		ok	types.ts
+POST	/api/v1/finance/gobd-archive	nein	ja	ja	gobd-archive:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/finance/incoming-invoices	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/finance/invoices	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;handlers.ts;types.ts
+POST	/api/v1/finance/invoices	nein	ja	ja	finance:invoice:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;handlers.ts;types.ts
+POST	/api/v1/finance/invoices/import	nein	ja	ja	finance:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/finance/invoices/validate-number	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/invoices/{id}	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+PUT	/api/v1/finance/invoices/{id}	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/invoices/{id}/cancel	nein	ja	ja	finance:invoice:delete,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/invoices/{id}/lock	nein	nein	ja	finance:admin	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts
+POST	/api/v1/finance/invoices/{id}/mark-paid	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/invoices/{id}/payments	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/invoices/{id}/payments	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/invoices/{id}/pdf	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/invoices/{id}/send	nein	ja	ja	finance:invoice:send,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/journal/summary	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/open-items	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	types.ts
+DELETE	/api/v1/finance/payments/{id}	nein	nein	ja	finance:delete	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/quotes	nein	ja	ja	finance:quote:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/quotes	nein	ja	ja	finance:quote:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+DELETE	/api/v1/finance/quotes/{id}	nein	nein	ja	finance:delete	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/quotes/{id}	nein	ja	ja	finance:quote:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+PUT	/api/v1/finance/quotes/{id}	nein	ja	ja	finance:quote:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/quotes/{id}/accept	nein	ja	ja	finance:quote:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/quotes/{id}/convert	nein	ja	ja	finance:invoice:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/quotes/{id}/pdf	nein	ja	ja	finance:quote:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/quotes/{id}/reject	nein	ja	ja	finance:quote:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/quotes/{id}/send	nein	ja	ja	finance:quote:send,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/recurring	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+POST	/api/v1/finance/recurring	nein	ja	ja	finance:invoice:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+DELETE	/api/v1/finance/recurring/{id}	nein	ja	ja	finance:invoice:delete,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/recurring/{id}	nein	ja	ja	finance:invoice:read,finance:read	B (decide-member-manager-module-defaults)	finance-client.ts
+PUT	/api/v1/finance/recurring/{id}	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/recurring/{id}/generate	nein	ja	ja	finance:invoice:create,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/recurring/{id}/pause	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+POST	/api/v1/finance/recurring/{id}/resume	nein	ja	ja	finance:invoice:edit,finance:write	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/finance/settings	nein	ja	ja	finance:read	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts;types.ts
+PUT	/api/v1/finance/settings	nein	nein	ja	finance:admin	admin (Konfiguration/Verwaltung, bewusst)	finance-client.ts;types.ts
+GET	/api/v1/finance/stats/payments	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/time-entries	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+GET	/api/v1/finance/transactions	nein	ja	ja	finance:read	B (decide-member-manager-module-defaults)	finance-client.ts;types.ts
+DELETE	/api/v1/finance/transactions/{id}	nein	nein	ja	finance:delete	B (decide-member-manager-module-defaults)	finance-client.ts
+GET	/api/v1/formulare/deliveries	ja	ja	ja		ok	types.ts
+GET	/api/v1/formulare/schemas	ja	ja	ja		ok	types.ts
+POST	/api/v1/formulare/schemas	nein	ja	ja	formulare:schemas:create,formulare:schemas:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/bookings	ja	ja	ja		ok	types.ts
+POST	/api/v1/fuhrpark/bookings	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/damages	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/driver-licenses	ja	ja	ja		ok	types.ts
+POST	/api/v1/fuhrpark/driver-licenses	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/export	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/fuel-logs	ja	ja	ja		ok	types.ts
+POST	/api/v1/fuhrpark/gps/ingest	nein	nein	ja	fuhrpark:gps:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/gps/positions	nein	ja	ja	fuhrpark:gps:read	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/gps/routes	nein	ja	ja	fuhrpark:gps:read	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/services	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/services/upcoming	ja	ja	ja		ok	types.ts
+DELETE	/api/v1/fuhrpark/services/{id}	nein	nein	ja	fuhrpark:service:write	B (decide-member-manager-module-defaults)	types.ts
+PATCH	/api/v1/fuhrpark/services/{id}	nein	nein	ja	fuhrpark:service:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/trip-logs	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/trip-logs/export	ja	ja	ja		ok	types.ts
+DELETE	/api/v1/fuhrpark/trip-logs/{id}	nein	nein	ja	fuhrpark:trip:write	B (decide-member-manager-module-defaults)	types.ts
+PATCH	/api/v1/fuhrpark/trip-logs/{id}	nein	nein	ja	fuhrpark:trip:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/fuhrpark/tuev-due	ja	ja	ja		ok	types.ts
+GET	/api/v1/fuhrpark/vehicles	ja	ja	ja		ok	types.ts
+POST	/api/v1/fuhrpark/vehicles	nein	ja	ja	fuhrpark:vehicle:manage,fuhrpark:vehicle:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/guest/config	ja	ja	ja		ok	types.ts
+POST	/api/v1/guest/sessions	ja	ja	ja		ok	types.ts
+POST	/api/v1/guest/sessions/validate	ja	ja	ja		ok	types.ts
+GET	/api/v1/helpdesk/business-hours	ja	ja	ja		ok	types.ts
+PUT	/api/v1/helpdesk/business-hours	nein	ja	ja	helpdesk:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/helpdesk/canned-responses	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/canned-responses	nein	ja	ja	helpdesk:canned:manage,helpdesk:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/helpdesk/kb-articles	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/kb-articles	nein	ja	ja	helpdesk:kb:manage,helpdesk:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/helpdesk/queues	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/queues	nein	ja	ja	helpdesk:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/helpdesk/routing-rules	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/routing-rules	nein	ja	ja	helpdesk:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/helpdesk/sla-policies	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/sla-policies	nein	ja	ja	helpdesk:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/helpdesk/stats	ja	ja	ja		ok	types.ts
+GET	/api/v1/helpdesk/tickets	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/tickets	ja	ja	ja		ok	types.ts
+POST	/api/v1/helpdesk/tickets/from-message	ja	ja	ja		ok	types.ts
+GET	/api/v1/helpdesk/tickets/{id}	ja	ja	ja		ok	types.ts
+PUT	/api/v1/helpdesk/tickets/{id}	nein	ja	ja	helpdesk:ticket:edit,helpdesk:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/hr/absences/calendar	nein	nein	ja	hr:read	NEXT decide-absence-calendar-for-members	hr-client.ts;types.ts
+GET	/api/v1/hr/change-requests	ja	ja	ja		ok	hr-change-requests.ts;types.ts
+POST	/api/v1/hr/change-requests	ja	ja	ja		ok	hr-change-requests.ts;types.ts
+GET	/api/v1/hr/employees	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/employees	nein	nein	ja	hr:admin	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts;types.ts
+GET	/api/v1/hr/employees/me	ja	ja	ja		ok	hr-client.ts;types.ts
+PUT	/api/v1/hr/employees/me	nein	nein	ja	hr:write	A -> fix-hr-self-sick-leave-profile-and-time-projects	hr-client.ts;types.ts
+GET	/api/v1/hr/employees/me/documents	ja	ja	ja		ok	types.ts
+GET	/api/v1/hr/employees/{id}	nein	nein	ja	hr:read	A -> fix-hr-employee-detail-for-members (Totalausfall)	hr-client.ts;types.ts
+PUT	/api/v1/hr/employees/{id}	nein	nein	ja	hr:admin	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts;types.ts
+GET	/api/v1/hr/employees/{id}/documents	nein	nein	ja	hr:read	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+POST	/api/v1/hr/employees/{id}/documents	nein	nein	ja	hr:write	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+GET	/api/v1/hr/employees/{id}/documents/categories	ja	ja	ja		ok	hr-client.ts
+POST	/api/v1/hr/employees/{id}/offboard	nein	nein	ja	team:employee:offboard	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts
+GET	/api/v1/hr/leave/balance	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/leave/balance/{userId}	ja	ja	ja		ok	hr-client.ts
+GET	/api/v1/hr/leave/requests	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/leave/requests	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/leave/requests/{id}	ja	ja	ja		ok	hr-client.ts
+POST	/api/v1/hr/leave/requests/{id}/approve	nein	ja	ja	hr:write,team:absence:approve	B (decide-member-manager-module-defaults)	hr-client.ts
+POST	/api/v1/hr/leave/requests/{id}/cancel	ja	ja	ja		ok	hr-client.ts
+POST	/api/v1/hr/leave/requests/{id}/reject	nein	ja	ja	hr:write,team:absence:approve	B (decide-member-manager-module-defaults)	hr-client.ts
+POST	/api/v1/hr/leave/sick	nein	nein	ja	hr:write	A -> fix-hr-self-sick-leave-profile-and-time-projects	hr-client.ts;types.ts
+GET	/api/v1/hr/leave/types	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/personnel-documents	ja	ja	ja		ok	PersonnelDocuments.tsx;types.ts
+POST	/api/v1/hr/personnel-documents	nein	nein	ja	hr:write,team:documents:edit	B (decide-member-manager-module-defaults)	PersonnelDocuments.tsx;types.ts
+GET	/api/v1/hr/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts;types.ts
+PUT	/api/v1/hr/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts;types.ts
+GET	/api/v1/hr/time/active	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/analytics	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/balance	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/break/end	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/break/start	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/categories	nein	ja	ja	hr:time_category:read	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+POST	/api/v1/hr/time/categories	nein	ja	ja	hr:time_category:write	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+DELETE	/api/v1/hr/time/categories/{id}	nein	ja	ja	hr:time_category:write	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts
+PUT	/api/v1/hr/time/categories/{id}	nein	ja	ja	hr:time_category:write	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts
+POST	/api/v1/hr/time/clock-in	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/clock-out	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/corrections	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/corrections/{id}/approve	nein	ja	ja	hr:write,zeiterfassung:corrections:approve	B (decide-member-manager-module-defaults)	hr-client.ts
+POST	/api/v1/hr/time/create-invoice	nein	nein	ja	hr:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/hr/time/entries	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/entries	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/projects	nein	ja	ja	hr:time_project:read	A -> fix-hr-self-sick-leave-profile-and-time-projects	hr-client.ts;types.ts
+POST	/api/v1/hr/time/projects	nein	ja	ja	hr:time_project:write	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+GET	/api/v1/hr/time/status	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/summary/daily	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/summary/weekly	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/hr/time/team	nein	ja	ja	hr:read,zeiterfassung:team:view	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+GET	/api/v1/hr/time/templates	nein	ja	ja	hr:time_template:read	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+POST	/api/v1/hr/time/templates	nein	ja	ja	hr:time_template:write	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+DELETE	/api/v1/hr/time/templates/{id}	nein	ja	ja	hr:time_template:write	admin (Konfiguration/Verwaltung, bewusst)	hr-client.ts
+POST	/api/v1/hr/time/weeks/approve	nein	ja	ja	hr:write,zeiterfassung:week:approve	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+POST	/api/v1/hr/time/weeks/reject	nein	ja	ja	hr:write,zeiterfassung:week:approve	B (decide-member-manager-module-defaults)	hr-client.ts;types.ts
+POST	/api/v1/hr/time/weeks/reopen	nein	ja	ja	hr:write,zeiterfassung:week:approve	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/hr/time/weeks/status	ja	ja	ja		ok	hr-client.ts;types.ts
+POST	/api/v1/hr/time/weeks/submit	ja	ja	ja		ok	hr-client.ts;types.ts
+GET	/api/v1/inbox/canned-responses	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/canned-responses	nein	ja	ja	inbox:write,kommunikation:canned:manage	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/messages	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/messages/bulk-archive	nein	nein	ja	inbox:write	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/messages/bulk-read	nein	nein	ja	inbox:write	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/messages/unread-count	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/messages/{id}	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/rules	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/rules	nein	ja	ja	NOKEY	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/rules/test	nein	ja	ja	NOKEY	NEXT decide-team-inbox-member-visibility	types.ts
+DELETE	/api/v1/inbox/rules/{id}	nein	ja	ja	NOKEY	NEXT decide-team-inbox-member-visibility	types.ts
+PUT	/api/v1/inbox/rules/{id}	nein	ja	ja	NOKEY	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/teams	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/inbox/teams	nein	ja	ja	NOKEY	NEXT decide-team-inbox-member-visibility	types.ts
+GET	/api/v1/inbox/unread-count	nein	nein	ja	inbox:read	NEXT decide-team-inbox-member-visibility	types.ts
+POST	/api/v1/integrations/bexio/disconnect	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+GET	/api/v1/integrations/bexio/mappings/{entity_type}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts
+PUT	/api/v1/integrations/bexio/mappings/{entity_type}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts
+GET	/api/v1/integrations/bexio/oauth/authorize	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+GET	/api/v1/integrations/bexio/oauth/callback	ja	ja	ja		ok	types.ts
+POST	/api/v1/integrations/bexio/push/invoice/{invoice_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts
+POST	/api/v1/integrations/bexio/push/quote/{quote_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts
+GET	/api/v1/integrations/bexio/status	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+PUT	/api/v1/integrations/bexio/sync/config	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+GET	/api/v1/integrations/bexio/sync/logs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+GET	/api/v1/integrations/bexio/sync/status	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+POST	/api/v1/integrations/bexio/sync/trigger	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	bexio-client.ts;types.ts
+GET	/api/v1/integrations/configs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts;types.ts
+POST	/api/v1/integrations/configs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts;types.ts
+DELETE	/api/v1/integrations/configs/{platform}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+GET	/api/v1/integrations/configs/{platform}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+PUT	/api/v1/integrations/configs/{platform}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+GET	/api/v1/integrations/configs/{platform}/mappings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+POST	/api/v1/integrations/configs/{platform}/mappings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+POST	/api/v1/integrations/configs/{platform}/test	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+POST	/api/v1/integrations/lexware/connect	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+POST	/api/v1/integrations/lexware/disconnect	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+GET	/api/v1/integrations/lexware/mappings/{entity_type}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts
+PUT	/api/v1/integrations/lexware/mappings/{entity_type}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts
+POST	/api/v1/integrations/lexware/push/invoice/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts
+POST	/api/v1/integrations/lexware/push/quote/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts
+GET	/api/v1/integrations/lexware/status	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+GET	/api/v1/integrations/lexware/sync/logs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+GET	/api/v1/integrations/lexware/sync/status	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+POST	/api/v1/integrations/lexware/sync/trigger	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+POST	/api/v1/integrations/lexware/test	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	lexware-client.ts;types.ts
+POST	/api/v1/integrations/lexware/webhooks	ja	ja	ja		ok	types.ts
+POST	/api/v1/integrations/link	ja	ja	ja		ok	integration-client.ts;types.ts
+DELETE	/api/v1/integrations/link/{platform}	ja	ja	ja		ok	integration-client.ts
+GET	/api/v1/integrations/link/{platform}/status	ja	ja	ja		ok	integration-client.ts
+DELETE	/api/v1/integrations/mappings/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+PUT	/api/v1/integrations/mappings/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	integration-client.ts
+POST	/api/v1/integrations/slack/commands	ja	ja	ja		ok	types.ts
+POST	/api/v1/integrations/slack/interact	ja	ja	ja		ok	types.ts
+GET	/api/v1/integrations/slack/oauth/callback	ja	ja	ja		ok	types.ts
+GET	/api/v1/integrations/slack/oauth/install	ja	ja	ja		ok	SlackSetupWizard.tsx;types.ts
+POST	/api/v1/integrations/teams/webhook	ja	ja	ja		ok	types.ts
+GET	/api/v1/inventar/export	ja	ja	ja		ok	types.ts
+GET	/api/v1/inventar/inventur	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/inventur	nein	ja	ja	inventar:inventur:create,inventar:inventur:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/inventar/items	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/items	nein	ja	ja	inventar:item:create,inventar:item:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/inventar/locations	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/locations	nein	ja	ja	inventar:location:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/inventar/picking	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/picking	nein	ja	ja	inventar:picking:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/inventar/report	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/transfer	nein	ja	ja	inventar:item:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/inventar/warnings	ja	ja	ja		ok	types.ts
+POST	/api/v1/inventar/warnings	nein	ja	ja	inventar:warning:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/invitations	nein	ja	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+POST	/api/v1/invitations	nein	ja	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/leads	ja	ja	ja		ok	KontakteLayout.tsx;types.ts;useLeads.ts
+POST	/api/v1/leads	ja	ja	ja		ok	KontakteLayout.tsx;types.ts;useLeads.ts
+PATCH	/api/v1/leads/{id}	ja	ja	ja		ok	KontakteLayout.tsx
+GET	/api/v1/meetings	ja	ja	ja		ok	CallHistoryDetailModal.tsx;ConversationThreadHeader.tsx;KontaktePage.tsx;MeetingDetailPanel.tsx;MeetingFormDialog.tsx;MeetingsPage.tsx;MemberProfileContent.tsx;ModulesGrid.tsx;OrgChart.tsx;QuickAction
+POST	/api/v1/meetings	ja	ja	ja		ok	CallHistoryDetailModal.tsx;ConversationThreadHeader.tsx;KontaktePage.tsx;MeetingDetailPanel.tsx;MeetingFormDialog.tsx;MeetingsPage.tsx;MemberProfileContent.tsx;ModulesGrid.tsx;OrgChart.tsx;QuickAction
+DELETE	/api/v1/meetings/action-items/{itemId}	ja	ja	ja		ok	video-client.ts
+PUT	/api/v1/meetings/action-items/{itemId}	ja	ja	ja		ok	video-client.ts
+DELETE	/api/v1/meetings/{id}	ja	ja	ja		ok	App.tsx;KontaktePage.tsx;VideoPage.tsx;video-client.ts
+GET	/api/v1/meetings/{id}	ja	ja	ja		ok	App.tsx;KontaktePage.tsx;VideoPage.tsx;video-client.ts
+PUT	/api/v1/meetings/{id}	ja	ja	ja		ok	App.tsx;KontaktePage.tsx;VideoPage.tsx;video-client.ts
+GET	/api/v1/meetings/{id}/action-items	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/action-items	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/action-items/convert	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/ai-summary	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{id}/breakout-rooms	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/breakout-rooms	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/breakout-rooms/assign	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{id}/breakout-rooms/assignment	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/breakout-rooms/close	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/breakout-rooms/join	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/breakout-rooms/return	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/end	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/join	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{id}/notes	ja	ja	ja		ok	video-client.ts
+PUT	/api/v1/meetings/{id}/notes	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{id}/previous-notes	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{id}/start	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{meetingId}/chat	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/chat	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/meetings/{meetingId}/cohosts	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/cohosts	ja	ja	ja		ok	video-client.ts
+DELETE	/api/v1/meetings/{meetingId}/cohosts/{userId}	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/lock	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/moderation/kick	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/moderation/mute	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/meetings/{meetingId}/moderation/mute-all	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/messages/bookmarks	ja	ja	ja		ok	types.ts;useBookmarks.ts
+GET	/api/v1/messages/mentions	ja	ja	ja		ok	types.ts;useMentions.ts
+POST	/api/v1/messages/reactions/summary	ja	ja	ja		ok	types.ts;video-client.ts
+DELETE	/api/v1/messages/{id}	ja	ja	ja		ok	ChatLayout.tsx;MentionTextarea.tsx;ThreadPanel.tsx;email-client.ts;i18n.ts;inbox-client.ts;types.ts;useBookmarks.ts;useMentions.ts;useUnreadInbox.ts
+PUT	/api/v1/messages/{id}	ja	ja	ja		ok	ChatLayout.tsx;MentionTextarea.tsx;ThreadPanel.tsx;email-client.ts;i18n.ts;inbox-client.ts;types.ts;useBookmarks.ts;useMentions.ts;useUnreadInbox.ts
+POST	/api/v1/messages/{id}/bookmark	ja	ja	ja		ok	useBookmarks.ts
+GET	/api/v1/messages/{id}/reactions	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/messages/{id}/reactions	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/notifications	ja	ja	ja		ok	NotificationBell.tsx;NotificationCenter.tsx;NotificationFeedWidget.tsx;NotificationSettingsTab.tsx;NotificationSummary.tsx;NotificationToast.tsx;ProfilTab.tsx;QuickActions.tsx;module-settings-registry
+DELETE	/api/v1/notifications/dnd	ja	ja	ja		ok	notification-client.ts;types.ts
+GET	/api/v1/notifications/dnd	ja	ja	ja		ok	notification-client.ts;types.ts
+POST	/api/v1/notifications/dnd	ja	ja	ja		ok	notification-client.ts;types.ts
+GET	/api/v1/notifications/event-types	ja	ja	ja		ok	types.ts;useNotifications.ts
+GET	/api/v1/notifications/mutes	ja	ja	ja		ok	notification-client.ts;types.ts
+POST	/api/v1/notifications/mutes	ja	ja	ja		ok	notification-client.ts;types.ts
+DELETE	/api/v1/notifications/mutes/{muteId}	ja	ja	ja		ok	notification-client.ts
+GET	/api/v1/notifications/preferences	ja	ja	ja		ok	types.ts;useNotifications.ts
+PUT	/api/v1/notifications/preferences	ja	ja	ja		ok	types.ts;useNotifications.ts
+GET	/api/v1/notifications/quiet-hours	ja	ja	ja		ok	notification-client.ts;types.ts
+PUT	/api/v1/notifications/quiet-hours	ja	ja	ja		ok	notification-client.ts;types.ts
+POST	/api/v1/notifications/read-all	ja	ja	ja		ok	types.ts;useNotifications.ts
+GET	/api/v1/notifications/unread-count	ja	ja	ja		ok	types.ts;useNotifications.ts
+POST	/api/v1/notifications/{id}/dismiss	ja	ja	ja		ok	notification-client.ts
+DELETE	/api/v1/notifications/{id}/pin	ja	ja	ja		ok	notification-client.ts
+POST	/api/v1/notifications/{id}/pin	ja	ja	ja		ok	notification-client.ts
+POST	/api/v1/notifications/{id}/snooze	ja	ja	ja		ok	notification-client.ts
+GET	/api/v1/pipeline-stages	ja	ja	ja		ok	handlers.ts;types.ts;usePipelineStages.ts
+POST	/api/v1/pipeline-stages	nein	ja	ja	pipeline_stages:write	admin (Konfiguration/Verwaltung, bewusst)	handlers.ts;types.ts;usePipelineStages.ts
+POST	/api/v1/pipeline-stages/reorder	nein	ja	ja	pipeline_stages:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts;usePipelineStages.ts
+DELETE	/api/v1/pipeline-stages/{id}	nein	nein	ja	pipeline_stages:delete	admin (Konfiguration/Verwaltung, bewusst)	types.ts;usePipelineStages.ts
+GET	/api/v1/pipeline-stages/{id}	ja	ja	ja		ok	types.ts;usePipelineStages.ts
+PUT	/api/v1/pipeline-stages/{id}	nein	ja	ja	pipeline_stages:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts;usePipelineStages.ts
+GET	/api/v1/plugins/execution-logs	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+GET	/api/v1/plugins/installations	ja	ja	ja		ok	plugin-client.ts;types.ts
+POST	/api/v1/plugins/installations	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+DELETE	/api/v1/plugins/installations/{installation_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/installations/{installation_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+POST	/api/v1/plugins/installations/{installation_id}/disable	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+POST	/api/v1/plugins/installations/{installation_id}/enable	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/installations/{installation_id}/permissions	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+POST	/api/v1/plugins/installations/{installation_id}/permissions	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/installations/{installation_id}/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+PUT	/api/v1/plugins/installations/{installation_id}/settings	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/installations/{installation_id}/settings/schema	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/manifests	ja	ja	ja		ok	plugin-client.ts;types.ts
+POST	/api/v1/plugins/manifests	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+DELETE	/api/v1/plugins/manifests/{manifest_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/manifests/{manifest_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/templates	ja	ja	ja		ok	plugin-client.ts;types.ts
+GET	/api/v1/plugins/validation-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+POST	/api/v1/plugins/validation-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+DELETE	/api/v1/plugins/validation-rules/{rule_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+PUT	/api/v1/plugins/validation-rules/{rule_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/plugins/workflow-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+POST	/api/v1/plugins/workflow-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts;types.ts
+DELETE	/api/v1/plugins/workflow-rules/{rule_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+PUT	/api/v1/plugins/workflow-rules/{rule_id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	plugin-client.ts
+GET	/api/v1/produktion/boms	ja	ja	ja		ok	types.ts
+POST	/api/v1/produktion/boms	nein	ja	ja	produktion:bom:create,produktion:bom:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/produktion/bookings	nein	nein	ja	produktion:booking:read	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/produktion/bookings	nein	nein	ja	produktion:booking:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/produktion/machines	ja	ja	ja		ok	types.ts
+POST	/api/v1/produktion/machines	nein	ja	ja	produktion:machine:manage,produktion:machine:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/produktion/orders	ja	ja	ja		ok	types.ts
+POST	/api/v1/produktion/orders	nein	ja	ja	produktion:order:create,produktion:order:write	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/produktion/plans	nein	nein	ja	produktion:plan:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/produktion/quality	ja	ja	ja		ok	types.ts
+POST	/api/v1/produktion/quality	ja	ja	ja		ok	types.ts
+GET	/api/v1/projects	ja	ja	ja		ok	ModulesGrid.tsx;ProjectDetailPage.tsx;WorkLayout.tsx;hr-client.ts;nav-items.ts;types.ts;useProjects.ts
+POST	/api/v1/projects	ja	ja	ja		ok	ModulesGrid.tsx;ProjectDetailPage.tsx;WorkLayout.tsx;hr-client.ts;nav-items.ts;types.ts;useProjects.ts
+POST	/api/v1/projects/from-template	ja	ja	ja		ok	types.ts;useProjects.ts
+DELETE	/api/v1/projects/{id}	nein	ja	ja	projects:delete,work:project:delete	B (decide-member-manager-module-defaults)	ProjectPortfolioView.tsx;ProjectsListPage.tsx;TaskDetailPage.tsx;WorkLayout.tsx;types.ts;useProjects.ts
+GET	/api/v1/projects/{id}	ja	ja	ja		ok	ProjectPortfolioView.tsx;ProjectsListPage.tsx;TaskDetailPage.tsx;WorkLayout.tsx;types.ts;useProjects.ts
+PUT	/api/v1/projects/{id}	ja	ja	ja		ok	ProjectPortfolioView.tsx;ProjectsListPage.tsx;TaskDetailPage.tsx;WorkLayout.tsx;types.ts;useProjects.ts
+GET	/api/v1/projects/{id}/team-utilization	ja	ja	ja		ok	useProjects.ts
+GET	/api/v1/projects/{id}/time-entries	ja	ja	ja		ok	HoursToInvoiceDialog.tsx;useProjects.ts
+POST	/api/v1/public/bookings	ja	ja	ja		ok	types.ts
+GET	/api/v1/rapporte/measurements	ja	ja	ja		ok	types.ts
+POST	/api/v1/rapporte/measurements	ja	ja	ja		ok	types.ts
+GET	/api/v1/rapporte/pending	ja	ja	ja		ok	types.ts
+GET	/api/v1/rapporte/reports	ja	ja	ja		ok	types.ts
+POST	/api/v1/rapporte/reports	ja	ja	ja		ok	types.ts
+GET	/api/v1/rapporte/stats	ja	ja	ja		ok	types.ts
+GET	/api/v1/rapporte/templates	ja	ja	ja		ok	types.ts
+POST	/api/v1/rapporte/templates	nein	nein	ja	rapporte:template:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/reports/activities	ja	ja	ja		ok	types.ts
+GET	/api/v1/reports/conversion	ja	ja	ja		ok	types.ts
+GET	/api/v1/reports/pipeline	ja	ja	ja		ok	types.ts
+GET	/api/v1/saved-filters	ja	ja	ja		ok	types.ts;useSavedFilters.ts
+POST	/api/v1/saved-filters	ja	ja	ja		ok	types.ts;useSavedFilters.ts
+GET	/api/v1/schichten/compliance	ja	ja	ja		ok	types.ts
+GET	/api/v1/schichten/shifts	ja	ja	ja		ok	types.ts
+POST	/api/v1/schichten/shifts	nein	ja	ja	schichten:assignment:manage,schichten:shift:write	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/schichten/shifts/publish	nein	ja	ja	schichten:shift:publish,schichten:shift:write	B (decide-member-manager-module-defaults)	types.ts
+DELETE	/api/v1/schichten/shifts/{id}	nein	ja	ja	schichten:shift:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/schichten/shifts/{id}	ja	ja	ja		ok	types.ts
+PATCH	/api/v1/schichten/shifts/{id}	nein	ja	ja	schichten:shift:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/schichten/stats	ja	ja	ja		ok	types.ts
+GET	/api/v1/schichten/swap-requests	ja	ja	ja		ok	types.ts;useSchichten.ts
+POST	/api/v1/schichten/swap-requests	ja	ja	ja		ok	types.ts;useSchichten.ts
+GET	/api/v1/schichten/templates	nein	ja	ja	schichten:template:read	B (decide-member-manager-module-defaults)	types.ts
+POST	/api/v1/schichten/templates	nein	ja	ja	schichten:template:manage,schichten:template:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/search	ja	ja	ja		ok	CRMLayout.tsx;DSARSearchPage.tsx;GlobalSearchDialog.tsx;QuickActions.tsx;RecentSearches.tsx;document-client.ts;types.ts;useChatSearch.ts;useSearch.ts;useTasks.ts;wiki-client.ts
+GET	/api/v1/search/global	ja	ja	ja		ok	types.ts;useGlobalSearch.ts
+GET	/api/v1/security/audit	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+GET	/api/v1/security/audit/export	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/security/audit/verify	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+GET	/api/v1/security/dsar/search	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	DSARSearchPage.tsx;types.ts
+POST	/api/v1/security/gdpr/erasure/execute	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/security/gdpr/erasure/preview	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/security/gdpr/export/request	ja	ja	ja		ok	security-client.ts;types.ts
+POST	/api/v1/security/gdpr/export/{id}/approve	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+POST	/api/v1/security/gdpr/export/{id}/deny	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+GET	/api/v1/security/gdpr/export/{id}/download	ja	ja	ja		ok	security-client.ts
+GET	/api/v1/security/gdpr/exports	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/security/ip-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/security/ip-rules	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+DELETE	/api/v1/security/ip-rules/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+GET	/api/v1/security/password/policy	ja	ja	ja		ok	security-client.ts;types.ts
+PUT	/api/v1/security/password/policy	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+POST	/api/v1/security/password/validate	ja	ja	ja		ok	security-client.ts;types.ts
+GET	/api/v1/security/retention-policies	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+POST	/api/v1/security/retention-policies	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/security/vault	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+PUT	/api/v1/security/vault	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts;types.ts
+DELETE	/api/v1/security/vault/{keyName}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+GET	/api/v1/security/vault/{keyName}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+PUT	/api/v1/security/vault/{keyName}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	security-client.ts
+GET	/api/v1/settings/{module_id}	ja	ja	ja		ok	App.tsx;AppShell.tsx;DialerSettingsPage.tsx;WorkSettingsPanel.tsx;module-settings-registry.tsx;plugin-client.ts;registry.ts;types.ts
+GET	/api/v1/settings/{module_id}/tenant	ja	ja	ja		ok	dokumenteSettings.ts
+PUT	/api/v1/settings/{module_id}/tenant	ja	ja	ja		ok	dokumenteSettings.ts
+GET	/api/v1/settings/{module_id}/user	ja	ja	ja		ok	locale.ts;settings.ts;useUserSettings.ts
+PUT	/api/v1/settings/{module_id}/user	ja	ja	ja		ok	locale.ts;settings.ts;useUserSettings.ts
+GET	/api/v1/tags	ja	ja	ja		ok	document-client.ts;types.ts;useContactTags.ts
+POST	/api/v1/tags	nein	ja	ja	tags:write	B (decide-member-manager-module-defaults)	document-client.ts;types.ts;useContactTags.ts
+DELETE	/api/v1/tags/{id}	nein	nein	ja	tags:delete	B (decide-member-manager-module-defaults)	document-client.ts;types.ts;useContactTags.ts
+GET	/api/v1/tags/{id}	ja	ja	ja		ok	document-client.ts;types.ts;useContactTags.ts
+PUT	/api/v1/tags/{id}	nein	ja	ja	tags:write	B (decide-member-manager-module-defaults)	document-client.ts;types.ts;useContactTags.ts
+GET	/api/v1/tasks	ja	ja	ja		ok	types.ts;useTasks.ts;work-labels-client.ts
+POST	/api/v1/tasks	ja	ja	ja		ok	types.ts;useTasks.ts;work-labels-client.ts
+DELETE	/api/v1/tasks/{id}	nein	ja	ja	tasks:delete,work:task:delete	B (decide-member-manager-module-defaults)	ContactDetailPage.tsx;DealDetailPage.tsx;DependencyList.tsx;KanbanBoard.tsx;MyTasksPage.tsx;ProjectDetailPage.tsx;TaskDetailPage.tsx;TaskDetailPanel.tsx;TaskSearchView.tsx;WorkLayout.tsx
+GET	/api/v1/tasks/{id}	ja	ja	ja		ok	ContactDetailPage.tsx;DealDetailPage.tsx;DependencyList.tsx;KanbanBoard.tsx;MyTasksPage.tsx;ProjectDetailPage.tsx;TaskDetailPage.tsx;TaskDetailPanel.tsx;TaskSearchView.tsx;WorkLayout.tsx
+PUT	/api/v1/tasks/{id}	ja	ja	ja		ok	ContactDetailPage.tsx;DealDetailPage.tsx;DependencyList.tsx;KanbanBoard.tsx;MyTasksPage.tsx;ProjectDetailPage.tsx;TaskDetailPage.tsx;TaskDetailPanel.tsx;TaskSearchView.tsx;WorkLayout.tsx
+GET	/api/v1/tasks/{id}/files	ja	ja	ja		ok	berichte-client.ts
+POST	/api/v1/tasks/{id}/files	ja	ja	ja		ok	berichte-client.ts
+GET	/api/v1/tenant/module-grants	nein	ja	ja	module-grants:read	admin (Konfiguration/Verwaltung, bewusst)	types.ts;useModuleAssignments.ts
+POST	/api/v1/tenant/module-grants/bulk-revoke	nein	nein	ja	module-grants:write	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/tenant/module-leads	ja	ja	ja		ok	types.ts
+GET	/api/v1/tenant/module-leads/me	ja	ja	ja		ok	types.ts
+POST	/api/v1/tenants	nein	nein	nein	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	types.ts
+GET	/api/v1/timer/active	ja	ja	ja		ok	types.ts;useTimeEntries.ts
+POST	/api/v1/timer/stop	ja	ja	ja		ok	types.ts;useTimeEntries.ts
+GET	/api/v1/users	nein	ja	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;App.tsx;ModuleAssignmentTab.tsx;UserOverrideEditorPage.tsx;caldav-client.ts;types.ts;useAdminUsers.ts
+GET	/api/v1/users/preferences	ja	ja	ja		ok	types.ts
+PUT	/api/v1/users/preferences	ja	ja	ja		ok	types.ts
+GET	/api/v1/users/{id}	ja	ja	ja		ok	AdminHubPage.tsx;App.tsx;RolesBuilderTab.tsx;types.ts;useAdminUsers.ts
+PUT	/api/v1/users/{id}	nein	nein	ja	NOKEY	admin (Konfiguration/Verwaltung, bewusst)	AdminHubPage.tsx;App.tsx;RolesBuilderTab.tsx;types.ts;useAdminUsers.ts
+POST	/api/v1/users/{id}/roles	nein	nein	ja	admin:role:assign,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	rbac-client.ts
+DELETE	/api/v1/users/{id}/roles/{roleId}	nein	nein	ja	admin:role:assign,roles:manage	admin (Konfiguration/Verwaltung, bewusst)	rbac-client.ts
+GET	/api/v1/vendor-access	nein	nein	ja	security:vendor_access:manage	admin (Konfiguration/Verwaltung, bewusst)	VendorAccessBadge.tsx;VendorAccessPage.tsx;types.ts;vendor-access.ts
+GET	/api/v1/vermietung/calendar	ja	ja	ja		ok	types.ts
+GET	/api/v1/vermietung/export	ja	ja	ja		ok	types.ts
+GET	/api/v1/vermietung/objects	ja	ja	ja		ok	types.ts
+POST	/api/v1/vermietung/objects	nein	ja	ja	vermietung:object:create,vermietung:object:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/vermietung/rentals	ja	ja	ja		ok	types.ts
+POST	/api/v1/vermietung/rentals	ja	ja	ja		ok	types.ts
+GET	/api/v1/vertraege/contracts	ja	ja	ja		ok	types.ts
+POST	/api/v1/vertraege/contracts	nein	ja	ja	vertraege:contract:create,vertraege:contract:write	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/video/calls	ja	ja	ja		ok	types.ts;video-client.ts
+POST	/api/v1/video/calls	ja	ja	ja		ok	types.ts;video-client.ts
+GET	/api/v1/video/calls/{id}	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/calls/{id}/end	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/calls/{id}/join	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/video/meetings/{meetingId}/recordings	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/presence/bulk	ja	ja	ja		ok	types.ts;video-client.ts
+GET	/api/v1/video/presence/config	ja	ja	ja		ok	types.ts;video-client.ts
+PUT	/api/v1/video/presence/config	nein	nein	ja	settings:tenant:manage	admin (Konfiguration/Verwaltung, bewusst)	types.ts;video-client.ts
+POST	/api/v1/video/presence/status	ja	ja	ja		ok	types.ts;video-client.ts
+GET	/api/v1/video/presence/{userId}	ja	ja	ja		ok	types.ts;video-client.ts
+GET	/api/v1/video/recordings	ja	ja	ja		ok	types.ts;video-client.ts
+POST	/api/v1/video/recordings/start	ja	ja	ja		ok	types.ts;video-client.ts
+DELETE	/api/v1/video/recordings/{id}	ja	ja	ja		ok	types.ts;video-client.ts
+GET	/api/v1/video/recordings/{id}/consent	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/recordings/{id}/consent	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/video/recordings/{id}/consents	ja	ja	ja		ok	video-client.ts
+GET	/api/v1/video/recordings/{id}/download	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/recordings/{id}/initiator-consent	ja	ja	ja		ok	video-client.ts
+PATCH	/api/v1/video/recordings/{id}/metadata	nein	nein	ja	recordings:admin	admin (Konfiguration/Verwaltung, bewusst)	video-client.ts
+GET	/api/v1/video/recordings/{id}/status	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/recordings/{id}/stop	ja	ja	ja		ok	video-client.ts
+POST	/api/v1/video/recordings/{id}/tag-consents	nein	nein	ja	recordings:admin	admin (Konfiguration/Verwaltung, bewusst)	video-client.ts
+POST	/api/v1/webhooks/livekit	ja	ja	ja		ok	types.ts
+GET	/api/v1/wiki/articles	ja	ja	ja		ok	types.ts
+POST	/api/v1/wiki/articles	ja	ja	ja		ok	types.ts
+GET	/api/v1/wiki/categories	ja	ja	ja		ok	types.ts
+POST	/api/v1/wiki/categories	nein	ja	ja	wiki:categories:write,wiki:category:manage	B (decide-member-manager-module-defaults)	types.ts
+GET	/api/v1/wiki/search	ja	ja	ja		ok	types.ts
+GET	/api/v1/work/custom-fields	ja	ja	ja		ok	types.ts
+POST	/api/v1/work/custom-fields	ja	ja	ja		ok	types.ts
+GET	/api/v1/work/labels	ja	ja	ja		ok	types.ts;work-labels-client.ts
+POST	/api/v1/work/labels	ja	ja	ja		ok	types.ts;work-labels-client.ts
+GET	/api/v1/work/search	ja	ja	ja		ok	types.ts;useTasks.ts

@@ -2,7 +2,7 @@
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
-# status: in_progress | in_progress | done | blocked
+# status: todo | in_progress | done | blocked
 # model:  sonnet (Default) | opus (architektonisch schwer, Proto, Security, Migration+RLS)
 #
 # Treiber-Parsing: `hooks/backlog-check.py` lädt diese Datei mit yaml.safe_load. Der Vorflug
@@ -12,7 +12,7 @@
 # verlangt, einer `deps`-ID die nirgends existiert, und bei Zyklen in `deps`.
 #
 # `--state` liefert dem Treiber OPEN=, NEXT= und MODEL=. MODEL kommt von der ERSTEN BAUBAREN
-# Unit — `status: in_progress` UND alle `deps` auf `done`, in DATEIREIHENFOLGE. Wo eine `opus`-Unit
+# Unit — `status: todo` UND alle `deps` auf `done`, in DATEIREIHENFOLGE. Wo eine `opus`-Unit
 # steht, entscheidet also mit, wie viele Iterationen auf opus laufen.
 #
 # Läufe 1+2 (58 Units): archive/lauf-1-2/ — Lauf 3 (61): archive/lauf-3/
@@ -2184,7 +2184,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "n.a. (Scan)"
     scope: >
       Der Rollen-Abgleich der Vorbereitung (Grants aus `role_permissions` der lokalen DB gegen
@@ -2221,6 +2221,92 @@ units:
   # ein Schritt, den eine Block-A-Unit repariert haben soll, ist das ein Fund (Fix-Unit an den
   # Kopf), den Schritt NICHT weglassen. Mehrere Nutzer landen im selben Default-Tenant.
   # ========================================================================================
+
+  - id: fix-hr-employee-detail-for-members
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 %"
+    scope: >
+      TOTALAUSFALL, VERIFIZIERT (scan-role-matrix-remaining, Iteration 56, Router-Probe mit den
+      Grants aus `role_permissions`): das Profilfenster eines Kollegen ist für member UND manager
+      leer. `TeamPage.tsx:717` -> `MemberProfileDialog` -> `MemberProfileContent.tsx:86`
+      `useEmployee(memberId)` -> `hr-client.ts:907` `GET /api/v1/hr/employees/{id}` ->
+      `route_hr.go:188` `RequirePermission("hr","read")` -> 403 -> Zeile 181 zeigt
+      `team.member.notFound`. Dasselbe für den Deep-Link `team/member/:id` (`App.tsx:337`).
+      Die Datengrenze ist schon entschieden und gebaut (Iteration 6,
+      `fix-hr-employee-directory-for-members`): die Liste `GET /hr/employees` lässt
+      `team:employee:read` (member all, manager team, admin) zu und liefert ohne `hr:read` nur
+      die Verzeichnisfelder (`employeeDirectoryEntry`, `route_hr.go:1125`). Bau: dieselbe
+      Regel für die Einzelroute. Guard additiv auf `RequirePermissionAny(hr:read,
+      team:employee:read)` (Regel 2), ohne `hr:read` die Verzeichnisprojektion EINES Eintrags,
+      gewrappt wie heute (`{employee: …}`), sonst unverändert das volle Proto. Kein Seed
+      nötig (Key seit 000256 in allen Presets, kein Re-Login).
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - desktop/src/renderer/src/modules/team/MemberProfileContent.tsx
+      - desktop/src/renderer/src/api/hr-client.ts
+      - .planning/backend-block/loop/role-matrix-lauf16.tsv
+    notes: >
+      Volle Personal-/Vertragsdaten für den manager seiner Berichtslinie
+      (`team:data_personal:view|team`, `team:data_job:view|team` liegen im Token, das FE fragt
+      sie per `useHrScopedCapability` ab) sind NICHT Teil dieser Unit — Zeile in
+      `decide-member-manager-module-defaults`. `hr_admin`/admin mit `hr:read` bekommen weiter
+      das volle Proto. OpenAPI: 403-Beschreibung und Projektion an der Operation nachziehen,
+      `swagger-cli validate`.
+    done_when:
+      - "Router-Test mit den Seed-Keymengen: member und manager bekommen 200 mit genau den Verzeichnisfeldern (kein Gehalt, keine Adresse, kein Geburtsdatum), admin das volle Proto"
+      - "Mutations-Probe: Projektion abgeschaltet -> Test rot; Guard zurück auf hr:read -> Test rot"
+      - "go test -count=1 ./internal/gateway/ grün inkl. TestOpenAPIRouteDrift"
+
+  - id: fix-hr-self-sick-leave-profile-and-time-projects
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 77,6 %"
+    scope: >
+      SELF-SERVICE (Klasse A), VERIFIZIERT in Iteration 56 (Router-Probe, Grants aus
+      `role_permissions`). Drei Routen, die nur den Aufrufer betreffen, hängen an Keys, die
+      member/manager nicht haben:
+      (1) Krankmeldung `POST /api/v1/hr/leave/sick` (`route_hr.go:99`,
+      `RequirePermission("hr","write")`) — Body nur `start_date`, `end_date`, `notes`
+      (`recordSickLeaveHTTPReq`, `route_hr.go:574`), Nutzer aus dem JWT (`:592`). Desktop:
+      `modules/profil/tabs/AbwesenheitenTab.tsx:129` `useRecordSickLeave` im EIGENEN Profil
+      -> heute 403 für member UND manager (Totalausfall der Funktion). Fix: auf `selfWrite`
+      (`RequirePermissionAny(hr:write, hr:self)`, Muster der Nachbarrouten).
+      (2) Eigenes Profil ändern `PUT /api/v1/hr/employees/me` (`route_hr.go:187`, `hr:write`)
+      — Body nur Notfallkontakt und Adresse (`updateSelfProfileHTTPReq`, `:1313`), Nutzer aus
+      dem JWT (`:1329`). Fix: `selfWrite`. Desktop-Hook `useUpdateSelfProfile`
+      (`hr-hooks.ts:571`) hat heute keinen Komponenten-Aufrufer.
+      (3) Projektliste der Zeiterfassung `GET /api/v1/hr/time/projects` (`route_hr.go:152`,
+      `hr:time_project:read`, manager hat ihn, member nicht) — `ManualEntryDialog.tsx:43`
+      (eingebettet in `profil/tabs/ZeiterfassungTab.tsx:386`) füllt damit die Projektauswahl
+      des EIGENEN manuellen Eintrags, für member bleibt sie leer. Felder: Name, Kundenname,
+      Farbe, abrechenbar (`hr.proto:899`) — Stammdaten, keine Personaldaten. Fix: Seed
+      `hr:time_project:read` an member (Scope all), Regel 3; Admin hat ihn schon.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/leave/service.go
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+      - desktop/src/renderer/src/modules/profil/tabs/AbwesenheitenTab.tsx
+      - desktop/src/renderer/src/modules/zeiterfassung/components/ManualEntryDialog.tsx
+    notes: >
+      Vor dem Guard-Wechsel bei (1) im Service belegen, dass `RecordSickLeave` nur den
+      übergebenen Nutzer bucht (die Krank-Art ist `requires_approval=false`, der Antrag wird
+      sofort genehmigt — gewollt: eine Krankmeldung ist eine Mitteilung, keine Bitte) und
+      dass ein member damit keinen fremden Saldo berührt. Zeitkategorien/-vorlagen lesen
+      (`hr:time_category:read`, `hr:time_template:read`) haben heute keinen
+      Desktop-Konsumenten und sind NICHT Teil dieser Unit. (3) wirkt erst nach Re-Login
+      (Regel 4), (1)/(2) sofort (`hr:self` ist schon im Token).
+    done_when:
+      - "Router-Test mit den Seed-Keymengen: member und manager passieren /hr/leave/sick und PUT /hr/employees/me, member ohne hr:self bekommt 403"
+      - "Seed-Migration up/down/up, zweites up No-op; SQL-Probe: member hält hr:time_project:read"
+      - "Mutations-Probe je Guard: zurück auf hr:write -> Test rot"
+      - "go test -count=1 ./internal/gateway/ ./internal/biz/hr/leave/ grün, DATABASE_URL als kmuhub_app, 0 Skips"
 
   - id: feat-e2e-register-with-role-helper
     phase: 4
@@ -2298,7 +2384,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper]
-    status: in_progress
+    status: todo
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow `TestContactAndDealDesktopBodyFlow` als member: Kontakt anlegen und ändern mit
@@ -2331,6 +2417,12 @@ units:
       Bestand im Inventar steigt (Service-zu-Service-Pfad einkauf -> inventar). Zwei parallele
       Wareneingänge auf denselben Artikel (Lost-Update-Fix `8cc079ce`): Endbestand =
       Summe beider. Scheitert der Start der Services, ist das ein CI-Fund, kein Flow-Fehler.
+    notes: >
+      Iteration 56 (Rollen-Matrix): `POST /inventar/transfer` hängt an `inventar:item:write`
+      (`route_inventar.go:93`), den member nicht hat — Wareneingang/-ausgang
+      (`/items/{id}/movements`) und Wareneingang zur Bestellung sind offen. Die Umbuchung als
+      member ist heute 403 und steht als Zeile in `decide-member-manager-module-defaults`
+      (NEXT): im Flow als erwartetes 403 mit Verweis prüfen, nicht weglassen.
     sources:
       - backend/test/e2e/
       - backend/internal/gateway/route_inventar.go
@@ -2368,7 +2460,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, fix-hr-employee-update-drops-address-emergency-and-status]
-    status: in_progress
+    status: todo
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Neuer Flow als admin: Mitarbeiter anlegen und bearbeiten mit dem Body des
@@ -2413,7 +2505,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: in_progress
+    status: todo
     coverage_start: "internal/biz/hr/timetracking 65,6 %"
     scope: >
       Schwächstes Paket, das dieser Lauf fachlich anfasst (Stempeluhr, Pausen, Wochen,
@@ -2543,7 +2635,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: in_progress
+    status: todo
     coverage_start: "internal/rapporte 82,5 %"
     scope: >
       Gefunden in fix-rapporte-member-can-fill-and-submit (Lauf 16, Iteration 15), per Code-Lesung

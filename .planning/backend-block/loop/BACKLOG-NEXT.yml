@@ -1672,6 +1672,51 @@ units:
       - Produktion: Arbeitsschritte anlegen/löschen (`workstep:write`), Buchungen/Pläne: bleiben admin.
       - Vermietung: Übergabeprotokoll ändern (`inspection:write`): bleibt admin; member legt an
         (`inspection:create`) und liest jetzt, korrigiert aber nicht.
+      Aus `scan-role-matrix-remaining` (Iteration 56, 2026-10-25; Router-Probe aller vom Desktop
+      aufgerufenen Routen mit den Grants aus `role_permissions`, volle Matrix:
+      `.planning/backend-block/loop/role-matrix-lauf16.tsv`, 169 B-Zeilen). Schon oben oder in
+      eigenen NEXT-Units genannt und hier nicht wiederholt: Deals, Kontakte löschen/importieren,
+      Aufgaben/Projekte löschen, Helpdesk-Ticket, Buchungsseiten, Wiki, Schichten-Vorlagen,
+      Dokument-Freigaben, E-Mail-Reste, Team-Inbox, Abwesenheitskalender. Neu:
+      - Finanzen komplett (Rechnungen, Angebote, Gutschriften, Wiederkehrend, Ausgaben, Mahnwesen,
+        Bank, Export; ~70 Routen): member nein, manager ja (`finance:read|write` bzw.
+        `finance:invoice:*`/`finance:quote:*`). Empfehlung: bleibt so. Offen nur, ob Ausgaben
+        (`POST /finance/expenses`) eine Spesen-Einreichung durch Mitarbeiter sein sollen — dann
+        braucht `expenses` erst einen Einreicher und eine Own-Grenze (Regel 1), heute tenantweit.
+      - Automationen lesen/schreiben (`automations:*`): member nein, manager ja. Empfehlung: bleibt.
+      - Personalakte eines Teammitglieds (`GET/POST /hr/employees/{id}/documents`,
+        `POST /hr/personnel-documents`): member UND manager nein, obwohl manager
+        `team:documents:view|team` hält — der Guard kennt nur `hr:read`/`hr:write`. Empfehlung:
+        GET additiv `team:documents:view` mit Berichtslinien-Grenze (Muster
+        `feat-hr-reporting-line-and-team-time-scope`). Ebenso volle Personal-/Vertragsdaten am
+        Teamprofil für den manager (`team:data_personal:view|team`, `team:data_job:view|team`):
+        `fix-hr-employee-detail-for-members` liefert ihm nur die Verzeichnisfelder.
+      - Zeiterfassung-Stammdaten lesen: Kategorien und Vorlagen (`hr:time_category:read`,
+        `hr:time_template:read`) member nein, kein Desktop-Konsument heute. Empfehlung: mit dem
+        ersten Konsumenten granten wie die Projekte (`fix-hr-self-sick-leave-profile-and-time-projects`).
+      - CRM-Pflege: Kontakte/Firmen zusammenführen und Kontakt-Sichtbarkeit (`contacts:write`,
+        nur grober Key — member hat `crm:contact:create|edit|team`), Firma löschen, Aktivität
+        löschen, Tags anlegen/ändern/löschen (`tags:write|delete`; member nur `tags:read`).
+        Empfehlung: Merge/Sichtbarkeit additiv `crm:contact:edit` nur mit Team-Grenze, Tags
+        anlegen granten (Tag-Katalog ist nicht vertraulich), Löschen bleibt manager/admin.
+      - Dokumente: Versionen lesen und zurücksetzen (`documents:write`/`documents:version:restore`;
+        auch manager nein), Datei/Ordner/Tag löschen, persönlichen Bereich initialisieren
+        (`POST /documents/folders/initialize-user`, kein Konsument). Hängt an
+        `decide-document-access-baseline`.
+      - Inventar: Umbuchung `POST /inventar/transfer` hängt nur an `inventar:item:write`,
+        member hat `inventar:movement:create` und darf Ein- und Ausgang einzeln buchen — die
+        Umbuchung ist dieselbe Bewegung. Empfehlung: additiv `inventar:movement:create`.
+        Stammdaten (Artikel, Lager, Inventur anlegen, Picking, Warnungen) bleiben manager/admin.
+      - Einkauf/Produktion/Vermietung/Verträge/Formulare/Wiki-Kategorien: Stammdaten anlegen
+        member nein, manager ja. Empfehlung: bleibt. Produktion `bookings`/`plans` auch manager
+        nein (oben schon „bleiben admin“).
+      - Fuhrpark: Fahrzeug anlegen und GPS lesen (manager ja), Wartung/Fahrtenbuch ändern und
+        löschen (`fuhrpark:service:write`, `fuhrpark:trip:write`, auch manager nein). Offen: darf
+        der Fahrer seinen eigenen Fahrtenbuch-Eintrag korrigieren (seit Migration 340 gibt es
+        `driver_user_id`)? Fahrtenbuch-Korrekturen sind steuerlich heikel, Empfehlung: nein.
+      - Team-Profil: Modul-Zuweisungen eines Kollegen (`GET /tenant/module-grants`,
+        `module-grants:read`) member nein — `MemberProfileContent.tsx:88` zeigt die Chips dann
+        leer, kein Fehler. Empfehlung: bleibt admin/manager.
     sources:
       - backend/internal/gateway/
       - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql

@@ -857,3 +857,39 @@ Nebenbefunde ohne UI-Bruch, verworfen: Gateway ignoriert den Query-Parameter `mo
 - neue-units: keine
 - desktop-aufrufer: `adapters.ts:121-140` (`coreContactFields`, Quelle des Testbodys, Create und Update über `uiFormToWriteRequest`) -> KontaktePage (Anlegen, Duplizieren, CSV-Import) passt jetzt; `ConvertLeadDialog` sendet `email`/`phone` per `|| undefined` -> unverändert ok. `modules/crm/contacts/ContactsListPage.tsx:107` und `ContactDetailPage.tsx:107` senden `custom_fields` als Objekt statt Array (würde am Gateway mit 400 scheitern), sind aber in `App.tsx` nicht geroutet (toter Legacy-Code) -> kein Produktions-Ausfall, nicht als Unit. Lead-Temperatur: kein FE-Schreibaufrufer für `temperature` (`useUpdateLeadStatus` sendet nur Status).
 - offen: Ende-zu-Ende gegen echte DB über `Service` + `PostgresRepository` (neuer `profile_fields_clear_db_test.go`: anlegen mit `""` in allen 13 Feldern, setzen, lesen, mit `""` leeren -> Spalten NULL), nicht über einen laufenden Gateway-Stack. Der Testbody ist aus `adapters.ts` abgeschrieben, nicht aufgezeichnet.
+
+## Iteration 56 — scan-role-matrix-remaining — done — 2026-10-25 01:28
+- commit: (siehe git log, Subject `chore(loop): record the role matrix scan and queue its fix units`)
+- gebaut: Scan, kein Produktivcode. Statt Guards zu lesen: Wegwerf-Test im Gateway-Paket baute den echten Router (`buildGatewayRouter` wie der Drift-Test), schickte jede per `chi.Walk` registrierte `/api/v1`-Route (1208 Methode/Pfad-Paare) mit den Key-Mengen aus `role_permissions` der lokalen DB (Migration 340: member 176, manager 324, admin 466 Keys) als member/manager/admin hinein und suchte bei jedem 403 den einzelnen Key, der dem member-Set hinzugefügt die Route öffnet. Erfasst damit Gruppen-`Use`, mehrzeilige Guards, Guard-Variablen, `RequirePermissionAny` und `RequireRole` (= NOKEY) gleichermaßen. Abgeglichen gegen die Pfade im Desktop-Quellcode (ohne mocks/tests): 790 Paare vom Desktop aufgerufen, davon 358 für member oder manager 403. Volle Matrix: `role-matrix-lauf16.tsv` (je Route member/manager/admin ja/nein, öffnender Key, Klasse, Desktop-Datei). Probe-Test gelöscht, Diff sauber.
+- gate: n.a. (kein Code; `backlog-check.py --preflight` sauber)
+- coverage: n.a. (Scan)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`d11baa68`: neue Validator-Regeln `clearable_oneof`/`clearable_phone_dach` im gemeinsamen Validator, Tags an Kontakt und Lead, OpenAPI-Enums mit `""`, DB-Test; keine Route, kein Guard, kein Proto, keine Tabelle). **Befund am Backlog statt am Code:** `20c8efec` (Iteration ~51, Dialer-Scan) hat per Ersetzen vier Units (`e2e-contact-and-deal-fe-body`, `e2e-hr-employee-edit-fe-body`, `cov-biz-hr-timetracking`, `fix-rapporte-rejected-report-cannot-be-resubmitted`) und zwei Kopfkommentare von `todo` auf `in_progress` gestellt, ohne dass je daran gearbeitet wurde. `backlog-check.py` zieht nur `todo` (Zeile 227), zählt `in_progress` aber als offen: die vier wären nie gebaut worden und der Lauf hätte nie leer laufen können. In diesem Commit auf `todo` zurückgesetzt, Kopfzeilen 5 und 15 repariert.
+- neue-units: `fix-hr-employee-detail-for-members` (Totalausfall, VOR die erste todo-Unit gesetzt) · `fix-hr-self-sick-leave-profile-and-time-projects` (Klasse A, Krankmeldung ist Totalausfall der Funktion, direkt dahinter) · B-Zeilen in `decide-member-manager-module-defaults` (NEXT) · Hinweis an `e2e-inventar-einkauf-fe-body` (Umbuchung als member ist 403)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; die Desktop-Aufrufer der Fix-Units stehen in deren `scope`)
+- offen: (1) Die Probe sieht nur Middleware-Guards. Prüfungen IM Handler oder Service (Owner, Modul-Leiter, `HoldsAnyPermission`) laufen ohne Backend nicht und sind nicht erfasst; ebenso Routen, deren Pfad das Desktop dynamisch zusammensetzt (Abgleich per Pfad-Regex, Methode nicht abgeglichen — eine Route kann als „Desktop“ zählen, obwohl nur ein anderes Verb aufgerufen wird). (2) Grants = System-Presets (`tenant_id IS NULL`); tenant-eigene Rollen, kopiert vom member-Preset, nicht geprüft. (3) Feature-Flags alle an (wie im Drift-Test).
+
+| Bereich (Desktop-Routen, für member/manager 403) | Key(s) | member | manager | Klasse |
+|---|---|---|---|---|
+| `GET /hr/employees/{id}` (Team-Profilfenster `MemberProfileDialog`) | `hr:read` | nein | nein | **A/Totalausfall** -> `fix-hr-employee-detail-for-members` |
+| `POST /hr/leave/sick` (Profil-Tab Abwesenheiten) | `hr:write` | nein | nein | **A** -> `fix-hr-self-sick-leave-profile-and-time-projects` |
+| `PUT /hr/employees/me` (Hook ohne Konsument) | `hr:write` | nein | nein | **A** -> dieselbe Unit |
+| `GET /hr/time/projects` (`ManualEntryDialog`, eigener Eintrag) | `hr:time_project:read` | nein | ja | **A** -> dieselbe Unit |
+| `/email/*` Konten, Regeln, Labels-Katalog, Vorlagen PUT/DELETE, Kontakt-Links, Import/Export (33 inkl. Inbox) | `email:read|write|delete` | nein | nein | B, schon NEXT (`decide-email-*`) |
+| `/inbox/*` | `inbox:*` | nein | nein | B, schon NEXT (`decide-team-inbox-member-visibility`) |
+| `/hr/absences/calendar` | `hr:read` | nein | nein | B, schon NEXT (`decide-absence-calendar-for-members`) |
+| Finanzen (~70 Routen) | `finance:*` | nein | ja | B -> NEXT-Zeile (Empfehlung: bleibt) |
+| Automationen | `automations:*` | nein | ja | B -> NEXT-Zeile |
+| Personalakte `/hr/employees/{id}/documents`, `/hr/personnel-documents` | `hr:read|write` | nein | nein | B -> NEXT-Zeile (manager hält `team:documents:view|team`) |
+| Zeitkategorien/-vorlagen lesen (kein Konsument) | `hr:time_category|template:read` | nein | ja | B -> NEXT-Zeile |
+| Freigaben Urlaub/Woche/Korrektur, Teamzeit | `team:absence:approve`, `zeiterfassung:*` | nein | ja | ok (manager-Funktion) |
+| CRM: Merge, Sichtbarkeit, Firma/Aktivität löschen, Tags schreiben | `contacts:write`, `companies:delete`, `activities:delete`, `tags:*` | nein | teils | B -> NEXT-Zeile (Deals/Kontakt löschen+Import schon dort) |
+| Dokumente: Versionen, Löschen, `initialize-user`, Freigaben | `documents:write|delete`, `documents:share:manage` | nein | nein/teils | B -> NEXT-Zeile, hängt an `decide-document-access-baseline` |
+| Inventar Umbuchung `POST /inventar/transfer` | `inventar:item:write` | nein | ja | B -> NEXT-Zeile (Empfehlung additiv `inventar:movement:create`) |
+| Stammdaten Inventar/Einkauf/Produktion/Vermietung/Verträge/Formulare/Wiki-Kategorien | `*:create|write` | nein | ja | B -> NEXT-Zeile (Empfehlung: bleibt) |
+| Fuhrpark: Fahrzeug, GPS, Wartung/Fahrtenbuch ändern | `fuhrpark:*` | nein | teils | B -> NEXT-Zeile |
+| Schichten schreiben, Dialer-Kampagnen, Helpdesk-Textbausteine/KB | div. | nein | ja | ok (manager-Funktion; Schichten-Vorlagen lesen schon NEXT) |
+| Aufgaben/Projekte löschen, Deals, Helpdesk-Ticket, Buchungsseiten, Wiki | div. | nein | ja/teils | B, schon NEXT |
+| Admin-Flächen: `/admin/*`, `/security/*`, `/integrations/*`, `/plugins/*`, DATEV/bexio/lexware, Rollen, Nutzer, Lizenz, Modul-Grants, Customization, Pipeline-Stages, HR-Settings, Kalender-Feiertage/Ressourcen, Presence-Config, Aufnahmen-Admin (152) | div., viele NOKEY (`RequireRole`) | nein | nein/teils | ok (admin, bewusst) |
+
+Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `PUT /settings/{m}/tenant` passiert member am Guard, der Service lässt nur admin/Modul-Leiter durch (Block S, `callerMayWriteTenantSettings`) · Kalender-Kategorien sind pro Nutzer (`calendar_grpc.go:769`, `CreateCategory(userID…)`) · Kanal-Rolle ändern prüft Owner (`chat/channel/service.go:410`) · `POST /email/templates` legt persönliche Vorlagen an (Iteration 11) · `work/labels` und `work/custom-fields` member-schreibbar per Seed 147 (bewusst geteilter Katalog; Custom-Fields ohne Desktop-Konsument).
