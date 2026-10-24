@@ -586,3 +586,11 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: `fix-work-create-task-without-project`, `fix-work-project-preference-flat-wire`, `fix-work-task-file-attach-flow` (alle drei VOR die erste `todo`, weil Totalausfälle bzw. nicht wiederherstellbare Eingabe; die Datei-Unit trägt zusätzlich ein Cross-Tenant-Risiko beim Anhängen eines fremden `storage_key`, das sie mitschließen muss) · `fe-handle-work-shape-findings` (BACKLOG-NEXT, FE-only)
 - desktop-aufrufer: n.a. (kein Code geändert; die gelesenen Aufrufer stehen oben in der Tabelle)
 - offen: (1) Der Chat-Scan (`scan-fe-gateway-shape-and-body-chat`) sollte `/files/upload` und `/files/{id}/download` mitprüfen — beide sind jetzt an `fix-work-task-file-attach-flow` gekoppelt. (2) Rollen-Matrix der Work-Routen (`work_labels:read` für member/manager, `custom_fields:read` für den Aufgaben-Abschnitt) nicht geprüft; gehört in die Rollen-Matrix-Scans. (3) Keine Goroutinen, nichts zu `-race`.
+
+## Bilanz Lauf (2026-10-24 21:38)
+- iterationen: 42 im Bereich 1-42, davon 42 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 33 · feat 7 · harden 1 · scan 1
+- commits nach typ: fix 33 · feat 7 · chore 2 (42 seit e8622c88)
+- coverage-delta: internal/inbox/team 68,4 -> 77,1 · internal/work/task 67,4 -> 71,7 · internal/rapporte 79,6 -> 82,5 · (10 weitere)
+- offen mit entscheidungsbedarf: 13 von 41 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 6,3 (264 gesamt)
