@@ -13238,11 +13238,15 @@ paths:
                   type: string
       responses:
         "201":
-          description: Employee profile created
+          description: Employee profile created, wrapped as `{employee}`
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmployeeProfile"
+                type: object
+                required: [employee]
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

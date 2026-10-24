@@ -1679,7 +1679,7 @@ func (h *HRRoutes) HandleCreateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp.Employee)
+	response.ProtoWrapped(w, http.StatusCreated, "employee", resp.Employee)
 }
 
 // ============================================================================

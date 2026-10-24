@@ -39,6 +39,10 @@ func (s *hrWireStub) GetEmployee(_ context.Context, r *hrv1.GetEmployeeReq) (*hr
 	return &hrv1.GetEmployeeResp{Employee: &hrv1.EmployeeProfile{Id: "p1", UserId: r.GetUserId(), Department: "Vertrieb"}}, nil
 }
 
+func (s *hrWireStub) CreateEmployee(_ context.Context, r *hrv1.CreateEmployeeReq) (*hrv1.CreateEmployeeResp, error) {
+	return &hrv1.CreateEmployeeResp{Employee: &hrv1.EmployeeProfile{Id: "p1", UserId: r.GetUserId()}}, nil
+}
+
 func (s *hrWireStub) UpdateEmployee(_ context.Context, r *hrv1.UpdateEmployeeReq) (*hrv1.UpdateEmployeeResp, error) {
 	return &hrv1.UpdateEmployeeResp{Employee: &hrv1.EmployeeProfile{Id: "p1", UserId: r.GetUserId(), Department: r.GetDepartment()}}, nil
 }
@@ -140,6 +144,22 @@ func TestHRWire_EmployeeResponsesAreWrapped(t *testing.T) {
 			assert.Equal(t, testHRUserID, emp["user_id"])
 		})
 	}
+}
+
+// hr-client.ts create reads raw.employee like every other employee route; a bare
+// profile made adaptEmployee throw after the row was already saved.
+func TestHRWire_CreateEmployeeIsWrapped(t *testing.T) {
+	routes, _ := newHRWireRoutes(t)
+
+	rec := httptest.NewRecorder()
+	routes.HandleCreateEmployee(rec, hrRequest(t, http.MethodPost,
+		map[string]any{"user_id": testHRUserID, "start_date": "2026-11-01"}, ""))
+
+	assertStatus(t, rec, http.StatusCreated)
+	emp, ok := decodeBody(t, rec)["employee"].(map[string]any)
+	require.True(t, ok, rec.Body.String())
+	assert.Equal(t, "p1", emp["id"])
+	assert.Equal(t, testHRUserID, emp["user_id"])
 }
 
 func TestHRWire_EmptyCalendarAndDocumentsAreWrappedEmptyLists(t *testing.T) {
