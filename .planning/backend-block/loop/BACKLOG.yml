@@ -1628,7 +1628,7 @@ units:
     service: hr
     model: sonnet
     deps: [fix-hr-own-scope-foreign-balance-and-time-entries]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       Die HR-Hooks reichen `limit`/`offset` (und bei Mitarbeitern `search`) durch, die Handler

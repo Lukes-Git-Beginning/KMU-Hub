@@ -111,6 +111,29 @@ func parsePagination(r *http.Request, defaultPage, defaultPageSize int) (page, p
 	return page, pageSize
 }
 
+// parsePaginationOrLimitOffset is parsePagination for lists whose desktop hooks speak limit/offset
+// (hr-hooks: ListLeaveRequestsParams, ListWorkTimeEntriesParams, ListEmployeesParams). When page or
+// page_size is present they win and limit/offset are ignored; otherwise limit becomes the page size
+// (same 1..100 bound as parsePagination) and offset is mapped to page = offset/limit + 1. An offset
+// that is not a multiple of limit rounds down to the page that contains it.
+func parsePaginationOrLimitOffset(r *http.Request, defaultPage, defaultPageSize int) (page, pageSize int) {
+	page, pageSize = parsePagination(r, defaultPage, defaultPageSize)
+
+	q := r.URL.Query()
+	if q.Get("page") != "" || q.Get("page_size") != "" {
+		return page, pageSize
+	}
+	limit, err := strconv.Atoi(q.Get("limit"))
+	if err != nil || limit <= 0 || limit > 100 {
+		return page, pageSize
+	}
+	pageSize = limit
+	if offset, err := strconv.Atoi(q.Get("offset")); err == nil && offset > 0 {
+		page = offset/limit + 1
+	}
+	return page, pageSize
+}
+
 // listPageSizeMax is the page-size ceiling of the CRM and task lists (contacts, companies, deals,
 // activities, tasks) that the desktop fills with up to 200 rows at once.
 const listPageSizeMax = 200

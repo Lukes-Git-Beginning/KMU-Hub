@@ -12673,6 +12673,8 @@ paths:
           schema: { type: string, format: date }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
           description: List of leave requests
@@ -13020,6 +13022,8 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
           description: Work time entries
@@ -13223,6 +13227,8 @@ paths:
         - { name: department, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
           description: Employee list (full profiles with hr:read, directory projection otherwise)

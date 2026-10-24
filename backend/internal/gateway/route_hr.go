@@ -320,7 +320,7 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
 	// A leave request's employee_id is the user id of whoever filed it. The self-service view asks
 	// with user_id; employee_id is the same filter under its HR name.
@@ -862,7 +862,7 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
 	employeeID, ok := restrictToOwnEmployee(w, r, r.URL.Query().Get("employee_id"))
 	if !ok {
@@ -1082,7 +1082,7 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
 	resp, err := client.ListEmployees(r.Context(), &hrv1.ListEmployeesReq{
 		TenantId:   tenantID,
