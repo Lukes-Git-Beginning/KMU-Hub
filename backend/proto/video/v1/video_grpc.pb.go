@@ -32,6 +32,7 @@ const (
 	VideoService_ListRecordings_FullMethodName             = "/video.v1.VideoService/ListRecordings"
 	VideoService_DeleteRecording_FullMethodName            = "/video.v1.VideoService/DeleteRecording"
 	VideoService_GetRecordingDownloadURL_FullMethodName    = "/video.v1.VideoService/GetRecordingDownloadURL"
+	VideoService_ConfirmInitiatorConsent_FullMethodName    = "/video.v1.VideoService/ConfirmInitiatorConsent"
 	VideoService_CreateMeeting_FullMethodName              = "/video.v1.VideoService/CreateMeeting"
 	VideoService_GetMeeting_FullMethodName                 = "/video.v1.VideoService/GetMeeting"
 	VideoService_UpdateMeeting_FullMethodName              = "/video.v1.VideoService/UpdateMeeting"
@@ -94,6 +95,9 @@ type VideoServiceClient interface {
 	ListRecordings(ctx context.Context, in *ListRecordingsRequest, opts ...grpc.CallOption) (*ListRecordingsResponse, error)
 	DeleteRecording(ctx context.Context, in *DeleteRecordingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRecordingDownloadURL(ctx context.Context, in *GetRecordingDownloadURLRequest, opts ...grpc.CallOption) (*GetRecordingDownloadURLResponse, error)
+	// Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+	// confirms the pre-dialog after StartRecording created the row.
+	ConfirmInitiatorConsent(ctx context.Context, in *ConfirmInitiatorConsentRequest, opts ...grpc.CallOption) (*ConfirmInitiatorConsentResponse, error)
 	// Meeting Management
 	CreateMeeting(ctx context.Context, in *CreateMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
 	GetMeeting(ctx context.Context, in *GetMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
@@ -277,6 +281,16 @@ func (c *videoServiceClient) GetRecordingDownloadURL(ctx context.Context, in *Ge
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetRecordingDownloadURLResponse)
 	err := c.cc.Invoke(ctx, VideoService_GetRecordingDownloadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ConfirmInitiatorConsent(ctx context.Context, in *ConfirmInitiatorConsentRequest, opts ...grpc.CallOption) (*ConfirmInitiatorConsentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmInitiatorConsentResponse)
+	err := c.cc.Invoke(ctx, VideoService_ConfirmInitiatorConsent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -721,6 +735,9 @@ type VideoServiceServer interface {
 	ListRecordings(context.Context, *ListRecordingsRequest) (*ListRecordingsResponse, error)
 	DeleteRecording(context.Context, *DeleteRecordingRequest) (*emptypb.Empty, error)
 	GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error)
+	// Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+	// confirms the pre-dialog after StartRecording created the row.
+	ConfirmInitiatorConsent(context.Context, *ConfirmInitiatorConsentRequest) (*ConfirmInitiatorConsentResponse, error)
 	// Meeting Management
 	CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error)
 	GetMeeting(context.Context, *GetMeetingRequest) (*Meeting, error)
@@ -825,6 +842,9 @@ func (UnimplementedVideoServiceServer) DeleteRecording(context.Context, *DeleteR
 }
 func (UnimplementedVideoServiceServer) GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRecordingDownloadURL not implemented")
+}
+func (UnimplementedVideoServiceServer) ConfirmInitiatorConsent(context.Context, *ConfirmInitiatorConsentRequest) (*ConfirmInitiatorConsentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmInitiatorConsent not implemented")
 }
 func (UnimplementedVideoServiceServer) CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMeeting not implemented")
@@ -1185,6 +1205,24 @@ func _VideoService_GetRecordingDownloadURL_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoServiceServer).GetRecordingDownloadURL(ctx, req.(*GetRecordingDownloadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ConfirmInitiatorConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmInitiatorConsentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ConfirmInitiatorConsent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ConfirmInitiatorConsent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ConfirmInitiatorConsent(ctx, req.(*ConfirmInitiatorConsentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1999,6 +2037,10 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRecordingDownloadURL",
 			Handler:    _VideoService_GetRecordingDownloadURL_Handler,
+		},
+		{
+			MethodName: "ConfirmInitiatorConsent",
+			Handler:    _VideoService_ConfirmInitiatorConsent_Handler,
 		},
 		{
 			MethodName: "CreateMeeting",

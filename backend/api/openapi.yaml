@@ -37671,12 +37671,20 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: >-
+            The recording does not exist or was not started by the calling
+            user (a foreign recording is indistinguishable from a missing one).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "412":
           description: >-
-            Pre-recording consent could not be confirmed: the recording does
-            not exist or is not owned by the calling user.
+            Pre-recording consent could not be confirmed: the service answered
+            without stamping the recording.
           content:
             application/json:
               schema:

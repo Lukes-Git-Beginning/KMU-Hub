@@ -678,7 +678,7 @@ units:
     service: video
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,9 % · internal/server 75,3 %"
     scope: >
       TOTALAUSFALL, VERIFIZIERT (Iteration 13, Probe mit echtem gRPC-Server): `POST
@@ -1999,3 +1999,42 @@ units:
     done_when:
       - "DB-Test als kmuhub_app: readonly, it_admin, hr_admin halten search:read, extern nicht"
       - "Migration up/down/up, zweites up No-op, down entfernt genau die drei Grants"
+
+  - id: fix-video-recording-tag-rpcs-cannot-marshal
+    phase: 4
+    service: video
+    model: opus
+    deps: [fix-video-initiator-consent-rpc-cannot-marshal]
+    status: todo
+    coverage_start: "internal/gateway 76,9 % · internal/server 75,4 %"
+    scope: >
+      Gefunden in fix-video-initiator-consent-rpc-cannot-marshal (Lauf 16, Iteration 14):
+      `backend/proto/video/v1/video_recording_ext.go` hat dasselbe Muster wie die gelöschte
+      `video_pre_consent_ext.go` — sechs RPCs (`GetRecordingConsents`, `TagRecordingWithConsents`,
+      `UpdateRecordingMetadata`, `ListRecordingsByMeeting`, `GetRecordingStatus`,
+      `CleanupExpiredRecording`) als handgeschriebene Plain-Structs mit `cc.Invoke`, keine
+      `proto.Message`, und keine davon steht in `VideoService_ServiceDesc` (0 Treffer in
+      `video_grpc.pb.go`; `cmd/work/main.go:210` registriert nur den generierten Desc). Damit
+      scheitern `GET /video/recordings/{id}/consents`, `POST …/tag-consents`, `PATCH …/metadata`,
+      `GET …/status`, `POST …/cleanup` und `GET /video/meetings/{meetingId}/recordings` für
+      JEDEN Aufrufer mit 500 (Marshal-Fehler im Client). Desktop hat Client-Funktionen
+      (`video-client.ts:124-140`, `useVideo.ts:292` `useListRecordingsByMeeting`), aber keine
+      Komponente ruft sie auf — deshalb Backlog-Ende statt Kopf. Lösung wie in Iteration 14:
+      Messages + RPCs in `video.proto`, `protoc` für video (Makefile-Target `proto`, Zeile für
+      `proto/video/v1/video.proto`), Ext-Datei löschen, `UnimplementedVideoServiceRecordingTagServer`
+      aus `VideoGRPCServer` entfernen, Gateway `getVideoRecordingTagClient` -> `getVideoClient`,
+      Feldnamen (`RecordingID` -> `RecordingId` usw.) in Server, Gateway und Tests nachziehen.
+      Wire-Form prüfen: die Plain-Structs tragen json-Tags, das Gateway serialisiert evtl. per
+      `response.JSON` — nach der Umstellung auf proto-Typen auf `response.Proto` bzw. die
+      bestehende Antwortform gegen `video-client.ts`-Typen abgleichen (snake_case, Listen gewrappt).
+    sources:
+      - backend/proto/video/v1/video_recording_ext.go
+      - backend/proto/video/v1/video.proto
+      - backend/internal/server/video_grpc.go
+      - backend/internal/gateway/route_video.go
+      - backend/internal/server/video_initiator_consent_wire_test.go
+      - desktop/src/renderer/src/api/video-client.ts
+    done_when:
+      - "Wire-Test über echten gRPC-Server (RegisterVideoServiceServer): alle sechs RPCs liefern kein Internal/Unimplemented"
+      - "Antwortform jeder der sechs Routen gegen den Typ in video-client.ts belegt (Journal-Zeile desktop-aufrufer)"
+      - "Mutations-Probe: eine Methode aus dem Service-Desc genommen, der Wire-Test wird rot"

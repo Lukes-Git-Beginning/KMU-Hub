@@ -1942,3 +1942,36 @@ units:
       - backend/internal/gateway/route_email.go
     done_when:
       - "Regel je Fläche entschieden; daraus Loop-Units (Migration für rule.user_id falls pro Nutzer, Service-Scope, Router-Tests)"
+
+  - id: decide-video-recording-runs-before-initiator-confirms
+    phase: 4
+    service: video
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Egress startet vor der Initiator-Bestätigung, Abbrechen stoppt nicht; erst Prod-Egress-Status, dann Variante (a) Backend verzögert Egress oder (b) Desktop stoppt bei Abbrechen"
+    coverage_start: "internal/work/recording (ungemessen)"
+    scope: >
+      Gefunden in fix-video-initiator-consent-rpc-cannot-marshal (Lauf 16, Iteration 14),
+      gegen Code belegt: `recording.Service.StartRecording` legt die Zeile an und startet den
+      LiveKit-Egress SOFORT (`service.go`, `StartRoomCompositeEgress` nach `CountPendingConsents`).
+      Das Desktop (`CallControls.tsx:121-150`) ruft erst `startRecording`, zeigt DANN den
+      Initiator-Dialog und stempelt bei „Bestätigen" `initiator-consent`; „Abbrechen"
+      (`handleCancelStart`) schließt nur den Dialog — die Aufnahme läuft weiter, ohne dass der
+      Initiator bestätigt hat, und `activeRecordingId` bleibt leer (UI weiß ggf. nicht, dass
+      aufgenommen wird). Der als Gegenmittel gebaute `PreConsentChecker` ist NICHT verdrahtet:
+      `cmd/work/main.go` ruft `recording.NewService` ohne Checker, und es gibt keine einzige
+      Implementierung von `HasInitiatorConsented`. Der Stempel ist damit rein dokumentarisch.
+      Erster Schritt: prüfen, ob Egress in Produktion konfiguriert ist (`LIVEKIT_EGRESS_TEMPLATE_URL`
+      im work-Service, ohne den `ErrEgressNotConfigured` und die Frage ist akademisch) — das
+      gehört Luke (Prod-Lesezugriff). Danach eine Architektur-Entscheidung (Luke): (a) Egress erst
+      nach dem Stempel starten (StartRecording legt nur `pending` an, `ConfirmInitiatorConsent`
+      startet den Egress), oder (b) Abbrechen ruft `stopRecording` + Löschung — (b) wäre
+      Desktop-Code, den der Loop nicht ändert. Kein Bau ohne Entscheidung.
+    sources:
+      - backend/internal/work/recording/service.go
+      - backend/cmd/work/main.go
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+    done_when:
+      - "Luke: Egress-Status in Produktion festgestellt und Variante (a) oder (b) entschieden"
+      - "Bei (a): Service-Test — ohne Stempel kein StartRoomCompositeEgress-Aufruf, nach Stempel genau einer"

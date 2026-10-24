@@ -26,7 +26,6 @@ import (
 type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
 	videov1.UnimplementedVideoServiceRecordingTagServer
-	videov1.UnimplementedVideoServicePreConsentServer
 	videoService     *video.Service
 	meetingService   *meeting.Service
 	recordingService *recording.Service
@@ -612,19 +611,19 @@ func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *vide
 // ConfirmInitiatorConsent stamps pre_recording_consent_at on a recording row.
 // Called by the gateway after the initiator acknowledges the pre-recording dialog.
 func (s *VideoGRPCServer) ConfirmInitiatorConsent(ctx context.Context, req *videov1.ConfirmInitiatorConsentRequest) (*videov1.ConfirmInitiatorConsentResponse, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.GetRecordingId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
-	userID, err := uuid.Parse(req.UserID)
+	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	var tenantID uuid.UUID
-	if req.TenantID != "" {
-		tenantID, err = uuid.Parse(req.TenantID)
+	if req.GetTenantId() != "" {
+		tenantID, err = uuid.Parse(req.GetTenantId())
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 		}

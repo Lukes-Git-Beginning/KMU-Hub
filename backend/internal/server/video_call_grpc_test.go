@@ -373,9 +373,10 @@ func (m *recordingMockRepo) GetRecordingParticipants(_ context.Context, recordin
 	return m.participantUsers[recordingID], nil
 }
 
-func (m *recordingMockRepo) MarkInitiatorConsent(_ context.Context, recordingID, _, _ uuid.UUID) error {
+func (m *recordingMockRepo) MarkInitiatorConsent(_ context.Context, recordingID, userID, _ uuid.UUID) error {
 	rec, ok := m.recordings[recordingID]
-	if !ok {
+	// Mirrors the SQL (started_by = userID): a foreign initiator stamps nothing.
+	if !ok || (rec.StartedBy != nil && *rec.StartedBy != userID) {
 		return recording.ErrNotFound
 	}
 	now := time.Now()
@@ -940,17 +941,17 @@ func TestVideoCallHandlers_Validation(t *testing.T) {
 	})
 	t.Run("ConfirmInitiatorConsent_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingID: "bogus"})
+		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ConfirmInitiatorConsent_InvalidUserID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingID: uuid.New().String(), UserID: "bogus"})
+		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingId: uuid.New().String(), UserId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ConfirmInitiatorConsent_InvalidTenantID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingID: uuid.New().String(), UserID: someUserID, TenantID: "bogus"})
+		_, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{RecordingId: uuid.New().String(), UserId: someUserID, TenantId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("GetRecordingDownloadURL_InvalidRecordingID", func(t *testing.T) {
@@ -1371,16 +1372,16 @@ func TestConfirmInitiatorConsent_SuccessAndNotFound(t *testing.T) {
 	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, CreatedAt: time.Now()}
 
 	resp, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{
-		RecordingID: recID.String(),
-		UserID:      uuid.New().String(),
+		RecordingId: recID.String(),
+		UserId:      uuid.New().String(),
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Stamped)
 	require.NotNil(t, ts.recRepo.recordings[recID].PreRecordingConsentAt)
 
 	_, err = ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{
-		RecordingID: uuid.New().String(),
-		UserID:      uuid.New().String(),
+		RecordingId: uuid.New().String(),
+		UserId:      uuid.New().String(),
 	})
 	requireGRPCCode(t, err, codes.NotFound)
 }

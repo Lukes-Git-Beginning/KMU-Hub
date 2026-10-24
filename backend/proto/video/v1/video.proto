@@ -23,6 +23,9 @@ service VideoService {
   rpc ListRecordings(ListRecordingsRequest) returns (ListRecordingsResponse);
   rpc DeleteRecording(DeleteRecordingRequest) returns (google.protobuf.Empty);
   rpc GetRecordingDownloadURL(GetRecordingDownloadURLRequest) returns (GetRecordingDownloadURLResponse);
+  // Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+  // confirms the pre-dialog after StartRecording created the row.
+  rpc ConfirmInitiatorConsent(ConfirmInitiatorConsentRequest) returns (ConfirmInitiatorConsentResponse);
 
   // Meeting Management
   rpc CreateMeeting(CreateMeetingRequest) returns (Meeting);
@@ -385,6 +388,18 @@ message GetRecordingDownloadURLRequest {
 message GetRecordingDownloadURLResponse {
   string url = 1;
   google.protobuf.Timestamp expires_at = 2;
+}
+
+// ConfirmInitiatorConsentRequest stamps pre_recording_consent_at on a recording
+// row. user_id must match started_by; the gateway fills it from the JWT.
+message ConfirmInitiatorConsentRequest {
+  string recording_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+}
+
+message ConfirmInitiatorConsentResponse {
+  bool stamped = 1;
 }
 
 // ============================================================================

@@ -1935,21 +1935,13 @@ func (vr *VideoRoutes) HandleCleanupExpiredRecording(w http.ResponseWriter, r *h
 // Initiator Pre-Recording Consent Handler (R2-P0.4 / Migration 000107)
 // ============================================================================
 
-// getVideoPreConsentClient obtains the pre-consent extended gRPC client.
-func (vr *VideoRoutes) getVideoPreConsentClient() (videov1.VideoServicePreConsentClient, error) {
-	conn, err := vr.registry.GetConnection("work")
-	if err != nil {
-		return nil, err
-	}
-	return videov1.NewVideoServicePreConsentClient(conn), nil
-}
-
 // HandleConfirmInitiatorConsent stamps pre_recording_consent_at on a recording row.
 // Must be called by the initiator before StartRecording when the pre-dialog flow is used.
-// Returns 412 Precondition Failed when the recording does not belong to the calling user.
+// A missing recording, or one not started by the caller, answers 404 (the
+// service matches the JWT user against started_by); 412 when nothing was stamped.
 // POST /api/v1/video/recordings/{id}/initiator-consent
 func (vr *VideoRoutes) HandleConfirmInitiatorConsent(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoPreConsentClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1967,9 +1959,9 @@ func (vr *VideoRoutes) HandleConfirmInitiatorConsent(w http.ResponseWriter, r *h
 	}
 
 	resp, err := client.ConfirmInitiatorConsent(r.Context(), &videov1.ConfirmInitiatorConsentRequest{
-		RecordingID: recordingID,
-		UserID:      userID,
-		TenantID:    tenantID.String(),
+		RecordingId: recordingID,
+		UserId:      userID,
+		TenantId:    tenantID.String(),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
