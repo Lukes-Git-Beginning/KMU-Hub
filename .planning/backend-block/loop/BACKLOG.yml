@@ -497,7 +497,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/chat/message 77,2 %"
     scope: >
       TOTALAUSFALL, VERIFIZIERT: weder member noch manager haben `calendars:delete`,
