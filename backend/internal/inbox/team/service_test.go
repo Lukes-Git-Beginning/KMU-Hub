@@ -613,6 +613,11 @@ func TestListMembers_PrivateInboxRequiresMembership(t *testing.T) {
 	members, err := svc.ListMembers(context.Background(), inbox.TenantID, inbox.ID, adminID)
 	require.NoError(t, err)
 	assert.Len(t, members, 1)
+
+	// A tenant-wide manager may edit the list, so they also see it.
+	members, err = svc.ListMembers(WithManageAll(context.Background()), inbox.TenantID, inbox.ID, uuid.New())
+	require.NoError(t, err)
+	assert.Len(t, members, 1)
 }
 
 // ============================================================================

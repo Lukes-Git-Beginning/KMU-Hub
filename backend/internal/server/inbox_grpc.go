@@ -925,7 +925,7 @@ func (s *InboxGRPCServer) ListTeamMembers(ctx context.Context, req *inboxv1.List
 		return nil, status.Error(codes.InvalidArgument, "invalid team_inbox_id")
 	}
 
-	members, err := s.teamService.ListMembers(ctx, tenantID, teamInboxID, actorID)
+	members, err := s.teamService.ListMembers(withTeamManage(ctx), tenantID, teamInboxID, actorID)
 	if err != nil {
 		return nil, mapInboxError(err)
 	}

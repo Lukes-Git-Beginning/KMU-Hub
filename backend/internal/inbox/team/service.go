@@ -287,13 +287,14 @@ func (s *Service) RemoveMember(ctx context.Context, tenantID, teamInboxID, actor
 
 // ListMembers returns all members of a team inbox. The inbox must exist in the
 // tenant (NotFound for foreign inboxes); the member list of a private inbox is
-// only visible to its own members.
+// only visible to its own members and to callers marked with WithManageAll,
+// who may edit that list and therefore have to see it.
 func (s *Service) ListMembers(ctx context.Context, tenantID, teamInboxID, actorID uuid.UUID) ([]*models.TeamInboxMember, error) {
 	inbox, err := s.repo.GetTeamInbox(ctx, tenantID, teamInboxID)
 	if err != nil {
 		return nil, err
 	}
-	if inbox.Visibility == "private" {
+	if inbox.Visibility == "private" && !canManageAll(ctx) {
 		isMember, err := s.repo.IsMember(ctx, teamInboxID, actorID)
 		if err != nil {
 			return nil, err
