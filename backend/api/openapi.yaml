@@ -15011,6 +15011,44 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/automations/executions:
+    get:
+      summary: List execution logs across all automations of the tenant
+      tags: [automations]
+      operationId: listAllAutomationExecutions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationExecution"
+                  total_count: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          description: Response could not be built
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/automations/{id}/executions:
     get:
       summary: List execution logs for an automation
