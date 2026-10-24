@@ -1457,7 +1457,7 @@ units:
     service: document
     model: sonnet
     deps: [fix-document-share-entity-checks]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/document/share 96,8 %"
     scope: >
       TOTALAUSFALL „Freigabe entfernen“: das Desktop ruft `DELETE /api/v1/documents/shares/{shareId}`

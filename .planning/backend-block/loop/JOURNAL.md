@@ -466,3 +466,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine REST-Route/Antwortform geändert; die WOPI-Routen ruft OnlyOffice, das Desktop nutzt nur `POST /documents/wopi/token` in `document-client.ts:539`, unverändert)
 - offen: (1) Ob OnlyOffice in Produktion läuft, ist nicht geprüft (Prod-Compose ist für den Loop gesperrt; laut grep steht dort ein `onlyoffice`-Service). (2) Nebenwirkung, gewollt: `MaxRecvMsgSize 60 MiB` am Document-Server repariert auch `UploadFile` für Dateien zwischen 4 und 50 MiB (lief vorher in den gRPC-Default 4 MiB -> ResourceExhausted); nicht separat getestet. (3) Revert ändert jetzt den Download-Inhalt (vorher nicht) — das ist der Zweck, aber ein Verhaltenswechsel für Nutzer. (4) `content_text` (Volltextsuche) wird nach Save/Revert nicht neu extrahiert — Bestand. (5) Zwei gleichzeitige Saves derselben Datei kollidieren auf `version_number` (Bestand, der WOPI-Lock schützt). (6) Keine Goroutinen im Produktivcode (`-race` erst in CI). (7) E2E mit echtem OnlyOffice nicht gelaufen.
+
+## Iteration 35 — fix-document-unshare-by-share-id — done — 2026-10-24 21:20
+- commit: (siehe git log, Subject `chore(loop): close fix-document-unshare-by-share-id as a duplicate of 8fc74fd9`)
+- gebaut: nichts. Verify-first: die Unit ist ein Duplikat von `fix-document-unshare-route-by-share-id` (done, `8fc74fd9`). Belegt am Code: Route `r.With(docShareManage).Delete("/{id}", d.HandleUnshareByID)` (`route_document.go:166`), Pfad `/api/v1/documents/shares/{id}` in `openapi.yaml:31818`, `share_id = 4` in `UnshareEntityRequest`, Tenant-gescoptes Delete-by-ID im Share-Repo, Body-Route daneben unverändert. Alle `done_when`-Punkte sind dort erfüllt (Wire-Test mit additivem Guard, Fehler-Mapping, Fremd-Mandant im Server-DB-Test mit Mutations-Probe aus Iteration 25/B5).
+- gate: Tests erneut gefahren, nicht nur gelesen: `TestDocumentWire_UnshareByID*` (4) + `TestHandleUnshareEntity_*` (Regression Body-Route) + `internal/document/share` Unshare-Tests grün; `TestOpenAPIRouteDrift` grün (als kmuhub_app mit DATABASE_URL). Kein Code geändert -> build/vet/lint/migration n.a.
+- coverage: n.a. (kein Code geändert)
+- mutations-probe: n.a. (die Probe der Ursprungs-Unit steht im Journal von 8fc74fd9)
+- verify vorgaenger: sauber (Commit 2c0327e4: `content` im Proto zusammen mit regeneriertem `document.pb.go`, keine neue Route/Guard/Tabelle, Stub-Pfad ersetzt durch echte `SaveContent` mit DB-Test, WOPI-Kontext Tenant+User gestempelt)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Änderung; `DELETE /documents/shares/{id}` -> `document-client.ts:~415` / `ShareDialog.tsx` war bei 8fc74fd9 geprüft)
+- offen: nichts.
