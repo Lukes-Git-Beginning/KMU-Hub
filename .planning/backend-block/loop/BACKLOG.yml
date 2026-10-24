@@ -1039,7 +1039,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 75,3 % · internal/middleware 71,8 %"
     decided: 2026-10-24
     decision: >-

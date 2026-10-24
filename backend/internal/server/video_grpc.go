@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -297,8 +298,10 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 }
 
 // authorizeRecordingOwner allows an action on a recording only for its initiator
-// or a host/co-host of the meeting it belongs to. verb names the action in the
-// PermissionDenied message.
+// or a host/co-host of the meeting it belongs to. A tenant admin (recordings:admin,
+// forwarded over the gRPC hop) may additionally delete any recording of the tenant,
+// including call recordings that have no meeting; stop has no such waiver. verb
+// names the action in the PermissionDenied message.
 func (s *VideoGRPCServer) authorizeRecordingOwner(ctx context.Context, recordingID uuid.UUID, verb string) error {
 	tenantID, tenantErr := middleware.GetTenantID(ctx)
 	if tenantErr != nil {
@@ -315,12 +318,16 @@ func (s *VideoGRPCServer) authorizeRecordingOwner(ctx context.Context, recording
 	}
 
 	authorized := rec.StartedBy != nil && *rec.StartedBy == callerID
+	if !authorized && verb == "delete" {
+		authorized = slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermRecordingsAdmin)
+	}
 	if !authorized && rec.MeetingID != nil {
 		isHost, hostErr := s.meetingService.IsHostOrCoHost(ctx, *rec.MeetingID, tenantID, callerID)
-		if hostErr != nil {
+		// A deleted meeting has no host left: the caller is simply not one.
+		if hostErr != nil && !errors.Is(hostErr, meeting.ErrNotFound) {
 			return status.Errorf(codes.Internal, "authz check failed: %v", hostErr)
 		}
-		authorized = isHost
+		authorized = hostErr == nil && isHost
 	}
 	if !authorized {
 		return status.Errorf(codes.PermissionDenied, "only the recording initiator or meeting host/co-host may %s a recording", verb)

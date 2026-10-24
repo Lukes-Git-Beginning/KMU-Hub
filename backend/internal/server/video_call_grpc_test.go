@@ -1513,3 +1513,67 @@ func TestDeleteRecording_MissingCallerUnauthenticated(t *testing.T) {
 	requireGRPCCode(t, err, codes.Unauthenticated)
 	assert.Equal(t, recording.RecordingStatusCompleted, ts.recRepo.recordings[recID].Status)
 }
+
+func withRecordingsAdmin(ctx context.Context) context.Context {
+	return context.WithValue(ctx, middleware.UserPermsKey, []string{middleware.PermRecordingsAdmin})
+}
+
+// A tenant admin (recordings:admin forwarded over the hop) deletes a recording
+// somebody else started, with a meeting and without one (a plain call).
+func TestDeleteRecording_AdminWaiverDeletesForeignRecording(t *testing.T) {
+	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
+	admin := uuid.New()
+	starter := uuid.New()
+
+	meetingResp := seedMeeting(t, ts.srv, ts.meetingRepo, tenantID, uuid.New())
+	meetingRec := uuid.New()
+	meetingID := uuid.MustParse(meetingResp.Id)
+	ts.recRepo.recordings[meetingRec] = &recording.Recording{ID: meetingRec, Status: recording.RecordingStatusCompleted, StartedBy: &starter, MeetingID: &meetingID, CreatedAt: time.Now()}
+	callRec := uuid.New()
+	ts.recRepo.recordings[callRec] = &recording.Recording{ID: callRec, Status: recording.RecordingStatusCompleted, StartedBy: &starter, CreatedAt: time.Now()}
+
+	for _, id := range []uuid.UUID{meetingRec, callRec} {
+		_, err := ts.srv.DeleteRecording(withRecordingsAdmin(callCtxAuth(tenantID, admin)), &videov1.DeleteRecordingRequest{RecordingId: id.String()})
+		require.NoError(t, err)
+		assert.Equal(t, recording.RecordingStatusFailed, ts.recRepo.recordings[id].Status)
+	}
+}
+
+// Without the admin key a stranger is refused, also when the recording's meeting
+// is gone: PermissionDenied, not a 500 from the host lookup.
+func TestDeleteRecording_NonAdminStrangerDeniedAlsoWhenMeetingIsGone(t *testing.T) {
+	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
+	starter := uuid.New()
+	stranger := uuid.New()
+	goneMeeting := uuid.New() // never stored: GetMeeting returns meeting.ErrNotFound
+	recID := uuid.New()
+	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusCompleted, StartedBy: &starter, MeetingID: &goneMeeting, CreatedAt: time.Now()}
+
+	_, err := ts.srv.DeleteRecording(callCtxAuth(tenantID, stranger), &videov1.DeleteRecordingRequest{RecordingId: recID.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	assert.Equal(t, recording.RecordingStatusCompleted, ts.recRepo.recordings[recID].Status)
+
+	// The starter stays authorized even though the meeting is gone.
+	_, err = ts.srv.DeleteRecording(callCtxAuth(tenantID, starter), &videov1.DeleteRecordingRequest{RecordingId: recID.String()})
+	require.NoError(t, err)
+}
+
+// The waiver is for delete only; an admin does not stop somebody else's recording.
+func TestStopRecording_AdminKeyIsNoWaiver(t *testing.T) {
+	ts := newTestVideoCallServer()
+	tenantID := uuid.New()
+	initiator := uuid.New()
+
+	created, err := ts.srv.CreateCall(callCtxTenant(tenantID), &videov1.CreateCallRequest{InitiatorId: initiator.String(), ParticipantIds: []string{uuid.New().String()}, CallType: videov1.CallType_CALL_TYPE_ONE_TO_ONE})
+	require.NoError(t, err)
+	zero := 0
+	ts.recRepo.pendingOverride = &zero
+	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: initiator.String(), CallId: &created.Id})
+	require.NoError(t, err)
+
+	_, err = ts.srv.StopRecording(withRecordingsAdmin(callCtxAuth(tenantID, uuid.New())), &videov1.StopRecordingRequest{RecordingId: rec.Id})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	assert.False(t, ts.egress.stopCalled)
+}
