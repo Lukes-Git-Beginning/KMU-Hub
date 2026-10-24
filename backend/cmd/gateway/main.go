@@ -228,6 +228,8 @@ func main() {
 	// videoRoutes is kept as a named variable so the WS hub can be injected
 	// after hub construction (hub depends on chat gRPC client, built below).
 	videoRoutes := gateway.NewVideoRoutes(registry, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
+	// Same for chat: REST message writes are pushed to the channel over the hub.
+	chatRoutes := gateway.NewChatRoutes(registry)
 
 	// Captcha verifier (provider-agnostic siteverify).
 	// Disabled when CAPTCHA_SECRET is empty (default). No prod assertion: the hook
@@ -277,7 +279,7 @@ func main() {
 	registrars := []gateway.RouteRegistrar{
 		authRoutes,
 		crmRoutes,
-		gateway.NewChatRoutes(registry),
+		chatRoutes,
 		gateway.NewNotificationRoutes(registry),
 		gateway.NewWorkRoutes(registry),
 		gateway.NewCalendarRoutes(registry),
@@ -448,6 +450,9 @@ func main() {
 		// Wire hub into video routes so recording.started events can be pushed
 		// in real-time to meeting participants.
 		videoRoutes.SetWSHub(wsHub)
+		// Wire hub into chat routes so REST message writes reach the other
+		// channel subscribers in real time.
+		chatRoutes.SetWSHub(wsHub)
 		// Wire the Video service into the hub so call.accepted/call.declined
 		// WebSocket signals are forwarded to the Video gRPC service.
 		wsHub.SetVideoService(&videoWSAdapter{registry: registry, hub: wsHub})

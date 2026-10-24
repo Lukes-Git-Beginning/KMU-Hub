@@ -529,11 +529,12 @@ func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMe
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.messageService.Delete(ctx, id, tenantID, userID); err != nil {
+	channelID, err := s.messageService.Delete(ctx, id, tenantID, userID)
+	if err != nil {
 		return nil, mapChatError(err)
 	}
 
-	return &chatv1.DeleteMessageResponse{}, nil
+	return &chatv1.DeleteMessageResponse{ChannelId: channelID.String()}, nil
 }
 
 // ============================================================================

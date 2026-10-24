@@ -362,30 +362,30 @@ func (s *Service) Update(ctx context.Context, id, tenantID, userID uuid.UUID, in
 	return s.getWithSender(ctx, message)
 }
 
-// Delete soft-deletes a message
-func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID) error {
+// Delete soft-deletes a message and returns the channel it belonged to.
+func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID) (uuid.UUID, error) {
 	message, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
-		return err
+		return uuid.Nil, err
 	}
 
 	if message.IsDeleted {
-		return nil // Already deleted, idempotent
+		return message.ChannelID, nil // Already deleted, idempotent
 	}
 
 	// Check authorization: author or channel admin/owner
 	if message.CreatedBy == nil || *message.CreatedBy != userID {
 		role, roleErr := s.repo.GetMemberRole(ctx, message.ChannelID, userID)
 		if roleErr != nil {
-			return ErrNotChannelMember
+			return uuid.Nil, ErrNotChannelMember
 		}
 		if !role.CanModerate() {
-			return ErrNotAuthorized
+			return uuid.Nil, ErrNotAuthorized
 		}
 	}
 
 	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {
-		return deleteErr
+		return uuid.Nil, deleteErr
 	}
 
 	// Decrement parent reply_count if this was a thread reply
@@ -405,7 +405,7 @@ func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID) er
 		"deleted_by", userID,
 	)
 
-	return nil
+	return message.ChannelID, nil
 }
 
 // GetThreadRepliesInput contains options for listing thread replies

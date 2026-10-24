@@ -1812,7 +1812,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,4 % · internal/server 75,8 %"
     scope: >
       TOTALAUSFALL "Chat in Echtzeit", gefunden in `scan-fe-gateway-shape-and-body-chat` (Lauf 16,
@@ -2482,3 +2482,40 @@ units:
       - "DB-Test (kmuhub_app): Viewer eines Projekts -> PermissionDenied beim Anhängen und Entfernen, kein Eintrag/keine Löschung; Editor -> ok"
       - "Test: projektlose Aufgabe verhält sich wie bei Update"
       - "Mutations-Probe: Editor-Prüfung entfernt, der Viewer-Test wird rot"
+
+  - id: harden-chat-reaction-membership-and-broadcast
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/work/reaction (vor Bau messen) · internal/gateway 77,6 %"
+    scope: >
+      Gefunden in fix-chat-rest-writes-never-reach-other-clients (Lauf 16, Iteration 47), am Code
+      gelesen, nicht reproduziert. (1) `reaction.Service.ToggleReaction`
+      (`internal/work/reaction/service.go:30`) prüft keine Kanalmitgliedschaft: wer die ID einer
+      Nachricht eines privaten Kanals desselben Mandanten kennt, kann reagieren und bekommt die
+      Reaktionsübersicht (user_ids) zurück; `AddReaction` (`postgres_repository.go:21`) leitet nur
+      den Mandanten aus `messages` ab. `ListReactions`/`GetReactionSummary` ebenso prüfen.
+      (2) `POST /messages/{id}/reactions` broadcastet nicht: `ToggleReactionResponse` trägt keine
+      Kanal-ID, deshalb hat Iteration 47 `reaction.toggled` ausgelassen. Bau: Kanal der Nachricht
+      im Service ermitteln (tenant-gescoped), Mitgliedschaft prüfen (Nicht-Mitglied -> NotFound wie
+      bei GetChannel), `channel_id` additiv in `ToggleReactionResponse` (Proto + Regen), im
+      Gateway über das in Iteration 47 eingeführte `chatBroadcaster`-Interface
+      `BroadcastReactionToggled` aufrufen (Interface additiv erweitern). Das FE abonniert
+      `reaction.toggled` noch nicht (BACKLOG-NEXT `fe-handle-chat-shape-findings`) — Payload-Form
+      dort mit abstimmen, nicht raten.
+    sources:
+      - backend/internal/work/reaction/service.go
+      - backend/internal/work/reaction/postgres_repository.go
+      - backend/internal/server/chat_grpc.go
+      - backend/internal/gateway/route_chat.go
+      - backend/internal/gateway/route_chat_realtime_test.go
+      - backend/proto/chat/v1/chat.proto
+    notes: >
+      Desktop: `toggleReaction`/`listReactions`/`getReactionSummary` lesen `{reactions,added}`,
+      `{reactions}`, `{summaries}` — Antwortformen bleiben, nur `channel_id` kommt additiv dazu.
+    done_when:
+      - "DB-Test (kmuhub_app): Nicht-Mitglied eines privaten Kanals -> NotFound beim Reagieren, kein Eintrag; Mitglied -> ok"
+      - "Test über den echten Hub (Muster route_chat_realtime_test.go): Reaktion per REST -> Abonnent erhält `reaction.toggled`"
+      - "Mutations-Probe: Mitgliedschaftsprüfung entfernt, der Nicht-Mitglied-Test wird rot"

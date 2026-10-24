@@ -609,7 +609,7 @@ func TestService_Update(t *testing.T) {
 		require.NoError(t, err)
 
 		// Delete the message
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
+		_, err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Try to update
@@ -639,9 +639,10 @@ func TestService_Delete(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
+		gotChannel, err := service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 
 		require.NoError(t, err)
+		assert.Equal(t, channelID, gotChannel, "the caller broadcasts message.deleted to this channel")
 
 		// Verify soft deleted
 		msg, _ := repo.GetByID(context.Background(), created.ID, uuid.Nil)
@@ -668,7 +669,7 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Admin deletes someone else's message
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, adminID)
+		_, err = service.Delete(context.Background(), created.ID, uuid.Nil, adminID)
 
 		require.NoError(t, err)
 	})
@@ -693,7 +694,7 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Other member tries to delete
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, otherID)
+		_, err = service.Delete(context.Background(), created.ID, uuid.Nil, otherID)
 
 		assert.Equal(t, ErrNotAuthorized, err)
 	})
@@ -716,10 +717,11 @@ func TestService_Delete(t *testing.T) {
 		require.NoError(t, err)
 
 		// Delete twice
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
+		_, err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err)
-		err = service.Delete(context.Background(), created.ID, uuid.Nil, userID)
+		gotChannel, err := service.Delete(context.Background(), created.ID, uuid.Nil, userID)
 		require.NoError(t, err) // Should not error
+		assert.Equal(t, channelID, gotChannel)
 	})
 }
 
@@ -849,7 +851,7 @@ func TestService_Create_ThreadReply(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = service.Delete(context.Background(), parent.ID, uuid.Nil, userID)
+		_, err = service.Delete(context.Background(), parent.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Try to reply
@@ -981,7 +983,7 @@ func TestService_Delete_ThreadReply(t *testing.T) {
 		assert.Equal(t, 1, repo.messages[parent.ID].ReplyCount)
 
 		// Delete reply
-		err = service.Delete(context.Background(), reply.ID, uuid.Nil, userID)
+		_, err = service.Delete(context.Background(), reply.ID, uuid.Nil, userID)
 		require.NoError(t, err)
 
 		// Verify parent has reply_count=0

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -15,14 +16,40 @@ import (
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
+// chatBroadcaster is the slice of the WebSocket hub ChatRoutes needs to push
+// REST message writes to the other channel subscribers. The desktop sends,
+// edits and deletes over REST and learns about everyone else's writes only
+// through these events. Interface for the same reason as recordingBroadcaster.
+type chatBroadcaster interface {
+	BroadcastMessageCreated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
+	BroadcastMessageUpdated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
+	BroadcastMessageDeleted(ctx context.Context, channelID, messageID string)
+}
+
 // ChatRoutes handles HTTP routes for the chat backend service.
 type ChatRoutes struct {
 	registry *ServiceRegistry
+	wsHub    chatBroadcaster // optional; set via SetWSHub after hub construction
 }
 
 // NewChatRoutes creates a new ChatRoutes with the given service registry.
 func NewChatRoutes(registry *ServiceRegistry) *ChatRoutes {
 	return &ChatRoutes{registry: registry}
+}
+
+// SetWSHub injects the WebSocket hub. A nil hub is safe: message writes still
+// succeed, other clients only see them on their next refetch.
+func (ch *ChatRoutes) SetWSHub(hub chatBroadcaster) {
+	ch.wsHub = hub
+}
+
+// broadcast runs fn against the hub off the request path, so a slow WebSocket
+// peer never delays the writer's response. No-op without a hub.
+func (ch *ChatRoutes) broadcast(r *http.Request, fn func(ctx context.Context, hub chatBroadcaster)) {
+	if ch.wsHub == nil {
+		return
+	}
+	go fn(context.WithoutCancel(r.Context()), ch.wsHub)
 }
 
 // ServiceName returns the backend service name.
@@ -491,6 +518,11 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if msg := resp.GetMessage(); msg != nil {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageCreated(ctx, channelID, msg)
+		})
+	}
 	response.JSON(w, http.StatusCreated, resp)
 }
 
@@ -565,6 +597,11 @@ func (ch *ChatRoutes) HandleUpdateMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if msg := resp.GetMessage(); msg != nil {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageUpdated(ctx, msg.GetChannelId(), msg)
+		})
+	}
 	response.JSON(w, http.StatusOK, resp)
 }
 
@@ -582,13 +619,19 @@ func (ch *ChatRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err = client.DeleteMessage(r.Context(), &chatv1.DeleteMessageRequest{
+	resp, err := client.DeleteMessage(r.Context(), &chatv1.DeleteMessageRequest{
 		Id:     messageID,
 		UserId: userID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
+	}
+
+	if channelID := resp.GetChannelId(); channelID != "" {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageDeleted(ctx, channelID, messageID)
+		})
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "message deleted"})

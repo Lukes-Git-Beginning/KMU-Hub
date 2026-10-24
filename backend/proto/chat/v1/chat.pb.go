@@ -2011,6 +2011,7 @@ func (x *DeleteMessageRequest) GetUserId() string {
 
 type DeleteMessageResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChannelId     string                 `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"` // Channel of the deleted message, so the caller can notify its subscribers
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2043,6 +2044,13 @@ func (x *DeleteMessageResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteMessageResponse.ProtoReflect.Descriptor instead.
 func (*DeleteMessageResponse) Descriptor() ([]byte, []int) {
 	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *DeleteMessageResponse) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
 }
 
 type GetOrCreateDMRequest struct {
@@ -4421,8 +4429,10 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\v2\x14.chat.v1.MessageInfoR\amessage\"?\n" +
 	"\x14DeleteMessageRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x17\n" +
-	"\x15DeleteMessageResponse\"S\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"6\n" +
+	"\x15DeleteMessageResponse\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x01 \x01(\tR\tchannelId\"S\n" +
 	"\x14GetOrCreateDMRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\"\n" +
 	"\rother_user_id\x18\x02 \x01(\tR\votherUserId\"a\n" +

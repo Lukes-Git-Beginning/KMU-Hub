@@ -1011,13 +1011,19 @@ func (h *WebSocketHub) sendToUser(ctx context.Context, userID string, msg WSMess
 	}
 }
 
-// BroadcastMessageCreated broadcasts a new message to channel subscribers
+// BroadcastMessageCreated broadcasts a new message to channel subscribers.
+// A thread reply goes out as thread.reply.new, like the WS send path does.
 func (h *WebSocketHub) BroadcastMessageCreated(ctx context.Context, channelID string, message *chatv1.MessageInfo) {
-	h.broadcastToChannel(ctx, channelID, WSMessage{
+	msg := WSMessage{
 		Type:      WSMessageNew,
 		ChannelID: channelID,
 		Message:   mustMarshal(message),
-	})
+	}
+	if parentID := message.GetParentMessageId(); parentID != "" {
+		msg.Type = WSThreadReplyNew
+		msg.ParentMessageID = parentID
+	}
+	h.broadcastToChannel(ctx, channelID, msg)
 }
 
 // BroadcastMessageUpdated broadcasts an updated message to channel subscribers
