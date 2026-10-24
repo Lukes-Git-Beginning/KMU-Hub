@@ -1,9 +1,9 @@
 # Backend-Nachtloop — Arbeitsqueue für den NÄCHSTEN Lauf
 #
-# STAND 2026-10-23 (Staging Lauf 15): 20 Units, alle `blocked` — Entscheidungen Luke, Legal
-# oder Frontend. Was baubar war, steht in BACKLOG.yml (Liste im Block "NACHBEARBEITUNG
-# LAUF 14" am Dateiende). Die Blöcke darunter sind historisch gewachsen, ihre Kopfzeilen
-# beschreiben den Stand zum jeweiligen Datum.
+# STAND 2026-10-24 (Nachbearbeitung Lauf 15): Lauf 15 hat BACKLOG.yml leergearbeitet. Hier
+# liegen die Entscheidungen von Luke, Desktop-Arbeit und die Reste des Post-Run-Reviews
+# (Block "NACHBEARBEITUNG LAUF 15" am Dateiende). Die Blöcke darunter sind historisch
+# gewachsen, ihre Kopfzeilen beschreiben den Stand zum jeweiligen Datum.
 #
 # Diese Datei liest der Treiber NICHT. Sie ist die Schleuse vor `BACKLOG.yml`.
 #
@@ -1639,3 +1639,171 @@ units:
       - backend/internal/gateway/route_hr.go
     done_when:
       - "Adapter im FE, Tab filtert nach Kategorie und sortiert ohne Absturz, per Screenshot-QA mit einem echten Dokument abgenommen; Upload lädt vor dem Anlegen hoch und liefert 201"
+
+  # ========================================================================================
+  # NACHBEARBEITUNG LAUF 15 (2026-10-24): Reste aus dem gezielten Post-Run-Review (drei
+  # Reviews: Auth/Akteur/Tenant, Antwortformen gegen Desktop-Leser, Nebenläufigkeit und
+  # Datenverlust). Die `decide-*`/`fe-*`-Units direkt darüber hat Lauf 15 selbst abgelegt.
+  #
+  # IM REVIEW GEFIXT (auf backend-loop, PR #27) und deshalb hier NICHT als Unit:
+  #   - 8cc079ce inventar: Bestand nur noch über die gesperrte Bewegungs-Transaktion
+  #     (UpdateItem schrieb den Bestand aus einem ungesperrten Read zurück und löschte so
+  #     parallel gebuchte Wareneingänge; AdjustStock/TransferStock ohne Tx)
+  #   - 0763765e inbox: Manager sehen die Mitgliederliste privater Team-Postfächer
+  #   - aabec10a hr: angelegter Mitarbeiter als {employee}
+  #   - 25a94aee desktop: Bestand nach Lagerbewegung neu laden
+  # BEWUSST OHNE UNIT (lean:-markiert, Trigger steht im Code):
+  #   - Company-/HR-Settings-Merge im Gateway: Read-Modify-Write ohne Versionsprüfung, der
+  #     spätere von zwei gleichzeitigen Admin-Saves gewinnt.
+  #   - DSAR ohne Fahrtenbuch hängt an `decide-trip-logs-driver-user-fk`.
+  # ========================================================================================
+
+  - id: fix-inventar-movement-result-after-commit
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml, kleiner Fix"
+    scope: >
+      `RecordMovement` liest nach dem Commit der Bewegungs-Tx das Movement per `GetMovement`
+      nach, `AdjustStock` das Item per `GetItem` (seit 8cc079ce). Scheitert dieser zweite Read
+      (Pool, ctx-Abbruch), meldet der Aufrufer einen Fehler, obwohl gebucht ist; ein Retry bucht
+      doppelt, es gibt keinen Idempotency-Key auf diesen Routen. Fix: Item und Movement aus der
+      Tx zurückgeben (`UPDATE … RETURNING` aller Item-Spalten, Movement aus den bekannten
+      Eingaben plus `created_at` per `RETURNING`).
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+    done_when:
+      - RecordMovement und AdjustStock lesen nach dem Commit nichts mehr nach
+      - go test -count=1 ./internal/inventar/ ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: harden-decode-empty-body-only-on-action-routes
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml"
+    scope: >
+      `4b7eae35` lässt `decodeAndValidate` (`gateway/helpers.go`) JEDEN fehlenden Body als `{}`
+      lesen, nicht nur bei den Aktions-Buttons des Desktops. Handler ohne `validate`-Tags
+      nehmen damit einen leeren PUT/POST an, z. B. `putRolePermissionsRequest` (setzt die Grants
+      der Rolle auf leer), `putUserOverridesRequest`, `setMeetingLockHTTPRequest`,
+      `toggleDNDRequest`, `updateContractRequest`. Kein Leck (`{}` ging vorher auch), aber
+      Härtungsverlust an der Trust-Boundary: ein FE-Fehler ohne Body leert still Daten. Fix:
+      `decodeAndValidateOptional` (in `19d52ef1` eingeführt, in `4b7eae35` wieder entfernt)
+      zurückholen und nur an den Aktions-Routen aus Lauf 15 Iteration 22/23 verwenden;
+      `decodeAndValidate` lehnt fehlenden Body wieder mit 400 ab. Vorher die Desktop-Aufrufer
+      jeder umgestellten Route greppen (Lehre Lauf 14).
+    sources:
+      - backend/internal/gateway/helpers.go
+    done_when:
+      - Leerer Body auf PUT /auth/roles/{id}/permissions ergibt 400 (Test)
+      - Aktions-Routen ohne Body (quote convert, dunning detect/escalate, bank match, inventur book) bleiben 2xx (Test)
+      - go test -count=1 ./internal/gateway/ gruen inkl. TestOpenAPIRouteDrift
+
+  - id: fix-latent-partial-update-resets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml, Sammel-Unit"
+    scope: >
+      Drei latente Update-Fälle, heute ohne Folge, weil der Desktop immer alle Felder bzw. das
+      Feld nie sendet: (1) `PUT /notifications/quiet-hours` ohne `enabled`/`is_active`/`days`
+      schreibt `enabled=false` und `days=1..7` (`route_notification.go` `quietHoursRPCFields`);
+      Merge mit dem gespeicherten Wert wie bei `ChangePreference`. (2) `PUT /finance/invoices/{id}`
+      mit `due_date` UND `payment_terms_days`: die Zahlungsfrist überschreibt das Datum still
+      (`invoice/service.go` Update); explizites `due_date` soll gewinnen. Terms ohne Zahl
+      ("Sofort fällig") werden verworfen. (3) Erstes `PUT /hr/settings` ohne Policy-Felder
+      schreibt 0 statt der Defaults (`route_hr.go` NotFound-Zweig).
+    sources:
+      - backend/internal/gateway/route_notification.go
+      - backend/internal/biz/invoice/service.go
+      - backend/internal/gateway/route_hr.go
+    done_when:
+      - je Fall ein Test, der den Teil-Request zeigt und den gespeicherten Wert behält
+      - go test -count=1 ./internal/gateway/ ./internal/biz/invoice/ gruen
+
+  - id: fix-work-delete-task-on-open-projects
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: "BACKLOG.yml"
+    scope: >
+      `c3734957` öffnet Projekte per Flag (`projectsOpenToTenant`, `work_grpc.go`) für alle
+      Projekt-Berechtigten: ansehen, bearbeiten, Mitglieder. `task.Service.Delete`
+      (`work/task/service.go`) verlangt weiter Projektmitgliedschaft und liefert
+      `ErrNotProjectMember`: ein Nutzer sieht das Projekt, kann dort aber keine Aufgabe löschen.
+      Mitgliedschaftsprüfung an dasselbe Flag koppeln.
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - Nicht-Mitglied löscht eine Aufgabe in einem offenen Projekt (Test), in einem geschlossenen nicht
+      - go test -count=1 ./internal/work/... ./internal/server/ gruen, DATABASE_URL gesetzt
+
+  - id: decide-video-recording-delete-admin
+    phase: 4
+    service: video
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: darf ein Tenant-Admin (oder recordings:admin) fremde Aufnahmen löschen?"
+    target: "Entscheidung Luke, danach Fix-Unit"
+    scope: >
+      Seit `c16e739e` darf nur der Starter oder ein Host/Co-Host eine Aufnahme löschen
+      (`video_grpc.go` `authorizeRecordingOwner`). Aufnahmen ohne Meeting (Call-Aufnahmen) kann
+      nur der Starter löschen, ein Admin gar nicht (`/recordings/{id}/cleanup` ist ein anderer
+      Pfad). Unabhängig von der Entscheidung ein Fehler: ist das Meeting gelöscht, liefert
+      `IsHostOrCoHost` einen Fehler und der Aufrufer bekommt 500 statt 403.
+    sources:
+      - backend/internal/server/video_grpc.go
+    done_when:
+      - Entscheidung dokumentiert; 403 statt 500 bei gelöschtem Meeting
+
+  - id: decide-team-inbox-manager-self-add-and-delete
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Reichweite von kommunikation:team_inbox:manage"
+    target: "Entscheidung Luke"
+    scope: >
+      `kommunikation:team_inbox:manage` erlaubt seit `ec495841`, Mitglieder in jedem
+      Team-Postfach zu verwalten. Damit kann sich ein Manager selbst als Admin in ein PRIVATES
+      Postfach eintragen und dessen Nachrichten lesen. Und `DeleteTeamInbox` bleibt Team-Admin-
+      Sache, ein Manager ohne Mitgliedschaft bekommt dort 403. Frage: (a) so lassen und
+      dokumentieren, (b) Selbst-Hinzufügen per Manage-Waiver verbieten, (c) Löschen ebenfalls
+      unter `manage`?
+    sources:
+      - backend/internal/inbox/team/service.go
+      - backend/internal/server/inbox_grpc.go
+    done_when:
+      - Entscheidung dokumentiert
+
+  - id: decide-gobd-integrity-check-on-every-download
+    phase: 4
+    service: finance
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "GEPARKT bis zum ersten Mandanten mit nennenswertem Archiv (Last-Thema)"
+    target: "Messung mit echtem Archiv"
+    scope: >
+      Seit `ee63b341` streamt jeder GoBD-Download das ganze Objekt aus MinIO durch SHA-256 und
+      schreibt ein `integrity_check`-Event (fatal, bewusst: eine unprotokollierte Prüfung
+      beweist nichts) plus das Access-Event. Bei Massen-Exports Last und Tabellenwachstum.
+      Option: Prüfung nur, wenn die letzte älter als N Stunden ist. Ein manipuliertes Dokument
+      ist per Download nicht mehr abrufbar, bis der Befund geklärt ist (gewollt, erzeugt
+      Support-Anfragen).
+    sources:
+      - backend/internal/biz/gobdarchive/service.go
+    done_when:
+      - Messung bzw. Entscheidung dokumentiert
