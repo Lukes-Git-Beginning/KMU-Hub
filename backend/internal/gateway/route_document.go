@@ -617,13 +617,16 @@ func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request)
 		PerPage:  int32(pageSize),
 	}
 
-	if sortField := r.URL.Query().Get("sort"); sortField != "" {
+	// The desktop sends sort_field and is_favorite; the spec has always documented
+	// sort and favorites. Accept both, the documented name wins.
+	q := r.URL.Query()
+	if sortField := firstNonEmpty(q.Get("sort"), q.Get("sort_field")); sortField != "" {
 		req.SortField = fileSortFieldToProto(sortField)
 	}
-	if sortDir := r.URL.Query().Get("sort_dir"); sortDir != "" {
+	if sortDir := q.Get("sort_dir"); sortDir != "" {
 		req.SortDirection = sortDirToProto(sortDir)
 	}
-	if r.URL.Query().Get("favorites") == "true" {
+	if firstNonEmpty(q.Get("favorites"), q.Get("is_favorite")) == "true" {
 		req.FilterFavorites = true
 		req.IsFavorite = true
 	}

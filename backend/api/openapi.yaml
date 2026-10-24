@@ -30868,12 +30868,20 @@ paths:
           in: query
           description: Unrecognized values fall back to unsorted.
           schema: { type: string, enum: [name, size, date, type] }
+        - name: sort_field
+          in: query
+          description: Alias for sort, as the desktop sends it. sort wins when both are present.
+          schema: { type: string, enum: [name, size, date, type] }
         - name: sort_dir
           in: query
           schema: { type: string, enum: [asc, desc] }
         - name: favorites
           in: query
           description: Only the exact string "true" activates the is_favorite filter.
+          schema: { type: string, example: "true" }
+        - name: is_favorite
+          in: query
+          description: Alias for favorites, as the desktop sends it. favorites wins when both are present.
           schema: { type: string, example: "true" }
         - name: page
           in: query

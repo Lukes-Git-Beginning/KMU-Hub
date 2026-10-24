@@ -501,3 +501,15 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: keine
 - desktop-aufrufer: `GET /automations/executions?status&limit&offset` -> `automation-client.ts:140` `listAllExecutions`, Aufrufer `ExecutionLogViewer.tsx` (`useAllExecutions`) -> passt (200, `{executions,total_count}` wie die Per-Automation-Route, die das FE schon liest).
 - offen: Die globale Liste zeigt dem berechtigten Nutzer Läufe auch fremder `personal`-Automationen des Mandanten (wie `GET /automations` die Automationen selbst); falls das nicht gewollt ist, wäre das eine Produktentscheidung für Luke. Keine Goroutinen im Produktivcode (`-race` erst in CI).
+
+## Iteration 38 — fix-document-list-favorite-and-sort-params — done — 2026-10-24 21:30
+- commit: (siehe git log, Subject `fix(document): accept is_favorite and sort_field on GET /documents/files`)
+- gebaut: `HandleListFiles` liest zusätzlich `is_favorite` (Alias für `favorites`) und `sort_field` (Alias für `sort`), der dokumentierte Name gewinnt, wenn beide kommen (`firstNonEmpty`). Die Sortierwerte laufen unverändert durch `fileSortFieldToProto` (Allowlist name/size/date/type); die vier FE-Werte (`FileSortField` in `document-types.ts`) sind alle abgebildet, ein unbekannter Wert wird zu UNSPECIFIED verworfen, nie roh durchgereicht. Spec: beide Aliase als Query-Parameter am Pfad, `swagger validate` ok.
+- tests: `route_document_list_params_test.go` über echten gRPC-Hop: `is_favorite=true&sort_field=size&sort_dir=desc` kommt als Favoriten-Filter + SIZE/DESC an; alle vier FE-Sortierwerte; dokumentierte Namen unverändert und mit Vorrang; unbekannter `sort_field` -> UNSPECIFIED; `is_favorite=false` filtert nichts.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway komplett inkl. TestOpenAPIRouteDrift, als kmuhub_app mit DATABASE_URL) | swagger validate ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 77,3 % (Wert aus Iteration 37) -> 77,4 %
+- mutations-probe: beide `firstNonEmpty`-Aliase entfernt -> `…AcceptsTheDesktopsFavoriteAndSortNames` und `…AcceptsEveryFrontendSortField` rot. Zurückgedreht (Kopie zurückgespielt, Diff nur die Unit).
+- verify vorgaenger: sauber (Commit e1b34a07: Route + Spec im selben Commit, Guard additiv, kein Proto/Tabelle, Test über echten Router + gRPC-Hop)
+- neue-units: keine
+- desktop-aufrufer: `GET /documents/files?is_favorite&sort_field&sort_dir&folder_id` -> `DokumentePage.tsx:225-228` (Werte aus `FileSortField`: name/size/date/type) -> passt (Antwort `{files,total}` unverändert).
+- offen: Das FE sendet kein `page_size`/`page` aus diesem Aufruf (nicht geprüft, nicht Teil der Unit). Keine Goroutinen im Produktivcode (`-race` erst in CI).

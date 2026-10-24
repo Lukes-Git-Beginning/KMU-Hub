@@ -1544,7 +1544,7 @@ units:
     service: document
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       TEILAUSFALL Dokumente: die Favoriten-Ansicht zeigt ALLE Dateien und die Sortierwahl wirkt
