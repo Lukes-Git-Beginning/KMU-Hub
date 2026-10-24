@@ -93,6 +93,9 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	dialerRouter := chi.NewRouter()
 	NewDialerRoutes(emptyRegistry()).RegisterRoutes(dialerRouter, guardTestAuth)
 
+	videoRouter := chi.NewRouter()
+	NewVideoRoutes(emptyRegistry(), "", "").RegisterRoutes(videoRouter, guardTestAuth)
+
 	berichteRouter := chi.NewRouter()
 	NewBerichteRoutes(emptyRegistry(), berichteFlagsON()).RegisterRoutes(berichteRouter, guardTestAuth)
 
@@ -751,6 +754,14 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// instantiate one) ---
 		{"templates list, catalogue create key only", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:create"}, allowed},
 		{"templates list, read key does not grant it", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:read"}, denied},
+
+		// --- video: the initiator consent is stamped by whoever starts the
+		// recording, so meetings:write (member, manager) opens it next to the
+		// admin-only recording:write ---
+		{"initiator consent, meetings:write grants it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"meetings:write"}, allowed},
+		{"initiator consent, legacy recording:write still grants it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"recording:write"}, allowed},
+		{"initiator consent, denied without either key", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"meetings:read"}, denied},
+		{"recording tag-consents stays admin-only, meetings:write does not grant it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/tag-consents", []string{"meetings:write"}, denied},
 
 		// --- automatisierung: test-condition/dry-run run from AutomationWizard,
 		// reused for both the create flow and the "Bearbeiten" edit hand-off ---

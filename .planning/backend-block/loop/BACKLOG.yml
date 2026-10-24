@@ -654,7 +654,7 @@ units:
     service: video
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 %"
     scope: >
       `POST /video/recordings/{id}/initiator-consent` (`route_video.go:~143`, `video-client.ts:104-105`,
@@ -672,6 +672,52 @@ units:
       - "Router-Test: Token mit dem Start-Key gibt die Initiator-Zustimmung (2xx)"
       - "Test: Zustimmung wird für den Aufrufer gesetzt, nicht für einen fremden Initiator"
       - "Mutations-Probe: zusätzlichen Key aus dem Guard entfernt, der Test wird rot"
+
+  - id: fix-video-initiator-consent-rpc-cannot-marshal
+    phase: 4
+    service: video
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/gateway 76,9 % · internal/server 75,3 %"
+    scope: >
+      TOTALAUSFALL, VERIFIZIERT (Iteration 13, Probe mit echtem gRPC-Server): `POST
+      /api/v1/video/recordings/{id}/initiator-consent` scheitert für JEDEN Nutzer inkl. admin.
+      `ConfirmInitiatorConsentRequest/Response` (`proto/video/v1/video_pre_consent_ext.go`) sind
+      handgeschriebene Plain-Structs, keine `proto.Message`; der Client ruft sie mit `cc.Invoke`
+      auf und bekommt `Internal: grpc: error while marshaling: proto: failed to marshal, message
+      is *videov1.ConfirmInitiatorConsentRequest, want proto.Message`. Dazu steht die Methode
+      weder in `video.proto` noch in `VideoService_ServiceDesc` — selbst mit Codec würde der
+      Server `Unimplemented` liefern (`VideoService_ConfirmInitiatorConsent_Handler` wird nirgends
+      registriert). Kein Test geht über den Draht: die Server-Tests rufen `ts.srv.…` direkt, die
+      Gateway-Tests stoppen am 503. Die Datei kündigt selbst "replaced by regenerated proto
+      output (Sprint 4 proto-regen task)" an — das ist nie passiert.
+      Das Desktop (`CallControls.tsx:134`, `handleConfirmStart`) ruft die Route nach
+      `startRecording` auf und zeigt bei Fehler den Toast "Aufnahme-Bestaetigung fehlgeschlagen" —
+      die Aufnahme-Bestätigung kann also nie gelingen. VOR dem Bauen prüfen, ob der Rest der
+      Kette überhaupt trägt: `recording.Service.StartRecording` verlangt mit gewiredetem
+      `PreConsentChecker` (`cmd/work/main.go:146`) die Zustimmung VOR dem Anlegen der Zeile,
+      `MarkInitiatorConsent` stempelt aber eine bestehende Zeile (`started_by = userID`). Ob
+      Start und Stempel in dieser Reihenfolge je zusammenpassen, ist offen — und ob egress
+      (`s.enabled`) in Produktion überhaupt konfiguriert ist (sonst ist die Aufnahme ohnehin aus
+      und die Unit nur noch Vertragsreparatur).
+      Lösung: RPC in `backend/proto/video/v1/video.proto` aufnehmen, `make proto-video`, die
+      handgeschriebene Ext-Datei löschen, `VideoGRPCServer` auf das generierte Interface
+      umstellen, Gateway-Client auf `NewVideoServiceClient`. Wire-Test: echter gRPC-Server mit
+      generiertem Service, Gateway-Handler dagegen (2xx, 412 bei `stamped=false`, JWT-User kommt
+      im Request an und nicht ein fremder).
+    sources:
+      - backend/proto/video/v1/video_pre_consent_ext.go
+      - backend/proto/video/v1/video.proto
+      - backend/internal/server/video_grpc.go
+      - backend/internal/gateway/route_video.go
+      - backend/internal/work/recording/service.go
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+    done_when:
+      - "Wire-Test über echten gRPC-Server: initiator-consent liefert 200 {stamped:true}, kein Internal/Unimplemented"
+      - "Test: das Gateway schickt die User-ID aus dem JWT, nicht aus Query/Body"
+      - "Journal: Ablauf Start -> Stempel gegen `StartRecording`-Gate belegt, oder neue Unit für die Reihenfolge"
+      - "Mutations-Probe: Methode aus dem Service-Desc genommen, der Wire-Test wird rot"
 
   - id: fix-rapporte-member-can-fill-and-submit
     phase: 4

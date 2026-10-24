@@ -37647,7 +37647,7 @@ paths:
 
   /api/v1/video/recordings/{id}/initiator-consent:
     post:
-      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write)
+      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write or meetings:write)
       tags: [recordings]
       operationId: confirmInitiatorConsent
       security:
