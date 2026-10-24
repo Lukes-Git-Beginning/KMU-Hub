@@ -2481,7 +2481,7 @@ units:
     service: e2e
     model: sonnet
     deps: [feat-e2e-register-with-role-helper, fix-dialer-outcomes-readable-by-agents]
-    status: todo
+    status: done
     coverage_start: "n.a. (E2E zählt nicht in die Coverage)"
     scope: >
       Bestehenden `dialer_test.go`-Flow um einen Agenten als member erweitern (oder neuer
