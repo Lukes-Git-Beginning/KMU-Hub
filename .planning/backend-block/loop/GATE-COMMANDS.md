@@ -220,9 +220,17 @@ ein falscher Typ faellt damit lokal auf. Ob der Flow gegen den echten Stack grue
 erst die CI. Deshalb steht in `offen:` jeder E2E-Iteration **"E2E erst in CI abgenommen"**.
 
 Was der CI-E2E-Job startet (`.github/workflows/ci.yml`, Job `e2e`): Postgres, Redis, MinIO,
-auth, crm, chat, work (inkl. Kalender), document, dialer, biz, notification (inkl. Inbox),
-gateway. Braucht ein Flow einen weiteren Service, ist das eine Unit fuer BACKLOG-NEXT.yml —
-`.github/` ist fuer den Loop gesperrt.
+auth, crm, chat, work (inkl. Kalender und Video), document, dialer, biz (inkl. HR, Finance,
+DATEV), notification (inkl. Inbox), seit dem Staging von Lauf 16 auch inventar, einkauf und
+schichten (Job-Env `COSMI_MODULE_{INVENTAR,EINKAUF,SCHICHTEN}_ENABLED=true`, ohne Flag mountet
+das Gateway deren Routen nicht), gateway. Braucht ein Flow einen weiteren Service, ist das eine
+Unit fuer BACKLOG-NEXT.yml — `.github/` ist fuer den Loop gesperrt.
+
+**Rolle der E2E-Nutzer:** `registerAndLogin` legt einen Nutzer mit der Rolle `member` an,
+`registerAndLoginAdmin` befoerdert per SQL zu `admin` und loggt neu ein. Seit Lauf 16 gilt: ein
+Flow, der eine Mitarbeiter-Funktion prueft, laeuft als **member**. Admin nur, wo die Funktion
+admin-only ist — `registerAndLoginAdmin` ueberdeckt sonst jeden fehlenden Permission-Seed.
+Mehrere Aufrufe landen im selben Default-Tenant (Beleg `work_members_test.go:68-70`).
 
 Helfer in `test/e2e/helpers_test.go`: `registerAndLogin`, `registerAndLoginAdmin`,
 `promoteToAdmin` (danach neu einloggen — Rechte stehen im JWT), `postJSON`/`getJSON`/

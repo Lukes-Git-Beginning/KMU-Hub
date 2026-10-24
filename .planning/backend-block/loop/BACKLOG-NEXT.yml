@@ -1156,30 +1156,6 @@ units:
     done_when:
       - "Dateiansicht rendert die drei Quellen, Typ und Paginierung passen zum Gateway"
 
-  - id: decide-trip-logs-driver-user-fk
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Ja: `driver_user_id UUID NULL` (FK users, tenant-gescoped),
-      freier Name bleibt für Externe, DSAR über die FK. Nicht dringend, hinter den Totalausfällen
-      einplanen. Migration plus Desktop-Fahrerauswahl.
-    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml (Migration + Desktop-Fahrerauswahl)"
-    scope: >
-      Aus Lauf 15 Iteration 6 (`fix-dsar-third-party-matching`): der DSAR-Nutzerzweig legt das
-      Fahrtenbuch nicht mehr offen, weil `trip_logs.driver_name` Freitext ohne User-FK ist und der
-      Namensabgleich Fahrten von Namensvettern herausgab. Folge: die eigenen Fahrten eines Fahrers
-      fehlen jetzt in seiner Auskunft (Art. 15), der Bearbeiter muss sie von Hand ziehen
-      (`lean:`-Marker in `security/gdpr/dsar_search_fuhrpark.go`). Derselbe Owner-FK-Gap steht in
-      `.planning/backend-gaps.md` (scope-own für Fahrer). Frage: `driver_user_id UUID NULL`
-      (FK users, tenant-gescoped) einführen und im Desktop eine Fahrerauswahl anbieten, freier
-      Name bleibt für Externe? Dann DSAR über die FK und scope-own im Katalog möglich.
-    done_when:
-      - Entscheidung Luke dokumentiert
-
   - id: fe-handle-crm-kommunikation-shape-findings
     phase: 4
     service: desktop
@@ -1341,12 +1317,14 @@ units:
     done_when:
       - "Entscheidung a (Konto mit anlegen) / b (FE schickt user_id) steht"
 
-  - id: decide-berichte-preview-and-run-schedule-routes
+  - id: fe-berichte-hide-live-preview
     phase: 4
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM: Vorschau im Builder ausblenden (Variante c). Der Backend-Teil (b) ist als `feat-berichte-schedule-run-now-route` in Lauf 16 gestaged."
+    target: "Frontend-Session (Luke oder delegiert)"
     decided: 2026-10-24
     decision: >-
       ENTSCHEIDUNG LUKE, 2026-10-24: "Jetzt ausführen" (Variante b): neue Gateway-Route `POST
@@ -1370,7 +1348,7 @@ units:
       - backend/proto/berichte/v1/berichte.proto
       - backend/internal/gateway/route_berichte.go
     done_when:
-      - "Entscheidung a/b/c steht; bei a/b eine eigene Bau-Unit mit Spec-Pfad und Router-Test"
+      - "Live-Vorschau im Builder ausgeblendet (kein 404 mehr), per Screenshot-QA abgenommen"
 
   - id: decide-wiki-templates-routes
     phase: 4
@@ -1504,62 +1482,6 @@ units:
     done_when:
       - "Menü zeigt nur Übergänge, die der Automat annimmt; ein 409 erzeugt einen sichtbaren Fehlerhinweis"
 
-  - id: decide-credit-note-over-credit-limit
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Obergrenze ja: Rechnungsbrutto minus bereits erteilte
-      Gutschriften, Prüfung in einer Transaktion mit gesperrter Rechnungszeile (zwei gleichzeitige
-      Gutschriften), Überschreitung als InvalidArgument/400. Test ohne Build-Tag, damit er im PR-
-      Gate läuft; die Integrationstest-Zeile 236-270 auf das neue Verhalten umstellen.
-    scope: >
-      Scan Iteration 42. `internal/biz/creditnote/repository_coverage_integration_test.go:236-270`
-      (Build-Tag `integration`) schreibt fest, dass `creditnote.Service.Create` keine Obergrenze prüft:
-      eine Gutschrift über 1190 € auf eine Rechnung über 119 € wird angelegt. Der Service lädt die
-      Originalrechnung nur auf Existenz/Status. Kein Totalausfall, aber eine Buchhaltungslücke
-      (Gutschriften summieren sich über die Rechnung hinaus). ENTSCHEIDUNG LUKE: Obergrenze =
-      Rechnungsbrutto minus bereits erteilte Gutschriften (409/InvalidArgument bei Überschreitung)
-      oder bewusst erlaubt (z. B. Kulanz/Rückerstattung über Rechnung hinaus)? Bei "Obergrenze":
-      Fix-Unit mit Summenprüfung in einer Transaktion (Rennen zwischen zwei Gutschriften) und Test
-      ohne Build-Tag, damit er im PR-Gate läuft.
-    sources:
-      - backend/internal/biz/creditnote/service.go
-      - backend/internal/biz/creditnote/repository_coverage_integration_test.go
-    done_when:
-      - "Entscheidung Obergrenze ja/nein steht; bei ja ist die Fix-Unit angelegt"
-
-  - id: decide-hr-team-time-scope-for-managers
-    phase: 4
-    service: hr
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Gescoped: Teamleiter sehen nur ihre Berichtslinie, admin sieht
-      alle (Beschäftigtendaten). Proto-Feld für den Aufrufer, Filter über die Berichtslinie, Test
-      für beide Fälle.
-    scope: >
-      Scan Iteration 42. `GET /api/v1/hr/time/team` (`route_hr.go:121`, Guard `hr:read` ODER
-      `zeiterfassung:team view`) ruft `GetTeamTime` (`hr_grpc.go:1237`); `GetTeamTimeReq` trägt nur
-      Mandant und Wochenstart, keinen Aufrufer. Jeder Inhaber der Berechtigung sieht damit ALLE
-      Mitarbeiter des Mandanten mit Wochenminuten, Überstunden und Stempelstatus, nicht nur sein Team.
-      Der Gateway-Test `route_hr_time_tracking_test.go:310` verweist auf eine Unit
-      `fix-hr-team-time-not-scoped-to-manager`, die in keiner Backlog-Datei und keinem Archiv steht
-      (nie angelegt). ENTSCHEIDUNG LUKE: Teamleiter sehen nur ihre direkten Berichte
-      (Proto-Feld `caller_id` + Filter über die Berichtslinie) oder bewusst alle (KMU mit 5-200
-      Personen, `zeiterfassung:team view` ist eine eigene Berechtigung)?
-    sources:
-      - backend/internal/gateway/route_hr.go
-      - backend/internal/server/hr_grpc.go
-      - backend/internal/biz/hr/timetracking/service.go
-    done_when:
-      - "Entscheidung gescoped/alle steht; bei gescoped ist die Fix-Unit mit Proto-Feld angelegt"
-
   - id: decide-document-share-access-effect
     phase: 4
     service: document
@@ -1649,40 +1571,6 @@ units:
     done_when:
       - "(1) und (2) im FE behoben und per Screenshot-QA abgenommen; (3) entschieden, bei Umstellung auf DATE ist die Migrations-Unit angelegt"
 
-  - id: decide-hr-self-service-permissions-for-member-manager
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Self-Service ja. member und manager bekommen einen feinen Key
-      `hr:self` (eigene Urlaubsanträge stellen und zurückziehen, eigener Saldo, eigene Zeiteinträge
-      und Stempeluhr, Scope `own`), Genehmigen/Ablehnen wird als `hr:approve` von `hr:write`
-      abgespalten und an manager gegeben (Reichweite wie bei `decide-hr-team-time-scope-for-
-      managers`: Berichtslinie, admin alle). Guards additiv per `RequirePermissionAny` neben
-      `hr:read`/`hr:write`, Seed-Migration für beide Keys, Own-Scope an `/balance/{userId}` und den
-      Zeiteinträgen nachziehen. Vorher prüfen, ob die schon gesäten `hr:time_*`-Keys (Migration 224)
-      die Zeit-Routen abdecken, statt einen zweiten Key für dasselbe zu säen.
-    scope: >
-      Gefunden in fix-hr-leave-list-ignores-user-filter (Iteration 64), gegen die lokale DB gemessen:
-      `hr:read` und `hr:write` hängen NUR an der Rolle `admin` (Migration 129; Migration 224 hat member und
-      manager nur Schichten, Booking, Inventar, Einkauf und `hr:time_*` gegeben). Damit bekommt jeder
-      Nicht-Admin auf `/hr/leave/*` und `/hr/time/*` ein 403 — Urlaubsantrag stellen, Saldo, Stempeluhr,
-      Self-Service-Ansicht. Ob das Absicht ist (HR bis zum Pilot nur für Admin), steht nirgends. Ein bloßes
-      Seed-Grant von `hr:write` an member wäre falsch: derselbe Key schützt `approve`/`reject`/`cancel`
-      (`route_hr.go:80-84`), jeder Mitarbeiter könnte dann Anträge genehmigen. Der Weg wäre ein feinerer Key
-      (`hr:leave:create` o. ä.), additiv per `RequirePermissionAny` neben dem groben, mit Seed-Migration für
-      member (Scope `own`). Die Own-Scope-Filter sind seit Iteration 64 an `GET /hr/leave/requests[/{id}]`
-      vorhanden (Key `hr:read`), das Gegenstück für Saldo (`/balance/{userId}`) und Zeiteinträge fehlt.
-    sources:
-      - backend/internal/gateway/route_hr.go
-      - backend/migrations/000129_seed_missing_module_permissions.up.sql
-      - backend/migrations/000224_seed_module_manager_member_permissions.up.sql
-    done_when:
-      - "Entscheidung steht: HR bleibt admin-only oder member/manager bekommen Self-Service; bei 'Self-Service' ist die Fix-Unit mit Seed-Migration, additivem Guard und Own-Scope an Saldo und Zeiteinträgen angelegt"
-
   - id: fe-hr-employee-documents-adapter-and-upload
     phase: 4
     service: gateway
@@ -1741,7 +1629,9 @@ units:
   #   Wechselkurs-Feld ausblenden.
   # BACKEND, LOOP-TAUGLICH: HR-Self-Service, Gutschrift-Obergrenze, Berichte "Jetzt ausführen",
   #   Teamzeit gescoped, Dokument-Freigaben, Team-Inbox-Manage, Aufnahmen-Löschen, Fahrer-FK,
-  #   page_size-Obergrenze 200.
+  #   page_size-Obergrenze 200. -> ALLE beim Staging von Lauf 16 (2026-10-24) nach BACKLOG.yml
+  #   gezogen und hier entfernt, ebenso die drei Review-Reste und `fix-work-delete-task-on-
+  #   open-projects` (dort als `fix-work-task-ops-on-open-projects` erweitert).
   # LIEGT BIS ZUM PILOT: Wechselkurs speichern, `billable_minutes` (HR-Zeitanalyse liefert
   #   ehrlich 0, echte Werte brauchen ein Abrechenbar-Kennzeichen am Eintrag oder
   #   `billable_default` am Projekt, ohne Unit), GoBD-Prüfung bei jedem Download (geparkt).
@@ -1749,145 +1639,8 @@ units:
   # BEWUSST OHNE UNIT (lean:-markiert, Trigger steht im Code):
   #   - Company-/HR-Settings-Merge im Gateway: Read-Modify-Write ohne Versionsprüfung, der
   #     spätere von zwei gleichzeitigen Admin-Saves gewinnt.
-  #   - DSAR ohne Fahrtenbuch hängt an `decide-trip-logs-driver-user-fk`.
+  #   - DSAR ohne Fahrtenbuch: in Lauf 16 gestaged (`feat-dsar-trip-logs-via-driver-reference`).
   # ========================================================================================
-
-  - id: fix-inventar-movement-result-after-commit
-    phase: 4
-    service: inventar
-    model: sonnet
-    deps: []
-    status: todo
-    target: "BACKLOG.yml, kleiner Fix"
-    scope: >
-      `RecordMovement` liest nach dem Commit der Bewegungs-Tx das Movement per `GetMovement`
-      nach, `AdjustStock` das Item per `GetItem` (seit 8cc079ce). Scheitert dieser zweite Read
-      (Pool, ctx-Abbruch), meldet der Aufrufer einen Fehler, obwohl gebucht ist; ein Retry bucht
-      doppelt, es gibt keinen Idempotency-Key auf diesen Routen. Fix: Item und Movement aus der
-      Tx zurückgeben (`UPDATE … RETURNING` aller Item-Spalten, Movement aus den bekannten
-      Eingaben plus `created_at` per `RETURNING`).
-    sources:
-      - backend/internal/inventar/service.go
-      - backend/internal/inventar/postgres_repository.go
-    done_when:
-      - RecordMovement und AdjustStock lesen nach dem Commit nichts mehr nach
-      - go test -count=1 ./internal/inventar/ ./internal/server/ gruen, DATABASE_URL gesetzt
-
-  - id: harden-decode-empty-body-only-on-action-routes
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: todo
-    target: "BACKLOG.yml"
-    scope: >
-      `4b7eae35` lässt `decodeAndValidate` (`gateway/helpers.go`) JEDEN fehlenden Body als `{}`
-      lesen, nicht nur bei den Aktions-Buttons des Desktops. Handler ohne `validate`-Tags
-      nehmen damit einen leeren PUT/POST an, z. B. `putRolePermissionsRequest` (setzt die Grants
-      der Rolle auf leer), `putUserOverridesRequest`, `setMeetingLockHTTPRequest`,
-      `toggleDNDRequest`, `updateContractRequest`. Kein Leck (`{}` ging vorher auch), aber
-      Härtungsverlust an der Trust-Boundary: ein FE-Fehler ohne Body leert still Daten. Fix:
-      `decodeAndValidateOptional` (in `19d52ef1` eingeführt, in `4b7eae35` wieder entfernt)
-      zurückholen und nur an den Aktions-Routen aus Lauf 15 Iteration 22/23 verwenden;
-      `decodeAndValidate` lehnt fehlenden Body wieder mit 400 ab. Vorher die Desktop-Aufrufer
-      jeder umgestellten Route greppen (Lehre Lauf 14).
-    sources:
-      - backend/internal/gateway/helpers.go
-    done_when:
-      - Leerer Body auf PUT /auth/roles/{id}/permissions ergibt 400 (Test)
-      - Aktions-Routen ohne Body (quote convert, dunning detect/escalate, bank match, inventur book) bleiben 2xx (Test)
-      - go test -count=1 ./internal/gateway/ gruen inkl. TestOpenAPIRouteDrift
-
-  - id: fix-latent-partial-update-resets
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: todo
-    target: "BACKLOG.yml, Sammel-Unit"
-    scope: >
-      Drei latente Update-Fälle, heute ohne Folge, weil der Desktop immer alle Felder bzw. das
-      Feld nie sendet: (1) `PUT /notifications/quiet-hours` ohne `enabled`/`is_active`/`days`
-      schreibt `enabled=false` und `days=1..7` (`route_notification.go` `quietHoursRPCFields`);
-      Merge mit dem gespeicherten Wert wie bei `ChangePreference`. (2) `PUT /finance/invoices/{id}`
-      mit `due_date` UND `payment_terms_days`: die Zahlungsfrist überschreibt das Datum still
-      (`invoice/service.go` Update); explizites `due_date` soll gewinnen. Terms ohne Zahl
-      ("Sofort fällig") werden verworfen. (3) Erstes `PUT /hr/settings` ohne Policy-Felder
-      schreibt 0 statt der Defaults (`route_hr.go` NotFound-Zweig).
-    sources:
-      - backend/internal/gateway/route_notification.go
-      - backend/internal/biz/invoice/service.go
-      - backend/internal/gateway/route_hr.go
-    done_when:
-      - je Fall ein Test, der den Teil-Request zeigt und den gespeicherten Wert behält
-      - go test -count=1 ./internal/gateway/ ./internal/biz/invoice/ gruen
-
-  - id: fix-work-delete-task-on-open-projects
-    phase: 4
-    service: work
-    model: sonnet
-    deps: []
-    status: todo
-    target: "BACKLOG.yml"
-    scope: >
-      `c3734957` öffnet Projekte per Flag (`projectsOpenToTenant`, `work_grpc.go`) für alle
-      Projekt-Berechtigten: ansehen, bearbeiten, Mitglieder. `task.Service.Delete`
-      (`work/task/service.go`) verlangt weiter Projektmitgliedschaft und liefert
-      `ErrNotProjectMember`: ein Nutzer sieht das Projekt, kann dort aber keine Aufgabe löschen.
-      Mitgliedschaftsprüfung an dasselbe Flag koppeln.
-    sources:
-      - backend/internal/work/task/service.go
-      - backend/internal/server/work_grpc.go
-    done_when:
-      - Nicht-Mitglied löscht eine Aufgabe in einem offenen Projekt (Test), in einem geschlossenen nicht
-      - go test -count=1 ./internal/work/... ./internal/server/ gruen, DATABASE_URL gesetzt
-
-  - id: decide-video-recording-delete-admin
-    phase: 4
-    service: video
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Ein Tenant-Admin darf fremde Aufnahmen löschen, auch Call-
-      Aufnahmen ohne Meeting. Unabhängig davon 403 statt 500, wenn das Meeting gelöscht ist.
-    target: "Entscheidung Luke, danach Fix-Unit"
-    scope: >
-      Seit `c16e739e` darf nur der Starter oder ein Host/Co-Host eine Aufnahme löschen
-      (`video_grpc.go` `authorizeRecordingOwner`). Aufnahmen ohne Meeting (Call-Aufnahmen) kann
-      nur der Starter löschen, ein Admin gar nicht (`/recordings/{id}/cleanup` ist ein anderer
-      Pfad). Unabhängig von der Entscheidung ein Fehler: ist das Meeting gelöscht, liefert
-      `IsHostOrCoHost` einen Fehler und der Aufrufer bekommt 500 statt 403.
-    sources:
-      - backend/internal/server/video_grpc.go
-    done_when:
-      - Entscheidung dokumentiert; 403 statt 500 bei gelöschtem Meeting
-
-  - id: decide-team-inbox-manager-self-add-and-delete
-    phase: 4
-    service: inbox
-    model: sonnet
-    deps: []
-    status: todo
-    decided: 2026-10-24
-    decision: >-
-      ENTSCHEIDUNG LUKE, 2026-10-24: Varianten b und c: Selbst-Hinzufügen in ein Postfach, dessen
-      Mitglied man nicht ist, bleibt auch mit `manage` verboten; Löschen eines Team-Postfachs ist
-      unter `manage` erlaubt. Je ein Test.
-    target: "Entscheidung Luke"
-    scope: >
-      `kommunikation:team_inbox:manage` erlaubt seit `ec495841`, Mitglieder in jedem
-      Team-Postfach zu verwalten. Damit kann sich ein Manager selbst als Admin in ein PRIVATES
-      Postfach eintragen und dessen Nachrichten lesen. Und `DeleteTeamInbox` bleibt Team-Admin-
-      Sache, ein Manager ohne Mitgliedschaft bekommt dort 403. Frage: (a) so lassen und
-      dokumentieren, (b) Selbst-Hinzufügen per Manage-Waiver verbieten, (c) Löschen ebenfalls
-      unter `manage`?
-    sources:
-      - backend/internal/inbox/team/service.go
-      - backend/internal/server/inbox_grpc.go
-    done_when:
-      - Entscheidung dokumentiert
 
   - id: decide-gobd-integrity-check-on-every-download
     phase: 4
@@ -1908,3 +1661,171 @@ units:
       - backend/internal/biz/gobdarchive/service.go
     done_when:
       - Messung bzw. Entscheidung dokumentiert
+
+  # ========================================================================================
+  # STAGING LAUF 16 (2026-10-24): neue Entscheidungen und FE-Funde aus der Vorbereitung
+  # (Rollen-Grants der lokalen DB gegen die Guards; Desktop-Aufrufe gegen die Routenliste).
+  # Lauf 16 ergänzt hier selbst Zeilen (`decide-member-manager-module-defaults`) und legt
+  # `decide-email-shared-mailbox-access` / `decide-hr-employee-deactivate-reactivate` an,
+  # falls seine Units sie brauchen.
+  # ========================================================================================
+
+  - id: decide-member-manager-module-defaults
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Produktfragen zum Rollenmodell, kein Self-Service"
+    target: "Entscheidungsrunde nach Lauf 16"
+    scope: >
+      Sammelstelle für Rechte, die ein member/manager heute NICHT hat und bei denen offen ist,
+      ob er sie haben soll. Lauf 16 fixt nur offensichtliches Self-Service (Regel 1); alles
+      andere landet hier als Zeile "Pfad -> Key -> heute -> Empfehlung". Stand der
+      Vorbereitung (2026-10-24, Grants aus `role_permissions`):
+      Aufgaben und Projekte löschen (member), Kontakte löschen und importieren, Deals
+      schreiben, Helpdesk-Tickets bearbeiten, Schichten `assignment:read`/`template:read`
+      (member sieht seine eigene Zuweisung nicht), Buchungsseiten, Wiki löschen/teilen,
+      `finance:module:view` fehlt manager trotz `finance:read` (Modul-Kachel fehlt, Daten
+      wären lesbar), Dokument-Freigaben anlegen. Lauf 16 (`scan-role-matrix-remaining`,
+      `fix-branchen-member-self-service-grants`) ergänzt weitere Zeilen.
+    sources:
+      - backend/internal/gateway/
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+    done_when:
+      - "Je Zeile entschieden (granten mit Scope / bleibt admin / Modul-Rolle), daraus Seed-Units für den nächsten Lauf"
+
+  - id: decide-team-inbox-member-visibility
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE; hängt an `harden-inbox-message-user-scoping`"
+    target: "Entscheidungsrunde nach Lauf 16"
+    scope: >
+      TOTALAUSFALL für member: die Kommunikation-Inbox (Team-Postfächer) braucht `inbox:read`,
+      das nur admin hat (Migration 129). Ein Grant an member gäbe heute JEDE Inbox-Nachricht
+      des Mandanten frei, weil die Nachrichten-RPCs nicht auf Mitgliedschaft begrenzen
+      (`harden-inbox-message-user-scoping`). Frage: (a) member sieht nur Postfächer, in denen
+      er Mitglied ist (Begrenzung bauen, dann granten — Empfehlung), (b) Team-Inbox bleibt
+      Manager-/Admin-Funktion, das FE blendet sie für member aus.
+    sources:
+      - backend/internal/inbox/
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/gateway/route_inbox.go
+    done_when:
+      - "Entscheidung a/b steht; bei a eine Bau-Unit (Begrenzung + Grant + Fremd-Test)"
+
+  - id: decide-document-access-baseline
+    phase: 4
+    service: document
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE mit Pilotabstimmung: Verhaltensbruch für Bestandsnutzer"
+    target: "Pilotabstimmung"
+    scope: >
+      Befund der Vorbereitung (2026-10-24): Datei- und Ordner-RPCs prüfen nur Mandant und
+      Permission-Guard, nie Besitz oder Raum. `fileService.GetByID(ctx, id, tenantID)`
+      (`document_grpc.go:~292`) filtert nur `tenant_id`; jeder mit `documents:read` öffnet jede
+      Datei per ID, `ListFiles` nimmt `owner_id` aus der Query. Grundlage für ein Modell
+      existiert (`document_files.owner_id`, `document_folders.space_type personal|team|project`,
+      `space_id`, `parent_id`). Entscheidung Luke 2026-10-24: im Lauf nur die
+      ShareEntity-Prüfung (`fix-document-share-entity-checks`). Offen: (a) mandantenweit offen
+      lassen (KMU-üblich, "Mit mir geteilt" = Lesezeichen), (b) Raum-Modell: persönlich privat,
+      Team/Projekt für Mitglieder, Freigaben öffnen einzeln, Ordner vererben — 4 Units
+      (Guard-Helper opus, Lesepfade, Schreibpfade; ~25 RPCs, Suche/Listen mit Filter in der
+      Query), Bestandsdaten-Migration nötig.
+    sources:
+      - backend/internal/server/document_grpc.go
+      - backend/internal/document/
+      - backend/internal/gateway/route_document.go
+    done_when:
+      - "Entscheidung a/b steht; bei b Schnitt in Units mit Datenmigration und Pilotkommunikation"
+
+  - id: fe-raw-fetch-without-auth-header
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA)"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Sieben Desktop-Stellen rufen rohes `fetch` auf `${API_BASE_URL}/api/v1/…` OHNE
+      Authorization-Header — gegen jedes echte Gateway 401, egal ob die Route existiert
+      (gefunden 2026-10-24, teils schon in `fe-handle-crm-kommunikation-shape-findings` (b)/(i)):
+      `api/hooks/useTeamWorktime.ts:21` (Dashboard-DEFAULT-Widget, Route fehlt zusätzlich),
+      `api/hooks/useChannels.ts:110` (Kanal bearbeiten, PATCH, Gateway hat PUT),
+      `api/hooks/useContactTags.ts:90/106/122` (Tags anlegen/ändern/löschen; ändern = PATCH,
+      Gateway hat PUT), `api/hooks/useUnreadInbox.ts:35/47` (beide Routen fehlen),
+      `api/hooks/useBookmarks.ts:23/35`, `api/hooks/useBirthdays.ts:24` (Route fehlt, keine
+      Geburtstagsspalte), `modules/team/PersonnelDocuments.tsx:218/311`. Fix: auf
+      `authenticatedRequest`/`apiClient` umstellen (Muster `useDocumentUpload.ts` mit
+      `authHeaders()`), Methode an die Gateway-Route anpassen. Wo die Route fehlt
+      (team-worktime, unread-inbox, read-all, birthdays): Widget/Funktion ausblenden oder
+      `decide-ghost-routes-without-backend-capability`.
+    sources:
+      - desktop/src/renderer/src/api/hooks/
+      - desktop/src/renderer/src/api/utils/authenticatedFetch.ts
+      - desktop/src/renderer/src/modules/team/PersonnelDocuments.tsx
+    done_when:
+      - "Keine Stelle unter desktop/src ruft /api/v1 per rohem fetch ohne Auth (Grep im Journal), je Funktion per Screenshot-QA abgenommen"
+
+  - id: decide-ghost-routes-without-backend-capability
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: das Desktop ruft Routen, für die es keine Backend-Fähigkeit gibt"
+    target: "Entscheidungsrunde nach Lauf 16"
+    scope: >
+      Aus dem Routen-Abgleich 2026-10-24, nicht in Lauf 16, weil es eine Produkt- oder
+      Datenfrage ist:
+      (1) `GET /dashboard/team-worktime` (Default-Widget, für jeden Nutzer; dazu rohes fetch):
+      was sieht ein member — eigene Woche, Berichtslinie (nach `feat-hr-reporting-line-and-
+      team-time-scope`), oder Widget nur für manager? Empfehlung: Route auf `GetTeamTime` mit
+      Berichtslinien-Scope, member ohne Berichte -> leere Liste, FE zeigt Empty-State.
+      (2) `GET /dashboard/birthdays`: Geburtsdatum der Kollegen ist personenbezogen
+      (DSGVO). Spalte + Opt-in, oder Widget streichen? Empfehlung: streichen bis Pilot.
+      (3) `GET /hr/employees/me/salary-statements` (`SelfServiceView.tsx:134`, Capability
+      `team:salary:view`): keine Gehaltsabrechnungen im Datenmodell -> FE ausblenden.
+      (4) `GET /projects/{id}/guest-overview` (`GuestProjectView.tsx:52`): Gastzugang zu
+      Projekten existiert nicht -> FE-Route ausblenden oder Gastmodell entscheiden.
+      (5) Plugin-Routen `installations/{id}/permissions/approve`, `templates/apply` (Flag
+      `plugins.api` aus, WASM OFF) -> liegen lassen.
+      (6) Tote Parameter (kein Komponenten-Aufrufer übergibt sie): `GET /einkauf/pos`
+      date_from/to, `/finance/credit-notes` status, `/finance/dunning` level, `/formulare/
+      schemas` status/limit/offset/isTemplate, `…/submissions` status/limit/offset,
+      `/fuhrpark/vehicles/{id}/services|damages` status/vehicle_id, `/vermietung/calendar`
+      object_id, `/vertraege/contracts` starts_*/ends_* — erst bauen, wenn eine Komponente sie
+      nutzt.
+    sources:
+      - desktop/src/renderer/src/stores/dashboard.ts
+      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
+      - desktop/src/renderer/src/modules/work/projects/GuestProjectView.tsx
+    done_when:
+      - "Je Punkt entschieden; daraus Backend- bzw. FE-Units"
+
+  - id: fe-list-page-size-above-200
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM; wird akut, sobald `feat-pagination-max-200-for-crm-and-work-lists` (Lauf 16) gemergt ist"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Nach Lauf 16 klemmt das Gateway `page_size` über dem Maximum auf 200 (statt auf den
+      Default 20). Drei Aufrufer fragen 500 an und sehen dann 200 statt aller Einträge:
+      `work/kanban/KanbanBoard.tsx:59`, `work/calendar/WorkCalendarView.tsx:44`,
+      `vermietung/VermietungPage.tsx:644`. Paginieren oder auf 200 begrenzen und einen Hinweis
+      zeigen, wenn `total` größer ist.
+    sources:
+      - desktop/src/renderer/src/modules/work/kanban/KanbanBoard.tsx
+      - desktop/src/renderer/src/modules/work/calendar/WorkCalendarView.tsx
+      - desktop/src/renderer/src/modules/vermietung/VermietungPage.tsx
+    done_when:
+      - "Board/Kalender/Vermietung zeigen mit >200 Einträgen alle oder einen ehrlichen Hinweis, per Screenshot-QA abgenommen"
