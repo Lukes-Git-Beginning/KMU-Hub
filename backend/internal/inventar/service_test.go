@@ -36,6 +36,7 @@ type mockRepository struct {
 	createItemErr    error
 	updateItemErr    error
 	getItemErr       error
+	getMovementErr   error
 	createWarningErr error
 }
 
@@ -129,6 +130,9 @@ func (m *mockRepository) CreateMovement(ctx context.Context, movement *Movement)
 }
 
 func (m *mockRepository) GetMovement(ctx context.Context, tenantID, movementID uuid.UUID) (*Movement, error) {
+	if m.getMovementErr != nil {
+		return nil, m.getMovementErr
+	}
 	mv, ok := m.movements[movementID]
 	if !ok {
 		return nil, ErrMovementNotFound
@@ -338,7 +342,7 @@ func (m *mockRepository) CompleteInventurSessionTx(_ context.Context, tenantID, 
 		return nil, ErrInventurSessionNotFound
 	}
 
-	items, err := m.applyMovements(tenantID, movements)
+	items, _, err := m.applyMovements(tenantID, movements)
 	if err != nil {
 		return nil, err
 	}
@@ -351,16 +355,16 @@ func (m *mockRepository) CompleteInventurSessionTx(_ context.Context, tenantID, 
 // every movement against a scratch copy of the affected quantities first and
 // only mutates items/movements once all of them check out, giving the mock
 // the same all-or-nothing guarantee the real transaction provides.
-func (m *mockRepository) ApplyStockMovementsTx(_ context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+func (m *mockRepository) ApplyStockMovementsTx(_ context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, []*Movement, error) {
 	return m.applyMovements(tenantID, movements)
 }
 
-func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, []*Movement, error) {
 	scratch := make(map[uuid.UUID]int64, len(movements))
 	for _, mv := range movements {
 		item, ok := m.items[mv.ItemID]
 		if !ok || item.TenantID != tenantID || item.DeletedAt != nil {
-			return nil, ErrItemNotFound
+			return nil, nil, ErrItemNotFound
 		}
 		qty, seen := scratch[mv.ItemID]
 		if !seen {
@@ -368,13 +372,14 @@ func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMov
 		}
 		qty += mv.Delta
 		if qty < 0 {
-			return nil, fmt.Errorf("%w: item %s has %d, requested %d",
+			return nil, nil, fmt.Errorf("%w: item %s has %d, requested %d",
 				ErrInsufficientStock, mv.ItemID, item.Quantity, -mv.Delta)
 		}
 		scratch[mv.ItemID] = qty
 	}
 
 	items := make([]*Item, 0, len(movements))
+	rows := make([]*Movement, 0, len(movements))
 	for _, mv := range movements {
 		item := m.items[mv.ItemID]
 		item.Quantity = scratch[mv.ItemID]
@@ -396,8 +401,9 @@ func (m *mockRepository) applyMovements(tenantID uuid.UUID, movements []StockMov
 		}
 		m.movements[mvRow.ID] = mvRow
 		items = append(items, item)
+		rows = append(rows, mvRow)
 	}
-	return items, nil
+	return items, rows, nil
 }
 
 // compile-time interface check

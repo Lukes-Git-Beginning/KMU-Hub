@@ -348,21 +348,19 @@ func (s *Service) AdjustStock(ctx context.Context, input AdjustStockInput) (*Ite
 		return nil, ErrInvalidInput
 	}
 
-	if _, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{{
+	// Once this returns the booking is committed; no read after it may turn the
+	// call into an error, or a retry would book the delta twice.
+	items, _, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{{
 		ItemID:       input.ItemID,
 		Delta:        input.Delta,
 		MovementType: movementTypeForDelta(input.Delta),
 		PerformedBy:  input.PerformedBy,
 		Reason:       input.Reason,
-	}}); err != nil {
+	}})
+	if err != nil {
 		return nil, fmt.Errorf("adjust stock: %w", err)
 	}
-
-	// The transaction returns only the stock columns; the caller gets the full item.
-	item, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID)
-	if err != nil {
-		return nil, err
-	}
+	item := items[0]
 	s.maybeCreateWarning(ctx, item)
 
 	slog.Info("inventory stock adjusted",
@@ -382,7 +380,7 @@ func (s *Service) TransferStock(ctx context.Context, input TransferStockInput) e
 
 	// Both legs in one transaction: a failure after the deduction can no
 	// longer leave the quantity missing from both items.
-	items, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{
+	items, _, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{
 		{
 			ItemID:       input.FromItemID,
 			Delta:        -input.Quantity,
@@ -436,7 +434,7 @@ func (s *Service) RecordMovement(ctx context.Context, input RecordMovementInput)
 	}
 
 	movementID := uuid.New()
-	items, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{{
+	items, rows, err := s.repo.ApplyStockMovementsTx(ctx, input.TenantID, []StockMovementInput{{
 		ID:           movementID,
 		ItemID:       input.ItemID,
 		Delta:        delta,
@@ -457,7 +455,7 @@ func (s *Service) RecordMovement(ctx context.Context, input RecordMovementInput)
 		"new_quantity", item.Quantity,
 	)
 
-	return s.repo.GetMovement(ctx, input.TenantID, movementID)
+	return rows[0], nil
 }
 
 // ListMovements returns paginated movements for an item.

@@ -1148,7 +1148,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/inventar 74,7 %"
     scope: >
       Aus dem Post-Run-Review von Lauf 15 (seit `8cc079ce`): `AdjustStock`

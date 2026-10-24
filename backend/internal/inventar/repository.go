@@ -38,8 +38,10 @@ type Repository interface {
 	// ApplyStockMovementsTx changes the items' quantities and records the
 	// movements in a single transaction (rows locked, insufficient stock
 	// rejected, all or none), so the history and the stock can never
-	// disagree. Returns one item per movement, in input order.
-	ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error)
+	// disagree. Returns one full item and one stored movement per input
+	// movement, in input order, read inside the transaction so callers never
+	// need a second read after the commit.
+	ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, []*Movement, error)
 
 	// Movements
 	CreateMovement(ctx context.Context, movement *Movement) error
