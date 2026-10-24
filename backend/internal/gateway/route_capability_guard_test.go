@@ -245,8 +245,9 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"file activity, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:read"}, allowed},
 		{"file activity, edit key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:edit"}, denied},
 
-		// --- documents: copy is a read-action in the FE, stays coarse-only ---
-		{"file copy still requires documents:write only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},
+		// --- documents: a copy is a new file, so it takes the upload capability ---
+		{"file copy, edit key does not grant it", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},
+		{"file copy, catalogue upload key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:upload"}, allowed},
 		{"file copy with documents:write", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:write"}, allowed},
 
 		// --- documents: shares and versions ---
@@ -256,11 +257,32 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"version list, read key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/versions", []string{"documents:read"}, denied},
 		{"version revert, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/versions/revert", []string{"documents:version:restore"}, allowed},
 
-		// --- documents: tags/links/search have no catalogue key, untouched ---
-		{"tag create still requires documents:write only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, denied},
+		// --- documents: tags/links/search/virtual/WOPI follow the file capability they act through ---
+		{"tag create, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, allowed},
 		{"tag create with documents:write", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:write"}, allowed},
-		{"entity link delete by ID still requires documents:write only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, denied},
+		{"tag create, read key does not grant it", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:read"}, denied},
+		{"tag list, catalogue read key only", documentRouter, "GET", "/api/v1/documents/tags/", []string{"documents:file:read"}, allowed},
+		{"tag list, legacy key only", documentRouter, "GET", "/api/v1/documents/tags/", []string{"documents:read"}, allowed},
+		{"tag a file, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/tags/file", []string{"documents:file:edit"}, allowed},
+		{"untag a file, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/tags/file", []string{"documents:file:edit"}, allowed},
+		{"tag delete still needs documents:delete", documentRouter, "DELETE", "/api/v1/documents/tags/" + articleID, []string{"documents:file:edit"}, denied},
+		{"entity link delete by ID, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, allowed},
 		{"entity link delete by ID with documents:write", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:write"}, allowed},
+		{"entity link list, catalogue read key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:read"}, allowed},
+		{"entity link create, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:edit"}, allowed},
+		{"entity link create, read key does not grant it", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:read"}, denied},
+		{"entity unlink, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:edit"}, allowed},
+		{"search, catalogue read key only", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:file:read"}, allowed},
+		{"search, legacy key only", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:read"}, allowed},
+		{"search, no document key", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:module:view"}, denied},
+		{"virtual files, catalogue read key only", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:file:read"}, allowed},
+		{"virtual files, legacy key only", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:read"}, allowed},
+		{"virtual files, no document key", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:module:view"}, denied},
+		{"wopi token, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:file:edit"}, allowed},
+		{"wopi token, legacy write key only", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:write"}, allowed},
+		{"wopi token, read key does not grant it", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:file:read"}, denied},
+		{"wopi discovery, catalogue read key only", documentRouter, "GET", "/api/v1/documents/wopi/discovery", []string{"documents:file:read"}, allowed},
+		{"space init stays admin-only", documentRouter, "POST", "/api/v1/documents/folders/initialize-user", []string{"documents:file:upload"}, denied},
 
 		// --- documents: share links ---
 		{"share link list, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:file:read"}, allowed},
