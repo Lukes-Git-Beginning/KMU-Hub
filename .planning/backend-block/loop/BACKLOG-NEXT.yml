@@ -1988,3 +1988,32 @@ units:
     done_when:
       - "Luke: Egress-Status in Produktion festgestellt und Variante (a) oder (b) entschieden"
       - "Bei (a): Service-Test — ohne Stempel kein StartRoomCompositeEgress-Aufruf, nach Stempel genau einer"
+
+  - id: decide-hr-employee-deactivate-reactivate
+    phase: 4
+    service: hr
+    model: opus
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: Deaktivieren/Reaktivieren der Team-Seite braucht Abbildung auf Offboarding (exit_date + exit_type sind Pflicht, CHECK aus Migration 000282) und einen Reaktivieren-RPC, den es nicht gibt"
+    coverage_start: "internal/biz/hr/employee 76,2 %"
+    scope: >
+      Gefunden in fix-hr-employee-update-drops-address-emergency-and-status (Lauf 16,
+      Iteration 17). `PUT /hr/employees/{id}` mit `status` antwortet jetzt 400 ("Deaktivieren läuft
+      über das Offboarding"), vorher 200 ohne Wirkung. Die Team-Seite (`TeamPage.tsx:280,286`)
+      sendet aber genau das für „Deaktivieren" und „Reaktivieren" und zeigt DANACH sofort einen
+      Erfolgs-Toast (`toast.success` direkt nach `mutate`, ohne `onSuccess`) — der Toast ist falsch,
+      sobald die Mutation fehlschlägt. Desktop-Code ändert der Loop nicht.
+      Empfehlung: Deaktivieren = `OffboardEmployee` mit exit_date heute und exit_type 'other'
+      (setzt voraus, dass 'other' im CHECK/Service-Set zulässig wird — heute nur fünf Werte),
+      Reaktivieren als eigener RPC `ReactivateEmployee` (status active, exit_* NULL, Login und
+      Rollen wieder frei; Rollen sind beim Offboarding gelöscht, also kein reiner Statuswechsel).
+      FE: Toast erst in `onSuccess`, Fehler anzeigen.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/employee/service.go
+      - backend/migrations/000282_hr_employee_offboarding.up.sql
+      - desktop/src/renderer/src/modules/team/TeamPage.tsx
+    done_when:
+      - "Luke: Abbildung von Deaktivieren/Reaktivieren entschieden"
+      - "FE-Toast erst nach Erfolg (Desktop-Arbeit, nicht Loop)"

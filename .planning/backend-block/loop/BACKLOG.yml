@@ -783,7 +783,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,6 % · internal/biz/hr/employee 75,3 %"
     scope: >
       STILLER DATENVERLUST, VERIFIZIERT bei der Vorbereitung: der Bearbeiten-Dialog

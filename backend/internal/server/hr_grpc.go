@@ -820,6 +820,13 @@ func (s *HRGRPCServer) UpdateEmployee(ctx context.Context, req *hrv1.UpdateEmplo
 		m := req.GetIsMinor()
 		input.IsMinor = &m
 	}
+	// Same presence rule: nil keeps the stored value, "" clears it.
+	input.EmergencyContactName = req.EmergencyContactName
+	input.EmergencyContactPhone = req.EmergencyContactPhone
+	input.AddressStreet = req.AddressStreet
+	input.AddressCity = req.AddressCity
+	input.AddressPostalCode = req.AddressPostalCode
+	input.AddressCountry = req.AddressCountry
 
 	// Admin/manager caller role (gRPC layer assumes authorized caller)
 	updated, err := s.employeeService.UpdateEmployee(ctx, emp.ID, input, "admin")
@@ -2208,6 +2215,7 @@ func mapHRError(err error) error {
 		return status.Error(codes.OutOfRange, err.Error())
 	case errors.Is(err, employee.ErrInvalidSuccessor),
 		errors.Is(err, employee.ErrInvalidExitType),
+		errors.Is(err, employee.ErrInvalidCountry),
 		errors.Is(err, employee.ErrExitBeforeLastWorkDay):
 		return status.Error(codes.InvalidArgument, err.Error())
 

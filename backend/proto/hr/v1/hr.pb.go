@@ -4663,9 +4663,17 @@ type UpdateEmployeeReq struct {
 	// optional, because a plain bool cannot tell "set to false" apart from
 	// "not part of this update" — every other field here uses its zero value
 	// for the latter.
-	IsMinor       *bool `protobuf:"varint,10,opt,name=is_minor,json=isMinor,proto3,oneof" json:"is_minor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	IsMinor *bool `protobuf:"varint,10,opt,name=is_minor,json=isMinor,proto3,oneof" json:"is_minor,omitempty"`
+	// optional for the same reason: absent keeps the stored value, an empty
+	// string clears it (address_country cannot be cleared, it is NOT NULL).
+	EmergencyContactName  *string `protobuf:"bytes,11,opt,name=emergency_contact_name,json=emergencyContactName,proto3,oneof" json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone *string `protobuf:"bytes,12,opt,name=emergency_contact_phone,json=emergencyContactPhone,proto3,oneof" json:"emergency_contact_phone,omitempty"`
+	AddressStreet         *string `protobuf:"bytes,13,opt,name=address_street,json=addressStreet,proto3,oneof" json:"address_street,omitempty"`
+	AddressCity           *string `protobuf:"bytes,14,opt,name=address_city,json=addressCity,proto3,oneof" json:"address_city,omitempty"`
+	AddressPostalCode     *string `protobuf:"bytes,15,opt,name=address_postal_code,json=addressPostalCode,proto3,oneof" json:"address_postal_code,omitempty"`
+	AddressCountry        *string `protobuf:"bytes,16,opt,name=address_country,json=addressCountry,proto3,oneof" json:"address_country,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *UpdateEmployeeReq) Reset() {
@@ -4766,6 +4774,48 @@ func (x *UpdateEmployeeReq) GetIsMinor() bool {
 		return *x.IsMinor
 	}
 	return false
+}
+
+func (x *UpdateEmployeeReq) GetEmergencyContactName() string {
+	if x != nil && x.EmergencyContactName != nil {
+		return *x.EmergencyContactName
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetEmergencyContactPhone() string {
+	if x != nil && x.EmergencyContactPhone != nil {
+		return *x.EmergencyContactPhone
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressStreet() string {
+	if x != nil && x.AddressStreet != nil {
+		return *x.AddressStreet
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressCity() string {
+	if x != nil && x.AddressCity != nil {
+		return *x.AddressCity
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressPostalCode() string {
+	if x != nil && x.AddressPostalCode != nil {
+		return *x.AddressPostalCode
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressCountry() string {
+	if x != nil && x.AddressCountry != nil {
+		return *x.AddressCountry
+	}
+	return ""
 }
 
 type UpdateEmployeeResp struct {
@@ -9900,7 +9950,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"E\n" +
 	"\x0fGetEmployeeResp\x122\n" +
-	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\x97\x03\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xcd\x06\n" +
 	"\x11UpdateEmployeeReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1e\n" +
@@ -9915,8 +9965,20 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"start_date\x18\t \x01(\tR\tstartDate\x12\x1e\n" +
 	"\bis_minor\x18\n" +
-	" \x01(\bH\x00R\aisMinor\x88\x01\x01B\v\n" +
-	"\t_is_minor\"H\n" +
+	" \x01(\bH\x00R\aisMinor\x88\x01\x01\x129\n" +
+	"\x16emergency_contact_name\x18\v \x01(\tH\x01R\x14emergencyContactName\x88\x01\x01\x12;\n" +
+	"\x17emergency_contact_phone\x18\f \x01(\tH\x02R\x15emergencyContactPhone\x88\x01\x01\x12*\n" +
+	"\x0eaddress_street\x18\r \x01(\tH\x03R\raddressStreet\x88\x01\x01\x12&\n" +
+	"\faddress_city\x18\x0e \x01(\tH\x04R\vaddressCity\x88\x01\x01\x123\n" +
+	"\x13address_postal_code\x18\x0f \x01(\tH\x05R\x11addressPostalCode\x88\x01\x01\x12,\n" +
+	"\x0faddress_country\x18\x10 \x01(\tH\x06R\x0eaddressCountry\x88\x01\x01B\v\n" +
+	"\t_is_minorB\x19\n" +
+	"\x17_emergency_contact_nameB\x1a\n" +
+	"\x18_emergency_contact_phoneB\x11\n" +
+	"\x0f_address_streetB\x0f\n" +
+	"\r_address_cityB\x16\n" +
+	"\x14_address_postal_codeB\x12\n" +
+	"\x10_address_country\"H\n" +
 	"\x12UpdateEmployeeResp\x122\n" +
 	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xf4\x01\n" +
 	"\x13OffboardEmployeeReq\x12\x1f\n" +

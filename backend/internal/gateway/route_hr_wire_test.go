@@ -28,11 +28,12 @@ const (
 
 type hrWireStub struct {
 	hrv1.UnimplementedHRServiceServer
-	settings *hrv1.HRSettings // nil -> NotFound, like a tenant that never saved
-	updated  *hrv1.UpdateHRSettingsReq
-	uploaded *hrv1.UploadEmployeeDocumentReq
-	listed   *hrv1.ListWorkTimeEntriesReq
-	manual   *hrv1.CreateManualEntryReq
+	settings        *hrv1.HRSettings // nil -> NotFound, like a tenant that never saved
+	updated         *hrv1.UpdateHRSettingsReq
+	uploaded        *hrv1.UploadEmployeeDocumentReq
+	listed          *hrv1.ListWorkTimeEntriesReq
+	manual          *hrv1.CreateManualEntryReq
+	employeeUpdated *hrv1.UpdateEmployeeReq
 }
 
 func (s *hrWireStub) GetEmployee(_ context.Context, r *hrv1.GetEmployeeReq) (*hrv1.GetEmployeeResp, error) {
@@ -44,6 +45,7 @@ func (s *hrWireStub) CreateEmployee(_ context.Context, r *hrv1.CreateEmployeeReq
 }
 
 func (s *hrWireStub) UpdateEmployee(_ context.Context, r *hrv1.UpdateEmployeeReq) (*hrv1.UpdateEmployeeResp, error) {
+	s.employeeUpdated = r
 	return &hrv1.UpdateEmployeeResp{Employee: &hrv1.EmployeeProfile{Id: "p1", UserId: r.GetUserId(), Department: r.GetDepartment()}}, nil
 }
 

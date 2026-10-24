@@ -13348,6 +13348,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update employee (admin/manager fields)
+      description: >
+        Also stores the address and emergency-contact fields. A body that names
+        `status`, or an `address_country` that is not two letters, is answered
+        with 400 and nothing is applied.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -45160,6 +45164,21 @@ components:
             Omit to leave the flag untouched; send false to clear it. Not part
             of UpdateSelfProfileInput — an employee must not be able to clear
             it on themselves.
+        emergency_contact_name: { type: string, description: "Omit to keep, send \"\" to clear." }
+        emergency_contact_phone: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_street: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_city: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_postal_code: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Two-letter country code. Omit to keep; it cannot be cleared (NOT NULL).
+        status:
+          type: string
+          description: >-
+            Not updatable here. Any value is answered with 400: deactivating an
+            employee is an offboarding (exit date and type are mandatory).
 
     UpdateSelfProfileInput:
       type: object

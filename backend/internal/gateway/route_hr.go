@@ -1205,6 +1205,17 @@ type updateEmployeeHTTPReq struct {
 	// Pointer so an omitted field leaves the flag untouched instead of
 	// clearing it — the other fields here use their zero value for that.
 	IsMinor *bool `json:"is_minor"`
+	// Pointers for the same reason: omitted keeps the stored value, "" clears it.
+	EmergencyContactName  *string `json:"emergency_contact_name"`
+	EmergencyContactPhone *string `json:"emergency_contact_phone" validate:"omitempty,phone_dach"`
+	AddressStreet         *string `json:"address_street"`
+	AddressCity           *string `json:"address_city"`
+	AddressPostalCode     *string `json:"address_postal_code"     validate:"omitempty,plz_dach"`
+	AddressCountry        *string `json:"address_country"         validate:"omitempty,len=2"`
+	// Status is not an update field: the deactivate/reactivate buttons send it,
+	// but leaving means offboarding (exit date and type are mandatory). Declared
+	// only so it can be refused with a clear message instead of a false 200.
+	Status *string `json:"status"`
 }
 
 func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -1221,16 +1232,27 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if req.Status != nil {
+		response.Error(w, http.StatusBadRequest, "status kann hier nicht geändert werden: Deaktivieren läuft über das Offboarding")
+		return
+	}
+
 	grpcReq := &hrv1.UpdateEmployeeReq{
-		UserId:          id,
-		Department:      req.Department,
-		PositionTitle:   req.PositionTitle,
-		ContractType:    contractTypeHTTPToProto(req.ContractType),
-		WorkDaysPerWeek: req.WorkDaysPerWeek,
-		AnnualLeaveDays: req.AnnualLeaveDays,
-		ManagerUserId:   req.ManagerUserID,
-		StartDate:       req.StartDate,
-		IsMinor:         req.IsMinor,
+		UserId:                id,
+		Department:            req.Department,
+		PositionTitle:         req.PositionTitle,
+		ContractType:          contractTypeHTTPToProto(req.ContractType),
+		WorkDaysPerWeek:       req.WorkDaysPerWeek,
+		AnnualLeaveDays:       req.AnnualLeaveDays,
+		ManagerUserId:         req.ManagerUserID,
+		StartDate:             req.StartDate,
+		IsMinor:               req.IsMinor,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
+		AddressStreet:         req.AddressStreet,
+		AddressCity:           req.AddressCity,
+		AddressPostalCode:     req.AddressPostalCode,
+		AddressCountry:        req.AddressCountry,
 	}
 
 	resp, err := client.UpdateEmployee(r.Context(), grpcReq)

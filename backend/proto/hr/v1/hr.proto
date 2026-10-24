@@ -635,6 +635,14 @@ message UpdateEmployeeReq {
   // "not part of this update" — every other field here uses its zero value
   // for the latter.
   optional bool is_minor = 10;
+  // optional for the same reason: absent keeps the stored value, an empty
+  // string clears it (address_country cannot be cleared, it is NOT NULL).
+  optional string emergency_contact_name = 11;
+  optional string emergency_contact_phone = 12;
+  optional string address_street = 13;
+  optional string address_city = 14;
+  optional string address_postal_code = 15;
+  optional string address_country = 16;
 }
 
 message UpdateEmployeeResp {
