@@ -1065,3 +1065,11 @@ Scan-Tabelle. V = am Code und, wo möglich, an den gemessenen Antwortbytes beleg
 - neue-units: keine
 - desktop-aufrufer: `GET /hr/time/analytics?range=` -> `hr-client.ts:719-725` (`adaptTimeAnalytics`, liest `total_minutes`, `billable_minutes`, `worked_days`, `range`, `period_*`, `day_trend[].net_minutes/billable_minutes`, `by_project[].name`) -> `AuswertungenView.tsx:50-80` -> kommt jetzt so an -> passt. `POST /schichten/swap-requests` -> `useSchichten.ts:402-420` -> Header vorhanden -> passt.
 - offen: (1) `billable_minutes` ist ehrlich 0: `hr_work_time_entries` hat kein Abrechenbar-Kennzeichen, die Ansicht zeigt 0 % abrechenbar und alles als „nicht abrechenbar". Echte Werte brauchen ein Datenmodell (Projekt-`billable_default` wäre die Ableitung) — Entscheidung bei Luke, nicht gebaut. (2) `by_project[].color`/`customer_name` fehlen weiter, das FE fällt auf Grau/leer zurück. (3) Der Backlog ist damit leer. (4) `go test -race` lokal nicht möglich. (5) Arbeitsbaum CRLF/LF-gemischt, im Commit nur eigene Dateien.
+
+## Bilanz Lauf (2026-10-24 03:01)
+- iterationen: 41 im Bereich 34-74, davon 41 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 26 · e2e 6 · scan 5 · cov 3 · chore 1
+- commits nach typ: fix 26 · test 9 · chore 5 · docs 1 (41 seit 6714f0c0)
+- coverage-delta: internal/inbox/adapter 23,9 -> 97,4 · internal/email/attachment 22,1 -> 91,7 · internal/document/share 33,3 -> 96,8 · (4 weitere)
+- offen mit entscheidungsbedarf: 11 von 41 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 5,3 (217 gesamt)
