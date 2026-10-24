@@ -1605,3 +1605,37 @@ units:
       - backend/migrations/000224_seed_module_manager_member_permissions.up.sql
     done_when:
       - "Entscheidung steht: HR bleibt admin-only oder member/manager bekommen Self-Service; bei 'Self-Service' ist die Fix-Unit mit Seed-Migration, additivem Guard und Own-Scope an Saldo und Zeiteinträgen angelegt"
+
+  - id: fe-hr-employee-documents-adapter-and-upload
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "Arbeit Luke bzw. Nico (Desktop, nicht Backend): FE-Adapter für Personalakte-Dokumente und echter Datei-Upload, aus fix-hr-employee-documents-fe-contract (Iteration 65)"
+    scope: >
+      Das Gateway ist hier richtig, der Bruch liegt im Desktop. (1) `GET /hr/employees/{id}/documents`,
+      `/hr/me/documents` und `/hr/employees/{id}/documents/categories` liefern snake_case (`category_id`,
+      `file_name`, `file_size`, `created_at`, `uploaded_by_name`, `is_system`), wie jede Proto-Antwort
+      (`response.go` `UseProtoNames`). `EmployeeDocument` und `HRDocumentCategory` (`hr-types.ts:262/280`)
+      sind camelCase, `hrEmployeeApi.listDocuments`/`listDocumentCategories` (`hr-client.ts:922/935`)
+      adaptieren nicht, obwohl der Rest von `hr-client.ts` es tut (`adaptEmployee`, `adaptLeaveRequest`
+      u. a.). Folge: `DokumenteTab.tsx:51` filtert nach `d.categoryId` und findet nie etwas, die
+      Kategorie-Zähler sind leer, `b.createdAt.localeCompare` stürzt bei `undefined` ab, ab zwei
+      Dokumenten; `ProfileSections.tsx` zeigt `fileName`/`categoryName` leer. Fix: `adaptEmployeeDocument`
+      und `adaptDocumentCategory` in `hr-client.ts`. Das Gateway auf camelCase umzustellen wäre falsch (bricht
+      die Konvention und `PersonnelDocuments.tsx`, das snake_case liest). (2) Upload: `DokumenteTab.tsx:130-131`
+      sendet `fileId: 'file-<Date.now()>'` und als Rückfall `categoryId: 'hrcat-other'`; das Gateway lehnt
+      beides mit 400 ab (`uploadDocumentHTTPReq`, `validate:"omitempty,uuid"`), und die Spalte
+      `file_id` ist UUID. Der Tab lädt nie eine Datei hoch. Nötig: erst Presign-Upload (Muster
+      `internal/chat/file/minio_store.go`), dann die echte `file_id` senden; Kategorie-ID nur aus der
+      geladenen Kategorieliste, kein Rückfall-String. Das Backend nimmt `categoryId`/`fileId` (camelCase)
+      schon an.
+    sources:
+      - desktop/src/renderer/src/api/hr-client.ts
+      - desktop/src/renderer/src/api/hr-types.ts
+      - desktop/src/renderer/src/modules/profil/tabs/DokumenteTab.tsx
+      - desktop/src/renderer/src/modules/team/ProfileSections.tsx
+      - backend/internal/gateway/route_hr.go
+    done_when:
+      - "Adapter im FE, Tab filtert nach Kategorie und sortiert ohne Absturz, per Screenshot-QA mit einem echten Dokument abgenommen; Upload lädt vor dem Anlegen hoch und liefert 201"

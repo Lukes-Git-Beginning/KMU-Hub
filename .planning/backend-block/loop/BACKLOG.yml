@@ -2357,7 +2357,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-hr-employee-settings-calendar-documents-wire]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 74,9 %"
     scope: >
       TEILFEHLER Personalakte-Tab. Nach dem Wrappen (Iteration 30) kommen Dokumente als `{documents}` an,
