@@ -963,8 +963,9 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 	}
 
 	filters := resource.ResourceFilters{
-		TenantID: tenantID,
-		Tags:     req.Tags,
+		TenantID:        tenantID,
+		Tags:            req.Tags,
+		IncludeInactive: req.IncludeInactive,
 	}
 	if req.ResourceType != nil {
 		filters.Type = req.ResourceType
@@ -975,12 +976,6 @@ func (s *CalendarGRPCServer) ListResources(ctx context.Context, req *calv1.ListR
 	}
 	if req.Floor != nil {
 		filters.Floor = req.Floor
-	}
-	if req.IncludeInactive {
-		// Don't set IsActive filter, so all resources are returned
-	} else {
-		active := true
-		filters.IsActive = &active
 	}
 
 	resources, err := s.resourceService.List(ctx, filters)
@@ -2014,17 +2009,17 @@ func bookingPageToProto(p *models.BookingPage) *calv1.BookingPageProto {
 		svcs = append(svcs, bookingServiceToProto(&sc))
 	}
 	return &calv1.BookingPageProto{
-		Id:                  p.ID.String(),
-		TenantId:            p.TenantID.String(),
-		CalendarId:          p.CalendarID.String(),
-		Slug:                p.Slug,
-		CompanyName:         p.CompanyName,
-		LogoUrl:             p.LogoURL,
-		Services:            svcs,
+		Id:                    p.ID.String(),
+		TenantId:              p.TenantID.String(),
+		CalendarId:            p.CalendarID.String(),
+		Slug:                  p.Slug,
+		CompanyName:           p.CompanyName,
+		LogoUrl:               p.LogoURL,
+		Services:              svcs,
 		AvailabilityRulesJson: string(rulesJSON),
-		Active:              p.Active,
-		CreatedAt:           timestamppb.New(p.CreatedAt),
-		UpdatedAt:           timestamppb.New(p.UpdatedAt),
+		Active:                p.Active,
+		CreatedAt:             timestamppb.New(p.CreatedAt),
+		UpdatedAt:             timestamppb.New(p.UpdatedAt),
 	}
 }
 

@@ -414,6 +414,15 @@ func TestList_DefaultActiveOnly(t *testing.T) {
 	if list[0].ID != r1.ID {
 		t.Errorf("listed resource = %v, want %v", list[0].ID, r1.ID)
 	}
+
+	// include_inactive: a soft-deleted resource is listed again.
+	all, err := svc.List(context.Background(), ResourceFilters{TenantID: testTenantID, IncludeInactive: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("include inactive: list count = %d, want 2", len(all))
+	}
 }
 
 func TestList_FilterByType(t *testing.T) {
