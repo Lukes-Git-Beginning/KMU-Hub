@@ -87,9 +87,13 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 		})
 
 		// Agent status
+		// The own status belongs to the agent's workflow (the workspace loads and sets it), so
+		// calls:write opens GET and PUT; the handlers pin the target to the caller unless the
+		// caller holds agent:manage. The campaign roster is the supervisor view and stays manage.
+		ownStatus := middleware.RequirePermissionAny([2]string{"dialer:agent", "manage"}, [2]string{"dialer:calls", "write"})
 		r.Route("/agent-status", func(r chi.Router) {
-			r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/", dr.HandleGetAgentStatus)
-			r.With(middleware.RequirePermission("dialer:agent", "manage")).Put("/", dr.HandleSetAgentStatus)
+			r.With(ownStatus).Get("/", dr.HandleGetAgentStatus)
+			r.With(ownStatus).Put("/", dr.HandleSetAgentStatus)
 			r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/campaign/{campaignId}", dr.HandleGetCampaignAgents)
 		})
 
@@ -706,6 +710,16 @@ func (dr *DialerRoutes) HandleCompleteWrapUp(w http.ResponseWriter, r *http.Requ
 // Agent Status Handlers
 // ============================================================================
 
+// agentStatusTarget resolves whose status a request reads or sets. Only agent:manage may name
+// another user; everyone else, calls:write agents included, always gets their own status,
+// whatever user_id says.
+func agentStatusTarget(r *http.Request, requested string) string {
+	if requested != "" && callerHasPermission(r, "dialer:agent:manage") {
+		return requested
+	}
+	return middleware.GetUserID(r.Context())
+}
+
 func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Request) {
 	client, err := dr.getDialerClient()
 	if err != nil {
@@ -713,10 +727,7 @@ func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		userID = middleware.GetUserID(r.Context())
-	}
+	userID := agentStatusTarget(r, r.URL.Query().Get("user_id"))
 	if userID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
@@ -740,19 +751,14 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
-
 	req, ok := decodeAndValidate[setAgentStatusRequest](w, r)
 	if !ok {
 		return
 	}
 
 	grpcReq := &dialerv1.SetAgentStatusRequest{
-		UserId: req.UserID,
+		UserId: agentStatusTarget(r, req.UserID),
 		Status: dialerv1.AgentDialerStatus(req.Status),
-	}
-	if grpcReq.UserId == "" {
-		grpcReq.UserId = userID
 	}
 	if req.CampaignID != nil {
 		grpcReq.CampaignId = req.CampaignID

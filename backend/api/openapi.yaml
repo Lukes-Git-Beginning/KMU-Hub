@@ -27516,7 +27516,7 @@ paths:
       parameters:
         - name: user_id
           in: query
-          description: User UUID; defaults to the authenticated user
+          description: User UUID; defaults to the authenticated user. Only a caller with dialer:agent:manage may name another user, everyone else always gets their own status.
           schema: { type: string, format: uuid }
       responses:
         "200":
@@ -27541,7 +27541,7 @@ paths:
               type: object
               required: [status]
               properties:
-                user_id: { type: string, format: uuid, description: "Defaults to authenticated user" }
+                user_id: { type: string, format: uuid, description: "Defaults to authenticated user. Only a caller with dialer:agent:manage may name another user; everyone else sets their own status." }
                 status:
                   type: integer
                   description: "AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE"

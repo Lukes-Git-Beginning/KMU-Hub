@@ -662,6 +662,15 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"outcome update, calls:write does not grant it", dialerRouter, "PUT", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
 		{"outcome delete, calls:write does not grant it", dialerRouter, "DELETE", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
 
+		// --- dialer: an agent's own status is part of the workspace; the campaign roster is the
+		// supervisor view and stays agent:manage ---
+		{"agent status read, calls:write grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:calls:write"}, allowed},
+		{"agent status set, calls:write grants it", dialerRouter, "PUT", "/api/v1/dialer/agent-status/", []string{"dialer:calls:write"}, allowed},
+		{"agent status read, legacy manage key still grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:agent:manage"}, allowed},
+		{"agent status read, denied without either key", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:campaigns:read"}, denied},
+		{"campaign roster, calls:write does not grant it", dialerRouter, "GET", "/api/v1/dialer/agent-status/campaign/" + articleID, []string{"dialer:calls:write"}, denied},
+		{"campaign roster, manage key grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/campaign/" + articleID, []string{"dialer:agent:manage"}, allowed},
+
 		// --- berichte: definitions ---
 		{"definition create, legacy key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:write"}, allowed},
 		{"definition create, catalogue key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:create"}, allowed},

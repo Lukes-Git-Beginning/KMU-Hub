@@ -157,3 +157,14 @@ leergelaufen, PR #27). Alle inkl. Laufbilanz.
 - neue-units: `fix-dialer-agent-status-for-members` (VOR die erste `todo`-Unit gesetzt: Totalausfall — `GET`/`PUT /dialer/agent-status` verlangen `dialer:agent:manage`, das hat member nicht; Workspace lädt und setzt den eigenen Status, beides 403)
 - desktop-aufrufer: `GET /dialer/outcomes` -> `dialer-client.ts:416-419` -> `DialerWorkspacePage.tsx:68` `useOutcomes()` — Antwortform unverändert, nur der Zugriff wird erweitert -> passt.
 - offen: Kein Re-Login nötig (`dialer:calls:write` steckt bei member schon im Token). Der Spec-Eintrag an GET /dialer/outcomes wurde nicht angefasst (Route und Statuscodes unverändert).
+
+## Iteration 10 — fix-dialer-agent-status-for-members — done — 2026-10-24 18:05
+- commit: (siehe git log, Subject `fix(dialer): let agents read and set their own dialer status through calls:write`)
+- gebaut: `GET`/`PUT /dialer/agent-status` additiv auf `RequirePermissionAny(dialer:agent:manage, dialer:calls:write)` (`ownStatus`). Regel 1 belegt und dabei eine Lücke geschlossen: beide Handler nahmen `user_id` aus Query bzw. Body ungeprüft — mit dem geöffneten Guard hätte jeder Agent fremde Status lesen und setzen können. Neuer Helfer `agentStatusTarget`: nur `dialer:agent:manage` darf einen anderen User nennen, alle anderen bekommen immer sich selbst (ID aus dem JWT, ein fremdes `user_id` wird ignoriert wie bei hr:self). `GET /agent-status/campaign/{id}` bleibt `agent:manage`. Spec: beide `user_id`-Beschreibungen ergänzt, `swagger-cli validate` ok. Kein Seed nötig (member hält `dialer:calls:write`).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway komplett inkl. TestOpenAPIRouteDrift, testutil inkl. TestEveryRouteGuardHasAUsablePermission, middleware; Gateway-Tests brauchen keine DB) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 76,7 % -> 76,8 % (Vorher-Wert aus Iteration 9, nicht separat neu gemessen)
+- mutations-probe: (1) PUT-Guard zurück auf `RequirePermission(agent, manage)` -> `TestCapabilityGuards_AdditiveWiring` und `TestAgentStatus_…` rot; (2) `callerHasPermission`-Prüfung in `agentStatusTarget` entfernt -> `TestAgentStatus_AgentIsPinnedToThemselvesAndManagerMayNameAnother` rot. Beide zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit f488ace4: `GET /dialer/outcomes` additiv, POST/PUT/DELETE bleiben manage, Tests und Mutations-Probe vorhanden, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: `GET`/`PUT /dialer/agent-status` -> `dialer-client.ts:349-367` -> `useDialer.ts:116/316` -> `DialerWorkspacePage.tsx` ruft `getAgentStatus()` ohne und `setAgentStatus` ohne `user_id` auf -> Antwortform unverändert, passt. Kein Desktop-Aufrufer nennt ein fremdes `user_id`.
+- offen: Kein Re-Login nötig (`dialer:calls:write` steckt bei member schon im Token). Der Service validiert `user_id` weiterhin nur tenant-weit (Spec 404); die Pinnung sitzt im Gateway. Kein Goroutinen-Code.

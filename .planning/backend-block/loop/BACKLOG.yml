@@ -557,7 +557,7 @@ units:
     service: dialer
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,7 %"
     scope: >
       TOTALAUSFALL für jeden Agenten (member), gefunden in fix-dialer-outcomes-readable-by-agents:
