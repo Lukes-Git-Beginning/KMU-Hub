@@ -27,4 +27,12 @@ var (
 	// "belongs to another tenant" and "does not exist at all" so the write result
 	// cannot be used to probe foreign definition ids.
 	ErrCustomFieldNotFound   = errors.New("unknown custom field")
+	// ErrForeignStorageKey: the storage key is not an upload of the calling
+	// tenant (see chat/file.IsTenantUpload). Attaching it would hand out a
+	// download URL for an object the caller never uploaded.
+	ErrForeignStorageKey = errors.New("storage_key is not an upload of this tenant")
+	// ErrFileNotFound: no task file with this id in the calling tenant.
+	ErrFileNotFound = errors.New("task file not found")
+	// ErrFileStoreUnavailable: the service runs without an object store.
+	ErrFileStoreUnavailable = errors.New("file store unavailable")
 )

@@ -47,7 +47,10 @@ type Repository interface {
 	ListTasksForEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error)
 
 	// Files
+	// AttachFile inserts under file.TenantID and returns ErrNotFound when the
+	// task does not exist in that tenant.
 	AttachFile(ctx context.Context, file *models.TaskFile) error
+	GetFile(ctx context.Context, tenantID, id uuid.UUID) (*models.TaskFile, error)
 	RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error
 	ListFiles(ctx context.Context, taskID uuid.UUID) ([]models.TaskFile, error)
 

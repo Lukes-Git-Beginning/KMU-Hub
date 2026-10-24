@@ -1323,6 +1323,11 @@ func (s *WorkGRPCServer) ListTaskActivities(ctx context.Context, req *workv1.Lis
 // ============================================================================
 
 func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.AttachFileToTaskRequest) (*workv1.AttachFileToTaskResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1347,7 +1352,7 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 		f.ThumbnailKey = req.ThumbnailKey
 	}
 
-	if err := s.taskRepo.AttachFile(ctx, f); err != nil {
+	if err := s.taskService.AttachFile(ctx, tenantID, f); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1372,6 +1377,25 @@ func (s *WorkGRPCServer) RemoveTaskFile(ctx context.Context, req *workv1.RemoveT
 	}
 
 	return &workv1.RemoveTaskFileResponse{}, nil
+}
+
+func (s *WorkGRPCServer) GetTaskFileDownloadURL(ctx context.Context, req *workv1.GetTaskFileDownloadURLRequest) (*workv1.GetTaskFileDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file id")
+	}
+
+	url, err := s.taskService.GetFileDownloadURL(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	return &workv1.GetTaskFileDownloadURLResponse{Url: url}, nil
 }
 
 func (s *WorkGRPCServer) ListTaskFiles(ctx context.Context, req *workv1.ListTaskFilesRequest) (*workv1.ListTaskFilesResponse, error) {
@@ -2592,6 +2616,12 @@ func mapWorkError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrParentInDiffProject):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, task.ErrForeignStorageKey):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, task.ErrFileNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, task.ErrFileStoreUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
 	// Comment errors
 	case errors.Is(err, comment.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())

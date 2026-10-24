@@ -58,6 +58,7 @@ const (
 	WorkService_AttachFileToTask_FullMethodName            = "/work.v1.WorkService/AttachFileToTask"
 	WorkService_RemoveTaskFile_FullMethodName              = "/work.v1.WorkService/RemoveTaskFile"
 	WorkService_ListTaskFiles_FullMethodName               = "/work.v1.WorkService/ListTaskFiles"
+	WorkService_GetTaskFileDownloadURL_FullMethodName      = "/work.v1.WorkService/GetTaskFileDownloadURL"
 	WorkService_SetTaskCustomFieldValues_FullMethodName    = "/work.v1.WorkService/SetTaskCustomFieldValues"
 	WorkService_GetTaskCustomFieldValues_FullMethodName    = "/work.v1.WorkService/GetTaskCustomFieldValues"
 	WorkService_GetUserProjectPreference_FullMethodName    = "/work.v1.WorkService/GetUserProjectPreference"
@@ -140,6 +141,7 @@ type WorkServiceClient interface {
 	AttachFileToTask(ctx context.Context, in *AttachFileToTaskRequest, opts ...grpc.CallOption) (*AttachFileToTaskResponse, error)
 	RemoveTaskFile(ctx context.Context, in *RemoveTaskFileRequest, opts ...grpc.CallOption) (*RemoveTaskFileResponse, error)
 	ListTaskFiles(ctx context.Context, in *ListTaskFilesRequest, opts ...grpc.CallOption) (*ListTaskFilesResponse, error)
+	GetTaskFileDownloadURL(ctx context.Context, in *GetTaskFileDownloadURLRequest, opts ...grpc.CallOption) (*GetTaskFileDownloadURLResponse, error)
 	// Custom Fields
 	SetTaskCustomFieldValues(ctx context.Context, in *SetTaskCustomFieldValuesRequest, opts ...grpc.CallOption) (*SetTaskCustomFieldValuesResponse, error)
 	GetTaskCustomFieldValues(ctx context.Context, in *GetTaskCustomFieldValuesRequest, opts ...grpc.CallOption) (*GetTaskCustomFieldValuesResponse, error)
@@ -573,6 +575,16 @@ func (c *workServiceClient) ListTaskFiles(ctx context.Context, in *ListTaskFiles
 	return out, nil
 }
 
+func (c *workServiceClient) GetTaskFileDownloadURL(ctx context.Context, in *GetTaskFileDownloadURLRequest, opts ...grpc.CallOption) (*GetTaskFileDownloadURLResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTaskFileDownloadURLResponse)
+	err := c.cc.Invoke(ctx, WorkService_GetTaskFileDownloadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *workServiceClient) SetTaskCustomFieldValues(ctx context.Context, in *SetTaskCustomFieldValuesRequest, opts ...grpc.CallOption) (*SetTaskCustomFieldValuesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetTaskCustomFieldValuesResponse)
@@ -896,6 +908,7 @@ type WorkServiceServer interface {
 	AttachFileToTask(context.Context, *AttachFileToTaskRequest) (*AttachFileToTaskResponse, error)
 	RemoveTaskFile(context.Context, *RemoveTaskFileRequest) (*RemoveTaskFileResponse, error)
 	ListTaskFiles(context.Context, *ListTaskFilesRequest) (*ListTaskFilesResponse, error)
+	GetTaskFileDownloadURL(context.Context, *GetTaskFileDownloadURLRequest) (*GetTaskFileDownloadURLResponse, error)
 	// Custom Fields
 	SetTaskCustomFieldValues(context.Context, *SetTaskCustomFieldValuesRequest) (*SetTaskCustomFieldValuesResponse, error)
 	GetTaskCustomFieldValues(context.Context, *GetTaskCustomFieldValuesRequest) (*GetTaskCustomFieldValuesResponse, error)
@@ -1055,6 +1068,9 @@ func (UnimplementedWorkServiceServer) RemoveTaskFile(context.Context, *RemoveTas
 }
 func (UnimplementedWorkServiceServer) ListTaskFiles(context.Context, *ListTaskFilesRequest) (*ListTaskFilesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTaskFiles not implemented")
+}
+func (UnimplementedWorkServiceServer) GetTaskFileDownloadURL(context.Context, *GetTaskFileDownloadURLRequest) (*GetTaskFileDownloadURLResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTaskFileDownloadURL not implemented")
 }
 func (UnimplementedWorkServiceServer) SetTaskCustomFieldValues(context.Context, *SetTaskCustomFieldValuesRequest) (*SetTaskCustomFieldValuesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetTaskCustomFieldValues not implemented")
@@ -1860,6 +1876,24 @@ func _WorkService_ListTaskFiles_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkService_GetTaskFileDownloadURL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTaskFileDownloadURLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkServiceServer).GetTaskFileDownloadURL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkService_GetTaskFileDownloadURL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkServiceServer).GetTaskFileDownloadURL(ctx, req.(*GetTaskFileDownloadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WorkService_SetTaskCustomFieldValues_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetTaskCustomFieldValuesRequest)
 	if err := dec(in); err != nil {
@@ -2508,6 +2542,10 @@ var WorkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTaskFiles",
 			Handler:    _WorkService_ListTaskFiles_Handler,
+		},
+		{
+			MethodName: "GetTaskFileDownloadURL",
+			Handler:    _WorkService_GetTaskFileDownloadURL_Handler,
 		},
 		{
 			MethodName: "SetTaskCustomFieldValues",

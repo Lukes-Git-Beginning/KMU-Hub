@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/work/project"
@@ -24,7 +25,18 @@ type Service struct {
 	// openProjects: a project member-less caller may work on the tasks of any
 	// project of the tenant (see SetOpenProjects).
 	openProjects bool
+	// fileSigner presigns task file downloads; nil = no object store.
+	fileSigner FileURLSigner
 }
+
+// FileURLSigner hands out a time-limited download URL for a stored object.
+// chat/file.MinIOStore satisfies it.
+type FileURLSigner interface {
+	GetPresignedURL(ctx context.Context, key string, expiry time.Duration) (string, error)
+}
+
+// fileURLExpiry matches the chat file download URLs.
+const fileURLExpiry = 15 * time.Minute
 
 // NewService creates a new task service
 func NewService(repo Repository, projectRepo project.Repository) *Service {
@@ -37,6 +49,40 @@ func NewService(repo Repository, projectRepo project.Repository) *Service {
 // SetEventEmitter sets the optional event emitter for notification events.
 func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
+}
+
+// SetFileSigner wires the object store task file downloads are presigned with.
+func (s *Service) SetFileSigner(signer FileURLSigner) {
+	s.fileSigner = signer
+}
+
+// AttachFile records a file the caller uploaded beforehand through
+// POST /files/upload (without a channel). The storage keys are client-supplied,
+// so they must be uploads of the caller's own tenant — otherwise a task could
+// point at another tenant's object and hand out a download URL for it.
+// lean: file_size is taken as sent, not checked against the object; the quota
+// was charged with the real size at upload. Stat the object if the size ever
+// feeds billing.
+func (s *Service) AttachFile(ctx context.Context, tenantID uuid.UUID, f *models.TaskFile) error {
+	if !chatfile.IsTenantUpload(tenantID, f.StorageKey) ||
+		(f.ThumbnailKey != nil && !chatfile.IsTenantUpload(tenantID, *f.ThumbnailKey)) {
+		return ErrForeignStorageKey
+	}
+	f.TenantID = tenantID
+	return s.repo.AttachFile(ctx, f)
+}
+
+// GetFileDownloadURL presigns the download of a task file of the caller's
+// tenant. Reading the file needs no more than reading the task's file list.
+func (s *Service) GetFileDownloadURL(ctx context.Context, tenantID, fileID uuid.UUID) (string, error) {
+	if s.fileSigner == nil {
+		return "", ErrFileStoreUnavailable
+	}
+	f, err := s.repo.GetFile(ctx, tenantID, fileID)
+	if err != nil {
+		return "", err
+	}
+	return s.fileSigner.GetPresignedURL(ctx, f.StorageKey, fileURLExpiry)
 }
 
 // SetOpenProjects makes every project of the tenant editable for any caller who

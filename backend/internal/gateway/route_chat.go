@@ -6,10 +6,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
+	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
 
 // ChatRoutes handles HTTP routes for the chat backend service.
@@ -802,12 +805,38 @@ func (ch *ChatRoutes) HandleGetFileDownloadURL(w http.ResponseWriter, r *http.Re
 		FileId: fileID,
 		UserId: userID,
 	})
+	if status.Code(err) == codes.NotFound {
+		// The desktop downloads task attachments through this route too; an id
+		// that is no chat file may be a task file of the caller's tenant.
+		if url, ok := ch.taskFileDownloadURL(w, r, fileID); ok {
+			response.JSON(w, http.StatusOK, map[string]string{"url": url})
+		}
+		return
+	}
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// taskFileDownloadURL asks the work service for a task file's download URL. On
+// failure it has already written the error response (404 when the id is no
+// task file either) and returns false.
+func (ch *ChatRoutes) taskFileDownloadURL(w http.ResponseWriter, r *http.Request, fileID string) (string, bool) {
+	conn, err := ch.registry.GetConnection("work")
+	if err != nil {
+		respondServiceUnavailable(w, "work")
+		return "", false
+	}
+	resp, err := workv1.NewWorkServiceClient(conn).GetTaskFileDownloadURL(r.Context(),
+		&workv1.GetTaskFileDownloadURLRequest{Id: fileID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return "", false
+	}
+	return resp.GetUrl(), true
 }
 
 func (ch *ChatRoutes) HandleGetFileThumbnailURL(w http.ResponseWriter, r *http.Request) {

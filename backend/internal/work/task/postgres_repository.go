@@ -545,14 +545,39 @@ func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType 
 }
 
 func (r *PostgresRepository) AttachFile(ctx context.Context, file *models.TaskFile) error {
-	_, err := r.pool.Exec(ctx,
+	// The tenant comes from the caller, not from the task's project: a
+	// standalone task has none, and the project join left tenant_id NULL.
+	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO task_files (id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at, tenant_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
+		 SELECT $1, t.id, $3, $4, $5, $6, $7, $8, $9, t.tenant_id
+		 FROM tasks t WHERE t.id = $2 AND t.tenant_id = $10`,
 		file.ID, file.TaskID, file.Filename, file.MimeType, file.FileSize,
-		file.StorageKey, file.ThumbnailKey, file.UploadedBy, file.CreatedAt,
+		file.StorageKey, file.ThumbnailKey, file.UploadedBy, file.CreatedAt, file.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetFile(ctx context.Context, tenantID, id uuid.UUID) (*models.TaskFile, error) {
+	var f models.TaskFile
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at
+		 FROM task_files WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	).Scan(&f.ID, &f.TenantID, &f.TaskID, &f.Filename, &f.MimeType, &f.FileSize,
+		&f.StorageKey, &f.ThumbnailKey, &f.UploadedBy, &f.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrFileNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
 }
 
 func (r *PostgresRepository) RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error {

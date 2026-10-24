@@ -41,7 +41,10 @@ const maxUploadSize = 55 << 20
 
 // HandleUploadFile handles multipart file upload
 // POST /api/v1/files/upload
-// Form fields: file (required), channel_id (required), message_id (optional)
+// Form fields: file (required), channel_id (optional), message_id (optional)
+// Without channel_id the file is stored unattached under the caller's tenant
+// and the response carries its storage_key — the task attachment flow records
+// that key via POST /tasks/{id}/files.
 // Header: Idempotency-Key (optional). A retry with the same key and the same
 // channel/message/filename/size replays the first response instead of storing
 // the file twice; the same key with a different upload is rejected with 422.
@@ -58,12 +61,16 @@ func (h *FileUploadHandler) HandleUploadFile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Get channel_id
+	// channel_id is optional; when present it must be valid.
 	channelIDStr := r.FormValue("channel_id")
-	channelID, err := uuid.Parse(channelIDStr)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, "valid channel_id is required")
-		return
+	var channelID uuid.UUID
+	if channelIDStr != "" {
+		parsed, parseErr := uuid.Parse(channelIDStr)
+		if parseErr != nil {
+			response.Error(w, http.StatusBadRequest, "invalid channel_id")
+			return
+		}
+		channelID = parsed
 	}
 
 	// Get optional message_id
@@ -116,24 +123,28 @@ func (h *FileUploadHandler) HandleUploadFile(w http.ResponseWriter, r *http.Requ
 		UserID:    uploaderID,
 	}
 
+	if channelIDStr == "" {
+		if messageID != nil {
+			response.Error(w, http.StatusBadRequest, "message_id requires channel_id")
+			return
+		}
+		upload, uploadErr := h.fileService.UploadUnattached(r.Context(), input)
+		if uploadErr != nil {
+			response.Error(w, uploadErrorStatus(uploadErr), uploadErr.Error())
+			return
+		}
+		response.JSON(w, http.StatusCreated, map[string]interface{}{
+			"storage_key": upload.StorageKey,
+			"filename":    upload.Filename,
+			"mime_type":   upload.MimeType,
+			"file_size":   upload.FileSize,
+		})
+		return
+	}
+
 	result, uploadErr := h.fileService.Upload(r.Context(), input)
 	if uploadErr != nil {
-		statusCode := http.StatusInternalServerError
-		switch uploadErr {
-		case file.ErrNotChannelMember:
-			statusCode = http.StatusForbidden
-		case file.ErrChannelArchived:
-			statusCode = http.StatusConflict
-		case file.ErrFileTooLarge:
-			statusCode = http.StatusRequestEntityTooLarge
-		case file.ErrInvalidMimeType:
-			statusCode = http.StatusUnsupportedMediaType
-		case file.ErrQuotaExceeded:
-			statusCode = http.StatusInsufficientStorage
-		case file.ErrScanFailed:
-			statusCode = http.StatusUnprocessableEntity
-		}
-		response.Error(w, statusCode, uploadErr.Error())
+		response.Error(w, uploadErrorStatus(uploadErr), uploadErr.Error())
 		return
 	}
 
@@ -155,6 +166,24 @@ func (h *FileUploadHandler) HandleUploadFile(w http.ResponseWriter, r *http.Requ
 		"uploader_last_name":  result.UploaderLastName,
 		"has_thumbnail":       result.ThumbnailKey != nil,
 	})
+}
+
+func uploadErrorStatus(err error) int {
+	switch err {
+	case file.ErrNotChannelMember:
+		return http.StatusForbidden
+	case file.ErrChannelArchived:
+		return http.StatusConflict
+	case file.ErrFileTooLarge:
+		return http.StatusRequestEntityTooLarge
+	case file.ErrInvalidMimeType:
+		return http.StatusUnsupportedMediaType
+	case file.ErrQuotaExceeded:
+		return http.StatusInsufficientStorage
+	case file.ErrScanFailed:
+		return http.StatusUnprocessableEntity
+	}
+	return http.StatusInternalServerError
 }
 
 func (h *FileUploadHandler) broadcastFileUploaded(ctx context.Context, f *models.ChatFileWithUploader) {

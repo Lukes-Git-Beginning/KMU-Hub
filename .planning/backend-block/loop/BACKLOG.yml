@@ -1764,7 +1764,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,4 % · internal/server (CI-Wert 75,3 %)"
     scope: >
       TOTALAUSFALL "Datei an Aufgabe anhängen" und "Aufgaben-Datei herunterladen", drei
@@ -2356,3 +2356,32 @@ units:
       - "DB-Test: projektlose Aufgabe landet im Zielprojekt mit offenem Status; Aufgabe mit Projekt bleibt unverändert (Fehler 409/400)"
       - "Test: Projekt eines anderen Mandanten -> NotFound, kein Eintrag"
       - "Mutations-Probe: Tenant-Prüfung des Zielprojekts entfernt, der Test wird rot"
+
+  - id: harden-work-task-file-write-checks
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/work/task 74,1 % · internal/server 75,8 %"
+    scope: >
+      Gefunden in fix-work-task-file-attach-flow (Lauf 16, Iteration 45). `AttachFileToTask` und
+      `RemoveTaskFile` prüfen nur den Mandanten, nicht das Projektrecht: ein Projekt-Viewer
+      (`ErrViewerCannotEdit` gilt sonst für jede Task-Änderung) kann Dateien anhängen und
+      entfernen. Bau: in `task.Service.AttachFile` und einem neuen `task.Service.RemoveFile`
+      dieselbe Regel wie bei Update (`requireProjectEditor` für Aufgaben MIT Projekt, Offen-Modus
+      gilt; projektlose Aufgaben: wie Update sie behandelt). `RemoveTaskFile` im gRPC-Server auf
+      den Service umstellen; Akteur aus dem Kontext (`actorIDFromContext`), nicht uuid.Nil.
+      Kein Objekt-Löschen/Quota-Abzug in dieser Unit (eigene Entscheidung: Task-Dateien liegen
+      seit Iteration 45 unter `tenants/{id}/uploads/`, Quota wird beim Upload belastet).
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/task/file_attach_db_test.go
+    notes: >
+      Desktop: `useAttachFile`/`useRemoveFile` (`api/hooks/useTaskFiles.ts`) senden keinen
+      Akteur; der kommt aus dem JWT-Kontext. Regel gegen `Update` abgleichen, nicht neu erfinden.
+    done_when:
+      - "DB-Test (kmuhub_app): Viewer eines Projekts -> PermissionDenied beim Anhängen und Entfernen, kein Eintrag/keine Löschung; Editor -> ok"
+      - "Test: projektlose Aufgabe verhält sich wie bei Update"
+      - "Mutations-Probe: Editor-Prüfung entfernt, der Viewer-Test wird rot"

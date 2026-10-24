@@ -15,6 +15,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/database"
 	"github.com/kmuhub/kmuhub/internal/health"
@@ -81,6 +82,19 @@ func main() {
 	// Set event emitters for notification integration
 	taskService.SetEventEmitter(task.NewPGEventEmitter(pool))
 	commentService.SetEventEmitter(task.NewPGEventEmitter(pool))
+
+	// Task attachments are presigned here, so the URL must carry the
+	// browser-reachable endpoint like the chat service's. Without a store the
+	// download answers Unavailable; the rest of the service runs on.
+	taskFileStore, err := chatfile.NewMinIOStoreWithPublicEndpoint(
+		cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucket, cfg.MinIOUseSSL,
+		cfg.MinIOPublicEndpoint, cfg.MinIOPublicUseSSL,
+	)
+	if err != nil {
+		slog.Warn("minio unavailable, task file downloads disabled", "error", err)
+	} else {
+		taskService.SetFileSigner(taskFileStore)
+	}
 
 	// Calendar domain repositories
 	calendarRepo := calendar.NewPostgresRepository(pool)

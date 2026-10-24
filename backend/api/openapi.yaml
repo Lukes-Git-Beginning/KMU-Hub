@@ -4260,7 +4260,12 @@ paths:
 
   /api/v1/files/upload:
     post:
-      summary: Upload a file to a channel
+      summary: Upload a file to a channel, or unattached for a task attachment
+      description: >
+        With `channel_id` the file becomes a chat file of that channel (FileInfo). Without it the
+        file is stored unattached under the caller's tenant and the answer carries its
+        `storage_key`, which `POST /api/v1/tasks/{id}/files` records. Both are charged against
+        the tenant's storage quota.
       tags: [chat-files]
       operationId: uploadFile
       requestBody:
@@ -4269,7 +4274,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, channel_id]
+              required: [file]
               properties:
                 file:
                   type: string
@@ -4278,18 +4283,20 @@ paths:
                 channel_id:
                   type: string
                   format: uuid
-                  description: Channel to attach the file to
+                  description: Channel to attach the file to; omit for an unattached upload
                 message_id:
                   type: string
                   format: uuid
-                  description: Optional message to attach the file to
+                  description: Optional message to attach the file to (only with channel_id)
       responses:
         "201":
           description: File uploaded successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/FileInfo"
+                oneOf:
+                  - $ref: "#/components/schemas/FileInfo"
+                  - $ref: "#/components/schemas/UnattachedUpload"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4324,6 +4331,9 @@ paths:
   /api/v1/files/{id}/download:
     get:
       summary: Get a presigned download URL for a file
+      description: >
+        Accepts a chat file id or a task file id (the id from GET /api/v1/tasks/{id}/files).
+        An id that is no chat file is looked up among the caller's tenant's task files.
       tags: [chat-files]
       operationId: getFileDownloadURL
       parameters:
@@ -6844,8 +6854,12 @@ paths:
                   format: int64
                 storage_key:
                   type: string
+                  description: >
+                    The storage_key from POST /api/v1/files/upload without channel_id. A key that
+                    is no upload of the caller's tenant is rejected with 400.
                 thumbnail_key:
                   type: string
+                  description: Same rule as storage_key
       responses:
         "201":
           description: File attached
@@ -6858,6 +6872,8 @@ paths:
                     $ref: "#/components/schemas/TaskFileResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -41033,6 +41049,21 @@ components:
         total:
           type: integer
 
+    UnattachedUpload:
+      type: object
+      description: A file uploaded without a channel, ready to be attached to a task
+      required: [storage_key, filename, mime_type, file_size]
+      properties:
+        storage_key:
+          type: string
+          description: Object key under the caller's tenant; send it to POST /api/v1/tasks/{id}/files
+        filename:
+          type: string
+        mime_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
     FileInfo:
       type: object
       properties:

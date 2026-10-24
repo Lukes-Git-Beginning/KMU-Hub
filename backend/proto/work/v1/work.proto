@@ -65,6 +65,7 @@ service WorkService {
   rpc AttachFileToTask(AttachFileToTaskRequest) returns (AttachFileToTaskResponse);
   rpc RemoveTaskFile(RemoveTaskFileRequest) returns (RemoveTaskFileResponse);
   rpc ListTaskFiles(ListTaskFilesRequest) returns (ListTaskFilesResponse);
+  rpc GetTaskFileDownloadURL(GetTaskFileDownloadURLRequest) returns (GetTaskFileDownloadURLResponse);
 
   // Custom Fields
   rpc SetTaskCustomFieldValues(SetTaskCustomFieldValuesRequest) returns (SetTaskCustomFieldValuesResponse);
@@ -687,6 +688,14 @@ message ListTaskFilesRequest {
 
 message ListTaskFilesResponse {
   repeated TaskFileProto files = 1;
+}
+
+message GetTaskFileDownloadURLRequest {
+  string id = 1;
+}
+
+message GetTaskFileDownloadURLResponse {
+  string url = 1;
 }
 
 // ============================================================================

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/chat/file"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 func TestFileUpload_HappyPath(t *testing.T) {
@@ -57,7 +58,6 @@ func TestFileUpload_InvalidChannelID(t *testing.T) {
 		name      string
 		channelID string
 	}{
-		{"missing channel_id", ""},
 		{"malformed channel_id", "not-a-uuid"},
 	}
 
@@ -71,6 +71,46 @@ func TestFileUpload_InvalidChannelID(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
+}
+
+// The task attachment flow uploads with no channel and reads storage_key from the answer.
+func TestFileUpload_WithoutChannelStoresUnderTenant(t *testing.T) {
+	handler, repo, _, _ := newTestFileUploadHandler()
+	userID := uuid.New()
+
+	req := newMultipartUploadRequestWithMessageID(t, userID.String(), "", "",
+		"angebot.pdf", "application/pdf", []byte("%PDF-1.4"))
+	rec := httptest.NewRecorder()
+
+	handler.HandleUploadFile(rec, req)
+
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	tenantID, err := middleware.GetTenantID(req.Context())
+	require.NoError(t, err)
+	key, _ := body["storage_key"].(string)
+	require.True(t, file.IsTenantUpload(tenantID, key), "storage_key %q", key)
+	require.Equal(t, "angebot.pdf", body["filename"])
+	require.Equal(t, "application/pdf", body["mime_type"])
+	require.EqualValues(t, 8, body["file_size"])
+	require.NotContains(t, body, "channel_id")
+	require.EqualValues(t, 8, repo.quota.UsedBytes, "the upload is charged against the quota")
+}
+
+func TestFileUpload_WithoutChannelKeepsTheChecks(t *testing.T) {
+	handler, _, _, _ := newTestFileUploadHandler()
+	userID := uuid.New().String()
+
+	rec := httptest.NewRecorder()
+	handler.HandleUploadFile(rec, newMultipartUploadRequestWithMessageID(t, userID, "", "",
+		"run.exe", "application/x-msdownload", []byte("MZ")))
+	require.Equal(t, http.StatusUnsupportedMediaType, rec.Code)
+
+	rec = httptest.NewRecorder()
+	handler.HandleUploadFile(rec, newMultipartUploadRequestWithMessageID(t, userID, "", uuid.New().String(),
+		"a.pdf", "application/pdf", []byte("x")))
+	require.Equal(t, http.StatusBadRequest, rec.Code, "a message_id without a channel is meaningless")
 }
 
 func TestFileUpload_MissingFile(t *testing.T) {

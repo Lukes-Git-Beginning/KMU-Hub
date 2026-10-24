@@ -196,6 +196,9 @@ func (m *mockRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *mockRepo) GetFile(_ context.Context, _, _ uuid.UUID) (*models.TaskFile, error) {
+	return nil, nil
+}
 func (m *mockRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }
