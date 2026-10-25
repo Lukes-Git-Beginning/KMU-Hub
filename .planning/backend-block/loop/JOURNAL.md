@@ -1180,3 +1180,11 @@ Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `P
 - neue-units: keine
 - desktop-aufrufer: `POST /api/v1/email/send/draft` -> `email-client.ts:211` / `useEmail.ts:251` <- `ComposeModal.tsx:233` (Fehler -> Toast `mails.toast.saveFailed`); `POST /api/v1/email/send/` -> `email-client.ts:205`. Antwortformen unverändert -> passt. Neu: Entwurf für ein nie synchronisiertes Postfach (kein Entwürfe-Ordner) -> 404 statt 500; `useSaveDraft` invalidiert `['email','folders']`, Entwürfe erscheinen jetzt tatsächlich.
 - offen: Der Hilfs-Creator `sentCopyCreator` in `server/email_grpc_send_attachments_db_test.go` ist entfernt, die Anhang-Tests laufen über den echten Pfad (Rig hat jetzt Gesendet- und Entwürfe-Ordner). Ein Konto ohne Gesendet-Ordner sendet weiter, behält aber keine Kopie (Warn-Log wie bisher). Der IMAP-Sync löscht bei UIDVALIDITY-Wechsel alle Nachrichten des Ordners, auch lokale Kopien (wie bisher für alles). Gespeicherte Message-IDs bleiben uneinheitlich: Send speichert `<id@host>`, der Sync `id@host` — `ClaimLocalCopy` gleicht das aus, Threading über `FindThreadByReferences` nicht (bestehend, nicht Teil dieser Unit). Entwürfe werden nicht per IMAP APPEND auf den Server gelegt; Entwurf-Update (`draft_id`) weiter nicht implementiert.
+
+## Bilanz Lauf (2026-10-25 02:20)
+- iterationen: 40 im Bereich 43-82, davon 40 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 21 · e2e 7 · scan 5 · harden 3 · cov 2 · feat 1 · seed 1
+- commits nach typ: fix 24 · test 10 · chore 5 · feat 1 (40 seit 465e923f)
+- coverage-delta: internal/work/reaction 38,9 -> 82,4 · internal/biz/hr/timetracking 65,9 -> 82,3 · internal/work/task 71,8 -> 85,1 · (3 weitere)
+- offen mit entscheidungsbedarf: 5 von 39 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 3,2 (128 gesamt)
