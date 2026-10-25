@@ -120,7 +120,7 @@ func TestSend_SMTPRejection_WrapsErrSendFailed(t *testing.T) {
 
 			creator := &mockMessageCreator{}
 			provider := &stubAccountProvider{creds: &Credentials{SMTPHost: host, SMTPPort: port}}
-			svc := NewService(provider, creator, nil)
+			svc := NewService(provider, creator, nil).WithDialGuard(loopbackGuard(t))
 
 			input := SendInput{
 				AccountID: uuid.New(),

@@ -11,4 +11,9 @@ var (
 
 	// ErrConnectionFailed is returned when connecting to the IMAP or SMTP server fails.
 	ErrConnectionFailed = errors.New("email server connection failed")
+
+	// ErrHostNotAllowed is returned when an IMAP or SMTP host resolves to an
+	// internal address (loopback, private, link-local) that is not on the
+	// EMAIL_DIAL_ALLOWLIST. The resolved address stays out of the message.
+	ErrHostNotAllowed = errors.New("email server host is not allowed")
 )

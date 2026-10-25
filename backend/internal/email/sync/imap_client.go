@@ -13,6 +13,8 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 )
 
 // FolderStatus holds the status of an IMAP folder.
@@ -55,6 +57,9 @@ type IMAPClient struct {
 	client    *imapclient.Client
 	logger    *slog.Logger
 	accountID uuid.UUID
+	// guard filters the address Connect dials. Nil allows public addresses
+	// only; the worker sets the account service's guard (allowlist).
+	guard *safedial.Guard
 }
 
 // NewIMAPClient creates a new IMAP client wrapper.
@@ -95,7 +100,7 @@ var (
 // Connect establishes a connection to the IMAP server.
 func (c *IMAPClient) Connect(host string, port int, useSSL bool) error {
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	dialer := &net.Dialer{Timeout: imapDialTimeout}
+	dialer := c.guard.Dialer(host, imapDialTimeout)
 
 	var conn net.Conn
 	var err error
@@ -105,7 +110,9 @@ func (c *IMAPClient) Connect(host string, port int, useSSL bool) error {
 		conn, err = dialer.Dial("tcp", addr)
 	}
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrIMAPConnectionLost, err)
+		// %w on both: callers can tell a refused internal address
+		// (safedial.ErrBlockedAddress) from an unreachable server.
+		return fmt.Errorf("%w: %w", ErrIMAPConnectionLost, err)
 	}
 
 	client, err := newIMAPProtocolClient(conn, useSSL || port == 993)

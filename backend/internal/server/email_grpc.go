@@ -1907,6 +1907,8 @@ func mapEmailError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):
 		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, account.ErrHostNotAllowed):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Message errors
 	case errors.Is(err, message.ErrMessageNotFound):

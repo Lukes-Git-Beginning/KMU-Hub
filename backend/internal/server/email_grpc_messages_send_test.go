@@ -409,7 +409,7 @@ func newEmailMessagesFixture() *testEmailMessagesFixture {
 	linkRepo := newStubLinkRepo()
 
 	msgSvc := message.NewService(msgRepo, folderRepo)
-	sendSvc := send.NewService(accounts, msgSvc, nil)
+	sendSvc := send.NewService(accounts, msgSvc, nil).WithDialGuard(loopbackDialGuard())
 	attSvc := attachment.NewService(attRepo, stubObjectStore{})
 
 	srv := NewEmailGRPCServer(nil, msgSvc, sendSvc, nil, attSvc, nil, linkRepo, nil, nil, nil, nil, nil)

@@ -37,6 +37,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 	"github.com/kmuhub/kmuhub/internal/security/vault"
 	"github.com/kmuhub/kmuhub/internal/server"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
@@ -98,7 +99,14 @@ func main() {
 	templateRepo := template.NewPostgresRepository(pool)
 
 	// Initialize services
-	accountService := account.NewService(accountRepo, vaultEncryptor)
+	// Mail server hosts are tenant input: dial only public addresses plus the
+	// operator's allowlist, so the account form is no port scanner into our network.
+	dialGuard, err := safedial.New(cfg.EmailDialAllowlist)
+	if err != nil {
+		slog.Error("invalid EMAIL_DIAL_ALLOWLIST", "error", err)
+		os.Exit(1)
+	}
+	accountService := account.NewService(accountRepo, vaultEncryptor).WithDialGuard(dialGuard)
 	messageService := message.NewService(messageRepo, folderRepo)
 	signatureService := signature.NewService(signatureRepo)
 	ruleService := rule.NewService(ruleRepo)
@@ -111,7 +119,8 @@ func main() {
 	// additionally requires threading contact_id through SendEmailRequest (proto) + gateway + FE.
 	sendAccountAdapter := &sendAccountAdapter{accountService: accountService}
 	consentAsserter := consent.NewAsserter(consent.NewPostgresAssertRepo(pool), slog.Default())
-	sendService := send.NewServiceWithConsent(sendAccountAdapter, messageService, signatureService, consentAsserter)
+	sendService := send.NewServiceWithConsent(sendAccountAdapter, messageService, signatureService, consentAsserter).
+		WithDialGuard(dialGuard)
 
 	// Attachment service (MinIO storage)
 	attachStore := attachment.NewStore(minioClient, cfg.MinIOBucket)

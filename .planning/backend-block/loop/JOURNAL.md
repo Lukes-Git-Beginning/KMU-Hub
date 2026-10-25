@@ -333,3 +333,41 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   Nachrichten) und den eigenen Ungelesen-Zähler — beides war vorher 403. Schreibrouten (lesen markieren, Claim,
   Antworten) bleiben `inbox:write` = admin-only; ob member Team-Nachrichten bearbeiten darf, ist eine eigene Entscheidung.
   Mitgliederliste offener Team-Postfächer bleibt für Nicht-Mitglieder lesbar (Altverhalten seit Lauf 14, `visibility`).
+
+## Iteration 9 — harden-email-dial-guard-for-account-hosts — done — 2026-10-25 17:48
+- commit: siehe Commit `fix(email): refuse internal mail server addresses unless allowlisted` (dieser Eintrag)
+- gebaut: Neues Paket `internal/security/safedial` (Guard): `Validate` löst den Host auf und lehnt jede Adresse ab, die
+  `safehttp.CheckAddr` (neu exportiert, dieselbe Klassifikation wie der HTTP-Client) nicht als öffentlich durchlässt;
+  `Dialer` hängt denselben Check in den `Control`-Hook (DNS-Rebinding). Allowlist aus neuem optionalem Env
+  `EMAIL_DIAL_ALLOWLIST` (Host/IP/CIDR, komma-getrennt, Default leer, kein RequireX; ungültiger Eintrag bricht den
+  email-Start ab). Nil-Guard = nur öffentlich (fail closed). Verdrahtet in `account.Create`/`Update` (beide Hosts,
+  vor der Zuweisung), `TestConnection` (Check beider Hosts + Dial über `imapclient.Options.Dialer`), Sync-Dial
+  (`IMAPClient.guard`, vom Worker aus `accountService.DialGuard()`) und SMTP-Versand (beide Transporte,
+  `send.Service.WithDialGuard`). Neuer Fehler `account.ErrHostNotAllowed` -> `codes.InvalidArgument` (400).
+- gate: build ok | vet ok | lint ok (0 issues: email/..., safedial, safehttp, config, cmd/email, server/...) |
+  test ok (email/... + safedial + safehttp + config: 486 PASS, 0 SKIP; `internal/server` voll: 4998 PASS, 0 SKIP,
+  0 FAIL, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | e2e n.a. (kein
+  Flow legt ein Mailkonto an); `internal/gateway` nicht gelaufen (keine Route, kein Gateway-Code angefasst)
+- coverage: n.a. (kein Coverage-Ziel; nachher `internal/security/safedial` 93,2 %, `internal/email/sync` 84,5 %,
+  `internal/email/account` 56,8 %)
+- mutations-probe: (1) `checkAddr` -> `return nil`: safedial-Tests (4) und Account-Create/Update-Tests rot. (2) SMTP-Check
+  in `Create` entfernt -> `TestCreate_RejectsInternalMailHosts` rot. (3) Sync-`Connect` mit plain `net.Dialer` ->
+  `TestConnect_RefusesInternalAddressWithoutAllowlist` rot. (4) STARTTLS-Versand mit plain `net.Dialer` ->
+  `TestSendSMTP_RefusesInternalAddressWithoutAllowlist` rot. (5) `TestConnection` ohne Guard-Dialer -> ÜBERLEBT:
+  `Validate` fängt jede interne Adresse vorher, der Dial-Hook greift dort nur bei Rebinding (aus dem account-Paket
+  ohne Resolver-Stub nicht erzeugbar; der Hook selbst ist in safedial gegen echten Listener getestet). Alle
+  zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`8f67a1ff`: Guards additiv `RequirePermissionAny(inbox:read, team_inbox:read)`, Seed 000346
+  mit Up/Down für member/manager/admin, Repo-Reichweite tenant-gescoped plus Mitgliedschaft, keine neue Route/Tabelle)
+- neue-units: keine
+- desktop-aufrufer: POST `/email/accounts/`, PUT `/email/accounts/{id}`, POST `/email/accounts/test` ->
+  `api/email-client.ts:87,102,115` über `api/hooks/useEmail.ts:107` -> passt: Antwortformen unverändert; interne Hosts
+  bekommen bei Anlegen/Ändern 400 statt Erfolg, beim Verbindungstest `imap_ok=false` mit Meldung in `imap_error`
+  (wie jeder andere Verbindungsfehler).
+- offen: Compose-Passthrough für `EMAIL_DIAL_ALLOWLIST` an den email-Service fehlt (deploy/ gesperrt) — nötig erst, wenn
+  ein Self-Hosted-Kunde einen internen Mailserver hat. VERHALTENSÄNDERUNG für Bestandskonten: ein schon gespeichertes
+  Konto mit privatem/Loopback-Host synct und sendet ab dem Deploy nicht mehr (Sync loggt `IMAP connection lost ...
+  not a public address`), bis der Host auf die Allowlist kommt — vor Deploy auf Prod prüfen:
+  `SELECT imap_host, smtp_host FROM email_accounts` gegen private Ranges. Nicht auflösbare Hosts passieren `Validate`
+  bewusst (der Dial scheitert ohnehin, die Grenze ist der Dial-Hook). Der Verbindungstest meldet eine gesperrte
+  SMTP-Adresse im Feld `imap_error` (Proto kennt nur das). `systemmail` (Operator-SMTP aus Env) bleibt ungefiltert.
