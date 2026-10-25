@@ -1140,7 +1140,7 @@ units:
     deps:
       - e2e-local-gate-check
       - fix-pagination-max-200-for-vermietung-and-inventar-lists
-    status: todo
+    status: done
     target: 'vermietung: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
