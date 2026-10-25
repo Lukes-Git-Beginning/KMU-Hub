@@ -1169,7 +1169,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'vertraege: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -3140,3 +3140,32 @@ units:
     done_when:
       - 'DB-Test: PATCH nur mit purpose lässt Datum, km, Orte und is_private unverändert'
       - 'E2E `TestFuhrparkTripLogPrivateMaskingFlow`: Subtest "IST: a partial PATCH ..." wird zur Erwartung, dass alles bleibt'
+
+  - id: fix-vertraege-enum-and-reference-validation-500
+    phase: 4
+    service: vertraege
+    model: sonnet
+    deps: []
+    status: todo
+    target: Werte außerhalb der Enums und unbekannte Referenzen in Verträgen antworten 400/404 statt 500
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-vertraege-flow` (Lauf 17, Iteration 35). Der Service prüft weder Enums noch Referenzen:
+      `contract_type` (Create/Patch), `status` (Patch), `party_type`, `reminder_type` (fehlt er ganz, ist er
+      leer) laufen in die CHECK-Constraints von 000089, `contact_id`/`company_id` einer Partei und die
+      `contract_id` bei `POST .../parties` und `.../reminders` in einen Fremdschlüssel; `mapVertraegeError`
+      kennt keinen pgx-Fehler und antwortet `Internal` (500, `{"error":"internal error"}`, plus ein
+      `slog.Error` je Anfrage). Das Desktop sendet nur getippte Enum-Werte, deshalb trifft es heute keinen
+      Bildschirm; ein Skript oder ein Plugin bekommt aber ein 500 für einen Eingabefehler. Fix im Service
+      (Enum-Whitelist je Feld, `ErrInvalidInput`, ein `reminder_type` ohne Angabe -> Default `custom` oder
+      400, entscheiden und im Test festhalten) und im Repository (pgx `23503` -> `ErrContractNotFound`, bzw.
+      eigener Fehler für fehlenden Kontakt/Firma -> 400). Beachten: Statuswechsel sind heute frei (draft ->
+      terminated -> draft); eine Übergangsregel gehört NICHT in diese Unit (Produktentscheidung).
+    sources:
+      - backend/internal/vertraege/service.go
+      - backend/internal/vertraege/postgres_repository.go
+      - backend/internal/server/vertraege_grpc.go
+      - backend/test/e2e/vertraege_test.go
+    done_when:
+      - 'Service-Test je Feld: Wert außerhalb des Enums -> ErrInvalidInput; DB-Test: unbekannte Vertrags-ID bei Partei/Erinnerung -> ErrContractNotFound'
+      - 'E2E `TestVertraegeMemberFlow`: Subtest "values outside the enums and unknown references answer 500 today" wird zur Erwartung 400/404'

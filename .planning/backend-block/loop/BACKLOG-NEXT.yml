@@ -1607,3 +1607,25 @@ units:
       - backend/test/e2e/produktion_test.go
     done_when:
       - 'Entscheidung Luke: Backend flach oder Desktop entpackt, mit Datum in dieser Unit'
+
+  - id: fe-vertraege-list-asks-for-first-page-only
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: die Vertragsliste zeigt alle Verträge des Mandanten, nicht nur die ersten 20
+    scope: >
+      Fund aus `e2e-vertraege-flow` (Lauf 17, Iteration 35). `VertraegePage.tsx:1238` ruft `useContractsApi()` ohne
+      Parameter; `listContracts` sendet damit kein `page_size`, das Gateway antwortet mit der Standardseite (20)
+      und `total`. Die Seite liest nur `contractsData.contracts` und kennt weder Paging noch `total`: ab dem
+      21. Vertrag fehlen die übrigen in Liste, Fristen-Hinweisen und Dashboard-Warnungen
+      (`useContractExpiryNotifications`). Backend-Obergrenze 100 (`listPageSizeMaxSmall`). Fix im Desktop (Loop darf
+      `desktop/` nicht ändern): `page_size: 100` senden und bei `total > 100` blättern oder nachladen, wie
+      `VermietungPage.tsx:643` es für Objekte macht.
+    sources:
+      - desktop/src/renderer/src/modules/vertraege/VertraegePage.tsx
+      - desktop/src/renderer/src/api/hooks/useVertraege.ts
+      - backend/test/e2e/vertraege_test.go
+    done_when:
+      - Die Liste lädt mehr als 20 Verträge, Playwright-Screenshot mit 25 Verträgen
