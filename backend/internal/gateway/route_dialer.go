@@ -480,10 +480,7 @@ func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	agentID := r.URL.Query().Get("agent_id")
-	if agentID == "" {
-		agentID = middleware.GetUserID(r.Context())
-	}
+	agentID := agentStatusTarget(r, r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
@@ -564,19 +561,20 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
-
 	req, ok := decodeAndValidate[initiateDialerCallRequest](w, r)
 	if !ok {
 		return
 	}
 
+	agentID := agentStatusTarget(r, req.AgentID)
+	if agentID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
 	grpcReq := &dialerv1.InitiateDialerCallRequest{
 		CampaignContactId: req.CampaignContactID,
-		AgentId:           req.AgentID,
-	}
-	if grpcReq.AgentId == "" {
-		grpcReq.AgentId = userID
+		AgentId:           agentID,
 	}
 	if req.CallSessionID != nil {
 		grpcReq.CallSessionId = req.CallSessionID
@@ -709,9 +707,9 @@ func (dr *DialerRoutes) HandleCompleteWrapUp(w http.ResponseWriter, r *http.Requ
 // Agent Status Handlers
 // ============================================================================
 
-// agentStatusTarget resolves whose status a request reads or sets. Only agent:manage may name
-// another user; everyone else, calls:write agents included, always gets their own status,
-// whatever user_id says.
+// agentStatusTarget resolves which agent a request acts for or reads about (status, next contact,
+// call start, dashboard). Only agent:manage may name another user; everyone else, calls:write
+// agents included, always gets themselves, whatever user_id / agent_id says.
 func agentStatusTarget(r *http.Request, requested string) string {
 	if requested != "" && callerHasPermission(r, "dialer:agent:manage") {
 		return requested
@@ -959,10 +957,7 @@ func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	agentID := r.URL.Query().Get("agent_id")
-	if agentID == "" {
-		agentID = middleware.GetUserID(r.Context())
-	}
+	agentID := agentStatusTarget(r, r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return

@@ -2788,7 +2788,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
     scope: >
       Gefunden in scan-fe-gateway-shape-and-body-dialer (Lauf 16, Iteration 49), am Code gelesen,
