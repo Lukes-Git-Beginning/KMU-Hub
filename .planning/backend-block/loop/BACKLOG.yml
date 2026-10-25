@@ -1361,7 +1361,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'berichte: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -1383,6 +1383,82 @@ units:
         im Journal
       - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
       - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: fix-berichte-definition-module-allowlist-vs-builder-sources
+    phase: 4
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    target: 'berichte: der Report Builder kann Berichte aller elf Quellen speichern'
+    coverage_start: n.a.
+    scope: >
+      VERIFIZIERT im E2E `TestBerichteMemberFlow` (Iteration 41, Subtest „member creates a definition with the desktop
+      body"): `POST /berichte/definitions` antwortet 400 `berichte module is invalid` für jedes Modul außer
+      finanzen|crm|helpdesk|inventar|produktion|cross. Der Report Builder speichert aber das Modul seiner QUELLE
+      (`ReportBuilderShell.tsx:146` `module: source.module`; Quellen in `modules/berichte/report-sources/`: work, hr,
+      rapporte, fuhrpark, einkauf, vertraege, kommunikation, zeiterfassung, dazu crm/finanzen/helpdesk). „Bericht
+      speichern" scheitert damit für acht von elf Quellen und für JEDEN Nutzer, auch admin. Ursache an drei Stellen:
+      `validModules` in `internal/berichte/service.go:93`, die DB-Constraints `report_definitions_module_check`
+      (000079) und `report_documents_module_check` (000245) und die `oneof=` der Gateway-Requests
+      (`createReportDocumentRequest`/`updateReportDocumentRequest` in route_berichte.go). Fix: neue Migration (forward-only,
+      Constraint droppen und mit der erweiterten Liste neu anlegen; Nummer zur Laufzeit), `validModules`, die beiden
+      `oneof`-Listen und die OpenAPI-Enums nachziehen; `kpiModuleVisibility` NICHT erweitern (KPIs bleiben auf die sechs
+      Executor-Module beschränkt). Erst die Liste des Desktops (`ReportModule` in `berichte-types.ts`, Quellen-Registry)
+      gegen den Code lesen und genau diese Werte aufnehmen. Ein gespeicherter Builder-Bericht trägt `query_config.kind =
+      builder`, den der Server-Executor nicht kennt (`runKind` → `ErrInvalidQueryConfig`): prüfen, was `POST
+      /definitions/{id}/run` darauf antwortet (muss 4xx mit Meldung sein, kein 500), und das Ergebnis im Test festhalten.
+    sources:
+      - backend/internal/berichte/service.go
+      - backend/internal/gateway/route_berichte.go
+      - backend/migrations/000079_create_berichte.up.sql
+      - backend/migrations/000245_create_report_documents.up.sql
+      - desktop/src/renderer/src/api/berichte-types.ts
+      - desktop/src/renderer/src/modules/berichte/components/builder/ReportBuilderShell.tsx
+      - backend/test/e2e/berichte_test.go
+    done_when:
+      - 'Service-Test: jedes Modul der Desktop-Liste wird angelegt, ein unbekanntes (`bogus`) bleibt 400; Migration auf der lokalen DB angewandt, `.down.sql` gefüllt'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh 'TestBerichteMemberFlow'` grün, die Schleife über die acht Module im
+        Subtest „member creates a definition" von 400 auf 201 umgestellt
+      - 'desktop-aufrufer: ReportBuilderShell.tsx / MyReportsLibrary.tsx / ChartBlockPicker.tsx gegen die neue Form geprüft; `swagger-cli validate` grün'
+
+  - id: fix-berichte-own-scope-definition-and-document-edit
+    phase: 4
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    target: 'berichte: der own-Scope von berichte:reports:edit gilt für Definitionen und Dokumente'
+    coverage_start: n.a.
+    scope: >
+      VERIFIZIERT im E2E `TestBerichteMemberFlow` (Iteration 41, Subtests „the author edits the definition, a second
+      member edits it too (IST)" und „member creates a report document and a second member edits it (IST)"): member hat
+      `berichte:reports:edit` mit scope `own` (000256), aber `PATCH /berichte/definitions/{id}` und `PATCH
+      /berichte/documents/{id}` prüfen nur den Key (`reportsEdit`/`documentUpdate` in route_berichte.go, Service lädt nur
+      nach Tenant). Ein zweiter member ändert Name, Inhalt und Veröffentlichung fremder Definitionen und Dokumente. Zusätzlich
+      läuft der Statuswechsel draft→final→released→archived über dasselbe PATCH: `documentUpdate` nimmt `edit` ODER
+      `publish` an, member hat kein `publish` (Seed: nur manager/admin), setzt ein Dokument aber auf `released`. Fremd-Mandant
+      nicht betroffen. Fix wie `fix-wiki-own-scope-article-edit`: Gateway liest den Scope und reicht die Aufrufer-ID als
+      optionales Proto-Feld (regenerieren) an `UpdateDefinition`/`UpdateDocument`; Service antwortet bei fremdem
+      `created_by` mit 404. Alt-Key `berichte:reports:write` (manager) und scope all (admin) bleiben unbeschränkt (eigener
+      Helper wie `wikiEditOwnerFilter`, nicht `ownerFilterForScopeAny`, weil der Seed manager beide Keys gibt). Statuswechsel
+      auf `final`/`released`/`archived`: ohne `berichte:reports:publish` oder `write` 403, ein reiner Inhalts-PATCH bleibt
+      erlaubt — Frage in `offen:`, ob `final` schon `publish` verlangt (das Desktop zeigt die Knöpfe laut
+      `ReportDocumentEditor.tsx` per `useScopedCapability('berichte:reports:edit', doc.created_by)`). Guards bleiben
+      additiv. Delete ist für member ohnehin zu (403).
+    sources:
+      - backend/internal/gateway/route_berichte.go
+      - backend/internal/server/berichte_grpc.go
+      - backend/internal/berichte/service.go
+      - backend/proto/berichte/v1/berichte.proto
+      - desktop/src/renderer/src/modules/berichte/components/documents/ReportDocumentEditor.tsx
+      - backend/test/e2e/berichte_test.go
+    done_when:
+      - 'Service-Test: member B bekommt auf PATCH einer fremden Definition und eines fremden Dokuments 404; Autor 200; manager (Alt-Key) und admin 200; member setzt `released` nicht'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh 'TestBerichteMemberFlow'` grün, die beiden IST-Subtests auf die Sperre umgestellt
+      - 'desktop-aufrufer: ReportDocumentEditor.tsx / BerichtLibrary.tsx gegen die neue Form geprüft; `swagger-cli validate` grün, wenn die OpenAPI angefasst wird'
 
   - id: feat-schichten-own-assignments-for-members
     phase: 4
