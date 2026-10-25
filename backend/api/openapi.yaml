@@ -18558,7 +18558,7 @@ paths:
         - { name: from, in: query, description: "Only shifts from this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: to, in: query, description: "Only shifts up to this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated shift list
@@ -18809,7 +18809,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Template list
@@ -19013,7 +19013,7 @@ paths:
         - { name: shift_id, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Swap request list
@@ -19578,7 +19578,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: fuel_type, in: query, schema: { type: string, enum: [petrol, diesel, electric, hybrid, other] } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated vehicle list
@@ -19725,7 +19725,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Vehicle history
@@ -19745,7 +19745,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Service list
@@ -19810,7 +19810,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Damage list
@@ -19874,7 +19874,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Fuel log list
@@ -19938,7 +19938,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Trip log list
@@ -20007,7 +20007,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Document list
@@ -20070,7 +20070,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Service list
@@ -20097,7 +20097,7 @@ paths:
       parameters:
         - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Upcoming service list
@@ -20215,7 +20215,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Damage list
@@ -20314,7 +20314,7 @@ paths:
       parameters:
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Fuel log list
@@ -20395,7 +20395,7 @@ paths:
       parameters:
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Trip log list
@@ -20512,7 +20512,7 @@ paths:
           description: Upper bound of the window (RFC3339).
           schema: { type: string, format: date-time }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Booking list
@@ -20649,7 +20649,7 @@ paths:
       parameters:
         - { name: driver_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Driver license check list
@@ -21957,7 +21957,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [draft, submitted, approved, rejected] }, description: "Filter by report status" }
         - { name: author_id, in: query, schema: { type: string, format: uuid }, description: "Filter by author UUID" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated report list
@@ -22518,7 +22518,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated list of submitted reports awaiting review
@@ -22545,7 +22545,7 @@ paths:
       parameters:
         - { name: report_id, in: query, schema: { type: string, format: uuid }, description: "Filter by report UUID" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated measurement list
@@ -22753,7 +22753,7 @@ paths:
       parameters:
         - { name: active_only, in: query, schema: { type: boolean, default: false }, description: "Return only active templates" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated template list
@@ -27959,7 +27959,7 @@ paths:
         - { name: location, in: query, schema: { type: string } }
         - { name: low_stock, in: query, schema: { type: boolean }, description: "Filter to items below min_quantity" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated item list
@@ -28156,7 +28156,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated movement list
@@ -28225,7 +28225,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated stock history (movements)
@@ -28289,7 +28289,7 @@ paths:
             enum: [active, acknowledged, resolved]
           description: "Filter by warning status"
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated warning list
@@ -28494,7 +28494,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated location list
@@ -28640,7 +28640,7 @@ paths:
             enum: [open, picking, completed]
           description: "Filter by picking list status"
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated picking list overview
@@ -28895,7 +28895,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated Inventur session list
@@ -29124,7 +29124,7 @@ paths:
         - { name: category, in: query, schema: { type: string } }
         - { name: active_only, in: query, schema: { type: boolean } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated rental object list
@@ -29308,7 +29308,7 @@ paths:
         - { name: from, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date >= from" }
         - { name: to, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date <= to" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated rental list
@@ -29545,7 +29545,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated inspection list

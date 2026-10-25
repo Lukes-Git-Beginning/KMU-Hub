@@ -138,6 +138,10 @@ func parsePaginationOrLimitOffset(r *http.Request, defaultPage, defaultPageSize 
 // activities, tasks) that the desktop fills with up to 200 rows at once.
 const listPageSizeMax = 200
 
+// listPageSizeMaxSmall is the ceiling of the branch lists whose service layer accepts at most 100 rows
+// per page (produktion, vertraege, einkauf); a larger page_size is clamped to it.
+const listPageSizeMaxSmall = 100
+
 // parsePaginationMax is parsePagination with a caller-chosen ceiling: a page_size above maxPageSize
 // is clamped to it (not silently replaced by the default), so a client that asks for 500 rows gets
 // the largest page the route serves.

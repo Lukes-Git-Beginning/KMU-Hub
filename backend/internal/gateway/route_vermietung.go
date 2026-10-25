@@ -204,7 +204,7 @@ func (vr *VermietungRoutes) HandleListObjects(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &vermietungv1.ListObjectsRequest{
@@ -436,7 +436,7 @@ func (vr *VermietungRoutes) HandleListRentals(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &vermietungv1.ListRentalsRequest{
@@ -750,7 +750,7 @@ func (vr *VermietungRoutes) HandleListInspections(w http.ResponseWriter, r *http
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.ListInspections(r.Context(), &vermietungv1.ListInspectionsRequest{
 		TenantId: tenantID.String(),

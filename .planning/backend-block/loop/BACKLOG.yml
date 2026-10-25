@@ -887,7 +887,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: keine Branchenliste kappt still auf 50
     coverage_start: internal/gateway 77,8 %
     scope: >

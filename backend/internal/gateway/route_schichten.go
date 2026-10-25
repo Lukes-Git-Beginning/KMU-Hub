@@ -187,7 +187,7 @@ func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &schichtenv1.ListShiftsRequest{
@@ -538,7 +538,7 @@ func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.ListTemplates(r.Context(), &schichtenv1.ListTemplatesRequest{
 		TenantId: tenantID.String(),
@@ -866,7 +866,7 @@ func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &schichtenv1.ListSwapRequestsRequest{

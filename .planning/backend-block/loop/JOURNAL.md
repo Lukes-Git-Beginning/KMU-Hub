@@ -819,3 +819,18 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: POST/PATCH `/einkauf/pos/{id}/lines` -> `api/einkauf-types.ts:142,151` (optionales `tax_rate`), kein Aufrufer sendet es (EinkaufDialogs), `einkauf-export.ts:173` liest als Bruch -> passt
 - offen: PATCH mit `tax_rate: ""` ist jetzt 400 (vorher durchgereicht und an der DB-Umwandlung gescheitert); `LineItem.tax_rate` im Spec bleibt "19.00"-Beschreibung (generisches Schema, nicht angefasst).
+
+## Iteration 25 — fix-pagination-max-200-for-vermietung-and-inventar-lists — done — 2026-10-25 21:55
+- commit: (siehe git log)
+- gebaut: Alle Listen von vermietung, inventar, fuhrpark, rapporte, schichten (Service-Ceiling 200) parsen `page_size` jetzt mit `parsePaginationMax(..., listPageSizeMax)`;
+  produktion, vertraege, einkauf (Service-Ceiling 100) mit neuer Konstante `listPageSizeMaxSmall` — zu große Werte werden geklemmt statt still auf den Default zurückzufallen.
+  OpenAPI: `maximum` 100 -> 200 an 31 Inline-Parametern der 200er-Module (Ceilings je Service-Code geprüft).
+  Tests: Stub-gRPC für Vermietung `ListObjects` (""/25/200/500) und Produktion `ListOrders` (""/100/500) sowie Source-Guard gegen `parsePagination(r,` in allen Branchen-Route-Dateien.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+  gateway-Paket komplett grün inkl. TestOpenAPIRouteDrift; swagger-cli validate ok; kein Service-Paket angefasst.
+- coverage: n.a. (kein Coverage-Ziel; internal/gateway Start 77,8 %, nicht neu gemessen)
+- mutations-probe: Vermietung `HandleListObjects` auf `parsePagination(r, 1, 50)` zurückgedreht -> TestBranchPagination_VermietungObjectsClampToTwoHundred und ..._NoPlainParsePaginationInBranchRoutes rot, zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`12a0add8`: Validator + Spec-Beschreibung, keine neue Route/Proto/Guard/Migration)
+- neue-units: keine
+- desktop-aufrufer: GET `/vermietung/objects|rentals`, `/inventar/items|locations` -> `VermietungPage.tsx:643/644`, `InventarPage.tsx:796/797` (page_size 200/500/100) -> passt jetzt (200 statt 50 Zeilen; 500 wird auf 200 geklemmt, Rentals bleibt bei >200 Treffern abgeschnitten)
+- offen: `VermietungPage.tsx:644` fragt 500 Mieten an, bekommt höchstens 200 — echte Abhilfe wäre ein Desktop-Paging oder höheres Service-Ceiling (Entscheidung Luke). Die Produktion-Listen werden jetzt auf 100 geklemmt (vorher Default 20 bei >100).

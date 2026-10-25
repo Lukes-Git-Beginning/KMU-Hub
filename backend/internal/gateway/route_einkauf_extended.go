@@ -244,7 +244,7 @@ func (er *EinkaufRoutes) HandleListCatalogItems(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 	q := r.URL.Query()
 
 	grpcReq := &einkaufv1.ListCatalogItemsRequest{
@@ -521,7 +521,7 @@ func (er *EinkaufRoutes) HandleListFrameworkContracts(w http.ResponseWriter, r *
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 	q := r.URL.Query()
 
 	grpcReq := &einkaufv1.ListFrameworkContractsRequest{

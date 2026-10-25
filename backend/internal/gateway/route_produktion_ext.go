@@ -104,7 +104,7 @@ func (pr *ProduktionRoutes) HandleListBOMs(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 
 	grpcReq := &produktionv1.ListBOMsRequest{
 		TenantId: tenantID.String(),
@@ -452,7 +452,7 @@ func (pr *ProduktionRoutes) HandleListMachines(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 	statusFilter := r.URL.Query().Get("status")
 
 	grpcReq := &produktionv1.ListMachinesRequest{
@@ -625,7 +625,7 @@ func (pr *ProduktionRoutes) HandleListQualityChecks(w http.ResponseWriter, r *ht
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 	orderIDStr := r.URL.Query().Get("order_id")
 
 	grpcReq := &produktionv1.ListQualityChecksRequest{

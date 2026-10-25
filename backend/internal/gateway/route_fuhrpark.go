@@ -360,7 +360,7 @@ func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &fuhrparkv1.ListVehiclesRequest{
@@ -546,7 +546,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleHistory(w http.ResponseWriter, r *http
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.GetVehicleHistory(r.Context(), &fuhrparkv1.GetVehicleHistoryRequest{
 		TenantId:  tenantID.String(),
@@ -620,7 +620,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListServices(r.Context(), &fuhrparkv1.ListServicesRequest{
 		TenantId:  tenantID.String(),
 		VehicleId: &id,
@@ -645,7 +645,7 @@ func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 	grpcReq := &fuhrparkv1.ListServicesRequest{
 		TenantId: tenantID.String(),
@@ -774,7 +774,7 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListUpcomingServices(r.Context(), &fuhrparkv1.ListUpcomingServicesRequest{
 		TenantId:  tenantID.String(),
 		DaysAhead: parseDaysAhead(r),
@@ -892,7 +892,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *htt
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListDamages(r.Context(), &fuhrparkv1.ListDamagesRequest{
 		TenantId:   tenantID.String(),
 		VehicleId:  &id,
@@ -922,7 +922,7 @@ func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 	grpcReq := &fuhrparkv1.ListDamagesRequest{
 		TenantId:   tenantID.String(),
@@ -1055,7 +1055,7 @@ func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq := &fuhrparkv1.ListFuelLogsRequest{
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -1087,7 +1087,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListFuelLogs(r.Context(), &fuhrparkv1.ListFuelLogsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1223,7 +1223,7 @@ func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq := &fuhrparkv1.ListTripLogsRequest{
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -1254,7 +1254,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListTripLogs(r.Context(), &fuhrparkv1.ListTripLogsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1459,7 +1459,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *h
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListVehicleDocuments(r.Context(), &fuhrparkv1.ListVehicleDocumentsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1555,7 +1555,7 @@ func (fr *FuhrparkRoutes) HandleListDriverLicenses(w http.ResponseWriter, r *htt
 	if owner != nil {
 		driverID = *owner
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListDriverLicenses(r.Context(), &fuhrparkv1.ListDriverLicensesRequest{
 		DriverId: driverID,
 		Page:     int32(page),
@@ -1869,7 +1869,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleBookings(w http.ResponseWriter, r *ht
 	if owner != nil {
 		userID = *owner
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListVehicleBookings(r.Context(), &fuhrparkv1.ListVehicleBookingsRequest{
 		VehicleId: q.Get("vehicle_id"),
 		UserId:    userID,

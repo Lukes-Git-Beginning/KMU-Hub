@@ -252,7 +252,7 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &rapportev1.ListReportsRequest{
@@ -953,7 +953,7 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	// Same key as the report list, so the same narrowing applies: at scope
 	// "own" the approval queue holds only the caller's own submissions.
@@ -1063,7 +1063,7 @@ func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq := &rapportev1.ListMeasurementsRequest{
 		TenantId:         tenantID.String(),
 		RestrictToAuthor: restrict,
@@ -1340,7 +1340,7 @@ func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	activeOnly := r.URL.Query().Get("active_only") == "true"
 
 	resp, err := client.ListTemplates(r.Context(), &rapportev1.ListTemplatesRequest{
