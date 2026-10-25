@@ -900,3 +900,18 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: fix-produktion-workstep-order-path-check (Ende BACKLOG.yml; kein Tenant-Leck, Pfad `{orderId}` wird bei PATCH/DELETE eines Schritts ignoriert, im E2E als `IST`-Log festgehalten); decide-desktop-produktion-booking-plan-envelope (BACKLOG-NEXT.yml, blocked: Gateway `{booking}`/`{plan}`/`{overview}` gegen flache FE-Typen, kein Screen ruft es heute)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Abgleich der Bodies und der Antwortformen siehe neue-units)
 - offen: Rechte-Lücken sind der Ist-Seed und gehören zu `decide-member-manager-module-defaults` (member ohne Buchungen, manager ohne Plan/Buchungen/Schritte-Anlage). Kein Totalausfall gefunden. Der CI-Job `e2e` muss die Datei im Morgen-PR bestätigen (Flag `modules.produktion` ist laut Skript gesetzt).
+
+## Iteration 30 — e2e-rapporte-member-fill-manager-approve-flow — done — 2026-10-25 22:14
+- commit: (siehe git log)
+- gebaut: `backend/test/e2e/rapporte_test.go`, `TestRapporteMemberFlow` mit sieben Subtests gegen den echten Seed (admin, manager, zwei member):
+  admin legt Vorlage an (member 403 auf Anlegen/Löschen, liest sie); member A legt Rapport an (fremdes `author_id` wird auf den Aufrufer umgeschrieben), PATCH, zwei Positionen aus der Vorlage, Position ändern, Signatur, PDF-Export, Stats;
+  member B sieht/ändert nichts von A (Liste, `author_id`-Query, GET/PATCH/Submit/Lines/Export 404, Delete 403, Rapport danach unverändert, Pending-Liste ohne A);
+  A reicht ein (Doppel-Submit, Edit, neue Position danach 409; Approve/Reject als member 403); manager sieht ihn in `/pending`, Reject ohne Notiz 400, Reject mit Notiz (gespeicherter Reviewer = Aufrufer, nicht `reviewer_id` im Body), Approve auf rejected/Entwurf 409;
+  A korrigiert, reicht erneut ein (atomares Submit), manager genehmigt, zweites Approve 409, Edit/Delete-Line nach Freigabe 409, Lesen bleibt. Bodies aus `rapporte-client.ts`/`rapporte-types.ts`.
+- gate: build n.a. (nur Testdatei) | vet ok (`go vet -tags=e2e ./test/e2e/`) | lint ok (golangci-lint `--build-tags e2e`, null Funde in der neuen Datei) | test n.a. | e2e ok (lokal, `TestRapporteMemberFlow` 2,6 s Test; Erstlauf 150 s mit Build, dann 6 s) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (E2E-Unit, kein Coverage-Ziel)
+- mutations-probe: Approve-Guard in `gateway/route_rapporte.go` von `approve` auf `read` gestellt -> Test rot (member-Approve 200 statt 403, Folgefehler in vier Subtests), zurückgedreht (`git checkout`), Diff sauber.
+- verify vorgaenger: sauber (`b472f6b4`: nur `produktion_test.go` plus Backlog/NEXT/Journal, kein Produktcode, keine Route/Proto/Guard/Migration)
+- neue-units: fix-rapporte-empty-list-wire-shape (Ende BACKLOG.yml; leere Listen sind `{}` statt `{reports:[],total:0}`, FE fängt es mit `?? []` ab, kein Totalausfall)
+- desktop-aufrufer: n.a. (keine Änderung an Validierung oder Antwortform; Bodies und Antwortformen im Test gegen `rapporte-client.ts` abgeglichen, Abweichung nur die leere Liste, siehe neue-units)
+- offen: IST des Seeds, kein Fund: Approve/Reject sind nicht an die Berichtslinie gebunden (jeder manager des Tenants prüft jeden eingereichten Rapport); member hat kein `report:delete` (kein Entwurf löschbar); `/stats` liefert tenantweite Zähler auch an member (own-Scope wirkt nicht); Vorlagen-Anlage nur admin, das Desktop hat keinen Vorlagen-Aufrufer. Das gehört zu `decide-member-manager-module-defaults`. CI-Job `e2e` muss die Datei im Morgen-PR bestätigen.

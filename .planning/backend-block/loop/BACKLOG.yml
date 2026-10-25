@@ -1018,7 +1018,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'rapporte: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -3056,3 +3056,29 @@ units:
     done_when:
       - 'Test: Schritt unter fremdem Auftrag -> 404, unter eigenem -> 200'
       - 'E2E `TestProduktionMemberFlow`: die IST-Zeile (`t.Logf IST: step ... accepted under foreign order`) wird zur Erwartung 404'
+
+  - id: fix-rapporte-empty-list-wire-shape
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    target: Leere Rapporte-Listen liefern `{"reports":[],"total":0}` statt `{}`
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-rapporte-member-fill-manager-approve-flow` (Lauf 17, Iteration 30): `GET /rapporte/reports`,
+      `/rapporte/pending`, `/reports/{id}/lines`, `/reports/{id}/attachments` und `/templates` schreiben über
+      `response.Proto` (protojson lässt leere Repeated-Felder weg). Ein Member ohne Rapporte bekommt `{}`.
+      Wire-Regel ist `{items,total}` mit `[]`. Kein Absturz heute: `RapportePage.tsx` liest
+      `reportsData?.reports ?? []`, und `lines`/`attachments`/`templates` hat kein Screen als Konsument.
+      Fix: die fünf Listen über `response.ProtoListWrapped` bzw. `ProtoFull` (nur wo die FE-Typen keine optionalen
+      Felder haben, Stats nutzt `ProtoFull` schon) ausgeben und `total` mitgeben. Desktop-Aufrufer:
+      `rapporte-client.ts` `listReports`, `listPendingApprovals`, `listLines`, `listAttachments`; MSW-Mock
+      `mocks/handlers/rapporte.ts` ist kein Beleg.
+    sources:
+      - backend/internal/gateway/route_rapporte.go
+      - desktop/src/renderer/src/api/rapporte-client.ts
+      - backend/test/e2e/rapporte_test.go
+    done_when:
+      - 'Gateway-Test: leere Liste -> `"reports":[]` und `"total":0` bei allen fünf Routen'
+      - 'E2E `TestRapporteMemberFlow`: der Kommentar "IST: an empty list is `{}`" wird zur Erwartung `[]`'
