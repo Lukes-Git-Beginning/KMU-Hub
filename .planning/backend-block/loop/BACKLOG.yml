@@ -1079,7 +1079,7 @@ units:
     deps:
       - e2e-local-gate-check
       - fix-fuhrpark-trip-logs-private-flag-not-filtered
-    status: todo
+    status: done
     target: 'fuhrpark: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -3082,3 +3082,61 @@ units:
     done_when:
       - 'Gateway-Test: leere Liste -> `"reports":[]` und `"total":0` bei allen fünf Routen'
       - 'E2E `TestRapporteMemberFlow`: der Kommentar "IST: an empty list is `{}`" wird zur Erwartung `[]`'
+
+  - id: fix-fuhrpark-trip-log-driver-defaults-to-caller
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    target: Eine vom Desktop angelegte Privatfahrt ist für ihren eigenen Fahrer nicht maskiert
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-fuhrpark-trip-log-private-masking-flow` (Lauf 17, Iteration 32). Die Maskierung der
+      Privatfahrten (`maskPrivateTrips`, `internal/fuhrpark/service.go`) entsperrt über `trip_logs.driver_user_id`.
+      Das Desktop-Formular (`CreateTripLogRequest` in `fuhrpark-client.ts`, `FuhrparkPage.tsx` ~1757) sendet nur den
+      Freitext `driver_name`, nie `driver_user_id`. Folge: jede Privatfahrt, die ein Fahrer über die Oberfläche
+      anlegt, hat kein verknüpftes Konto und ist für ALLE maskiert, auch für den Fahrer selbst (Ziel, Notiz,
+      Zweck weg, nur das Label „Privatfahrt“). Die Entscheidung vom 2026-10-25 meint „alle außer dem Fahrer selbst“.
+      Vorschlag: in `CreateTripLog` (Service oder gRPC-Server) `DriverUserID` auf den Aufrufer (`x-user-id`)
+      setzen, wenn der Body keines mitschickt. Offene Frage an Luke, falls ein Manager Fahrten für andere
+      Fahrer erfasst: dort wäre der Default der Erfasser statt des genannten Fahrers; Alternative ist ein
+      Dropdown im Desktop (außerhalb des Loops). Bestandszeilen haben `driver_user_id NULL`, ein Backfill ist
+      über `driver_name` nicht eindeutig und gehört nicht in diese Unit.
+    sources:
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/fuhrpark/service.go
+      - desktop/src/renderer/src/api/fuhrpark-client.ts
+      - backend/test/e2e/fuhrpark_triplog_test.go
+    done_when:
+      - 'Service- oder Server-Test: Create ohne driver_user_id setzt den Aufrufer, mit driver_user_id bleibt der Wert'
+      - 'E2E `TestFuhrparkTripLogPrivateMaskingFlow`: Subtest "IST: a private trip filed through the desktop dialog ..." wird zur Erwartung requireFull'
+
+  - id: fix-fuhrpark-trip-log-partial-patch-overwrites-row
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    target: PATCH eines Fahrtenbuch-Eintrags überschreibt nur noch die gesendeten Felder
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-fuhrpark-trip-log-private-masking-flow` (Lauf 17, Iteration 32). `PATCH /fuhrpark/trip-logs/{id}`
+      nimmt lauter optionale Felder (`updateTripLogRequest`, `UpdateTripLogRequest` im Desktop-Client), der
+      Handler baut daraus aber einen gRPC-Request mit Nullwerten und `PostgresRepository.UpdateTripLog`
+      schreibt jede Spalte. Ein PATCH nur mit `purpose` setzt Datum auf 0001-01-01, km auf 0, Orte auf leer und
+      `is_private` zurück auf false (eine Privatfahrt wird damit für alle entmaskiert, sofern die Zeile nicht
+      mehr als privat gilt). Das ist ein steuerrelevanter Datensatz. Heute nur admin (`fuhrpark:trip:write`)
+      und ohne Desktop-Aufrufer in einer Komponente (nur Hook `useUpdateTripLog`), daher kein Totalausfall.
+      Fix: im Repository per `COALESCE`/`CASE WHEN set` nur gesendete Felder schreiben (Muster
+      `driver_user_id` in derselben Query, `DriverUserIDSet`), die km-Prüfung gegen die gespeicherten Werte
+      fahren. Proto braucht dafür optionale Felder oder Set-Flags (Regen), oder der Handler lädt die Zeile
+      und mischt (ein Roundtrip mehr, kein Proto). Update-Antwort mitprüfen: sie ist nicht maskiert.
+    sources:
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/test/e2e/fuhrpark_triplog_test.go
+    done_when:
+      - 'DB-Test: PATCH nur mit purpose lässt Datum, km, Orte und is_private unverändert'
+      - 'E2E `TestFuhrparkTripLogPrivateMaskingFlow`: Subtest "IST: a partial PATCH ..." wird zur Erwartung, dass alles bleibt'
