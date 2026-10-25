@@ -169,3 +169,41 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - offen: Aufmaße ohne Rapport (`report_id` NULL, auch nach `ON DELETE SET NULL` eines gelöschten Rapports) bleiben für
   member les- und schreibbar — bewusst konsistent mit der bestehenden Schreibregel, aber eine Produktfrage, falls verwaiste
   Aufmaße fremder Rapporte privat sein sollen. Kein Re-Login nötig (kein neuer Key).
+
+## Iteration 4 — scan-coarse-keys-with-non-all-scope — done — 2026-10-25 16:49
+- commit: siehe Commit `docs(loop): scan coarse keys with a narrowed scope` (dieser Eintrag)
+- gebaut: Scan, kein Code. Preset-Grants (`tenant_id IS NULL`, lokale DB = Kopf 345) mit grobem Key und Scope != all:
+  genau vier Keys, alle `own`, je member und manager — `calendars:delete`, `files:delete`, `messages:delete`, `hr:self`.
+  Kein grober Key mit `team`. Liste Key -> Scope -> Handler -> vorher/nachher:
+  - `calendars:delete` own -> `DELETE /calendar/calendars/{id}`, `DELETE /calendar/events/{id}`, `DELETE /calendar/categories/{id}`
+    (Any mit `kalender:category:manage`). Scope wird nirgends gelesen (kein `PermissionScope`-Leser), Guard prüft nur Präsenz
+    -> vorher = nachher. Grenze sitzt im Service: Kalender `OwnerID == actor`, Event `CreatedBy == actor`, Kategorie
+    `DELETE ... WHERE user_id = actor`. Kein Fund.
+  - `files:delete` own -> `DELETE /chat/files/{id}`; `messages:delete` own -> `DELETE /chat/messages/{id}`. Scope ungelesen,
+    vorher = nachher. Service: Uploader/Absender oder Kanal-Admin/Owner, Akteur aus dem Token (`UserId` vom Gateway). Kein Fund.
+  - `hr:self` own -> 24 Routen unter `/hr/leave` und `/hr/time` (selfRead/selfWrite) plus `restrictToOwnEmployee`/
+    `ownerFilterForScopeAny`. 21 Handler nehmen die ID ohnehin aus dem Token; Liste/Detail Urlaubsanträge, Saldo je Nutzer
+    und Zeiteinträge-Liste werden seit `b00ed131` auf den Aufrufer verengt (vorher: `all` für jeden member — das Leck ist zu).
+    Klasse (b) dabei: Manager hält nur `hr:self` own (kein `hr:read`) und verliert damit zwei Team-Sichten; die
+    Urlaubsfreigabe-Liste ist über `callerMayDecideLeave` bereits ausgenommen.
+  Router-Probe (temporärer DB-Test, nicht committet): echter Seed -> `ResolveTokenPermissions` -> echtes Token -> echte
+  `middleware.Auth` + `HRRoutes` -> Fake-HR-gRPC. Ergebnis:
+  `GET /hr/time/entries?status=correction_pending`: member 200 gepinnt auf sich (richtig), **manager 200 gepinnt auf sich**,
+  **hr_admin 403**, admin 200 ungefiltert. `GET /hr/leave/balance/{fremd}`: member 403 (richtig), **manager 403**,
+  **hr_admin 403**, admin 200.
+- gate: n.a. (Scan, kein Code) | backlog-check --preflight ok | Probe lief real gegen lokale DB (kmuhub_app), 0 Skips
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a.
+- verify vorgaenger: sauber (`a69fc2e6`: Handler über `client.GetMeasurement/ListMeasurements`, `.proto` mit `.pb.go`
+  regeneriert, kein neuer Guard/Seed, keine neue Route, Antwortform unverändert)
+- neue-units: `fix-hr-correction-list-for-approvers` (Totalausfall: Korrektur-Tab für jeden Manager nur eigene Einträge,
+  hr_admin 403) und `fix-hr-employee-leave-balance-for-team-viewers` (Saldo im Team-Profil für Manager/hr_admin 403) —
+  beide VOR die erste todo-Unit gesetzt, in dieser Reihenfolge
+- desktop-aufrufer: `GET /hr/time/entries` -> `modules/team/TimeCorrectionPanel.tsx:33` (über `useWorkTimeEntries`) -> bricht
+  für manager/hr_admin (fix-hr-correction-list-for-approvers); `GET /hr/leave/balance/{userId}` ->
+  `modules/team/MemberProfileContent.tsx:87` -> bricht für manager/hr_admin (fix-hr-employee-leave-balance-for-team-viewers);
+  `GET /hr/leave/requests/{id}` -> `useLeaveRequest` ohne Verbraucher -> n.a.
+- offen: hr_admin hält überhaupt keinen groben `hr:*`-Key; jede Route hinter `selfRead`/`selfWrite` ist für einen reinen
+  hr_admin 403 (auch eigenes Stempeln) — ob hr_admin je allein vergeben wird oder immer neben member, ist eine Produktfrage;
+  die zwei Fix-Units decken nur die beiden Team-Sichten ab. Tenant-eigene Rollen und Per-User-Overrides mit groben Keys
+  wurden nicht gescannt (Unit-Scope = Presets).

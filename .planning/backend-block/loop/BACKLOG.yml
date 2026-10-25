@@ -259,7 +259,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     target: jeder grobe Key mit Scope ungleich all ist auf seine neue Wirkung geprüft
     coverage_start: n.a. (Scan)
     scope: >
@@ -278,6 +278,81 @@ units:
     done_when:
       - Liste Key -> Scope -> Handler -> Verhalten vorher/nachher im Journal
       - Je Fund eine Fix-Unit vor der ersten todo-Unit (Totalausfall vor Leck vor Kosmetik)
+
+  - id: fix-hr-correction-list-for-approvers
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    target: Manager und hr_admin sehen im Tab "Korrekturen" die offenen Korrekturen ihres Bereichs, nicht nur die eigenen
+    coverage_start: n.a. (Fix)
+    scope: >
+      TOTALAUSFALL seit `b00ed131` (deployt 2026-10-25), reproduziert in Iteration 4 von Lauf 17 per Router-Probe
+      mit echtem Seed-Token. Der Tab "Korrekturen" auf der Team-Seite (`modules/team/TimeCorrectionPanel.tsx`)
+      liest `GET /api/v1/hr/time/entries?status=correction_pending` ohne `employee_id`. Der Handler
+      (`HandleListWorkTimeEntries`) pinnt über `restrictToOwnEmployee` jeden Aufrufer mit `hr:self` scope own
+      auf sich selbst. Manager hält `hr:self` own, kein `hr:read`, aber `zeiterfassung:corrections:approve` (all)
+      und `zeiterfassung:team:view` (team) → bekommt nur die eigenen offenen Korrekturen, kann die seines Teams
+      nicht sehen und also nicht freigeben (Probe: EmployeeId = eigene User-ID). Vor `b00ed131` galt `hr:self` als
+      `all` und JEDER member sah die Korrekturen des ganzen Tenants (das Leck ist zu Recht zu). hr_admin hält
+      weder `hr:read` noch `hr:self` → 403 auf derselben Route, obwohl er `zeiterfassung:corrections:approve` all
+      hält. Fix nach Muster von `HandleListLeaveRequests`/`callerMayDecideLeave` (`gateway/helpers.go`): Guard
+      additiv um `zeiterfassung:team:view` (und/oder `zeiterfassung:corrections:approve`) erweitern; wer
+      `zeiterfassung:team:view` über own hält und keine fremde/eigene `employee_id` verlangt, wird nicht auf
+      sich gepinnt, sondern auf seine Reichweite: `team` → Berichtslinie (`hr_employee_profiles.manager_user_id`,
+      wie `GetTeamTime` per `narrowestScopeAny(hr:read, zeiterfassung:team:view)`), `all` → Tenant. Erst die
+      Datengrenze (Regel a): kann `ListWorkTimeEntries` heute nicht auf die Berichtslinie filtern, gehört der
+      Filter in Repository/Service, nicht als Post-Filter. member bleibt auf sich gepinnt.
+    sources:
+      - backend/internal/gateway/route_hr.go (HandleListWorkTimeEntries, Guards Zeile ~110-140, HandleGetTeamTime)
+      - backend/internal/gateway/helpers.go (restrictToOwnEmployee, narrowestScopeAny, callerMayDecideLeave)
+      - backend/internal/server/hr_grpc.go (ListWorkTimeEntries, GetTeamTime)
+      - backend/internal/biz/hr/timetracking/service.go (ListWorkTimeEntries, GetTeamTime)
+      - backend/internal/gateway/route_work_own_delete_db_test.go (Vorlage Router-Probe mit echtem Seed-Token)
+      - desktop/src/renderer/src/modules/team/TimeCorrectionPanel.tsx (nur lesen)
+    notes: >
+      Keine neue Permission, kein Seed — alle Keys existieren. Wirkt ohne Re-Login (Keys stehen im Alt-Token).
+      Test nach Regel 2: Token über ResolveTokenPermissions, Rollen member/manager/hr_admin/admin, echter
+      timetracking-Repo oder Fake-gRPC, der den Filter mitschreibt. Ein Mitarbeiter außerhalb der Berichtslinie
+      des Managers darf in der Liste NICHT auftauchen.
+    done_when:
+      - manager sieht offene Korrekturen seiner Berichtslinie, nicht die anderer Teams und nicht nur die eigenen
+      - hr_admin und admin sehen alle offenen Korrekturen des Tenants, member nur die eigenen
+      - DB-Test mit echtem Seed-Token, Mutations-Probe belegt
+
+  - id: fix-hr-employee-leave-balance-for-team-viewers
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    target: Manager und hr_admin sehen den Urlaubssaldo im Mitarbeiterprofil ihres Bereichs
+    coverage_start: n.a. (Fix)
+    scope: >
+      Ausfall seit `b00ed131`, reproduziert in Iteration 4 von Lauf 17 per Router-Probe mit echtem Seed-Token.
+      `modules/team/MemberProfileContent.tsx` lädt `GET /api/v1/hr/leave/balance/{userId}` und zeigt den Saldo,
+      wenn `team:absence_data:view` für den Zielnutzer greift. Der Handler `HandleGetEmployeeLeaveBalance` steht
+      hinter `selfRead` (`hr:read` | `hr:self`) und `restrictToOwnEmployee`: Manager (`hr:self` own,
+      `team:absence_data:view` team) bekommt für jeden Kollegen 403, der Abschnitt bleibt leer. hr_admin
+      (`team:absence_data:view` all, kein `hr:*`) bekommt 403 auch ohne Scope-Frage. Fix: Guard additiv um
+      `team:absence_data:view`; Reichweite aus diesem Key (own → nur sich, team → Berichtslinie über
+      `hr_employee_profiles.manager_user_id`, all → Tenant); fremde ID außerhalb der Reichweite bleibt 403 wie
+      heute in `restrictToOwnEmployee`. Gleiche Prüfung für `GET /api/v1/hr/leave/requests/{id}` erwägen (hat
+      heute keinen Desktop-Aufrufer, `useLeaveRequest` wird nirgends benutzt).
+    sources:
+      - backend/internal/gateway/route_hr.go (HandleGetEmployeeLeaveBalance, selfRead)
+      - backend/internal/gateway/helpers.go (restrictToOwnEmployee, narrowestScopeAny)
+      - backend/internal/gateway/route_hr.go:1469 (team:documents:view-Scope als Vorbild für Berichtslinien-Prüfung)
+      - backend/internal/biz/hr/employee/postgres_repository.go (manager_user_id)
+      - desktop/src/renderer/src/modules/team/MemberProfileContent.tsx (nur lesen)
+    notes: >
+      Keine neue Permission, kein Seed. Erst die Datengrenze (Regel a): Berichtslinien-Prüfung im Service bzw. über
+      einen bestehenden Resolver, nicht über einen Wunsch-Parameter des Clients.
+    done_when:
+      - manager bekommt den Saldo seiner Berichtslinie (200) und 403 für Mitarbeiter außerhalb
+      - hr_admin und admin 200 für jeden Mitarbeiter des Tenants, member 403 für Kollegen
+      - DB-Test mit echtem Seed-Token, Mutations-Probe belegt
 
   - id: harden-inbox-message-user-scoping
     phase: 3
