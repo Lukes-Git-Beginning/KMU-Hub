@@ -769,3 +769,11 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   bekannter Flake, Unit `fix-fuhrpark-concurrent-booking-move-deadlock` steht schon im Backlog. (2) Zeiteinträge
   kann auch admin nicht fremd löschen (`DeleteEntry(..., false)`), Altbestand, kein Leck. (3) Alle neuen Keys aus
   346–350 wirken in Produktion erst nach Re-Login.
+
+## Bilanz Lauf (2026-10-25 20:00)
+- iterationen: 21 im Bereich 1-21, davon 21 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 7 · feat 6 · harden 5 · scan 2 · review 1
+- commits nach typ: fix 12 · feat 5 · docs 3 · test 1 (21 seit 65ebf725)
+- coverage-delta: internal/email/contactlink 35,0 -> 78,0 · internal/email/template 79,1 -> 87,6 · internal/work/recording 80,3 -> 81,1 · (2 weitere)
+- offen mit entscheidungsbedarf: 5 von 21 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 9,8 (205 gesamt)
