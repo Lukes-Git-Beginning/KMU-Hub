@@ -53,11 +53,15 @@ func (s *Service) ResolveTokenPermissions(ctx context.Context, tenantID, userID 
 	}
 
 	// The union is what carries the scopes; GetUserPermissions above is a flat
-	// name list with no scope column.
-	union, err := s.GetRoleUnion(ctx, userID)
+	// name list with no scope column. It is built from EVERY grant, coarse keys
+	// included: GetRoleUnion drops keys whose resource has no colon ("hr:self"
+	// → resource "hr"), and a key missing from the claim reads as "all", so
+	// hr:self at scope own opened every colleague's balance and time entries.
+	grants, err := s.repo.GetUserGrants(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+	union := roleUnion(grants)
 
 	overrides, err := s.repo.GetUserOverridesForTenant(ctx, tenantID, userID)
 	if err != nil {

@@ -272,8 +272,10 @@ func (m *mockRepository) RefreshInvitationToken(_ context.Context, _, _ uuid.UUI
 	return nil, nil
 }
 
-func (m *mockRepository) GetUserGrants(_ context.Context, _ uuid.UUID) ([]EffectiveGrantRow, error) {
-	return nil, nil
+// GetUserGrants is the unfiltered superset of GetEffectivePermissions; the mock
+// rows carry no coarse keys, so both answer the same.
+func (m *mockRepository) GetUserGrants(_ context.Context, userID uuid.UUID) ([]EffectiveGrantRow, error) {
+	return m.effectiveGrants[userID], nil
 }
 
 func (m *mockRepository) CountRoleAdminsExcluding(_ context.Context, _ []string, _, _ uuid.UUID) (int, error) {
