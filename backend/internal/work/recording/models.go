@@ -16,6 +16,8 @@ type ParticipantConsentInfo struct {
 
 // Recording status constants
 const (
+	// RecordingStatusPending: created, waiting for the initiator's confirmation; no egress yet.
+	RecordingStatusPending    = "pending"
 	RecordingStatusActive     = "active"
 	RecordingStatusProcessing = "processing"
 	RecordingStatusCompleted  = "completed"
@@ -47,6 +49,8 @@ type Recording struct {
 	DurationSeconds         *int                     `json:"duration_seconds,omitempty"`
 	RetentionExpiresAt      *time.Time               `json:"retention_expires_at,omitempty"`
 	CreatedAt               time.Time                `json:"created_at"`
+	// RoomName is the LiveKit room captured at start; the egress is started on it once the initiator confirms.
+	RoomName                string                   `json:"-"`
 	// Pre-recording consent fields (Migration 000107)
 	PreRecordingConsentAt   *time.Time               `json:"pre_recording_consent_at,omitempty"`
 	InitiatorConsentID      *uuid.UUID               `json:"initiator_consent_id,omitempty"`

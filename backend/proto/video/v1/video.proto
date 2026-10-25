@@ -133,6 +133,8 @@ enum RecordingStatus {
   RECORDING_STATUS_COMPLETED = 3;
   RECORDING_STATUS_FAILED = 4;
   RECORDING_STATUS_DELETED = 5;
+  // Created, waiting for the initiator's confirmation; no egress runs yet.
+  RECORDING_STATUS_PENDING = 6;
 }
 
 enum PresenceLevel {

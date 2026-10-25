@@ -10,8 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // --- Mock EgressManager ---
@@ -21,6 +19,8 @@ type mockEgressManager struct {
 	stopErr      error
 	lastEgressID string
 	stopCalled   bool
+	startCalls   int
+	lastRoom     string
 }
 
 func newMockEgressManager() *mockEgressManager {
@@ -29,7 +29,9 @@ func newMockEgressManager() *mockEgressManager {
 	}
 }
 
-func (m *mockEgressManager) StartRoomCompositeEgress(_ context.Context, _, _ string, _ S3Config) (string, error) {
+func (m *mockEgressManager) StartRoomCompositeEgress(_ context.Context, roomName, _ string, _ S3Config) (string, error) {
+	m.startCalls++
+	m.lastRoom = roomName
 	if m.startErr != nil {
 		return "", m.startErr
 	}
@@ -224,14 +226,20 @@ func (m *mockRepo) GetConsentsWithUser(_ context.Context, recordingID uuid.UUID)
 	return result, nil
 }
 
-func (m *mockRepo) MarkInitiatorConsent(_ context.Context, recordingID, _ uuid.UUID, _ uuid.UUID) error {
+// MarkInitiatorConsent mirrors the SQL claim: only the stamp that moves a
+// pending row to active reports claimed=true.
+func (m *mockRepo) MarkInitiatorConsent(_ context.Context, recordingID, _ uuid.UUID, _ uuid.UUID) (string, bool, error) {
 	rec, ok := m.recordings[recordingID]
 	if !ok {
-		return ErrNotFound
+		return "", false, ErrNotFound
+	}
+	if rec.Status != RecordingStatusPending {
+		return "", false, nil
 	}
 	now := time.Now()
 	rec.PreRecordingConsentAt = &now
-	return nil
+	rec.Status = RecordingStatusActive
+	return rec.RoomName, true, nil
 }
 
 func (m *mockRepo) GetPreConsentStatus(_ context.Context, recordingID, _ uuid.UUID) (bool, error) {
@@ -278,9 +286,9 @@ func TestStartRecording_SucceedsWhenAllConsented(t *testing.T) {
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, participants)
 	require.NoError(t, err)
 	assert.NotNil(t, rec)
-	assert.Equal(t, RecordingStatusActive, rec.Status)
-	assert.NotNil(t, rec.EgressID)
-	assert.Equal(t, "egress-mock-123", *rec.EgressID)
+	assert.Equal(t, RecordingStatusPending, rec.Status)
+	assert.Nil(t, rec.EgressID, "no egress before the initiator confirms")
+	assert.Equal(t, 0, egress.startCalls)
 }
 
 func TestStartRecording_Sets30DayRetention(t *testing.T) {
@@ -352,6 +360,7 @@ func TestStopRecording_TransitionsToProcessing(t *testing.T) {
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	require.NoError(t, err)
+	require.NoError(t, svc.ConfirmInitiatorConsent(context.Background(), rec.ID, starter, uuid.Nil))
 
 	stopped, err := svc.StopRecording(context.Background(), rec.ID)
 	require.NoError(t, err)
@@ -691,7 +700,7 @@ func TestStartRecording_BlocksUntilAllThreeConsent(t *testing.T) {
 	repo.pendingOverride = &zero
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
 	require.NoError(t, err)
-	assert.Equal(t, RecordingStatusActive, rec.Status)
+	assert.Equal(t, RecordingStatusPending, rec.Status)
 }
 
 // TestStartRecording_PersistsStartedBy verifies that started_by is stored on the recording.
@@ -772,7 +781,7 @@ func TestStartRecording_FailsWithNoParticipants(t *testing.T) {
 // pre_recording_consent_at on the recording row.
 func TestConfirmInitiatorConsent_StampsRecording(t *testing.T) {
 	repo := newMockRepo()
-	svc := NewService(repo, nil, "", S3Config{})
+	svc := NewService(repo, newMockEgressManager(), "", S3Config{})
 
 	recID := uuid.New()
 	callID := uuid.New()
@@ -783,7 +792,7 @@ func TestConfirmInitiatorConsent_StampsRecording(t *testing.T) {
 		ID:        recID,
 		CallID:    &callID,
 		StartedBy: &userID,
-		Status:    RecordingStatusActive,
+		Status:    RecordingStatusPending,
 	}
 
 	err := svc.ConfirmInitiatorConsent(context.Background(), recID, userID, tenantID)
@@ -797,7 +806,7 @@ func TestConfirmInitiatorConsent_StampsRecording(t *testing.T) {
 // when the recording does not exist.
 func TestConfirmInitiatorConsent_FailsForUnknownRecording(t *testing.T) {
 	repo := newMockRepo()
-	svc := NewService(repo, nil, "", S3Config{})
+	svc := NewService(repo, newMockEgressManager(), "", S3Config{})
 
 	err := svc.ConfirmInitiatorConsent(context.Background(), uuid.New(), uuid.New(), uuid.New())
 	require.Error(t, err)
@@ -821,14 +830,14 @@ func TestStartRecording_RequiresPreConsent(t *testing.T) {
 
 	// 2. Before ConfirmInitiatorConsent: GetPreConsentStatus returns false.
 	repo := newMockRepo()
-	svc := NewService(repo, nil, "", S3Config{})
+	svc := NewService(repo, newMockEgressManager(), "", S3Config{})
 	recID := uuid.New()
 	tenantID := uuid.New()
 	userID := uuid.New()
 
 	repo.recordings[recID] = &Recording{
 		ID:     recID,
-		Status: RecordingStatusActive,
+		Status: RecordingStatusPending,
 	}
 
 	stamped, err := repo.GetPreConsentStatus(context.Background(), recID, tenantID)
@@ -853,7 +862,7 @@ func TestStartRecording_RequiresPreConsent(t *testing.T) {
 // TestConfirmInitiatorConsent_Roundtrip validates the full stamp→read cycle in the mock.
 func TestConfirmInitiatorConsent_Roundtrip(t *testing.T) {
 	repo := newMockRepo()
-	svc := NewService(repo, nil, "", S3Config{})
+	svc := NewService(repo, newMockEgressManager(), "", S3Config{})
 
 	recID := uuid.New()
 	callID := uuid.New()
@@ -864,7 +873,7 @@ func TestConfirmInitiatorConsent_Roundtrip(t *testing.T) {
 		ID:        recID,
 		CallID:    &callID,
 		StartedBy: &userID,
-		Status:    RecordingStatusActive,
+		Status:    RecordingStatusPending,
 	}
 
 	// Before stamp: not consented
@@ -996,124 +1005,67 @@ func TestStartRecording_TenantIsolation(t *testing.T) {
 }
 
 // ============================================================================
-// W3-2: Service-layer Defense-in-Depth — initiator pre-consent gate (Sprint 4)
+// Egress only after the initiator's confirmation (fix-video-egress-after-initiator-consent)
 //
-// Verifies that StartRecording enforces the pre-consent check at the service layer
-// when a PreConsentChecker is wired, so that direct gRPC callers (bypassing the
-// HTTP gateway dialog gate) cannot start recordings without initiator consent.
+// StartRecording leaves a pending row and starts nothing; only the confirm that
+// moves the row to active starts the LiveKit egress, exactly once.
 // ============================================================================
 
-// mockPreConsentChecker is a controllable test double for PreConsentChecker.
-type mockPreConsentChecker struct {
-	consented bool
-	err       error
-	called    bool
-	lastCallID *uuid.UUID
-	lastMeetingID *uuid.UUID
-	lastInitiatorID uuid.UUID
-	lastTenantID uuid.UUID
-}
-
-func (m *mockPreConsentChecker) HasInitiatorConsented(
-	_ context.Context,
-	callID *uuid.UUID,
-	meetingID *uuid.UUID,
-	initiatorID uuid.UUID,
-	tenantID uuid.UUID,
-) (bool, error) {
-	m.called = true
-	m.lastCallID = callID
-	m.lastMeetingID = meetingID
-	m.lastInitiatorID = initiatorID
-	m.lastTenantID = tenantID
-	return m.consented, m.err
-}
-
-// TestStartRecording_ServiceLayerGate_BlocksWithoutPreConsent verifies that StartRecording
-// returns codes.FailedPrecondition when the PreConsentChecker denies the initiator.
-// This closes the direct-gRPC bypass identified in W3-2 Defense-in-Depth.
-func TestStartRecording_ServiceLayerGate_BlocksWithoutPreConsent(t *testing.T) {
+func TestConfirmInitiatorConsent_StartsEgressExactlyOnce(t *testing.T) {
 	repo := newMockRepo()
 	egress := newMockEgressManager()
-	checker := &mockPreConsentChecker{consented: false}
-
-	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"}, checker)
-
-	callID := uuid.New()
-	starter := uuid.New()
-	tenantID := uuid.New()
-
-	_, err := svc.StartRecording(
-		context.Background(),
-		&callID, nil, "room-guard-test",
-		starter,
-		makeParticipants(starter),
-		tenantID,
-	)
-
-	require.Error(t, err)
-	st, ok := status.FromError(err)
-	require.True(t, ok, "error must be a gRPC status error")
-	assert.Equal(t, codes.FailedPrecondition, st.Code(), "must return FailedPrecondition when pre-consent is missing")
-	assert.True(t, checker.called, "PreConsentChecker must be consulted")
-	assert.Equal(t, &callID, checker.lastCallID)
-	assert.Equal(t, starter, checker.lastInitiatorID)
-	assert.Equal(t, tenantID, checker.lastTenantID)
-}
-
-// TestStartRecording_ServiceLayerGate_AllowsWithPreConsent verifies that StartRecording
-// proceeds past the service-layer gate when the PreConsentChecker grants the initiator.
-// All-consented override is applied via pendingOverride to isolate the gate under test.
-func TestStartRecording_ServiceLayerGate_AllowsWithPreConsent(t *testing.T) {
-	repo := newMockRepo()
-	egress := newMockEgressManager()
-	checker := &mockPreConsentChecker{consented: true}
-
-	zero := 0
-	repo.pendingOverride = &zero
-
-	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"}, checker)
-
-	callID := uuid.New()
-	starter := uuid.New()
-	tenantID := uuid.New()
-
-	rec, err := svc.StartRecording(
-		context.Background(),
-		&callID, nil, "room-guard-test",
-		starter,
-		makeParticipants(starter),
-		tenantID,
-	)
-
-	require.NoError(t, err, "StartRecording must succeed when pre-consent is granted")
-	assert.NotNil(t, rec)
-	assert.Equal(t, RecordingStatusActive, rec.Status)
-	assert.True(t, checker.called, "PreConsentChecker must be consulted even on success")
-}
-
-// TestStartRecording_ServiceLayerGate_SkippedWhenNilChecker verifies that StartRecording
-// behaves as before (no gate) when no PreConsentChecker is provided — ensuring backward
-// compatibility for legacy callers and existing tests.
-func TestStartRecording_ServiceLayerGate_SkippedWhenNilChecker(t *testing.T) {
-	repo := newMockRepo()
-	egress := newMockEgressManager()
-
-	// No checker passed — gate must be inactive
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
 
 	callID := uuid.New()
 	starter := uuid.New()
+	tenantID := uuid.New()
 	zero := 0
 	repo.pendingOverride = &zero
 
-	rec, err := svc.StartRecording(
-		context.Background(),
-		&callID, nil, "room-legacy",
-		starter,
-		makeParticipants(starter),
-	)
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-confirm", starter, makeParticipants(starter), tenantID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, egress.startCalls, "no egress without the initiator's stamp")
+	assert.Equal(t, RecordingStatusPending, repo.recordings[rec.ID].Status)
 
-	require.NoError(t, err, "StartRecording without checker must succeed (backward compat)")
-	assert.NotNil(t, rec)
+	require.NoError(t, svc.ConfirmInitiatorConsent(context.Background(), rec.ID, starter, tenantID))
+	assert.Equal(t, 1, egress.startCalls, "the stamp starts exactly one egress")
+	assert.Equal(t, "room-confirm", egress.lastRoom, "egress runs on the room captured at start")
+	stored := repo.recordings[rec.ID]
+	assert.Equal(t, RecordingStatusActive, stored.Status)
+	require.NotNil(t, stored.EgressID)
+	assert.Equal(t, "egress-mock-123", *stored.EgressID)
+	assert.NotNil(t, stored.PreRecordingConsentAt)
+
+	require.NoError(t, svc.ConfirmInitiatorConsent(context.Background(), rec.ID, starter, tenantID))
+	assert.Equal(t, 1, egress.startCalls, "a second stamp must not start another egress")
+}
+
+func TestConfirmInitiatorConsent_EgressFailureMarksRecordingFailed(t *testing.T) {
+	repo := newMockRepo()
+	egress := newMockEgressManager()
+	egress.startErr = errors.New("livekit down")
+	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
+
+	recID, starter := uuid.New(), uuid.New()
+	callID := uuid.New()
+	repo.recordings[recID] = &Recording{ID: recID, CallID: &callID, StartedBy: &starter, Status: RecordingStatusPending, RoomName: "room-down"}
+
+	err := svc.ConfirmInitiatorConsent(context.Background(), recID, starter, uuid.New())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "start egress")
+	assert.Equal(t, RecordingStatusFailed, repo.recordings[recID].Status)
+	assert.Nil(t, repo.recordings[recID].EgressID)
+}
+
+func TestConfirmInitiatorConsent_FailsWhenEgressNotConfigured(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, nil, "", S3Config{})
+
+	recID, starter := uuid.New(), uuid.New()
+	callID := uuid.New()
+	repo.recordings[recID] = &Recording{ID: recID, CallID: &callID, StartedBy: &starter, Status: RecordingStatusPending}
+
+	err := svc.ConfirmInitiatorConsent(context.Background(), recID, starter, uuid.New())
+	assert.ErrorIs(t, err, ErrEgressNotConfigured)
+	assert.Equal(t, RecordingStatusPending, repo.recordings[recID].Status, "nothing is claimed without an egress")
 }

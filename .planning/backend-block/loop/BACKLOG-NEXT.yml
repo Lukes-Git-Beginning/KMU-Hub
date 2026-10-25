@@ -1518,3 +1518,42 @@ units:
       - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
     done_when:
       - Keine Option „läuft nie ab“ mehr, Datumsfeld auf 365 Tage begrenzt, i18n ×4, Screenshot-QA
+  - id: decide-recording-participant-consent-before-egress
+    phase: 4
+    service: work
+    model: opus
+    deps:
+      - fix-video-egress-after-initiator-consent
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE (Fund aus Lauf 17 Iteration 20): Wann willigen die Teilnehmer ein — während die
+      Aufnahme `pending` ist (vor dem Egress, Desktop muss den Teilnehmer-Dialog dann auch für pending zeigen)
+      oder erst nach dem Start? Heute ist das Teilnehmer-Gate unerfüllbar, die Aufnahme lässt sich nie starten.
+    target: eine Aufnahme lässt sich mit echten Teilnehmern überhaupt starten, und niemand wird ohne Einwilligung aufgenommen
+    scope: >
+      Gegen Code belegt in Lauf 17 Iteration 20 (`fix-video-egress-after-initiator-consent`), dort NICHT
+      geändert: (1) `recording.Service.StartRecording` legt die Zeile mit NEUER ID an und ruft sofort
+      `CountPendingConsents(rec.ID, participantIDs)`. Einwilligungen hängen per FK an `recording_id` — für eine
+      gerade erzeugte ID kann es keine geben, der Zähler ist immer = Teilnehmerzahl >= 1 (der gRPC-Server fügt
+      notfalls den Initiator selbst ein). Ergebnis immer `ErrConsentPending` (gRPC FailedPrecondition, HTTP 412/409),
+      Zeile wird gelöscht. Sämtliche Erfolgs-Tests umgehen das mit `pendingOverride = 0`;
+      `TestStartRecording_ConsentPendingByDefault` (internal/server) belegt das Dauer-Pending sogar. Auf Prod
+      unsichtbar, weil `LIVEKIT_EGRESS_TEMPLATE_URL` leer ist (503 vorher). (2) Desktop
+      `useActiveMeetingRecording` (`api/hooks/useVideo.ts:277`) sucht `r.status === 'active'`, der Wire liefert
+      `status` aber als Enum-ZAHL (`response.ProtoList`, `UseEnumNumbers`; ACTIVE = 1, seit Iteration 20
+      PENDING = 6). Der Treffer bleibt immer `null` -> der Teilnehmer-Einwilligungsdialog in
+      `VideoCallView.tsx:968` (`showInCallConsent`) öffnet nie, auch der Aufnahme-Banner nicht. Varianten:
+      (a) Teilnehmer willigen auf die `pending`-Aufnahme ein, das Gate wandert aus `StartRecording` in
+      `ConfirmInitiatorConsent` (Egress erst, wenn alle zugestimmt haben; Desktop zeigt den Dialog bei
+      pending, Status-Vergleich numerisch oder Backend-Rewrite auf String wie TaxMode in `response.go`);
+      (b) Einwilligung erst nach dem Start (DSGVO-fragwürdig, Aufnahme läuft dann schon).
+    sources:
+      - backend/internal/work/recording/service.go
+      - backend/internal/server/video_grpc.go
+      - backend/internal/server/response/response.go
+      - desktop/src/renderer/src/api/hooks/useVideo.ts
+      - desktop/src/renderer/src/features/video/VideoCallView.tsx
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+    done_when:
+      - 'Entscheidung Luke: Einwilligungszeitpunkt der Teilnehmer, Status-Wire (Zahl im FE oder String-Rewrite im Backend)'
+      - 'Service-Test mit echtem Repo: Start -> alle Teilnehmer willigen ein -> Initiator bestätigt -> genau ein Egress; ein fehlendes Ja -> kein Egress'

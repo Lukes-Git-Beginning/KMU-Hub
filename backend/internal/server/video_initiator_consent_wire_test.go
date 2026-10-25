@@ -24,7 +24,7 @@ func TestConfirmInitiatorConsent_OverTheWire(t *testing.T) {
 	ts := newTestVideoCallServer()
 	initiator := uuid.New()
 	recID := uuid.New()
-	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, StartedBy: &initiator, CreatedAt: time.Now()}
+	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, StartedBy: &initiator, Status: recording.RecordingStatusPending, CreatedAt: time.Now()}
 
 	client := dialVideoServer(t, ts.srv)
 

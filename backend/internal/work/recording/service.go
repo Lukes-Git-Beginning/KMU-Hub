@@ -24,16 +24,6 @@ type EgressManager interface {
 	StopEgress(ctx context.Context, egressID string) error
 }
 
-// PreConsentChecker verifies that an initiator has explicitly confirmed pre-recording consent
-// before a recording is allowed to start. Checked in the service layer so that direct
-// gRPC calls (bypassing the HTTP gateway) cannot skip the consent gate.
-//
-// Implementations look up whether the given initiator has an active pre-consent token
-// for the specified call or meeting session scoped to the tenant.
-type PreConsentChecker interface {
-	HasInitiatorConsented(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, initiatorID uuid.UUID, tenantID uuid.UUID) (bool, error)
-}
-
 // S3Config holds the S3-compatible storage configuration for recordings
 type S3Config struct {
 	Endpoint        string
@@ -49,7 +39,6 @@ type S3Config struct {
 type Service struct {
 	repo          Repository
 	egressManager EgressManager // nil if not configured
-	preConsent    PreConsentChecker // nil disables the service-layer gate (legacy/test mode)
 	s3Config      S3Config
 	templateURL   string
 	enabled       bool
@@ -61,33 +50,27 @@ type Service struct {
 
 // NewService creates a new recording service.
 // If egressManager is nil, the service operates in disabled mode.
-// The preConsent gate is disabled when checker is nil (backward-compatible).
-func NewService(repo Repository, egressManager EgressManager, templateURL string, s3Config S3Config, checker ...PreConsentChecker) *Service {
-	svc := &Service{
+func NewService(repo Repository, egressManager EgressManager, templateURL string, s3Config S3Config) *Service {
+	return &Service{
 		repo:          repo,
 		egressManager: egressManager,
 		s3Config:      s3Config,
 		templateURL:   templateURL,
 		enabled:       egressManager != nil,
 	}
-	if len(checker) > 0 {
-		svc.preConsent = checker[0]
-	}
-	return svc
 }
 
-// StartRecording initiates a recording for a call or meeting.
-// The initiator must have confirmed their own pre-recording consent via ConfirmInitiatorConsent
-// before calling this method (enforced via ErrPreConsentMissing).
-// All participants must have responded to the consent prompt before recording can begin.
+// StartRecording creates a pending recording for a call or meeting. It does NOT
+// start the LiveKit egress: nothing is recorded until the initiator confirms the
+// pre-recording dialog via ConfirmInitiatorConsent, which starts the egress. A
+// pending row the initiator never confirms (dialog cancelled) records nothing.
+// All participants must have responded to the consent prompt before the row is created.
 // startedBy is the user who triggered the recording (stored for audit).
 // participants is the full list of call/meeting participants at start time; their IDs are
 // used for the consent gate and the list is persisted as an immutable DSGVO snapshot.
+// roomName is stored on the row so the confirm step can start the egress on it.
 // Sets a 30-day retention period on the recording.
 // tenantID is required for tenant-scoped consent lookup and recording creation.
-//
-// P0 fix (Welle-3.5): Pre-consent check is performed BEFORE CreateRecording to prevent
-// orphaned rows when consent is still pending.
 func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo, tenantID ...uuid.UUID) (*Recording, error) {
 	if !s.enabled {
 		return nil, ErrEgressNotConfigured
@@ -101,42 +84,12 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		return nil, ErrNoParticipants
 	}
 
-	// --- Service-layer gate: initiator pre-recording consent (R2-P0.4 / W3-2 Defense-in-Depth) ---
-	// This check mirrors the HTTP-gateway dialog gate so that direct gRPC calls (service-to-service
-	// or external clients bypassing the gateway) cannot start a recording without the initiator's
-	// explicit consent acknowledgement.
-	//
-	// The gate is only active when a PreConsentChecker is wired (production path via NewService).
-	// Legacy callers and tests that do not supply a checker skip the gate gracefully.
-	if s.preConsent != nil {
-		var tid uuid.UUID
-		if len(tenantID) > 0 {
-			tid = tenantID[0]
-		}
-		consented, err := s.preConsent.HasInitiatorConsented(ctx, callID, meetingID, startedBy, tid)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "pre-consent check failed: %v", err)
-		}
-		if !consented {
-			return nil, status.Error(codes.FailedPrecondition, "initiator pre-consent missing")
-		}
-	}
-
 	// Extract participant IDs for the consent gate
 	participantIDs := make([]uuid.UUID, len(participants))
 	for i, p := range participants {
 		participantIDs[i] = p.UserID
 	}
 
-	// Use a temporary recording ID to check pending consents before creating the row.
-	// CountPendingConsents only needs participant IDs — it does not require a stored recording.
-	// We use a sentinel recording ID here; the real ID is generated after consent passes.
-	//
-	// NOTE: CountPendingConsents is called with the final recording ID after creation
-	// for the *participant* consent gate (those are per-recording). The *initiator* pre-consent
-	// check (GetPreConsentStatus) is a separate gate enforced by the gateway before StartRecording
-	// is even called. So we proceed directly to creating the recording row and then checking
-	// participant consent — but we add a defer-rollback if consent is still pending to avoid orphans.
 	now := time.Now()
 	retentionExpires := now.Add(RetentionDays * 24 * time.Hour)
 
@@ -155,9 +108,10 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		MeetingID:          meetingID,
 		StartedBy:          &startedBy,
 		ConsentSnapshot:    participants,
-		Status:             RecordingStatusActive,
+		Status:             RecordingStatusPending,
 		RetentionExpiresAt: &retentionExpires,
 		CreatedAt:          now,
+		RoomName:           roomName,
 	}
 
 	if err := s.repo.CreateRecording(ctx, rec); err != nil {
@@ -188,29 +142,9 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		return nil, ErrConsentPending
 	}
 
-	// All consented - start egress
-	egressID, err := s.egressManager.StartRoomCompositeEgress(ctx, roomName, s.templateURL, s.s3Config)
-	if err != nil {
-		// Mark recording as failed if egress cannot start
-		rec.Status = RecordingStatusFailed
-		if updateErr := s.repo.UpdateRecording(ctx, rec); updateErr != nil {
-			slog.Error("failed to mark recording as failed after egress error",
-				"recording_id", rec.ID,
-				"error", updateErr,
-			)
-		}
-		return nil, fmt.Errorf("start egress: %w", err)
-	}
-
-	rec.EgressID = &egressID
-	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
-		return nil, fmt.Errorf("update recording with egress id: %w", err)
-	}
-
-	slog.Info("recording started",
+	slog.Info("recording pending initiator confirmation",
 		"recording_id", rec.ID,
 		"room_name", roomName,
-		"egress_id", egressID,
 	)
 
 	return rec, nil
@@ -253,18 +187,59 @@ func (s *Service) StopRecording(ctx context.Context, recordingID uuid.UUID) (*Re
 }
 
 // ConfirmInitiatorConsent records that the recording initiator has acknowledged the
-// pre-recording consent dialog. This must be called before StartRecording when the
-// flow requires the initiator to explicitly confirm they understand the recording will begin.
-// The stamp (pre_recording_consent_at + sentinel initiator_consent_id) is written via the
-// repo. Returns ErrNotFound if the recording does not exist or does not belong to userID.
+// pre-recording consent dialog and only then starts the LiveKit egress. The stamp
+// moves the row from pending to active; exactly the stamp that performs that move
+// starts the egress, so a repeated confirm is a no-op and never starts a second one.
+// Returns ErrNotFound if the recording does not exist or does not belong to userID.
+// If the egress cannot start, the recording is marked failed and the error returned.
 func (s *Service) ConfirmInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error {
-	if err := s.repo.MarkInitiatorConsent(ctx, recordingID, userID, tenantID); err != nil {
+	if !s.enabled {
+		return ErrEgressNotConfigured
+	}
+
+	roomName, claimed, err := s.repo.MarkInitiatorConsent(ctx, recordingID, userID, tenantID)
+	if err != nil {
 		return fmt.Errorf("mark initiator consent: %w", err)
+	}
+	if !claimed {
+		slog.Info("initiator consent already confirmed, egress not restarted",
+			"recording_id", recordingID,
+			"user_id", userID,
+		)
+		return nil
 	}
 
 	slog.Info("initiator pre-recording consent confirmed",
 		"recording_id", recordingID,
 		"user_id", userID,
+	)
+
+	rec, err := s.repo.GetRecording(ctx, recordingID)
+	if err != nil {
+		return fmt.Errorf("load recording after consent: %w", err)
+	}
+
+	egressID, err := s.egressManager.StartRoomCompositeEgress(ctx, roomName, s.templateURL, s.s3Config)
+	if err != nil {
+		rec.Status = RecordingStatusFailed
+		if updateErr := s.repo.UpdateRecording(ctx, rec); updateErr != nil {
+			slog.Error("failed to mark recording as failed after egress error",
+				"recording_id", rec.ID,
+				"error", updateErr,
+			)
+		}
+		return fmt.Errorf("start egress: %w", err)
+	}
+
+	rec.EgressID = &egressID
+	if err := s.repo.UpdateRecording(ctx, rec); err != nil {
+		return fmt.Errorf("update recording with egress id: %w", err)
+	}
+
+	slog.Info("recording started",
+		"recording_id", rec.ID,
+		"room_name", roomName,
+		"egress_id", egressID,
 	)
 
 	return nil

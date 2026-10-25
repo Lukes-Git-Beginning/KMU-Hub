@@ -8885,6 +8885,11 @@ paths:
       summary: Start recording a call or meeting
       tags: [recordings]
       operationId: startRecording
+      description: >-
+        Creates the recording in status pending (RECORDING_STATUS_PENDING). Nothing
+        is recorded yet: the LiveKit egress starts only when the initiator confirms
+        via POST /api/v1/video/recordings/{id}/initiator-consent. A pending
+        recording that is never confirmed records nothing.
       security:
         - bearerAuth: []
       requestBody:
@@ -8895,7 +8900,7 @@ paths:
               $ref: "#/components/schemas/StartRecordingRequest"
       responses:
         "201":
-          description: Recording started
+          description: Recording created, pending the initiator's confirmation
           content:
             application/json:
               schema:
@@ -37949,7 +37954,12 @@ paths:
 
   /api/v1/video/recordings/{id}/initiator-consent:
     post:
-      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write or meetings:write)
+      summary: Confirm the initiator's pre-recording consent and start the recording (requires recording:write or meetings:write)
+      description: >-
+        Stamps the initiator's confirmation on a pending recording, moves it to
+        active and starts the LiveKit egress. Only the stamp that moves the
+        recording out of pending starts an egress; repeating the call answers
+        200 and starts nothing.
       tags: [recordings]
       operationId: confirmInitiatorConsent
       security:
@@ -37991,6 +38001,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: The egress could not be started; the recording is marked failed
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

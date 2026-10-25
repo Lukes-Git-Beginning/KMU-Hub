@@ -373,15 +373,20 @@ func (m *recordingMockRepo) GetRecordingParticipants(_ context.Context, recordin
 	return m.participantUsers[recordingID], nil
 }
 
-func (m *recordingMockRepo) MarkInitiatorConsent(_ context.Context, recordingID, userID, _ uuid.UUID) error {
+func (m *recordingMockRepo) MarkInitiatorConsent(_ context.Context, recordingID, userID, _ uuid.UUID) (string, bool, error) {
 	rec, ok := m.recordings[recordingID]
 	// Mirrors the SQL (started_by = userID): a foreign initiator stamps nothing.
 	if !ok || (rec.StartedBy != nil && *rec.StartedBy != userID) {
-		return recording.ErrNotFound
+		return "", false, recording.ErrNotFound
+	}
+	// Mirrors status = 'pending': only the first stamp claims the row.
+	if rec.Status != recording.RecordingStatusPending {
+		return "", false, nil
 	}
 	now := time.Now()
 	rec.PreRecordingConsentAt = &now
-	return nil
+	rec.Status = recording.RecordingStatusActive
+	return rec.RoomName, true, nil
 }
 
 func (m *recordingMockRepo) GetPreConsentStatus(_ context.Context, recordingID, _ uuid.UUID) (bool, error) {
@@ -401,6 +406,7 @@ type callMockEgressManager struct {
 	stopErr      error
 	stopCalled   bool
 	lastEgressID string
+	startCalls   int
 }
 
 func newCallMockEgressManager() *callMockEgressManager {
@@ -408,6 +414,7 @@ func newCallMockEgressManager() *callMockEgressManager {
 }
 
 func (m *callMockEgressManager) StartRoomCompositeEgress(_ context.Context, _, _ string, _ recording.S3Config) (string, error) {
+	m.startCalls++
 	if m.startErr != nil {
 		return "", m.startErr
 	}
@@ -1118,9 +1125,24 @@ func TestStartRecording_CallContext_Success(t *testing.T) {
 		CallId: &created.Id,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, videov1.RecordingStatus_RECORDING_STATUS_ACTIVE, rec.Status)
+	assert.Equal(t, videov1.RecordingStatus_RECORDING_STATUS_PENDING, rec.Status)
 	require.NotNil(t, rec.StartedBy)
 	assert.Equal(t, initiator.String(), *rec.StartedBy)
+	assert.Equal(t, 0, ts.egress.startCalls, "start alone records nothing")
+
+	// The initiator's confirmation is what starts the egress — once.
+	for range 2 {
+		_, err = ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{
+			RecordingId: rec.Id,
+			UserId:      initiator.String(),
+			TenantId:    tenantID.String(),
+		})
+		require.NoError(t, err)
+	}
+	assert.Equal(t, 1, ts.egress.startCalls)
+	got, err := ts.srv.GetRecordingStatus(callCtxTenant(tenantID), &videov1.GetRecordingStatusRequest{RecordingId: rec.Id})
+	require.NoError(t, err)
+	assert.Equal(t, videov1.RecordingStatus_RECORDING_STATUS_ACTIVE, got.Status)
 }
 
 func TestStartRecording_MeetingContext_Success(t *testing.T) {
@@ -1194,6 +1216,8 @@ func TestStopRecording_AuthorizedInitiator(t *testing.T) {
 	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: initiator.String(), CallId: &created.Id})
 	require.NoError(t, err)
+	_, err = ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{RecordingId: rec.Id, UserId: initiator.String(), TenantId: tenantID.String()})
+	require.NoError(t, err)
 
 	stopped, err := ts.srv.StopRecording(callCtxAuth(tenantID, initiator), &videov1.StopRecordingRequest{RecordingId: rec.Id})
 	require.NoError(t, err)
@@ -1215,6 +1239,8 @@ func TestStopRecording_AuthorizedMeetingHost(t *testing.T) {
 	zero := 0
 	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: starter.String(), MeetingId: &meetingResp.Id})
+	require.NoError(t, err)
+	_, err = ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{RecordingId: rec.Id, UserId: starter.String(), TenantId: tenantID.String()})
 	require.NoError(t, err)
 
 	// Organizer is not the initiator (starter is) but is host -> authorized via IsHostOrCoHost.
@@ -1369,7 +1395,7 @@ func TestCleanupExpiredRecording_ExpiredAndNotExpired(t *testing.T) {
 func TestConfirmInitiatorConsent_SuccessAndNotFound(t *testing.T) {
 	ts := newTestVideoCallServer()
 	recID := uuid.New()
-	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, CreatedAt: time.Now()}
+	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusPending, CreatedAt: time.Now()}
 
 	resp, err := ts.srv.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{
 		RecordingId: recID.String(),

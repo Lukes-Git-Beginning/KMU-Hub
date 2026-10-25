@@ -693,3 +693,38 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - offen: (1) Bestand: bereits offboardete Nutzer behalten ihre unwiderrufenen Passwörter in der Tabelle (wirkungslos wegen
   `is_active`-Join, aber nicht widerrufen); keine Backfill-Migration gebaut, da die Unit sie nicht verlangt. (2) Der Widerruf
   ist in der Transaktion, nicht als Folgeschritt: scheitert er, rollt das ganze Offboarding zurück.
+
+## Iteration 20 — fix-video-egress-after-initiator-consent — done — 2026-10-25 19:36
+- commit: siehe Commit `fix(video): start the recording egress only after the initiator confirms` (dieser Eintrag)
+- gebaut: Variante (a) laut Entscheidung. `StartRecording` legt die Aufnahme nur noch als `pending` an (neuer Status,
+  Proto `RECORDING_STATUS_PENDING = 6`, regeneriert) und speichert den Raumnamen (`recordings.room_name`), startet
+  aber keinen Egress. `ConfirmInitiatorConsent` claimt per `UPDATE … WHERE status = 'pending' RETURNING room_name`
+  (Row-Lock serialisiert parallele Stempel) und startet genau dann den Egress; ein zweiter Stempel claimt nichts und
+  startet nichts (200, idempotent). Egress-Fehler -> Aufnahme `failed`, HTTP 500. Toter `PreConsentChecker` samt
+  drei Tests entfernt (nie verdrahtet, widersprach dem neuen Ablauf). Migration 000353 (CHECK um `pending`,
+  Spalte `room_name`), Spec-Texte für start/initiator-consent ergänzt, 500 dokumentiert.
+- gate: build ok (work, server, gateway, cmd/work, cmd/gateway) | vet ok | lint ok (0 issues) | test ok (recording
+  87 RUN, 0 SKIP, davon 15 DB-/RLS-Tests real gelaufen; internal/work/... alle ok; server 5015 RUN, 0 SKIP;
+  gateway ok inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app) | migration ok (353 up/down/up) |
+  rls-smoke n.a. (keine neue Tabelle/Policy, nur Spalte + CHECK; Repo-Test läuft unter kmuhub_app mit Tenant-Kontext
+  und prüft fremden Tenant -> ErrNotFound) | swagger-cli valid | e2e n.a. (kein Flow nutzt Aufnahmen, grep `test/e2e/`)
+- coverage: `internal/work/recording` 80,3 % -> 81,1 % (`coverage_start: ungemessen`)
+- mutations-probe: (1) Service ignoriert `claimed` -> `TestConfirmInitiatorConsent_StartsEgressExactlyOnce` rot.
+  (2) SQL-Claim ohne `status = 'pending'` -> RealSQL-Test rot („repeat = (room-pending, true)“). (3) StartRecording
+  wieder mit Status `active` -> vier Tests rot (u. a. SucceedsWhenAllConsented, StartsEgressExactlyOnce). Alle per
+  Backup zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`977046ac`: kein Guard, kein Proto, keine Route/Tabelle; Widerruf tenant-gescoped in der
+  Offboard-Transaktion, DB-Test vorhanden)
+- neue-units: `decide-recording-participant-consent-before-egress` in BACKLOG-NEXT.yml (blocked, Entscheidung Luke):
+  das Teilnehmer-Gate in `StartRecording` ist unerfüllbar (Einwilligungen für eine gerade erzeugte Recording-ID kann
+  es nicht geben -> immer ErrConsentPending), und das Desktop erkennt eine aktive Aufnahme nie (`status === 'active'`
+  gegen Enum-Zahl auf dem Wire) -> Teilnehmer-Dialog öffnet nie. Auf Prod latent (Egress nicht konfiguriert, 503
+  vorher); deshalb nicht an den Kopf von BACKLOG.yml, aber VOR dem Scharfschalten von Egress zu klären.
+- desktop-aufrufer: POST `/video/recordings/start` -> `video-client.ts:107` / `CallControls.tsx:129` liest nur
+  `recording.id` -> passt. POST `/video/recordings/{id}/initiator-consent` -> `video-client.ts:105`, liest `stamped`
+  (unverändert true) -> passt; Ablauf start -> Dialog -> bestätigen startet jetzt den Egress, „Abbrechen“ lässt eine
+  `pending`-Zeile ohne Aufnahme. `useActiveMeetingRecording` (`useVideo.ts:284`) sucht `'active'` — pending taucht
+  dort korrekt nicht auf (der Vergleich ist unabhängig davon kaputt, siehe neue Unit).
+- offen: (1) Abgebrochene `pending`-Zeilen bleiben liegen (keine Aufnahme, kein Medium); Retention-Cleanup greift
+  nur `completed`, ein Aufräumen ist nicht gebaut. (2) Down-Migration setzt `pending` auf `failed`; lokal ohne
+  Meetings nicht mit echter pending-Zeile durchgespielt. (3) Stop auf `pending` bleibt 412/FailedPrecondition.
