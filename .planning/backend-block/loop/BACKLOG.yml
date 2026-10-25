@@ -44,4 +44,2720 @@
 # dieser Session gestaged (Entscheidungsrunde, lokaler E2E-Stack, Treiber-Pflege).
 # ==========================================================================================
 
-units: []
+units:
+  - id: scan-legacy-seed-grants-for-member-and-manager
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: jeder Grant der Presets member/manager vor 000256 ist gegen die Rollenmatrix geprüft
+    coverage_start: n.a. (Scan)
+    scope: >
+      000068 hatte member `dialer:agent:manage` gegeben ("agent self-manage"), unbemerkt bis zum ersten
+      E2E mit echtem Seed. Die Rollenmatrix aus Lauf 16 (`role-matrix-lauf16.tsv`) hat das als "ja/ok" gelistet,
+      weil sie den Ist-Seed abbildet, nicht die Absicht. Scan: alle `role_permissions` von member/manager
+      (Preset, tenant_id IS NULL) mit Schlüsseln `*:manage`, `*:delete`, `*:approve`, `admin:*` auflisten,
+      je Grant die Herkunfts-Migration und ob ein Handler den Key als Supervisor-/Fremdzugriff liest. Ergebnis:
+      Fix-Units je Fund, keine Code-Änderung im Scan. Vorarbeit der Staging-Session (2026-10-25): 36 Migrationen
+      fassen `role_permissions` mit member/manager an, 19 davon enthalten `*:manage|*:delete|*:approve|admin:*`
+      (000002, 005-010, 012, 014, 015, 018, 024, 068, 147, 256, 335, 336, 337, 344), dateigenau, nicht grant-genau.
+      Die Gegenfrage zu groben Keys steht in `scan-coarse-keys-with-non-all-scope`.
+    sources:
+      - backend/migrations/000068_dialer_permissions.up.sql
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+      - .planning/backend-block/loop/role-matrix-lauf16.tsv
+    done_when:
+      - Liste mit Herkunft je Grant im Journal
+      - >
+        Je Fund, der fremde Daten oder Supervisor-Rechte öffnet, eine Fix-Unit VOR der ersten todo-Unit
+        in BACKLOG.yml (wird in diesem Lauf gebaut); reine Produktfragen nach NEXT
+
+  - id: scan-coarse-keys-with-non-all-scope
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: jeder grobe Key mit Scope ungleich all ist auf seine neue Wirkung geprüft
+    coverage_start: n.a. (Scan)
+    scope: >
+      Seit `b00ed131` baut `ResolveTokenPermissions` die Scopes aus `GetUserGrants`. Ein grober Key (`resource`
+      ohne Doppelpunkt) mit Scope `own`/`team` wirkt seitdem. Vorher fiel er durch `resource LIKE '%:%'`
+      und galt als `all`. Damit sind zwei Klassen von Pfaden neu scharf: (a) Handler, die einen solchen
+      Key per `ownerFilterForScope*` lesen, deren Begrenzung bisher nie griff und deshalb nie getestet wurde,
+      und (b) Handler, die bisher unbeabsichtigt `all` lieferten und jetzt plötzlich leer oder 403 antworten
+      (Totalausfall). Scan: alle Preset-Grants (`tenant_id IS NULL`) mit grobem Key und Scope ungleich `all`
+      auflisten, je Key die lesenden Handler, und prüfen, was ein member heute bekommt (Router-Probe mit
+      Token aus `GetUserGrants`).
+    sources:
+      - backend/internal/auth/
+      - backend/internal/gateway/helpers.go
+      - .planning/backend-block/loop/role-matrix-lauf16.tsv
+    done_when:
+      - Liste Key -> Scope -> Handler -> Verhalten vorher/nachher im Journal
+      - Je Fund eine Fix-Unit vor der ersten todo-Unit (Totalausfall vor Leck vor Kosmetik)
+
+  - id: harden-inbox-message-user-scoping
+    phase: 3
+    service: server
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Sichtbar = Eigentümer
+      ODER zugewiesen ODER Mitglied der Team-Inbox der Nachricht. Gilt für alle Einzelnachrichten-RPCs;
+      danach bekommt member die Team-Inbox (`feat-team-inbox-for-members`).
+    target: BACKLOG.yml nach Entscheidung Luke
+    coverage_start: n.a.
+    scope: >
+      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). `ListMessages` und `GetUnreadCount` filtern
+      auf `user_id`; alle Einzelnachrichten-RPCs (`GetMessage`, `MarkRead`/`MarkUnread`, `ToggleStar`, `SetMessageStatus`,
+      `Add/RemoveMessageTag`, `Archive`/`Unarchive`, `Snooze`/`Unsnooze`, `ReplyToMessage`, `ForwardMessage`,
+      `ListThreadMessages`, Bulk*) scopen dagegen NUR auf `tenant_id` (`message.Service.GetByID` nimmt keine
+      user_id). Der Gateway reicht `user_id` mit, der Server ignoriert ihn (`GetMessageRequest.user_id`
+      existiert im Proto). Wer die UUID einer Nachricht eines Kollegen kennt, kann sie lesen (Vorschau,
+      Absender, Thread-Text), archivieren, taggen oder als sich selbst beantworten. UUIDs sind nicht ratbar
+      -- das ist Defense-in-Depth, kein offener Cross-Tenant-Zugriff; Cross-Tenant ist durch Tests belegt
+      dicht (`TestInboxMessageRPCs_ForeignTenantSeesNotFound`). Team-Inbox-Nachrichten gehoeren fachlich
+      mehreren Nutzern (Mitglieder, Zugewiesene) -- die Sichtbarkeitsregel ist eine Produktentscheidung.
+    sources:
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/inbox/message/postgres_repository.go
+    notes: >
+      Vor dem Bauen die Regel festlegen: sichtbar = Eigentuemer ODER zugewiesen ODER Mitglied der Team-Inbox
+      der Nachricht. Wenn Luke das nicht vorgibt: `blocked` mit dieser Frage. Wegen `RequirePermissionAny`-Kompatibilitaet
+      keine Guards anfassen.
+    done_when:
+      - >
+        Ein Test belegt: Nutzer B (gleicher Tenant, nicht Eigentuemer, nicht Mitglied) bekommt NotFound
+        auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
+      - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
+      - >
+        go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL
+        gesetzt, 0 Skips
+
+  - id: feat-team-inbox-for-members
+    phase: 4
+    service: inbox
+    model: opus
+    deps:
+      - harden-inbox-message-user-scoping
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Team-Inbox für member
+      mit Mitgliedschafts-Grenze freigeben (Variante a).
+    target: member sieht die Team-Postfächer, in denen er Mitglied ist, und nur diese
+    coverage_start: n.a.
+    scope: >
+      TOTALAUSFALL für member: Die Team-Postfächer brauchen `inbox:read`, das nur admin hat (Migration 129).
+      Nach `harden-inbox-message-user-scoping` ist die Einzelnachricht begrenzt. Jetzt Listen, Zähler und
+      Thread-Ansichten auf Mitgliedschaft begrenzen (Datengrenze VOR dem Grant, Regel 1 aus Lauf 16) und
+      member den Lesezugriff granten (Regel 3). Bevorzugt ein feiner dreiteiliger Key mit Scope `own`; ein
+      grober Key trägt den Scope seit `b00ed131` zwar, ist aber schwerer zu prüfen. Guards nur additiv.
+      Den E2E `TestInboxTeamAndRoutingFlow` um member-Schritte erweitern (eigenes Postfach sichtbar, fremdes
+      nicht).
+    sources:
+      - backend/internal/gateway/route_inbox.go
+      - backend/internal/inbox/
+      - backend/internal/server/inbox_grpc.go
+      - backend/test/e2e/inbox_test.go
+    done_when:
+      - >
+        Router-Test als member: Team-Postfach mit Mitgliedschaft 200, ohne Mitgliedschaft leer bzw. 404
+      - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestInboxTeamAndRoutingFlow` grün'
+      - Seed-Migration zweimal anwendbar, Down entfernt genau ihre Zeilen
+
+  - id: harden-email-dial-guard-for-account-hosts
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member richtet sein
+      Postfach selbst ein; Voraussetzung ist ein Dial-Filter mit Ausnahmeliste per Env.
+    target: kein E-Mail-Dial auf interne Adressen ausser per Allowlist
+    coverage_start: n.a.
+    scope: >
+      `account.Service.TestConnection` und der IMAP-/SMTP-Sync wählen jeden Host:Port an, den der Body nennt
+      (`imapclient.DialTLS`, kein Filter). Für Nicht-Admins geöffnet wäre das ein Portscan-Orakel ins Docker-Netz
+      (Postgres, Redis, MinIO). Dial-Filter nach dem Muster von `security/safehttp` (IP-Klassifikation wiederverwenden,
+      nicht kopieren): Den Host auflösen und loopback, private, link-local sowie unspecified ablehnen, und
+      zwar beim Dial selbst, nicht nur bei der Validierung (DNS-Rebinding). Optionales Env `EMAIL_DIAL_ALLOWLIST`
+      (Host/CIDR, komma-getrennt, Default leer, KEIN `config.RequireX`) für Self-Hosted-Kunden mit internem
+      Mailserver. Compose und deploy/ sind gesperrt: Den nötigen Passthrough in `offen:` vermerken.
+    sources:
+      - backend/internal/email/account/
+      - backend/internal/email/sync/
+      - backend/internal/security/safehttp/
+      - backend/internal/config/config.go
+    done_when:
+      - >
+        Tests: 127.0.0.1, 10.0.0.0/8, 172.16/12, ::1 und ein Docker-Hostname werden abgelehnt; öffentliche
+        Adresse und Allowlist-Eintrag gehen (Resolver-Stub)
+      - Der Filter greift in TestConnection, Create/Update und im Sync-Dial
+      - go test -count=1 ./internal/email/... ./internal/server/ grün
+
+  - id: feat-email-account-self-setup-for-members
+    phase: 4
+    service: email
+    model: opus
+    deps:
+      - harden-email-dial-guard-for-account-hosts
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Self-Setup für member:
+      ja, user_id gepinnt, Ändern/Löschen nur eigenes Konto.
+    target: member richtet sein eigenes Postfach ein, kein fremdes
+    coverage_start: n.a.
+    scope: >
+      Seit Migration 337 liest und sendet member eigene Postfächer, kann aber keins anlegen. Freigeben:
+      Anlegen, Ändern, Löschen und Verbindungstest des EIGENEN Kontos. `user_id` wird serverseitig auf den
+      Aufrufer gepinnt (Body-Feld mit fremder ID bei Scope `own` = 403, Muster `fix-schichten-swap-create-pins-requester-and-assignment`).
+      Update/Delete prüfen den Besitz im Service, nicht nur im Gateway. Guards additiv (`RequirePermissionAny`),
+      Seed nach Regel 3. Admin behält das Anlegen für andere.
+    sources:
+      - backend/internal/gateway/route_email.go
+      - backend/internal/email/account/
+      - backend/internal/server/email_grpc.go
+    done_when:
+      - >
+        Router-Tests als member: eigenes Konto anlegen 201, mit fremder user_id 403, fremdes Konto ändern/löschen
+        404
+      - 'Service-Test: Besitzprüfung auch ohne Gateway'
+      - Desktop-Aufrufer (Konto-Dialog) im Journal geprüft
+
+  - id: feat-email-rules-per-user
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): E-Mail-Regeln pro
+      Nutzer; Bestandsregeln bleiben tenantweite Admin-Regeln.
+    target: eine Nutzerregel wirkt nur auf die Postfächer ihres Nutzers
+    coverage_start: n.a.
+    scope: >
+      `email_rules` hat kein `user_id`, und `rule.Service.ApplyAll` wendet jede Regel auf die Nachrichten
+      ALLER Postfächer des Tenants an. Migration `email_rules.user_id` (nullable): Bestandsregeln bleiben
+      NULL, das heißt tenantweite Admin-Regeln, die nur admin pflegt. Neue Regeln bekommen den Aufrufer.
+      `ApplyAll` wendet Nutzerregeln nur auf die Postfächer dieses Nutzers an. member darf eigene Regeln
+      anlegen, ändern und löschen (Scope `own`, Seed nach Regel 3). RLS bleibt tenant-basiert, die Nutzergrenze
+      sitzt im Service.
+    sources:
+      - backend/internal/email/rule/
+      - backend/internal/gateway/route_email.go
+    done_when:
+      - 'DB-Test: Regel von Nutzer A berührt keine Nachricht im Postfach von Nutzer B'
+      - >
+        Router-Test: member legt eigene Regel an (201), ändert fremde nicht (404), tenantweite nicht (403)
+      - Migration up/down/up sauber, RLS-Smoke
+
+  - id: feat-email-templates-own-personal-edit
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Vorlagen: eigene
+      persönliche frei, geteilte nur admin.
+    target: member pflegt seine eigenen Vorlagen
+    coverage_start: n.a.
+    scope: >
+      `UpdateEmailTemplate`/`DeleteEmailTemplate`: Jeder, der eine geteilte Vorlage sieht, darf sie ändern,
+      löschen oder durch Umstellen auf `personal` an sich ziehen (`template/service.go` Update). Deshalb
+      sind PUT und DELETE heute admin-only, und member kann nicht einmal seine eigene persönliche Vorlage
+      ändern. Neu: eigene persönliche Vorlage ändern/löschen = member (Scope `own`). Geteilte Vorlagen ändern/löschen
+      und die Sichtbarkeit wechseln = nur admin. Der Besitz wird im Service geprüft.
+    sources:
+      - backend/internal/email/template/
+      - backend/internal/gateway/route_email.go
+    done_when:
+      - >
+        Router-Tests: member ändert eigene persönliche Vorlage 200, geteilte 403, fremde persönliche 404
+      - Umstellen shared->personal durch member 403
+
+  - id: feat-email-labels-read-assign-for-members
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Labels: Katalog geteilt
+      (pflegt admin), Zuweisen an eigenen Nachrichten für member.
+    target: member labelt seine eigenen Mails
+    coverage_start: n.a.
+    scope: >
+      Der Label-Katalog ist tenantweit. member darf ihn LESEN und Labels an EIGENEN Nachrichten zuweisen
+      und entfernen. Anlegen, Umbenennen und Löschen im Katalog bleiben admin. Datengrenze: Zuweisen nur
+      an Nachrichten aus eigenen Postfächern. Erst die Grenze, dann der Grant.
+    sources:
+      - backend/internal/email/label/
+      - backend/internal/gateway/route_email.go
+    done_when:
+      - >
+        Router-Tests: member liest Katalog 200, weist Label an eigener Nachricht zu 200, an fremder 404,
+        legt Label an 403
+
+  - id: feat-email-contact-history-own-for-members
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Mailverlauf am Kontakt:
+      member nur eigene Mails, manager/admin alle.
+    target: Kontakt-Mailverlauf für member ohne fremde Mails
+    coverage_start: n.a.
+    scope: >
+      `GET /email/links/contact/{id}` (`ContactDetailPanel.tsx:243`) liefert alle mit dem Kontakt verknüpften
+      Mails aller Mitarbeiter. Für member ist die Route heute 403, die Kachel bleibt leer. Neu: member (Scope
+      `own`) sieht nur Mails aus eigenen Postfächern, manager und admin alle. Die Begrenzung sitzt in der
+      Query, nicht als Filter nach dem Laden.
+    sources:
+      - backend/internal/email/contactlink/
+      - backend/internal/gateway/route_email.go
+    done_when:
+      - >
+        Router-/DB-Test: member sieht verknüpfte Mails seines Postfachs, nicht die eines Kollegen; manager
+        sieht beide
+
+  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): MASKIEREN. Für alle
+      außer dem Fahrer selbst (`driver_user_id`, seit Migration 340) erscheint eine Privatfahrt nur mit
+      Datum, km-Ständen, Strecke und dem Label „Privatfahrt“, ohne Ziel, Zweck, Route und GPS. Das gilt
+      für Liste, Fahrzeugliste UND Export. Der Export bleibt lückenlos, weil ein Fahrtenbuch auch Privatfahrten
+      mit km führen muss. Kein `include_private`-Parameter, kein Ausblenden.
+    target: Privatfahrten im Arbeitgeberbericht maskiert, Fahrtenbuch lückenlos
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12). `trip_logs` traegt `is_private
+      BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`) zur Unterscheidung privater von geschaeftlichen
+      Fahrten. Sowohl `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
+      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als Spalte,
+      filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber `HandleListTripLogs`, `HandleListVehicleTripLogs`
+      und `HandleExportTripLogs` (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar
+      neben geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV (`Service.ExportTripLogs`,
+      `internal/fuhrpark/service.go:754`) enthaelt damit private Fahrten des Fahrers im arbeitgeberseitigen
+      Bericht. Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der standardmaessig
+      `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung sichtbar), oder `is_private=true`-Zeilen
+      grundsaetzlich aus Liste UND Export ausschliessen. Die Entscheidung zwischen beiden Wegen (opt-in
+      sichtbar vs. immer ausgeblendet) gehoert Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
+      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine Admin-only-Angabe.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
+      - backend/migrations/000193_create_trip_logs.up.sql
+    notes: >
+      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer ausgeblendet) vorher
+      mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden Bericht ohne Ankuendigung waere
+      selbst ein Befund.
+    done_when:
+      - >
+        DB-Test: admin/manager sehen bei is_private nur Datum, km, Strecke und Label, der Fahrer selbst
+        sieht alles
+      - Export (CSV/PDF) enthält die Privatfahrt maskiert, nicht ausgelassen
+      - go test -count=1 ./internal/fuhrpark/ ./internal/gateway/ grün
+
+  - id: harden-share-tokens-hashed-wiki-formulare
+    phase: 4
+    service: wiki
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Hash-Ablage für Share-Tokens,
+      gemeinsamer Generator.
+    target: Wiki- und Formular-Share-Token nur noch als Hash gespeichert
+    coverage_start: n.a.
+    scope: >
+      Die Share-Token von Wiki und Formularen liegen im KLARTEXT in der DB. Wer die DB lesen kann (Backup,
+      falscher Join), hat gültige externe Zugänge. Neues Paket `internal/linksecret`: Generator (32 Byte
+      crypto/rand, base64url) plus `Hash` (SHA-256). Es ersetzt die wortgleichen Kopien in `wiki/share.go`
+      und `formulare/form_share.go`. Speicherung nur noch als Hash, der Lookup läuft über den Hash. Migration:
+      Hash-Spalte anlegen, Bestand per `digest()` (pgcrypto, falls aktiv, sonst App-Backfill in der Migration-Unit)
+      befüllen, Klartext-Spalte leeren oder droppen. Bestehende Links funktionieren weiter, weil der Hash
+      aus dem Bestands-Token stammt. Das Token wird nur einmal in der Create-Antwort zurückgegeben. Prüfen,
+      ob das Desktop das Token später erneut liest: `decide-formulare-share-link-url-channel-toggle` blendet
+      „Link kopieren“ bereits aus. Für Wiki in `desktop-aufrufer:` belegen.
+    sources:
+      - backend/internal/wiki/share.go
+      - backend/internal/formulare/form_share.go
+    done_when:
+      - 'DB-Test: Bestands-Token nach Migration gültig, Klartext nicht mehr in der Tabelle'
+      - Neues Token nur als Hash gespeichert, öffentlicher Lookup per Hash
+      - Migration up/down/up sauber, RLS-Smoke
+
+  - id: harden-share-tokens-hashed-berichte-csat
+    phase: 4
+    service: berichte
+    model: opus
+    deps:
+      - harden-share-tokens-hashed-wiki-formulare
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Hash-Ablage auch
+      für Berichte- und CSAT-Token.
+    target: kein Link-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Zweiter Teil von `harden-share-tokens-hashed-wiki-formulare`: Berichte-Share-Secret (`berichte/service.go:newShareSecret`)
+      und CSAT-Survey-Token (`helpdesk/csat_survey.go`) auf `internal/linksecret` und Hash-Ablage umstellen,
+      nach demselben Migrationsmuster. CSAT ist in Produktion aus, das Token wird trotzdem umgestellt.
+    sources:
+      - backend/internal/berichte/service.go
+      - backend/internal/helpdesk/csat_survey.go
+    done_when:
+      - 'DB-Test je Tabelle: Bestands-Token gültig, Klartext entfernt'
+      - Keine Kopie des Generators mehr im Repo (grep belegt das)
+
+  - id: harden-share-links-max-365-days
+    phase: 4
+    service: wiki
+    model: sonnet
+    deps:
+      - harden-share-tokens-hashed-berichte-csat
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Pflichtablauf für
+      Share-Links, höchstens 365 Tage.
+    target: kein Share-Link ohne Ablauf
+    coverage_start: n.a.
+    scope: >
+      Share-Links von Wiki und Formularen laufen heute nie ab, Berichte nur, wenn ein Ablauf gesetzt ist
+      (max. 365 Tage). Einheitlich: Fehlt `expires_at`, gilt jetzt + 365 Tage. Liegt der Wert über 365 Tagen,
+      gibt es 400. Bestand ohne Ablauf bekommt per Migration `created_at + 365 Tage`; über ein Jahr alte
+      Links laufen damit sofort ab, Anzahl in `offen:`. Das Desktop sendet heute kein Ablaufdatum. Dass
+      es mit dem Default funktioniert, in `desktop-aufrufer:` belegen.
+    sources:
+      - backend/internal/wiki/
+      - backend/internal/formulare/
+      - backend/internal/berichte/service.go
+    done_when:
+      - 'Router-Tests: ohne expires_at -> Default 365 Tage, 400 Tage -> 400'
+      - 'DB-Test: abgelaufener Link -> 404/410 wie bei Berichten'
+
+  - id: harden-calendar-join-token-participants-only
+    phase: 4
+    service: calendar
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Kalender-Join-Token
+      nur für Organisator und Teilnehmer.
+    target: kein Join-Token für Events, an denen man nicht teilnimmt
+    coverage_start: n.a.
+    scope: >
+      `GenerateJoinToken` (`calendar_grpc.go:1330`, Route `POST /calendar/events/{id}/join-token`, Guard
+      `calendars:write`) gibt JEDEM mit `calendars:write` ein Token für JEDES Event des Tenants. LiveKit-Token
+      lassen sich nicht widerrufen und gelten 24 h. Neu: nur Organisator und Teilnehmer des Events, sonst
+      NotFound (kein Existenz-Orakel).
+    sources:
+      - backend/internal/server/calendar_grpc.go
+      - backend/internal/gateway/route_calendar.go
+    done_when:
+      - >
+        gRPC/DB-Test: Teilnehmer bekommt Token, Fremder (gleicher Tenant, calendars:write) NotFound
+      - Desktop-Aufrufer geprüft (Join aus dem Kalender als Teilnehmer)
+
+  - id: fix-offboarding-revokes-caldav-app-passwords
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Offboarding widerruft
+      CalDAV-App-Passwörter.
+    target: offboardete Nutzer erreichen CalDAV nicht mehr
+    coverage_start: n.a.
+    scope: >
+      Beim Offboarding (`employee.Service` Offboard, Route `POST /hr/employees/{id}/offboard`) bleiben die
+      CalDAV-App-Passwörter des Nutzers bestehen (`caldav/postgres_app_password.go`). Erst prüfen, ob die
+      Basic-Auth inaktive Nutzer schon ablehnt (Unit `fix-caldav-basic-auth-ignores-user-state` aus einem
+      früheren Lauf). Unabhängig davon widerruft das Offboarding die App-Passwörter, in derselben Transaktion
+      oder als idempotenter Folgeschritt mit Fehlerprotokoll.
+    sources:
+      - backend/internal/biz/hr/employee/service.go
+      - backend/internal/caldav/
+    done_when:
+      - 'DB-Test: nach Offboarding hat der Nutzer kein gültiges App-Passwort mehr, CalDAV-Login 401'
+
+  - id: fix-video-egress-after-initiator-consent
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (a) im Backend.
+      Auf Prod ist `LIVEKIT_EGRESS_TEMPLATE_URL` leer (am 2026-10-25 geprüft), Aufnahmen gehen dort noch
+      nicht. Der Fix kommt VOR dem Scharfschalten. `StartRecording` legt nur `pending` an, erst `ConfirmInitiatorConsent`
+      startet den Egress (genau einmal, idempotent). Bleibt eine pending-Zeile ohne Bestätigung liegen,
+      startet nichts.
+    target: ohne Initiator-Stempel kein Egress
+    coverage_start: internal/work/recording (ungemessen)
+    scope: >
+      Gefunden in fix-video-initiator-consent-rpc-cannot-marshal (Lauf 16, Iteration 14), gegen Code belegt:
+      `recording.Service.StartRecording` legt die Zeile an und startet den LiveKit-Egress SOFORT (`service.go`,
+      `StartRoomCompositeEgress` nach `CountPendingConsents`). Das Desktop (`CallControls.tsx:121-150`)
+      ruft erst `startRecording`, zeigt DANN den Initiator-Dialog und stempelt bei „Bestätigen" `initiator-consent`;
+      „Abbrechen" (`handleCancelStart`) schließt nur den Dialog — die Aufnahme läuft weiter, ohne dass der
+      Initiator bestätigt hat, und `activeRecordingId` bleibt leer (UI weiß ggf. nicht, dass aufgenommen
+      wird). Der als Gegenmittel gebaute `PreConsentChecker` ist NICHT verdrahtet: `cmd/work/main.go` ruft
+      `recording.NewService` ohne Checker, und es gibt keine einzige Implementierung von `HasInitiatorConsented`.
+      Der Stempel ist damit rein dokumentarisch. Erster Schritt: prüfen, ob Egress in Produktion konfiguriert
+      ist (`LIVEKIT_EGRESS_TEMPLATE_URL` im work-Service, ohne den `ErrEgressNotConfigured` und die Frage
+      ist akademisch) — das gehört Luke (Prod-Lesezugriff). Danach eine Architektur-Entscheidung (Luke):
+      (a) Egress erst nach dem Stempel starten (StartRecording legt nur `pending` an, `ConfirmInitiatorConsent`
+      startet den Egress), oder (b) Abbrechen ruft `stopRecording` + Löschung — (b) wäre Desktop-Code, den
+      der Loop nicht ändert. Kein Bau ohne Entscheidung.
+    sources:
+      - backend/internal/work/recording/service.go
+      - backend/cmd/work/main.go
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+    done_when:
+      - >
+        Service-Test: ohne Stempel kein StartRoomCompositeEgress-Aufruf, nach Stempel genau einer, zweiter
+        Stempel startet nichts erneut
+      - >
+        Desktop-Ablauf (start -> Dialog -> bestätigen) funktioniert weiter (desktop-aufrufer belegt)
+      - go test -count=1 ./internal/work/... ./internal/server/ grün
+
+  - id: review-run17-r1
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Block S und A (Scans, Inbox, E-Mail, Fuhrpark-Maske, Tokens, Kalender).
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: seed-leave-types-on-tenant-provisioning
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    target: neuer Tenant hat ab Anlage die zehn System-Urlaubsarten
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      000345 kopiert die Zero-UUID-Vorlagen aus 000046 nur in die Tenants, die beim Migrieren existieren
+      (`lean:`-Marker dort). Ein später angelegter Tenant (Provisioning in `internal/auth/postgres_repository.go:~1227`,
+      `INSERT INTO tenants`) hat wieder keine Urlaubsart: kein Urlaubsantrag, `RecordSickLeave` findet "krank"
+      nicht. Gleiches Muster prüfen für `hr_document_categories` (dort liest `ListByTenant` die Vorlagen
+      mit, also vermutlich kein Bruch). Fix in derselben Transaktion wie die Tenant-Anlage oder als idempotentes
+      Seed beim ersten HR-Zugriff, DB-Test mit frischem Tenant.
+    sources:
+      - backend/migrations/000345_copy_system_leave_types_to_tenants.up.sql
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+    done_when:
+      - 'DB-Test: frisch provisionierter Tenant hat urlaub und krank (is_system)'
+
+  - id: fix-produktion-concurrent-booking-move-deadlock
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    target: >
+      zwei gleichzeitige Umbuchungen auf dasselbe Fenster: eine gewinnt, die andere 409 — nie 500
+    coverage_start: n.a. (Bugfix/Flake)
+    scope: >
+      `TestMachineBookingOverlapConstraint/two_concurrent_moves_onto_the_same_window` fiel auf main nach
+      dem Merge von PR #28 (CI-Run 40196109073) mit `deadlock detected (SQLSTATE 40P01)`; das Paket war
+      nicht im Lauf. Zwei UPDATEs verschiedener Zeilen prüfen dieselbe Exclusion- Constraint und können
+      sich gegenseitig blockieren; Postgres bricht dann einen mit 40P01 ab. `UpdateBooking` bildet nur 23P01
+      auf `ErrBookingConflict` ab, der Verlierer bekäme im Betrieb also 500. Fix: 40P01 dort ebenfalls als
+      Konflikt (oder ein Retry), Test bleibt bei "1 win / 1 conflict". Gleiches Muster in `CreateBookingWithLock`
+      prüfen.
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/produktion/booking_overlap_constraint_test.go
+    done_when:
+      - Test 20x mit -race grün (CI), 40P01 im Repo-Mapping
+
+  - id: harden-einkauf-po-line-tax-rate-range
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    target: tax_rate ausserhalb 0..1 ist 400, nicht 500
+    coverage_start: n.a. (Haertung)
+    scope: >
+      `po_lines.tax_rate` ist NUMERIC(5,4), also ein Bruch (0.19). Der E2E-Flow schickte "19" und bekam
+      500 (`numeric field overflow`, SQLSTATE 22003, CI-Run 40188556300). Der Desktop sendet heute keinen
+      Steuersatz (EinkaufDialogs), `einkauf-export.ts:173` rechnet ihn als Bruch. Validierung an der Trust-Boundary
+      (Service oder Gateway-Tag), gleiche Prüfung für update line; Spec-Beschreibung "Bruch, 0.19 = 19 %".
+    sources:
+      - backend/internal/einkauf/service.go
+      - backend/internal/gateway/route_einkauf.go
+      - backend/migrations/000085_create_einkauf.up.sql
+    done_when:
+      - 'Gateway-Test: tax_rate 19 -> 400 mit validation_failed, 0.19 -> 201'
+
+  - id: fix-pagination-max-200-for-vermietung-and-inventar-lists
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: keine Branchenliste kappt still auf 50
+    coverage_start: internal/gateway 77,8 %
+    scope: >
+      Vermietung (`route_vermietung.go:207,439`) und Inventar (`route_inventar.go:262` u. a.) parsen die
+      Seitengröße mit `parsePagination(r,1,50)`. Alles über 100 fällt still auf den Default 50 zurück (`helpers.go:107`).
+      Das Desktop fragt 200 bzw. 500 an (`VermietungPage.tsx:643/644`, `InventarPage.tsx:796`) und zeigt
+      ohne Hinweis nur 50 Einträge. Fix: `parsePaginationMax` mit `listPageSizeMax` (200) wie bei CRM und
+      Work (Lauf 16). In derselben Unit alle Listen der Branchenmodule (fuhrpark, produktion, vertraege,
+      rapporte, einkauf, schichten) auf dasselbe Muster prüfen und gleich behandeln, solange es nur Gateway-Parsing
+      ist. OpenAPI `maximum` nachziehen.
+    sources:
+      - backend/internal/gateway/helpers.go
+      - backend/internal/gateway/route_vermietung.go
+      - backend/internal/gateway/route_inventar.go
+    done_when:
+      - 'Router-Test je umgestellter Route: page_size=200 -> 200, page_size=500 -> 200 (nicht 50)'
+      - TestOpenAPIRouteDrift + swagger-cli validate grün
+
+  - id: fix-recurring-concurrent-generate-test-flake
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice ist deterministisch
+    coverage_start: n.a. (Test-Flake)
+    scope: >
+      Fiel im PR #28 einmal unter `-race` (CI-Run 40191840035, 2 Rechnungen statt 1, Paket nicht im Lauf
+      angefasst). Ursache: liest der zweite Racer den Plan erst NACH `repo.Update` des ersten, steht `NextRun`
+      schon auf der Folgeperiode und er claimt legitim diese — zwei Rechnungen für zwei Perioden. `ClaimPeriod`
+      (ON CONFLICT) schützt nur dieselbe Periode, und das tut es. Einziger Aufrufer ist der manuelle RPC
+      (`biz_grpc_recurring.go:231`), kein Scheduler. Fix im Test: beide Racer müssen dieselbe Periode sehen
+      (z. B. Barriere nach `GetByID` über einen Test-Hook, oder Generate zweimal mit vorab geladenem Plan).
+      Daneben die Produktfrage für Luke: darf "jetzt erzeugen" eine noch nicht fällige Folgeperiode abrechnen
+      (Doppelklick = zwei Monate)? Wenn nein, `Generate` mit `NextRun > heute` ablehnen.
+    sources:
+      - backend/internal/biz/recurring/service.go
+      - backend/internal/biz/recurring/service_db_test.go
+    done_when:
+      - Test 20x mit -race grün (CI) und Produktfrage im Journal beantwortet oder als decide-Unit
+
+  - id: e2e-local-gate-check
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    target: lokales E2E-Gate in der Loop-Umgebung abgenommen
+    coverage_start: n.a. (Gate)
+    scope: >
+      Erste Iteration mit dem lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh`,
+      gebaut in der Staging-Session). Die volle bestehende Suite in DER LOOP-UMGEBUNG laufen lassen (`claude
+      -p`, bypassPermissions) und die Laufzeit messen. Ist sie grün, ist das Gate abgenommen. Ist sie rot:
+      Ursache klären. Ein Stack-Problem (Port, Firewall, Env, Build) fixt du im Skript, das darf der Loop
+      anfassen. Ein Test- oder Code-Problem wird eine Fix-Unit vor die erste todo-Unit. Startet der Stack
+      in der Loop-Umgebung gar nicht, setzt du die Unit auf blocked (mit Grund, nach NEXT). Alle E2E-Units
+      fallen dann auf das alte Gate zurück (`go vet -tags=e2e`, "E2E erst in CI").
+    sources:
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+      - .github/workflows/ci.yml
+      - backend/test/e2e/
+    done_when:
+      - Volle E2E-Suite lokal grün, Laufzeit und Speicherspitze im Journal
+      - 'Aufräumen belegt: keine Service-Prozesse und keine e2e-Container nach dem Lauf'
+
+  - id: review-run17-r2
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Block B (Reste, Pagination) und die ersten Fix-Units aus den Scans.
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: e2e-produktion-member-flow
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'produktion: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: Auftrag/Plan als manager anlegen, als member Arbeitsschritte
+      sehen und zurückmelden (Grants aus Migration 339), Maschinenbuchung nur lesen. Zwei parallele Umbuchungen
+      auf dasselbe Fenster: eine gewinnt, die andere 409. Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`,
+      Clients UND Hooks; MSW-Mocks sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet
+      und der 403/500 liefert, ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern
+      eine Fix-Unit vor die erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands
+      plus Kommentar auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant
+      sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_produktion.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-rapporte-member-fill-manager-approve-flow
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'rapporte: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: member füllt einen Rapport aus einer Vorlage, reicht
+      ihn ein; manager (Berichtslinie) genehmigt bzw. lehnt ab; member reicht den abgelehnten erneut ein
+      (atomares Submit aus Lauf 15); fremder member sieht den Rapport nicht. Bodies exakt wie das Desktop
+      sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks sind kein Beleg). Jeder
+      Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert, ist ein FUND: Schritt nicht
+      weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die erste todo-Unit legen und
+      den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar auf die Fix-Unit festhalten.
+      Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_rapporte.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-fuhrpark-member-booking-license-damage-flow
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'fuhrpark: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: member bucht ein Fahrzeug, sieht seine Buchung, meldet
+      einen Schaden, sieht seine Führerscheinkontrolle; Doppelbuchung desselben Fensters 409; fremde Buchung
+      nicht änderbar. Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients
+      UND Hooks; MSW-Mocks sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und
+      der 403/500 liefert, ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern
+      eine Fix-Unit vor die erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands
+      plus Kommentar auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant
+      sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_fuhrpark.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-fuhrpark-trip-log-private-masking-flow
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+      - fix-fuhrpark-trip-logs-private-flag-not-filtered
+    status: todo
+    target: 'fuhrpark: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: member (Fahrer) legt eine Privatfahrt und eine Geschäftsfahrt
+      an; er selbst sieht beide voll; admin/manager sehen die Privatfahrt maskiert in Liste und Export.
+      Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks
+      sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert,
+      ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die
+      erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar
+      auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert
+      die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_fuhrpark.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-vermietung-member-inspection-flow
+    phase: 4
+    service: vermietung
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'vermietung: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: Mietobjekt und Vermietung als manager anlegen; member
+      legt ein Übergabeprotokoll an und liest es (Grant `inspection:create`), ändert es nicht (403). Bodies
+      exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks sind
+      kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert, ist
+      ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die erste
+      todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar auf
+      die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert
+      die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_vermietung.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-vermietung-rental-lists-and-calendar-flow
+    phase: 4
+    service: vermietung
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+      - fix-pagination-max-200-for-vermietung-and-inventar-lists
+    status: todo
+    target: 'vermietung: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: Listen mit page_size 200/500 wie das Desktop (`VermietungPage.tsx:643/644`)
+      liefern mehr als 50 Einträge; Kalender-Abfrage wie das Desktop. Bodies exakt wie das Desktop sie sendet
+      (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks sind kein Beleg). Jeder Schritt, den
+      die Oberfläche einem member anbietet und der 403/500 liefert, ist ein FUND: Schritt nicht weglassen
+      und nicht auf admin ausweichen, sondern eine Fix-Unit vor die erste todo-Unit legen und den Schritt
+      mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar auf die Fix-Unit festhalten. Fremdzugriff
+      mitprüfen: ein zweiter member im selben Tenant sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_vermietung.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-vertraege-flow
+    phase: 4
+    service: vertraege
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'vertraege: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: manager legt einen Vertrag mit Fristen an, member
+      liest (Scope laut Seed), Kündigungsfrist/Verlängerung wie das Desktop; fremder Tenant 404. Bodies
+      exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks sind
+      kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert, ist
+      ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die erste
+      todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar auf
+      die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert
+      die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_vertraege.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-formulare-flow
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'formulare: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: manager legt ein Formular an und veröffentlicht es,
+      member füllt aus bzw. sieht Einreichungen laut Seed; Share-Link anlegen/widerrufen wie das Desktop.
+      Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks
+      sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert,
+      ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die
+      erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar
+      auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert
+      die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_formulare.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-helpdesk-member-ticket-flow
+    phase: 4
+    service: helpdesk
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'helpdesk: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: Ticket anlegen, einem member zuweisen; member liest
+      und kommentiert; Bearbeiten des zugewiesenen Tickets heute 403 (Fund -> `feat-helpdesk-assigned-tickets-edit-for-members`
+      deckt das, Erwartung des Ist-Zustands mit Kommentar). Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`,
+      Clients UND Hooks; MSW-Mocks sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet
+      und der 403/500 liefert, ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern
+      eine Fix-Unit vor die erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands
+      plus Kommentar auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant
+      sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_helpdesk.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-wiki-member-page-flow
+    phase: 4
+    service: wiki
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'wiki: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: member legt eine Seite an, bearbeitet sie, liest fremde
+      Seiten laut Seed; Teilen und Löschen heute 403 (-> `feat-wiki-own-page-share-delete-for-members`).
+      Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`, Clients UND Hooks; MSW-Mocks
+      sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet und der 403/500 liefert,
+      ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern eine Fix-Unit vor die
+      erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands plus Kommentar
+      auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant sieht/ändert
+      die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_wiki.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: e2e-berichte-schedule-run-now-flow
+    phase: 4
+    service: berichte
+    model: sonnet
+    deps:
+      - e2e-local-gate-check
+    status: todo
+    target: 'berichte: member-Flow läuft lokal und in CI gegen den echten Seed'
+    coverage_start: n.a.
+    scope: >
+      E2E als member gegen den echten Seed (Muster `TestSchichtenMemberFlow`, `registerAndLoginWithRole`,
+      `setReportingLine` in `helpers_test.go`). Flow: manager legt einen Zeitplan an und ruft `POST /berichte/schedules/{id}/run`
+      (Lauf 16); member sieht nur, was sein Seed erlaubt. Bodies exakt wie das Desktop sie sendet (`desktop/src/renderer/src/api/`,
+      Clients UND Hooks; MSW-Mocks sind kein Beleg). Jeder Schritt, den die Oberfläche einem member anbietet
+      und der 403/500 liefert, ist ein FUND: Schritt nicht weglassen und nicht auf admin ausweichen, sondern
+      eine Fix-Unit vor die erste todo-Unit legen und den Schritt mit `t.Skip`-freier Erwartung des IST-Zustands
+      plus Kommentar auf die Fix-Unit festhalten. Fremdzugriff mitprüfen: ein zweiter member im selben Tenant
+      sieht/ändert die Daten des ersten nicht.
+    sources:
+      - backend/test/e2e/helpers_test.go
+      - backend/test/e2e/schichten_test.go
+      - backend/internal/gateway/route_berichte.go
+    done_when:
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Testname>'` grün (lokaler Stack), Laufzeit
+        im Journal
+      - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
+      - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: feat-schichten-own-assignments-for-members
+    phase: 4
+    service: schichten
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member sieht eigene
+      Schichten und Vorlagen.
+    target: member sieht seinen Dienstplan
+    coverage_start: n.a.
+    scope: >
+      member sieht seine EIGENE Schichtzuweisung nicht (`schichten:assignment:read` und `template:read`
+      fehlen). Datengrenze zuerst: Bei Scope `own` liefern die Zuweisungs-Listen nur eigene Zuweisungen.
+      Ob member den Dienstplan der Kollegen sehen darf, bleibt bei `all` für manager. Danach der Grant (Regel
+      3). Schichtvorlagen lesen ist unkritisch und wird ebenfalls gegrantet.
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/schichten/
+    done_when:
+      - 'Router-Test als member: eigene Zuweisungen sichtbar, fremde nicht'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh TestSchichtenMemberFlow` grün (Flow um Lesen
+        der eigenen Zuweisung erweitern)
+
+  - id: feat-helpdesk-assigned-tickets-edit-for-members
+    phase: 4
+    service: helpdesk
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member bearbeitet
+      ihm zugewiesene Tickets.
+    target: Helpdesk für member nutzbar
+    coverage_start: n.a.
+    scope: >
+      member darf Tickets bearbeiten, die ihm ZUGEWIESEN sind. Die own-Grenze läuft über den Assignee, nicht
+      über den Ersteller. Datengrenze im Service, Guard additiv, Seed nach Regel 3. Zuweisen/Umzuweisen
+      bleibt manager/admin.
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/helpdesk/
+    done_when:
+      - >
+        Router-Test: member bearbeitet zugewiesenes Ticket 200, nicht zugewiesenes 404/403, Umzuweisen 403
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Helpdesk-Flow>'` grün (Erwartung aus `e2e-helpdesk-member-ticket-flow`
+        umstellen)
+
+  - id: feat-work-own-task-delete-for-members
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member löscht eigene
+      Aufgaben.
+    target: member räumt eigene Aufgaben auf
+    coverage_start: n.a.
+    scope: >
+      member darf Aufgaben löschen, die er SELBST angelegt hat (own über `created_by`). Projekte löschen
+      bleibt manager. Datengrenze im Service, Guard additiv, Seed nach Regel 3.
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/work/task/
+    done_when:
+      - 'Router-Test: member löscht eigene Aufgabe 204, fremde 403/404, Projekt 403'
+
+  - id: feat-crm-deals-write-team-scope-for-members
+    phase: 4
+    service: crm
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member schreibt Deals
+      mit Team-Scope.
+    target: member pflegt die Pipeline seines Teams
+    coverage_start: n.a.
+    scope: >
+      member kann heute keine Deals anlegen oder bearbeiten, ein Vertriebsmitarbeiter pflegt also keine
+      Pipeline. Grant für Deals schreiben mit Scope `team`. Erst prüfen, dass die Team-Grenze für Deals
+      im Service existiert und greift (Muster `crm:contact:edit|team`); fehlt sie, baust du sie zuerst.
+      Löschen bleibt manager/admin.
+    sources:
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/internal/crm/deal/
+    done_when:
+      - >
+        Router-Test: member legt Deal an/bearbeitet Team-Deal 200, Deal eines anderen Teams 403/404, löscht
+        403
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh TestContactAndDealDesktopBodyFlow` grün (um
+        member-Schritt erweitern)
+
+  - id: feat-wiki-own-page-share-delete-for-members
+    phase: 4
+    service: wiki
+    model: opus
+    deps:
+      - harden-share-links-max-365-days
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member teilt und
+      löscht eigene Wiki-Seiten.
+    target: Wiki-Pflege für member
+    coverage_start: n.a.
+    scope: >
+      member darf EIGENE Wiki-Seiten teilen und löschen (own über den Autor). Fremde Seiten bleiben manager/admin.
+      Share-Links laufen nach `harden-share-links-max-365-days` mit Ablauf.
+    sources:
+      - backend/internal/gateway/route_wiki.go
+      - backend/internal/wiki/
+    done_when:
+      - 'Router-Test: eigene Seite teilen/löschen 200/204, fremde 403/404'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Wiki-Flow>'` grün (Erwartung aus `e2e-wiki-member-page-flow`
+        umstellen)
+
+  - id: feat-fuhrpark-vehicle-availability-route
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Schmale Verfügbarkeitsroute
+      statt booking:read all.
+    target: member sieht freie Fahrzeugzeiten
+    coverage_start: n.a.
+    scope: >
+      member sieht nur eigene Buchungen und erfährt die Belegung eines Fahrzeugs erst per 409. Neue schmale
+      Route (z. B. `GET /fuhrpark/vehicles/{id}/availability?from&to`): belegte Zeitfenster OHNE Nutzer
+      und Zweck. API-First: zuerst OpenAPI, dann gRPC-Hop (kein Service-Shortcut im Gateway), Guard auf
+      einen vorhandenen member-Key (`fuhrpark:booking:create` o. ä.).
+    sources:
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/
+      - backend/api/openapi.yaml
+    done_when:
+      - 'Router-Test als member: belegte Fenster sichtbar, ohne user_id/purpose im Body'
+      - TestOpenAPIRouteDrift + swagger-cli validate grün
+
+  - id: seed-fuhrpark-damage-read-all-for-members
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Schäden aller Fahrzeuge
+      für member lesbar.
+    target: member sieht bekannte Schäden
+    coverage_start: n.a.
+    scope: >
+      `fuhrpark:damage:read` für member von `own` auf `all` heben. Die Schäden stehen ohnehin in `/vehicles/{id}/history`
+      (`vehicle:read`). Bearbeiten und Auflösen bleiben admin. Seed nach Regel 3 (Scope-Update der bestehenden
+      Zeile, Down setzt zurück).
+    sources:
+      - backend/migrations/
+      - backend/internal/gateway/route_fuhrpark.go
+    done_when:
+      - 'Router-Test als member: Schaden eines Kollegen lesbar, ändern 403'
+
+  - id: feat-inventar-transfer-for-movement-create
+    phase: 4
+    service: inventar
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Umbuchung für member
+      mit movement:create.
+    target: member bucht um
+    coverage_start: n.a.
+    scope: >
+      `POST /inventar/transfer` hängt nur an `inventar:item:write`. member hat `inventar:movement:create`
+      und darf Ein- und Ausgang einzeln buchen, und die Umbuchung ist dieselbe Bewegung. Guard additiv `RequirePermissionAny(item:write,
+      movement:create)`, der Akteur wird gepinnt (Lauf 16, `callerIDPtr`).
+    sources:
+      - backend/internal/gateway/route_inventar.go
+    done_when:
+      - 'Router-Test als member: Umbuchung 200, Akteur = Aufrufer'
+      - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestInventarEinkaufFlow` grün'
+
+  - id: seed-finance-module-view-for-managers
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Finanz-Modulkachel
+      für manager.
+    target: manager sieht das Finanzmodul
+    coverage_start: n.a.
+    scope: >
+      manager hält `finance:read`, aber nicht `finance:module:view`, deshalb fehlt die Modulkachel. Seed
+      nach Regel 3 (eine Zeile, Down entfernt sie).
+    sources:
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+    done_when:
+      - Migration up/down/up sauber
+      - 'DB-Test oder Router-Probe: manager-Token trägt finance:module:view'
+
+  - id: feat-hr-team-documents-for-managers
+    phase: 4
+    service: hr
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
+      Personalakte seiner Berichtslinie.
+    target: Personalakte für Teamleiter
+    coverage_start: n.a.
+    scope: >
+      `GET /hr/employees/{id}/documents` (und Upload) kennt nur `hr:read`/`hr:write`. manager hält `team:documents:view|team`,
+      bekommt aber 403. GET additiv auf `team:documents:view` mit Berichtslinien-Grenze (Muster `feat-hr-reporting-line-and-team-time-scope`,
+      Lauf 16). Upload bleibt HR/admin.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/
+    done_when:
+      - >
+        Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
+
+  - id: feat-hr-team-profile-full-fields-for-managers
+    phase: 4
+    service: hr
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager sieht Vollfelder
+      der Berichtslinie.
+    target: Teamprofil für Teamleiter vollständig
+    coverage_start: n.a.
+    scope: >
+      `fix-hr-employee-detail-for-members` liefert dem manager nur die Verzeichnisfelder. Für seine Berichtslinie
+      zusätzlich Personal- und Vertragsdaten (`team:data_personal:view|team`, `team:data_job:view|team`).
+      Gehalt und Bank bleiben HR, wenn das Modell sie trennt; sonst die Feldliste im Journal begründen.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/employee/
+    done_when:
+      - 'Router-Test: manager sieht Vollfelder eines Berichts, nur Verzeichnisfelder eines Fremden'
+
+  - id: feat-absence-calendar-projection-for-members
+    phase: 4
+    service: hr
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Projektion für member,
+      Art für die Berichtslinie des managers.
+    target: Abwesenheitskalender für alle, ohne Gesundheitsdaten
+    coverage_start: n.a.
+    scope: >
+      `GET /hr/absences/calendar` ist admin-only (`hr:read`) und liefert die Abwesenheitsart im Klartext
+      ('Krankheit' = Gesundheitsdatum, Art. 9 DSGVO). Neu: `RequirePermissionAny(hr:read, team:absence:read)`.
+      Ohne `hr:read` gibt es eine schmale Projektion: Name, Abteilung, Zeitraum, Grobklasse `absent`, neutrale
+      Farbe, ohne Art und ohne Tageszahl. Ein manager sieht für SEINE Berichtslinie zusätzlich die Art.
+      Achtung: member hält `team:absence:read` auf Scope `all` (000256).
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/absence/
+    done_when:
+      - >
+        Router-Test: member sieht keinen leave_type_name/total_days, manager sieht die Art nur für Berichte,
+        admin voll
+
+  - id: feat-dashboard-team-worktime-route
+    phase: 4
+    service: gateway
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Geister-Routen: Empfehlung
+      übernommen, team-worktime wird gebaut.
+    target: Team-Arbeitszeit-Widget hat ein Backend
+    coverage_start: n.a.
+    scope: >
+      Das Default-Widget ruft `GET /dashboard/team-worktime`, die Route existiert nicht. Bauen: auf `GetTeamTime`
+      mit Berichtslinien-Scope (Lauf 16). member ohne Berichte bekommt eine leere Liste (kein 403), das
+      FE zeigt den Empty-State. OpenAPI zuerst, gRPC-Hop. Den rohen `fetch` ohne Auth-Header im Hook behebt
+      `fe-raw-fetch-without-auth-header`; in `offen:` vermerken, dass das Widget erst danach Daten zeigt.
+    sources:
+      - backend/internal/gateway/
+      - desktop/src/renderer/src/api/hooks/useTeamWorktime.ts
+    done_when:
+      - 'Router-Test: manager sieht Berichte, member leere Liste 200'
+      - TestOpenAPIRouteDrift + swagger-cli validate grün
+
+  - id: review-run17-r3
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Block E (E2E-Funde) und die Rechte-Units aus Block D.
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: feat-scrub-email-sender-names-on-contact-anonymize
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (c): nur
+      die Namensfelder scrubben.
+    target: Absendername nach Anonymisierung weg
+    coverage_start: n.a.
+    scope: >
+      Beim Anonymisieren eines Kontakts `email_messages.from_name`/`from_email` der über `email_contact_links`
+      verknüpften Mails scrubben (Muster `ScrubDependentPII`, `crm/consent/scrub.go`). Body, HTML und Header
+      bleiben als dokumentiertes Restrisiko (§257 HGB, Handelsbriefe) in der Godoc-Liste „Deliberately NOT
+      scrubbed“.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/migrations/000041_create_email_tables.up.sql
+    done_when:
+      - >
+        DB-Test: nach Anonymisierung tragen verknüpfte Mails keinen Namen und keine Adresse des Kontakts
+      - Godoc-Liste ergänzt
+
+  - id: feat-dsar-meeting-notes-and-chat
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): DSAR + Frist 2 Jahre
+      für Meeting-Notizen und -Chat (Teil 1: DSAR).
+    target: Auskunft umfasst Meeting-Notizen und -Chat
+    coverage_start: n.a.
+    scope: >
+      `meetingsModule` im DSAR (`gdpr/dsar_search*.go`) liest nur Meeting-Metadaten. Ergänzen um `meeting_notes`
+      (Autor = Betroffener) und `meeting_chat_messages` (Absender = Betroffener). Private Notizen anderer
+      bleiben draußen.
+    sources:
+      - backend/internal/security/gdpr/
+      - backend/internal/work/meeting/postgres_repository.go
+    done_when:
+      - 'DB-Test: DSAR eines Nutzers enthält seine Notizen und Chat-Beiträge, nicht die anderer'
+
+  - id: feat-retention-meeting-notes-and-chat-2y
+    phase: 4
+    service: security
+    model: sonnet
+    deps:
+      - feat-dsar-meeting-notes-and-chat
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): DSAR + Frist 2 Jahre
+      (Teil 2: Frist).
+    target: Meeting-Notizen/-Chat haben eine Frist
+    coverage_start: n.a.
+    scope: >
+      Retention-Handler für `meeting_notes` und `meeting_chat_messages`: löschen 2 Jahre nach Meeting-Ende,
+      nach dem Muster `retention_calendar_events.go`. Dry-Run als Default (der Worker läuft mit `RETENTION_MODE=dry_run`).
+      Registry-Eintrag und Test mit echter DB.
+    sources:
+      - backend/internal/security/gdpr/retention_calendar_events.go
+    done_when:
+      - 'DB-Test: älter als 2 Jahre -> Kandidat, jünger nicht; dry_run löscht nichts'
+
+  - id: feat-erasure-deletes-rental-inspection-photos
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Fotos löschen, Lieferanten
+      = HGB-Geschäftsdaten.
+    target: Inspektionsfotos verschwinden mit der Person
+    coverage_start: n.a.
+    scope: >
+      Beim Löschen (Art. 17) bleiben die Fotoobjekte hinter `photo_urls` der Mietinspektion im Objektspeicher
+      (72b9c6d1). Die Erasure löscht die Objekte mit, idempotent, Fehler im Erasure-Log. Lieferantendaten
+      sind NICHT Teil der Unit: Sie gelten als Geschäftsdaten (HGB) und hängen an `decide-retention-policy-hgb-ao-domains`.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/vermietung/
+    done_when:
+      - >
+        Test mit Objektspeicher-Fake oder MinIO: nach Erasure keine Fotoobjekte des Betroffenen mehr
+
+  - id: feat-retention-dialer-agent-status-log-12m
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Paket Logs/Buchungen:
+      dialer_agent_status_log 12 Monate.
+    target: dialer_agent_status_log hat eine Frist
+    coverage_start: n.a.
+    scope: >
+      Retention-Handler für `dialer_agent_status_log`: löschen 12 Monate nach Zeitpunkt des Statuswechsels,
+      nach dem Muster `retention_guest_sessions.go`. Dry-Run als Default, Registry-Eintrag, DB-Test.
+    sources:
+      - backend/internal/security/gdpr/
+    done_when:
+      - 'DB-Test: älter als 12 Monate -> Kandidat, jünger nicht; dry_run löscht nichts'
+
+  - id: feat-retention-call-sessions-24m
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Paket Logs/Buchungen:
+      call_sessions/call_participants 24 Monate.
+    target: call_sessions/call_participants hat eine Frist
+    coverage_start: n.a.
+    scope: >
+      Retention-Handler für `call_sessions/call_participants`: löschen 24 Monate nach Ende des Anrufs, nach
+      dem Muster `retention_guest_sessions.go`. Dry-Run als Default, Registry-Eintrag, DB-Test.
+    sources:
+      - backend/internal/security/gdpr/
+    done_when:
+      - 'DB-Test: älter als 24 Monate -> Kandidat, jünger nicht; dry_run löscht nichts'
+
+  - id: feat-retention-public-bookings-24m
+    phase: 4
+    service: security
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Paket Logs/Buchungen:
+      public_bookings 24 Monate.
+    target: public_bookings hat eine Frist
+    coverage_start: n.a.
+    scope: >
+      Retention-Handler für `public_bookings`: löschen 24 Monate nach Terminende, nach dem Muster `retention_guest_sessions.go`.
+      Dry-Run als Default, Registry-Eintrag, DB-Test.
+    sources:
+      - backend/internal/security/gdpr/
+    done_when:
+      - 'DB-Test: älter als 24 Monate -> Kandidat, jünger nicht; dry_run löscht nichts'
+
+  - id: feat-schichten-overlap-guard
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Überlappung hart
+      ablehnen (409), auch beim Tausch.
+    target: kein Mitarbeiter doppelt eingeteilt
+    coverage_start: n.a.
+    scope: >
+      `AssignEmployee` (service.go:273) prüft keinen echten Zeit-Overlap. Neue Repository-Abfrage `HasOverlappingAssignmentForEmployee`
+      (tstzrange `&&`), Guard als 409 analog zu Guard 1–3. `TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected`
+      (service_test.go:1659) wird zum Regressionstest mit umgekehrter Erwartung.
+    sources:
+      - backend/internal/schichten/service.go
+      - backend/internal/schichten/postgres_repository.go
+    done_when:
+      - >
+        DB-Test: überlappende Schicht desselben Mitarbeiters 409, angrenzende (Ende = Beginn) erlaubt
+
+  - id: feat-schichten-swap-as-handover
+    phase: 4
+    service: schichten
+    model: opus
+    deps:
+      - feat-schichten-overlap-guard
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (a) Übergabe.
+    target: Schichttausch übergibt die Schicht wirklich
+    coverage_start: n.a.
+    scope: >
+      Ein genehmigter Schichttausch tauscht heute nur `employee_id` zweier Zuweisungen DERSELBEN Schicht
+      (wirkungslos) oder liefert 409, wenn der Partner nicht auf der Schicht steht. Neu: ÜBERGABE. Die Zuweisung
+      des Antragstellers geht auf den Partner über, mit denselben Prüfungen wie `AssignEmployee` (ArbZG-Ruhezeit,
+      JArbSchG, Kapazität, Überlappung aus `feat-schichten-overlap-guard`), atomar in einer Transaktion.
+      Der E2E `TestSchichtenMemberFlow` hält den alten Stand fest und wird umgestellt.
+    sources:
+      - backend/internal/schichten/
+      - backend/test/e2e/schichten_test.go
+    done_when:
+      - >
+        DB-Test: Übergabe an Partner ohne Zuweisung; Übergabe, die Ruhezeit oder Überlappung verletzt, 409
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh TestSchichtenMemberFlow` grün mit neuer Erwartung
+
+  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Löschen bleibt erlaubt
+      (Tippfehler-Korrektur). Jedes Löschen schreibt ein Audit-Event mit dem gelöschten Kontrollstand (Fahrer,
+      Datum, Ergebnis, Prüfer). Kein 409.
+    target: Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml
+    coverage_start: n.a. (Bugfix, kein Coverage-Ziel)
+    scope: >
+      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12). `driver_licenses`
+      fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die JEWEILS LETZTE Zeile je `driver_id`
+      ist der aktuelle Kontrollstand und der Nachweis der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go`
+      HandleDeleteDriverLicense Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
+      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense` (`internal/fuhrpark/postgres_repository.go:948`),
+      die jede Zeile per `id` loescht — ohne zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer
+      ihren `driver_id` ist. Der Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE /api/v1/fuhrpark/driver-licenses/{id}`,
+      Permission `fuhrpark:license:write`) reicht das unveraendert durch. Ein Loeschen der letzten Kontrollzeile
+      eines Fahrers macht die Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden. Fix: vor
+      dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at` MAX) fuer ihren `driver_id`
+      innerhalb des Tenants ist, und in diesem Fall mit einem fachlichen Fehler (z. B. `codes.FailedPrecondition`,
+      HTTP 409) ablehnen. Alternativ, falls Luke das Feature stattdessen fuer nachtraegliche Korrekturen
+      (Tippfehler-Zeile loeschen) offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust
+      nachvollziehbar macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/fuhrpark/repository.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/fuhrpark/driver_license_test.go
+    notes: >
+      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und Cross-Tenant ab, aber
+      nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers". Vor dem Bauen mit Luke klaeren,
+      ob ein harter Block (409) oder ein Audit-Trail die richtige Antwort ist — das ist eine Produktentscheidung,
+      kein reiner Bugfix.
+    done_when:
+      - >
+        Test: Löschen einer Kontrollzeile schreibt ein Audit-Event mit dem vollständigen Kontrollstand
+      - go test -count=1 ./internal/fuhrpark/ ./internal/gateway/ grün
+
+  - id: feat-work-complete-task-without-project
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (a) completed_at
+      setzen.
+    target: projektlose Aufgaben lassen sich abhaken
+    coverage_start: n.a.
+    scope: >
+      `PUT /tasks/{id}` mit `is_closed` liefert für projektlose Aufgaben 409 (`ErrTaskWithoutProject`, `task/service.go:310`).
+      Neu: `completed_at` direkt setzen, `is_closed=false` löscht es. `MyTasksPage` liest `completed_at`
+      bereits.
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - 'Service- und DB-Test: projektlose Aufgabe bekommt completed_at, is_closed=false löscht es'
+
+  - id: feat-hr-deactivate-via-offboarding-and-reactivate
+    phase: 4
+    service: hr
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Deaktivieren über
+      Offboarding, neuer Reaktivieren-RPC.
+    target: Team-Seite deaktiviert und reaktiviert wirklich
+    coverage_start: n.a.
+    scope: >
+      Die Team-Seite sendet für „Deaktivieren/Reaktivieren“ `PUT /hr/employees/{id}` mit `status`, das ist
+      seit Lauf 16 ein 400. Neu: Deaktivieren = Offboarding mit `exit_date` heute und neuem `exit_type`
+      'other' (CHECK aus 000282 per Migration erweitern, Service-Set mitziehen). Neuer RPC `ReactivateEmployee`:
+      Status active, `exit_*` NULL, Login wieder frei, Basisrolle member neu vergeben (die Rollen wurden
+      beim Offboarding gelöscht). Route, OpenAPI, Proto mit Regen im selben Commit. Der falsche FE-Toast
+      ist FE-Arbeit (NEXT).
+    sources:
+      - backend/internal/biz/hr/employee/
+      - backend/internal/gateway/route_hr.go
+      - backend/proto/
+    done_when:
+      - >
+        DB-Test: Deaktivieren -> offboarded mit exit_type other; Reaktivieren -> active, Login möglich,
+        Rolle member
+      - Proto regeneriert, TestOpenAPIRouteDrift + swagger-cli validate grün
+
+  - id: review-run17-r4
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Datenschutz-, Schichten-, Fuhrpark-, Work- und HR-Units aus Block D.
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: feat-finance-payments-currency-column
+    phase: 4
+    service: biz
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (a) eigene
+      Spalte.
+    target: Zahlungen tragen ihre eigene Währung
+    coverage_start: n.a.
+    scope: >
+      `finance_payments` erbt die Währung implizit von der Rechnung. Neu: eigene Spalte `currency` (Migration,
+      NOT NULL nach Backfill aus der Rechnung, RLS unverändert). ALLE Lesepfade (Dashboard, Berichte-KPI,
+      GoBD-Export, DATEV) in DERSELBEN Unit nachziehen, keine Kette. Neue Zahlungen übernehmen die Rechnungswährung,
+      eine abweichende wird abgelehnt (Kurs wird nicht gespeichert, Entscheidung 2026-10-24).
+    sources:
+      - backend/migrations/
+      - backend/internal/biz/
+    done_when:
+      - Migration up/down/up sauber, Backfill-Test, RLS-Smoke
+      - Summen-Tests der drei Lauf-11-Fixes laufen gegen die neue Spalte
+
+  - id: harden-adhoc-invoice-tenant-currency
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (b) Tenant-Währung.
+    target: Ad-hoc-Rechnung immer in Tenant-Währung
+    coverage_start: n.a.
+    scope: >
+      Ad-hoc-Rechnungen (nicht aus einem Angebot) laufen immer in der Tenant-Währung. Eine abweichende Währung
+      im Body ergibt 400 (nicht still ignorieren), festgeschrieben per Test. Desktop-Aufrufer prüfen: Sendet
+      das FE eine Währung?
+    sources:
+      - backend/internal/gateway/route_finance*.go
+      - backend/internal/biz/invoice/
+    done_when:
+      - 'Router-Test: abweichende Währung 400, keine/gleiche 201'
+
+  - id: feat-einvoice-inbound-codelist-warnings
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (b) prüfen
+      und warnen.
+    target: auffällige Eingangsrechnungen sind markiert
+    coverage_start: n.a.
+    scope: >
+      Eingangsrechnungen (`biz/einvoice/parser.go`) gegen dieselbe Währungs- und Kategorie-Whitelist prüfen
+      wie ausgehende (48 EN-16931-Regel-IDs vorhanden). Bei Verstoß NICHT ablehnen: die Rechnung annehmen,
+      den Befund strukturiert speichern (vorhandenes Notiz-/Metadatenfeld am Beleg, sonst Rückgabe im Import-Ergebnis
+      plus `slog.Warn`) und in der Antwort ausweisen.
+    sources:
+      - backend/internal/biz/einvoice/
+    done_when:
+      - 'Test: unbekannter Währungscode -> Rechnung angelegt, Warnung im Ergebnis/Beleg'
+
+  - id: refactor-dunning-drop-calculate-interest
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Variante (b) streichen.
+    target: kein toter Zinscode
+    coverage_start: n.a.
+    scope: >
+      `dunning.CalculateInterest` (`biz/dunning/service.go:415-458`) hat null Aufrufer. Entfernen samt Tests;
+      Godoc oder Kommentar im Mahnwesen: Verzugszinsen sind bewusst kein Feature (Entscheidung 2026-10-25).
+    sources:
+      - backend/internal/biz/dunning/service.go
+    done_when:
+      - grep CalculateInterest leer, go test ./internal/biz/dunning/ grün
+
+  - id: feat-einkauf-po-framework-contract-field
+    phase: 4
+    service: einkauf
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Rahmenvertrag bauen,
+      weich (Teil 1: Feld setzbar).
+    target: Bestellung lässt sich an Rahmenvertrag binden
+    coverage_start: n.a.
+    scope: >
+      `framework_contract_id` ist über die API nicht setzbar (`einkauf.proto:94` nur in der Response). Ergänzen
+      in Create- und UpdatePurchaseOrderRequest, Service-Inputs, Gateway-DTO und OpenAPI, Proto-Regen im
+      selben Commit. Validierung: Vertrag existiert im Tenant, PO-Währung = Vertragswährung, sonst 400.
+    sources:
+      - backend/proto/einkauf/v1/einkauf.proto
+      - backend/internal/einkauf/
+      - backend/internal/gateway/route_einkauf.go
+    done_when:
+      - 'Router-/DB-Test: PO mit Rahmenvertrag anlegen und ändern, fremder Vertrag 400/404'
+      - Proto regeneriert, TestOpenAPIRouteDrift + swagger-cli validate grün
+
+  - id: feat-einkauf-po-framework-contract-call-off-wiring
+    phase: 4
+    service: einkauf
+    model: opus
+    deps:
+      - feat-einkauf-po-framework-contract-field
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): WEICH. Abruf je Wareneingang
+      in Höhe des NEU empfangenen Werts (Delta, netto, line.unit_price * Delta), aus der Empfangs-Transaktion
+      heraus. Bei `ErrContractBudgetExceeded` wird trotzdem gebucht, die Überschreitung als Warnung geloggt
+      und im Ergebnis ausgewiesen; der Wareneingang scheitert nie am Budget.
+    coverage_start: n.a. (Feature-Luecke, kein Coverage-Ziel)
+    scope: >
+      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von `cov-einkauf-service-extended-real-paths`).
+      `PurchaseOrder.FrameworkContractID` (backend/internal/einkauf/models.go:57-59) traegt den Kommentar
+      "When set, ReceiveGoods will automatically record a contract call-off." Die Spalte existiert seit
+      Migration 000208_einkauf_po_framework_ref, wird in GetPO/GetPOWithLines gelesen (postgres_repository.go:457,473)
+      — aber NIRGENDS gesetzt: weder `CreatePOInput` noch `UpdatePOInput` (service.go) haben ein `FrameworkContractID`-Feld,
+      es gibt keinen Weg, die Spalte ueber den Service zu befuellen. Selbst wenn sie per Hand-SQL gesetzt
+      wuerde, lesen `ReceiveGoods` (service.go:607) und `PartialReceive` (service.go:659) das Feld nie und
+      rufen nie `CreateContractCall` auf — die im Docstring versprochene automatische Abruf-Buchung existiert
+      im Code schlicht nicht. Ein an einen Rahmenvertrag gebundener PO erhoeht dessen `used_value` also
+      nie automatisch; `CreateContractCall` ist aktuell nur manuell erreichbar (kein Gateway-Handler dafuer
+      verifiziert — pruefen). Belegt durch `TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff`
+      in service_extended_test.go (dokumentiert die Luecke, aendert kein Verhalten).
+    sources:
+      - backend/internal/einkauf/models.go
+      - backend/internal/einkauf/service.go
+      - backend/internal/einkauf/service_extended.go
+      - backend/migrations/000208_einkauf_po_framework_ref.up.sql
+    notes: >
+      Entscheidungen, die beim Bauen anfallen: (1) Soll ReceiveGoods und PartialReceive BEIDE einen Call-off
+      buchen, oder nur der volle ReceiveGoods-Abschluss? Bei PartialReceive waere der Call-off-Betrag der
+      neu geleferte Anteil (analog zum inventarAdj-Delta-Muster in PartialReceive, service.go:695-703),
+      nicht der volle PO-Wert. (2) CreateContractCall race-sicher aus der Empfangs-Transaktion heraus aufrufen
+      — nicht als separater Call nach dem Status-Update, sonst Inkonsistenz bei Teilausfall. (3) Was passiert
+      bei ErrContractBudgetExceeded waehrend eines Wareneingangs? Der Wareneingang selbst darf nicht an
+      einem Budget-Limit scheitern (der Wareneingang ist physisch bereits passiert) — vermutlich Call-off
+      trotzdem buchen und nur loggen/warnen, analog zum inventarAdj-Best-Effort-Muster (service.go:634-648),
+      nicht hart fehlschlagen. Das ist eine Produktentscheidung, kein Bug-Fix — bei Unsicherheit `blocked`
+      mit der Frage an Luke.
+    done_when:
+      - >
+        CreatePOInput und/oder UpdatePOInput erlauben das Setzen von FrameworkContractID (oder es ist begruendet
+        dokumentiert, warum absichtlich nicht)
+      - >
+        ReceiveGoods bucht bei gesetztem FrameworkContractID einen Call-off in Hoehe des empfangenen Werts;
+        ein Test belegt used_value auf dem Rahmenvertrag danach korrekt erhoeht
+      - >
+        PartialReceive bucht denselben Call-off nur fuer das Delta der neu empfangenen Menge, nicht fuer
+        den vollen PO-Wert; ein Test belegt das ueber zwei aufeinanderfolgende Teillieferungen
+      - >
+        Verhalten bei ErrContractBudgetExceeded waehrend eines Wareneingangs ist entschieden und durch einen
+        Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht `blocked`)
+      - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips
+
+  - id: feat-chat-group-dm-data-model
+    phase: 4
+    service: chat
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Gruppen-DMs bauen
+      (Teil 1: Datenmodell).
+    target: Gruppen-DM-Kanäle existieren
+    coverage_start: n.a.
+    scope: >
+      Gruppen-DMs gibt es nicht. `NewDMDialog.tsx` sendet `POST /channels/dm` mit `participant_ids` und
+      bekommt 400. Datenmodell: DM-Kanal mit mehr als zwei Mitgliedern, Idempotenz über einen Schlüssel
+      aus der sortierten Teilnehmermenge (Hash, UNIQUE je Tenant), optionaler Name. Migration mit `tenant_id`
+      und RLS, Proto-RPC (`GetOrCreateGroupDM` oder Erweiterung von `GetOrCreateDM`), Regen im selben Commit.
+      1:1-DMs bleiben unverändert.
+    sources:
+      - backend/internal/chat/
+      - backend/proto/chat/
+      - backend/migrations/
+    done_when:
+      - >
+        DB-Test: dieselbe Teilnehmermenge liefert denselben Kanal, andere einen neuen; Nicht-Mitglied sieht
+        ihn nicht
+      - Migration up/down/up, RLS-Smoke, Proto regeneriert
+
+  - id: feat-chat-group-dm-gateway-and-ws
+    phase: 4
+    service: chat
+    model: opus
+    deps:
+      - feat-chat-group-dm-data-model
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Gruppen-DMs bauen
+      (Teil 2: Gateway).
+    target: „Gruppe starten“ funktioniert
+    coverage_start: n.a.
+    scope: >
+      Gateway `POST /channels/dm` nimmt `participant_ids` (2–N, Aufrufer immer Mitglied) zusätzlich zu `other_user_id`
+      an, OpenAPI zuerst. Nachrichten, Ungelesen-Zähler und WebSocket-Fanout für Gruppen-DMs an allen Mitgliedern
+      prüfen. Den Desktop-Body aus `useStartConversation` exakt nachbauen.
+    sources:
+      - backend/internal/gateway/route_chat.go
+      - desktop/src/renderer/src/api/hooks/
+    done_when:
+      - Router-Test mit Desktop-Body {participant_ids:[…]} 200/201
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh TestChatDMFlow` grün (um Gruppen-DM erweitern)
+
+  - id: feat-alert-rule-audit-events-dropped
+    phase: 4
+    service: deploy
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Audit-Regel jetzt;
+      Backup-Wächter tagsüber mit Storage Box (bleibt in NEXT).
+    target: verworfene Audit-Events alarmieren
+    coverage_start: n.a.
+    scope: >
+      Regel auf `audit_events_dropped_total` (Lauf 14, Iteration 96) in `deploy/docker/prometheus/rules/alerts.yml`.
+      Die Metrik kommt aus den Go-Services und wird schon gescrapt. Freigegebene Ausnahme der `deploy/`-Sperre
+      für GENAU diese Datei. Schwelle begründen (jede verworfene Audit-Zeile ist ein Compliance-Befund,
+      also `increase(...[15m]) > 0`). `promtool check rules`, falls verfügbar, sonst eine Syntaxprüfung
+      gegen die neun Bestandsregeln.
+    sources:
+      - deploy/docker/prometheus/rules/alerts.yml
+    done_when:
+      - Regel in alerts.yml, syntaktisch geprüft
+      - 'git diff: unter deploy/ nur alerts.yml geändert'
+
+  - id: review-run17-r5
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Finanz-, Einkauf-, Chat- und Alarm-Units aus Block D.
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: cov-biz-quote
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/biz/quote von 50,8 % auf ≥ 70 %
+    coverage_start: internal/biz/quote 50,8 %
+    scope: >
+      Coverage-Unit: `internal/biz/quote` steht bei 50,8 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/biz/quote/
+    done_when:
+      - '`internal/biz/quote` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-email-account
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/email/account von 48,4 % auf ≥ 70 %
+    coverage_start: internal/email/account 48,4 %
+    scope: >
+      Coverage-Unit: `internal/email/account` steht bei 48,4 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥
+      70 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/email/account/
+    done_when:
+      - '`internal/email/account` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-database
+    phase: 4
+    service: database
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/database von 44,3 % auf ≥ 65 %
+    coverage_start: internal/database 44,3 %
+    scope: >
+      Coverage-Unit: `internal/database` steht bei 44,3 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 65 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft. Pool-/Migrations-Helfer gegen die echte DB.
+    sources:
+      - backend/internal/database/
+    done_when:
+      - '`internal/database` ≥ 65 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-validation
+    phase: 4
+    service: validation
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/validation von 57,8 % auf ≥ 80 %
+    coverage_start: internal/validation 57,8 %
+    scope: >
+      Coverage-Unit: `internal/validation` steht bei 57,8 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 80
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/validation/
+    done_when:
+      - '`internal/validation` ≥ 80 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-server-response
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/server/response von 57,9 % auf ≥ 80 %
+    coverage_start: internal/server/response 57,9 %
+    scope: >
+      Coverage-Unit: `internal/server/response` steht bei 57,9 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 80 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/server/response/
+    done_when:
+      - '`internal/server/response` ≥ 80 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-inbox-thread
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/inbox/thread von 58,8 % auf ≥ 75 %
+    coverage_start: internal/inbox/thread 58,8 %
+    scope: >
+      Coverage-Unit: `internal/inbox/thread` steht bei 58,8 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 75
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/inbox/thread/
+    done_when:
+      - '`internal/inbox/thread` ≥ 75 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-search
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/search von 59,4 % auf ≥ 75 %
+    coverage_start: internal/crm/search 59,4 %
+    scope: >
+      Coverage-Unit: `internal/crm/search` steht bei 59,4 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 75
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/crm/search/
+    done_when:
+      - '`internal/crm/search` ≥ 75 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-notification-notification
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/notification/notification von 59,4 % auf ≥ 75 %
+    coverage_start: internal/notification/notification 59,4 %
+    scope: >
+      Coverage-Unit: `internal/notification/notification` steht bei 59,4 % (CI-Run 40196109073, `b88d7eac`).
+      Ziel ≥ 75 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/notification/notification/
+    done_when:
+      - '`internal/notification/notification` ≥ 75 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-status
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/status von 50,4 % auf ≥ 70 %
+    coverage_start: internal/work/status 50,4 %
+    scope: >
+      Coverage-Unit: `internal/work/status` steht bei 50,4 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/work/status/
+    done_when:
+      - '`internal/work/status` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-label
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/label von 49,5 % auf ≥ 70 %
+    coverage_start: internal/work/label 49,5 %
+    scope: >
+      Coverage-Unit: `internal/work/label` steht bei 49,5 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/work/label/
+    done_when:
+      - '`internal/work/label` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-holiday
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/holiday von 52,2 % auf ≥ 70 %
+    coverage_start: internal/work/holiday 52,2 %
+    scope: >
+      Coverage-Unit: `internal/work/holiday` steht bei 52,2 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/work/holiday/
+    done_when:
+      - '`internal/work/holiday` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-email-contactlink
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/email/contactlink von 35,0 % auf ≥ 65 %
+    coverage_start: internal/email/contactlink 35,0 %
+    scope: >
+      Coverage-Unit: `internal/email/contactlink` steht bei 35,0 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 65 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/email/contactlink/
+    done_when:
+      - '`internal/email/contactlink` ≥ 65 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-email-signature
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/email/signature von 43,0 % auf ≥ 70 %
+    coverage_start: internal/email/signature 43,0 %
+    scope: >
+      Coverage-Unit: `internal/email/signature` steht bei 43,0 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 70 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/email/signature/
+    done_when:
+      - '`internal/email/signature` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-notification-integration-teams
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/notification/integration/teams von 40,5 % auf ≥ 70 %
+    coverage_start: internal/notification/integration/teams 40,5 %
+    scope: >
+      Coverage-Unit: `internal/notification/integration/teams` steht bei 40,5 % (CI-Run 40196109073, `b88d7eac`).
+      Ziel ≥ 70 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft. HTTP-Client gegen httptest.
+    sources:
+      - backend/internal/notification/integration/teams/
+    done_when:
+      - '`internal/notification/integration/teams` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-notification-integration-slack
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/notification/integration/slack von 59,5 % auf ≥ 75 %
+    coverage_start: internal/notification/integration/slack 59,5 %
+    scope: >
+      Coverage-Unit: `internal/notification/integration/slack` steht bei 59,5 % (CI-Run 40196109073, `b88d7eac`).
+      Ziel ≥ 75 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft. HTTP-Client gegen httptest.
+    sources:
+      - backend/internal/notification/integration/slack/
+    done_when:
+      - '`internal/notification/integration/slack` ≥ 75 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-livekit
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/livekit von 38,9 % auf ≥ 60 %
+    coverage_start: internal/work/livekit 38,9 %
+    scope: >
+      Coverage-Unit: `internal/work/livekit` steht bei 38,9 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 60
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft. LiveKit-API über einen Fake am Rand.
+    sources:
+      - backend/internal/work/livekit/
+    done_when:
+      - '`internal/work/livekit` ≥ 60 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-video
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/video von 59,7 % auf ≥ 75 %
+    coverage_start: internal/work/video 59,7 %
+    scope: >
+      Coverage-Unit: `internal/work/video` steht bei 59,7 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 75
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/work/video/
+    done_when:
+      - '`internal/work/video` ≥ 75 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-biz-bexio
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/biz/bexio von 54,4 % auf ≥ 70 %
+    coverage_start: internal/biz/bexio 54,4 %
+    scope: >
+      Coverage-Unit: `internal/biz/bexio` steht bei 54,4 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft. Bexio ist in Produktion aus, niedrigste Priorität.
+    sources:
+      - backend/internal/biz/bexio/
+    done_when:
+      - '`internal/biz/bexio` ≥ 70 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: review-run17-r6
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
+    coverage_start: n.a.
+    scope: >
+      REVIEW-UNIT (Regel 3 dieses Laufs). Prüft die Commits seit dem End-SHA der vorigen `review-run17-*`-Iteration
+      (Journal; für r1 seit dem Staging-Commit). Für jeden Commit, der einen Grant, Guard, Scope, eine Seed-Migration
+      oder eine Sichtbarkeitsgrenze ändert: (1) Token per ECHTEM Login gegen den Seed holen, nie von Hand
+      gebaut, entweder über den lokalen E2E-Stack (`bash .planning/backend-block/loop/hooks/e2e-local.sh
+      <Regex>`, Testfall unter `backend/test/e2e/`) oder per DB-Test über `ResolveTokenPermissions`/`GetUserGrants`.
+      (2) Prüfen, dass der Scope im Token ankommt (dreiteilige `resource`-Keys, Lehre hr:self aus Lauf 16),
+      dass ein zweiter member im selben Tenant keine fremden Daten liest oder schreibt und ein manager nur
+      seine Berichtslinie sieht. (3) Seed-Migrationen: Up zweimal fehlerfrei, Down entfernt genau die eigenen
+      Zeilen. Prüfbereich etwa: Abschluss: alle Rechte-Commits seit r5 und Stichprobe über den ganzen Lauf.
+    sources:
+      - backend/internal/auth/
+      - backend/test/e2e/helpers_test.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
+      - >
+        Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
+        dauerhafter Test im Repo
+      - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: cov-biz-pdf
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/biz/pdf von 60,8 % auf ≥ 78 %
+    coverage_start: internal/biz/pdf 60,8 %
+    scope: >
+      Coverage-Unit: `internal/biz/pdf` steht bei 60,8 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/biz/pdf/
+    done_when:
+      - '`internal/biz/pdf` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-work-comment
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/work/comment von 60,8 % auf ≥ 78 %
+    coverage_start: internal/work/comment 60,8 %
+    scope: >
+      Coverage-Unit: `internal/work/comment` steht bei 60,8 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/work/comment/
+    done_when:
+      - '`internal/work/comment` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-plugin-repository
+    phase: 4
+    service: plugin
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/plugin/repository von 60,9 % auf ≥ 78 %
+    coverage_start: internal/plugin/repository 60,9 %
+    scope: >
+      Coverage-Unit: `internal/plugin/repository` steht bei 60,9 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/plugin/repository/
+    done_when:
+      - '`internal/plugin/repository` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-biz-invoice
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/biz/invoice von 62,2 % auf ≥ 78 %
+    coverage_start: internal/biz/invoice 62,2 %
+    scope: >
+      Coverage-Unit: `internal/biz/invoice` steht bei 62,2 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/biz/invoice/
+    done_when:
+      - '`internal/biz/invoice` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-tag
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/tag von 64,2 % auf ≥ 78 %
+    coverage_start: internal/crm/tag 64,2 %
+    scope: >
+      Coverage-Unit: `internal/crm/tag` steht bei 64,2 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/crm/tag/
+    done_when:
+      - '`internal/crm/tag` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-customfield
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/customfield von 65,0 % auf ≥ 78 %
+    coverage_start: internal/crm/customfield 65,0 %
+    scope: >
+      Coverage-Unit: `internal/crm/customfield` steht bei 65,0 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/crm/customfield/
+    done_when:
+      - '`internal/crm/customfield` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-consent
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/consent von 65,3 % auf ≥ 78 %
+    coverage_start: internal/crm/consent 65,3 %
+    scope: >
+      Coverage-Unit: `internal/crm/consent` steht bei 65,3 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/crm/consent/
+    done_when:
+      - '`internal/crm/consent` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-email-send
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/email/send von 65,6 % auf ≥ 78 %
+    coverage_start: internal/email/send 65,6 %
+    scope: >
+      Coverage-Unit: `internal/email/send` steht bei 65,6 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/email/send/
+    done_when:
+      - '`internal/email/send` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-pipelinestage
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/pipelinestage von 65,8 % auf ≥ 78 %
+    coverage_start: internal/crm/pipelinestage 65,8 %
+    scope: >
+      Coverage-Unit: `internal/crm/pipelinestage` steht bei 65,8 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/crm/pipelinestage/
+    done_when:
+      - '`internal/crm/pipelinestage` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-advisoryprotocol
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/advisoryprotocol von 65,9 % auf ≥ 78 %
+    coverage_start: internal/crm/advisoryprotocol 65,9 %
+    scope: >
+      Coverage-Unit: `internal/crm/advisoryprotocol` steht bei 65,9 % (CI-Run 40196109073, `b88d7eac`).
+      Ziel ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/crm/advisoryprotocol/
+    done_when:
+      - '`internal/crm/advisoryprotocol` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-crm-savedfilter
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/crm/savedfilter von 68,3 % auf ≥ 78 %
+    coverage_start: internal/crm/savedfilter 68,3 %
+    scope: >
+      Coverage-Unit: `internal/crm/savedfilter` steht bei 68,3 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/crm/savedfilter/
+    done_when:
+      - '`internal/crm/savedfilter` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-chat-file
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/chat/file von 68,6 % auf ≥ 78 %
+    coverage_start: internal/chat/file 68,6 %
+    scope: >
+      Coverage-Unit: `internal/chat/file` steht bei 68,6 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78 %.
+      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/chat/file/
+    done_when:
+      - '`internal/chat/file` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-email-attachment
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/email/attachment von 68,8 % auf ≥ 78 %
+    coverage_start: internal/email/attachment 68,8 %
+    scope: >
+      Coverage-Unit: `internal/email/attachment` steht bei 68,8 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/email/attachment/
+    done_when:
+      - '`internal/email/attachment` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-automation-action
+    phase: 4
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/automation/action von 68,9 % auf ≥ 78 %
+    coverage_start: internal/automation/action 68,9 %
+    scope: >
+      Coverage-Unit: `internal/automation/action` steht bei 68,9 % (CI-Run 40196109073, `b88d7eac`). Ziel
+      ≥ 78 %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app`
+      (keine Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch
+      Umgehen der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel),
+      nicht im Test umschifft.
+    sources:
+      - backend/internal/automation/action/
+    done_when:
+      - '`internal/automation/action` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-inbox-team
+    phase: 4
+    service: inbox
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/inbox/team von 68,9 % auf ≥ 78 %
+    coverage_start: internal/inbox/team 68,9 %
+    scope: >
+      Coverage-Unit: `internal/inbox/team` steht bei 68,9 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78
+      %. Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
+      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
+      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
+      im Test umschifft.
+    sources:
+      - backend/internal/inbox/team/
+    done_when:
+      - '`internal/inbox/team` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: cov-caldav
+    phase: 4
+    service: caldav
+    model: sonnet
+    deps: []
+    status: todo
+    target: internal/caldav von 69,0 % auf ≥ 78 %
+    coverage_start: internal/caldav 69,0 %
+    scope: >
+      Coverage-Unit: `internal/caldav` steht bei 69,0 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 78 %. Tests
+      gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine Mocks
+      für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen der
+      Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht im
+      Test umschifft.
+    sources:
+      - backend/internal/caldav/
+    done_when:
+      - '`internal/caldav` ≥ 78 % (go test -cover, Wert im Journal)'
+      - Mutationsprobe dokumentiert
+      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
