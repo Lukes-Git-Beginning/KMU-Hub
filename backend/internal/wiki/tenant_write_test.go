@@ -153,11 +153,13 @@ func TestWikiWrites_LandInCallerTenant(t *testing.T) {
 
 	// --- Share tokens --------------------------------------------------------
 
+	expiresAt := now.Add(time.Hour)
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    tenantOwn,
 		ArticleID:   article.ID,
 		Token:       uuid.New().String(),
+		ExpiresAt:   &expiresAt,
 		Permissions: []string{"read"},
 		CreatedAt:   now,
 	}

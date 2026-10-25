@@ -973,7 +973,7 @@ const (
 type CreateShareTokenInput struct {
 	TenantID      uuid.UUID
 	DocumentID    uuid.UUID
-	ExpiresInDays *int32 // nil or 0 = never expires
+	ExpiresInDays *int32 // nil or 0 = maxShareExpiryDays; no link is minted without an end
 	Password      string // empty = no password
 	CreatedBy     *uuid.UUID
 }
@@ -998,14 +998,15 @@ func (s *Service) CreateShareToken(ctx context.Context, in CreateShareTokenInput
 		CreatedAt:  now,
 	}
 
+	days := int32(maxShareExpiryDays)
 	if in.ExpiresInDays != nil && *in.ExpiresInDays != 0 {
-		days := *in.ExpiresInDays
+		days = *in.ExpiresInDays
 		if days < 0 || days > maxShareExpiryDays {
 			return nil, ErrInvalidShareExpiry
 		}
-		expiry := now.AddDate(0, 0, int(days))
-		token.ExpiresAt = &expiry
 	}
+	expiry := now.AddDate(0, 0, int(days))
+	token.ExpiresAt = &expiry
 
 	if in.Password != "" {
 		if len(in.Password) > maxSharePasswordLen {

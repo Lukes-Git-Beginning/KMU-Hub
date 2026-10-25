@@ -1065,6 +1065,37 @@ func TestCreateShareToken_RejectsPastExpiryAndUnknownPermission(t *testing.T) {
 	}
 }
 
+// Decision 2026-10-25: no share link without an end. No expires_at means 365
+// days; one further out answers InvalidArgument (gateway: 400), stored nothing.
+func TestCreateShareToken_DefaultsToAYearAndRefusesMore(t *testing.T) {
+	repo := newStubWikiRepo()
+	srv, _ := newWikiServerWithRepo(repo)
+	ctx := context.Background()
+	before := time.Now().UTC()
+	tenantID, articleID, token := setupPublishedArticleWithToken(t, srv, nil)
+
+	if token.ExpiresAt == nil {
+		t.Fatal("a link without a requested expiry came back without one")
+	}
+	got, err := time.Parse(time.RFC3339, token.GetExpiresAt())
+	if err != nil {
+		t.Fatalf("parse expires_at: %v", err)
+	}
+	if want := before.AddDate(0, 0, 365); got.Before(want.Add(-time.Second)) || got.After(want.Add(time.Minute)) {
+		t.Fatalf("default expiry = %v, want about %v", got, want)
+	}
+
+	stored := len(repo.shareTokens)
+	tooLong := time.Now().UTC().AddDate(0, 0, 400).Format(time.RFC3339)
+	_, err = srv.CreateShareToken(ctx, &wikiv1.CreateShareTokenRequest{
+		TenantId: tenantID, ArticleId: articleID, ExpiresAt: &tooLong,
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+	if len(repo.shareTokens) != stored {
+		t.Fatalf("a refused link was stored: %d tokens, want %d", len(repo.shareTokens), stored)
+	}
+}
+
 func TestRedeemShareToken_UnpublishedArticleMatchesUnknownAnswer(t *testing.T) {
 	repo := newStubWikiRepo()
 	srv, _ := newWikiServerWithRepo(repo)

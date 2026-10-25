@@ -153,11 +153,13 @@ func TestWikiShareRedeem_TokenCannotReachForeignArticle(t *testing.T) {
 
 	// The token belongs to tenantOwn but names tenantOther's article — the FK
 	// permits it, so only the tenant-scoped read stands in the way.
+	future := now.Add(time.Hour)
 	crossed := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    tenantOwn,
 		ArticleID:   foreign.ID,
 		Token:       uuid.New().String(),
+		ExpiresAt:   &future,
 		Permissions: []string{sharePermissionRead},
 		CreatedAt:   now,
 	}

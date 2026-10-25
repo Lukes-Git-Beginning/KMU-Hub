@@ -601,3 +601,46 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   gezeigt werden — aus der Liste lässt sie sich nicht mehr bauen (`decide-formulare-share-link-url-channel-toggle`).
   (3) `report_share_tokens` (000252) bleibt bewusst Klartext, nicht Teil dieser Unit. (4) Lokal kein `make`, Migration
   per `migrate create -seq -digits 6`.
+
+## Iteration 17 — harden-share-links-max-365-days — done — 2026-10-25 19:13
+- commit: siehe Commit `fix(wiki,formulare,berichte): expire every share link within 365 days` (dieser Eintrag)
+- vorweg blockiert: `harden-share-tokens-hashed-berichte-csat` (erste baubare Unit) -> `blocked`, im selben Commit nach
+  BACKLOG-NEXT.yml verschoben. Die Entscheidung setzt voraus, dass das Token nur in der Create-Antwort gebraucht wird; das
+  stimmt für beide Tabellen nicht. Berichte: `ShareLinkDialog.tsx:134/138` baut den kopierbaren Link aus `s.token` der
+  LISTE und verwirft die Create-Antwort, Hash-only macht „Link kopieren“ tot (Desktop für den Loop tabu). CSAT: das Token
+  wird beim Schließen gemintet und vom Dispatcher verzögert verschickt, der es per `ListDueCsatSurveys`
+  (`SELECT r.token`) aus der DB liest (`csat_dispatch.go:288`). FRAGE AN LUKE steht als (a)/(b)/(c) im `blocked_reason`.
+  Die nur ordnende dep von `harden-share-links-max-365-days` auf die blockierte Unit ist gelöst (Kommentar in der Unit).
+- gebaut: `linksecret.MaxLifetime` (365 Tage) + `linksecret.Expiry(requested, now)`: ohne Wunsch now+365 Tage, darüber
+  `ErrLifetimeTooLong`. Wiki und Formulare nutzen es (Fehler in `ErrInvalidShareLink` gewickelt -> InvalidArgument -> 400),
+  Berichte setzt `expires_in_days` null/0 auf `maxShareExpiryDays` statt „nie“. Migration 000352: Bestand ohne Ablauf auf
+  `created_at + 365 days`, dann `expires_at SET NOT NULL` an wiki_share_tokens, form_share_tokens, report_share_tokens.
+  Spec-Texte der drei Create-Routen nachgezogen (keine neue Route).
+- gate: build ok | vet ok | lint ok (0 issues: linksecret, wiki, formulare, berichte, server) | test ok (linksecret, wiki,
+  formulare, berichte, server: 5304 RUN, 0 SKIP, 0 FAIL; gateway ok; DATABASE_URL als kmuhub_app; DB-Tests real: 2 neue
+  Subtests „expires after a year“ plus 6 angepasste DB-Tests) | migration ok (up/down/up auf 352; Backfill-Probe bei 351:
+  Zeile 10 Tage alt -> lebt, 2 Jahre alt -> abgelaufen, beide `expires_at - created_at` = 365 days; down macht NULLable)
+  | rls-smoke ok (report_share_tokens als kmuhub_app: eigen 1, fremd 0; Policy unverändert) | swagger-cli valid |
+  e2e n.a. (kein Flow berührt Share-Links, grep `test/e2e/`)
+- coverage: n.a. (kein Coverage-Ziel); `internal/linksecret` 83,3 % -> 91,7 %
+- mutations-probe: (1) Kappung in `Expiry` aus -> `TestExpiry`, `TestCreateFormShareLink_DefaultsToAYearAndRefusesMore`,
+  `TestCreateShareToken_DefaultsToAYearAndRefusesMore` rot. (2) Wiki ohne Default (Ablauf +100 Jahre) -> DB-Subtest
+  „a link expires after a year …“ und Server-Test rot. (3) Formulare dito -> DB-Subtest und Server-Test rot. (4) Berichte
+  Default 0 -> `TestCreateShareToken_SecretIsFullEntropyAndUnique`, `..._ZeroExpiryMeansTheCap` rot. Alle per Backup
+  zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`9fe78eb6`: kein Guard, kein Proto, keine neue Tabelle/Route; Hash nur in INSERT und Lookup,
+  Liste ohne Token-Spalte, Backfill in SQL identisch zu `linksecret.Hash`)
+- neue-units: `harden-document-share-links-max-365-days` (Backlog-Ende: `document_share_links.expires_at` aus 000266 ist
+  ebenso optional); in BACKLOG-NEXT `fe-share-link-expiry-max-365-days` und die blockierte
+  `harden-share-tokens-hashed-berichte-csat`
+- desktop-aufrufer: POST `/wiki/articles/{id}/share` -> `WikiShareDialog.tsx` sendet kein `expires_at` -> passt (365 Tage).
+  POST `/formulare/schemas/{id}/share-links` -> `FormularePage.tsx:1034` sendet `expiresAt` aus Datumsfeld oder `null` ->
+  passt bei leer (365 Tage); Datum > 365 Tage gibt 400-Toast, Feld hat kein `max` (FE-Unit). POST
+  `/berichte/documents/{id}/shares` -> `ShareLinkDialog.tsx:66` sendet `null` für „nie“ -> Link läuft nach 365 Tagen ab,
+  Liste zeigt dann das Datum statt „läuft nie ab“ (FE-Unit, Option umbenennen). Antwortformen unverändert.
+- offen: (1) Lokal null Bestandszeilen, in Produktion Anzahl sofort abgelaufener Links (älter als ein Jahr, ohne Ablauf)
+  vor dem Deploy zählen: `SELECT count(*) FROM <tabelle> WHERE expires_at IS NULL AND created_at < now() - interval
+  '365 days'` für alle drei Tabellen. (2) Bestand mit Ablauf > 1 Jahr (alter Wiki/Formular-Pfad) bleibt bewusst stehen,
+  steht im Migrationskommentar. (3) Down setzt die Backfill-Werte nicht auf NULL zurück. (4) Done-when „Router-Tests“
+  als gRPC-Server-Tests umgesetzt: der Gateway-Handler reicht durch, die 400 entsteht über `respondGRPCError` aus
+  InvalidArgument; ein Gateway-Test mit Mock-Client hätte die Service-Regel nicht geprüft.

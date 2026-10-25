@@ -2,7 +2,9 @@ package linksecret
 
 import (
 	"encoding/base64"
+	"errors"
 	"testing"
+	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -35,5 +37,28 @@ func TestHash(t *testing.T) {
 	}
 	if Hash("abc") == Hash("abd") {
 		t.Fatal("different secrets hash equal")
+	}
+}
+
+func TestExpiry(t *testing.T) {
+	now := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	limit := now.Add(MaxLifetime)
+
+	got, err := Expiry(nil, now)
+	if err != nil || !got.Equal(limit) {
+		t.Fatalf("no request: got %v, %v; want %v", got, err, limit)
+	}
+
+	week := now.AddDate(0, 0, 7)
+	if got, err := Expiry(&week, now); err != nil || !got.Equal(week) {
+		t.Fatalf("a week: got %v, %v; want %v", got, err, week)
+	}
+	if got, err := Expiry(&limit, now); err != nil || !got.Equal(limit) {
+		t.Fatalf("exactly the cap: got %v, %v; want %v", got, err, limit)
+	}
+
+	tooLong := now.AddDate(0, 0, 400)
+	if _, err := Expiry(&tooLong, now); !errors.Is(err, ErrLifetimeTooLong) {
+		t.Fatalf("400 days: got %v, want ErrLifetimeTooLong", err)
 	}
 }

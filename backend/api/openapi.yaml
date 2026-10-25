@@ -18410,7 +18410,10 @@ paths:
             schema:
               type: object
               properties:
-                expires_at: { type: string, format: date-time }
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: Absent = 365 days from now. Must lie in the future and at most 365 days ahead, else 400.
                 permissions: { type: array, items: { type: string } }
       responses:
         "201":
@@ -24596,8 +24599,9 @@ paths:
 
 
         The link may carry an expiry and a submission quota; both are enforced
-        server-side on every redemption, and both are optional (omitted =
-        never expires / unlimited).
+        server-side on every redemption. An omitted expiry means 365 days from
+        now; one further out than 365 days answers 400. An omitted quota means
+        unlimited.
       tags: [formulare]
       operationId: createFormShareLink
       security: [{ bearerAuth: [] }]
@@ -30474,7 +30478,7 @@ paths:
         POST /api/v1/public/berichte/reports/{token}. An optional password is
         bcrypt-hashed and never returned; the response only reports whether one
         is set. expires_in_days is capped at 365; omitting it or passing 0
-        creates a link that never expires.
+        creates a link that expires after 365 days.
       tags: [berichte]
       operationId: createBerichteDocumentShare
       security: [{ bearerAuth: [] }]
@@ -30492,7 +30496,7 @@ paths:
                   nullable: true
                   minimum: 0
                   maximum: 365
-                  description: "null or 0 = never expires"
+                  description: "null or 0 = 365 days"
                 password:
                   type: string
                   maxLength: 72
@@ -50589,7 +50593,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: null = never expires
+          description: Always set since 000352, at most 365 days after creation.
         has_password:
           type: boolean
         view_count:

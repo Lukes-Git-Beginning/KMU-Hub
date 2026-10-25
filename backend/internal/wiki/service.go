@@ -513,8 +513,13 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 	// Same rules as form share links: a link that is born expired is a mistake
 	// the caller should hear about, not a dead row, and "read" is the only
 	// permission a redeemed link ever grants ("public" is a display marker).
-	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
+	now := time.Now()
+	if input.ExpiresAt != nil && !input.ExpiresAt.After(now) {
 		return nil, fmt.Errorf("expires_at must be in the future: %w", ErrInvalidShareLink)
+	}
+	expiresAt, err := linksecret.Expiry(input.ExpiresAt, now)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", err, ErrInvalidShareLink)
 	}
 	public := false
 	for _, p := range input.Permissions {
@@ -542,13 +547,12 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		return nil, err
 	}
 
-	now := time.Now()
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    input.TenantID,
 		ArticleID:   input.ArticleID,
 		Token:       secret,
-		ExpiresAt:   input.ExpiresAt,
+		ExpiresAt:   &expiresAt,
 		Permissions: permissions,
 		CreatedAt:   now,
 		CreatedBy:   input.CreatedBy,

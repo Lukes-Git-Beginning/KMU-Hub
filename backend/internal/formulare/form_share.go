@@ -155,8 +155,13 @@ func (s *Service) CreateShareLink(ctx context.Context, in CreateShareLinkInput) 
 	if in.MaxSubmissions != nil && *in.MaxSubmissions <= 0 {
 		return nil, fmt.Errorf("max_submissions must be positive: %w", ErrInvalidShareLink)
 	}
-	if in.ExpiresAt != nil && !in.ExpiresAt.After(time.Now().UTC()) {
+	now := time.Now().UTC()
+	if in.ExpiresAt != nil && !in.ExpiresAt.After(now) {
 		return nil, fmt.Errorf("expires_at must be in the future: %w", ErrInvalidShareLink)
+	}
+	expiresAt, err := linksecret.Expiry(in.ExpiresAt, now)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", err, ErrInvalidShareLink)
 	}
 
 	schema, err := s.repo.GetSchema(ctx, in.FormSchemaID, in.TenantID)
@@ -180,10 +185,10 @@ func (s *Service) CreateShareLink(ctx context.Context, in CreateShareLinkInput) 
 		TenantID:       in.TenantID,
 		FormSchemaID:   in.FormSchemaID,
 		Token:          token,
-		ExpiresAt:      in.ExpiresAt,
+		ExpiresAt:      &expiresAt,
 		MaxSubmissions: in.MaxSubmissions,
 		CreatedBy:      in.CreatedBy,
-		CreatedAt:      time.Now().UTC(),
+		CreatedAt:      now,
 	}
 	if err := s.repo.CreateShareLink(ctx, link); err != nil {
 		return nil, fmt.Errorf("create form share link: %w", err)

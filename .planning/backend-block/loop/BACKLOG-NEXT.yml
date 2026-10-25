@@ -1460,3 +1460,61 @@ units:
     done_when:
       - "Entscheidung im Unit-Text, danach Unit mit DB-Test im Backlog"
 
+
+  - id: harden-share-tokens-hashed-berichte-csat
+    phase: 4
+    service: berichte
+    model: opus
+    deps:
+      - harden-share-tokens-hashed-wiki-formulare
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE (Lauf 17 Iteration 17): Die Entscheidung setzt voraus, dass das Token nur einmal in der
+      Create-Antwort gebraucht wird. Das stimmt für beide Tabellen nicht. (1) Berichte: `ShareLinkDialog.tsx:134/138`
+      baut den kopierbaren Link aus `s.token` der LISTE (`GET /berichte/documents/{id}/shares`), die Create-Antwort
+      verwirft der Dialog (`onSuccess` liest `data` nicht). Hash-only = jeder Link im Dialog wird
+      `cosmi://share/report/` ohne Token, „Link kopieren“ tot; Desktop ist für den Loop tabu. (2) CSAT: das Token wird
+      beim Ticket-Schließen gemintet, verschickt wird es VERZÖGERT vom Dispatcher, der es per `ListDueCsatSurveys`
+      (`helpdesk/postgres_repository.go:519`, `SELECT r.token`) aus der DB liest und in `csat_dispatch.go:288` zum
+      Link baut. Hash-only = der Dispatcher kann keinen Link mehr bauen. Frage: (a) Berichte erst nach einer FE-Unit
+      umstellen, die den Link aus der Create-Antwort einmalig anzeigt (Liste ohne Kopieren)? (b) CSAT: Token erst
+      beim Versand im Dispatcher minten (Claim -> `linksecret.New` -> Hash speichern -> Mail), statt beim Schließen —
+      das ändert den CSAT-Dispatch, der laut Sperre nur in der Token-Ablage angefasst werden darf. Oder (c) beides
+      Klartext lassen (Begründung 000252/000288) und nur die Generator-Kopien auf `linksecret.New` ziehen.
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Hash-Ablage auch
+      für Berichte- und CSAT-Token.
+    target: kein Link-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Zweiter Teil von `harden-share-tokens-hashed-wiki-formulare`: Berichte-Share-Secret (`berichte/service.go:newShareSecret`)
+      und CSAT-Survey-Token (`helpdesk/csat_survey.go`) auf `internal/linksecret` und Hash-Ablage umstellen,
+      nach demselben Migrationsmuster. CSAT ist in Produktion aus, das Token wird trotzdem umgestellt.
+    sources:
+      - backend/internal/berichte/service.go
+      - backend/internal/helpdesk/csat_survey.go
+    done_when:
+      - 'DB-Test je Tabelle: Bestands-Token gültig, Klartext entfernt'
+      - Keine Kopie des Generators mehr im Repo (grep belegt das)
+
+  - id: fe-share-link-expiry-max-365-days
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: die Share-Dialoge bieten nur noch Abläufe an, die das Backend annimmt
+    scope: >
+      Seit Lauf 17 Iteration 17 (`harden-share-links-max-365-days`) läuft jeder Wiki-, Formular- und Berichte-Link
+      nach spätestens 365 Tagen ab; ohne Angabe gilt 365 Tage, mehr gibt 400. Desktop-Folgen (Loop darf `desktop/`
+      nicht ändern): (1) Berichte `ShareLinkDialog.tsx:27` bietet `'never'` an und sendet dann
+      `expires_in_days: null` -> Link läuft nach 365 Tagen ab, die Option heißt aber „läuft nie ab“
+      (i18n `berichte.docs.share.expiry_never`); Option in „1 Jahr“ umbenennen (×4 Sprachen). (2) Formulare
+      `FormularePage.tsx:4194` Datumsfeld hat `min`, aber kein `max`: ein Datum > 365 Tage gibt einen 400-Toast;
+      `max` = heute + 365 Tage setzen, leeres Feld als „1 Jahr“ beschriften. (3) Wiki sendet kein Ablaufdatum, passt.
+    sources:
+      - desktop/src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
+    done_when:
+      - Keine Option „läuft nie ab“ mehr, Datumsfeld auf 365 Tage begrenzt, i18n ×4, Screenshot-QA

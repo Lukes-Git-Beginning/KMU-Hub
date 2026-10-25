@@ -7,6 +7,7 @@ package wiki
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -85,14 +86,44 @@ func TestWikiShareToken_StoredOnlyAsHash(t *testing.T) {
 		}
 	})
 
+	// 000352: a link without a requested expiry is stored with created_at +
+	// 365 days, and once that has passed it answers like an unknown token.
+	t.Run("a link expires after a year and then answers like an unknown one", func(t *testing.T) {
+		share, err := svc.CreateShareToken(ctx, CreateShareTokenInput{TenantID: tenantID, ArticleID: article.ID})
+		if err != nil {
+			t.Fatalf("CreateShareToken: %v", err)
+		}
+		defer testutil.CleanupRow(t, pool, "wiki_share_tokens", share.ID)
+
+		var lifetime int64
+		if err := pool.QueryRow(sysCtx,
+			`SELECT EXTRACT(EPOCH FROM expires_at - created_at)::bigint FROM wiki_share_tokens WHERE id = $1`,
+			share.ID,
+		).Scan(&lifetime); err != nil {
+			t.Fatalf("read stored expiry: %v", err)
+		}
+		if want := int64(linksecret.MaxLifetime.Seconds()); lifetime != want {
+			t.Fatalf("stored lifetime = %ds, want %ds", lifetime, want)
+		}
+
+		if _, err := pool.Exec(ctx,
+			`UPDATE wiki_share_tokens SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, share.ID,
+		); err != nil {
+			t.Fatalf("expire link: %v", err)
+		}
+		if _, err := svc.RedeemShareToken(context.Background(), share.Token); !errors.Is(err, ErrShareTokenNotFound) {
+			t.Fatalf("RedeemShareToken (expired) = %v, want ErrShareTokenNotFound", err)
+		}
+	})
+
 	t.Run("a token hashed by the migration backfill still redeems", func(t *testing.T) {
 		// A pre-000351 token: the legacy uuid format, hashed with the exact
 		// expression the migration ran over the clear column.
 		legacy := uuid.New().String()
 		id := uuid.New()
 		if _, err := pool.Exec(ctx,
-			`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token_hash, permissions)
-			 VALUES ($1, $2, $3, encode(sha256(convert_to($4::text, 'UTF8')), 'hex'), '{read}')`,
+			`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token_hash, permissions, expires_at)
+			 VALUES ($1, $2, $3, encode(sha256(convert_to($4::text, 'UTF8')), 'hex'), '{read}', NOW() + INTERVAL '1 day')`,
 			id, tenantID, article.ID, legacy,
 		); err != nil {
 			t.Fatalf("insert backfilled token: %v", err)

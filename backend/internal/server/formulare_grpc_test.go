@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/formulare"
 	formularev1 "github.com/kmuhub/kmuhub/proto/formulare/v1"
@@ -1360,4 +1361,44 @@ func (r *stubFormulareRepo) RedeemShareLinkTx(
 	cp := *submission
 	r.submissions[submission.ID] = &cp
 	return true, nil
+}
+
+// Decision 2026-10-25: no share link without an end. A request without an
+// expiry gets 365 days; one further out answers InvalidArgument, which the
+// gateway's respondGRPCError turns into 400. Nothing is stored for the refusal.
+func TestCreateFormShareLink_DefaultsToAYearAndRefusesMore(t *testing.T) {
+	repo := newStubFormulareRepo()
+	srv := newFormulareServerWithRepo(repo)
+	ctx := context.Background()
+	schema := &formulare.FormSchema{
+		ID: uuid.New(), TenantID: uuid.New(), Title: "Anfrage", Fields: []byte(`[]`),
+		Status: formulare.FormSchemaStatusActive, IsPublic: true,
+		CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	repo.schemas[schema.ID] = schema
+
+	before := time.Now().UTC()
+	resp, err := srv.CreateFormShareLink(ctx, &formularev1.CreateFormShareLinkRequest{
+		TenantId: schema.TenantID.String(), FormSchemaId: schema.ID.String(),
+	})
+	if err != nil {
+		t.Fatalf("create without expiry: %v", err)
+	}
+	if resp.GetShareLink().GetExpiresAt() == nil {
+		t.Fatal("a link without a requested expiry came back without one")
+	}
+	got := resp.GetShareLink().GetExpiresAt().AsTime()
+	if want := before.AddDate(0, 0, 365); got.Before(want) || got.After(want.Add(time.Minute)) {
+		t.Fatalf("default expiry = %v, want about %v", got, want)
+	}
+
+	stored := len(repo.shareLinks)
+	tooLong := timestamppb.New(time.Now().UTC().AddDate(0, 0, 400))
+	_, err = srv.CreateFormShareLink(ctx, &formularev1.CreateFormShareLinkRequest{
+		TenantId: schema.TenantID.String(), FormSchemaId: schema.ID.String(), ExpiresAt: tooLong,
+	})
+	assertGRPCCode(t, err, codes.InvalidArgument)
+	if len(repo.shareLinks) != stored {
+		t.Fatalf("a refused link was stored: %d links, want %d", len(repo.shareLinks), stored)
+	}
 }

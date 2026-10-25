@@ -668,37 +668,15 @@ units:
       - Neues Token nur als Hash gespeichert, öffentlicher Lookup per Hash
       - Migration up/down/up sauber, RLS-Smoke
 
-  - id: harden-share-tokens-hashed-berichte-csat
-    phase: 4
-    service: berichte
-    model: opus
-    deps:
-      - harden-share-tokens-hashed-wiki-formulare
-    status: todo
-    decided: '2026-10-25'
-    decision: >
-      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Hash-Ablage auch
-      für Berichte- und CSAT-Token.
-    target: kein Link-Token mehr im Klartext
-    coverage_start: n.a.
-    scope: >
-      Zweiter Teil von `harden-share-tokens-hashed-wiki-formulare`: Berichte-Share-Secret (`berichte/service.go:newShareSecret`)
-      und CSAT-Survey-Token (`helpdesk/csat_survey.go`) auf `internal/linksecret` und Hash-Ablage umstellen,
-      nach demselben Migrationsmuster. CSAT ist in Produktion aus, das Token wird trotzdem umgestellt.
-    sources:
-      - backend/internal/berichte/service.go
-      - backend/internal/helpdesk/csat_survey.go
-    done_when:
-      - 'DB-Test je Tabelle: Bestands-Token gültig, Klartext entfernt'
-      - Keine Kopie des Generators mehr im Repo (grep belegt das)
-
   - id: harden-share-links-max-365-days
     phase: 4
     service: wiki
     model: sonnet
+    # dep auf harden-share-tokens-hashed-berichte-csat gelöst (Lauf 17 It. 17): die Unit liegt
+    # blocked in BACKLOG-NEXT.yml, der Ablauf hängt fachlich nicht an der Hash-Ablage.
     deps:
-      - harden-share-tokens-hashed-berichte-csat
-    status: todo
+      - harden-share-tokens-hashed-wiki-formulare
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Pflichtablauf für
@@ -3020,3 +2998,34 @@ units:
       - backend/internal/fuhrpark/booking_overlap_constraint_test.go
     done_when:
       - Test 20x lokal grün (`-count=20 -run TestVehicleBookingOverlapConstraint`), 40P01 im Repo-Mapping
+
+  - id: harden-document-share-links-max-365-days
+    phase: 4
+    service: document
+    model: sonnet
+    deps:
+      - harden-share-links-max-365-days
+    status: todo
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Pflichtablauf für
+      Share-Links, höchstens 365 Tage. Fund aus Lauf 17 Iteration 17: die Unit dazu nannte nur Wiki, Formulare und
+      Berichte, die Dokument-Links (000266) haben dieselbe Lücke.
+    target: auch Dokument-Share-Links laufen nach spätestens 365 Tagen ab
+    coverage_start: n.a.
+    scope: >
+      `document_share_links.expires_at` ist seit 000266 NULLable, `POST /api/v1/documents/{id}/share-links`
+      (`internal/document/file`, Spec `createDocumentShareLink`) nimmt `expiresAt`/`expires_at` optional. Wie
+      `harden-share-links-max-365-days` (Commit dieser Iteration): fehlt der Ablauf, gilt jetzt + 365 Tage
+      (`linksecret.Expiry` wiederverwenden), darüber 400 (`InvalidArgument`). Migration: Bestand ohne Ablauf auf
+      `created_at + 365 days`, danach `SET NOT NULL` (Muster 000352), Anzahl sofort abgelaufener Links in `offen:`.
+      Desktop-Aufrufer greppen (Dokumente-Share-Dialog), ob er ein Ablaufdatum sendet und `expires_at` liest.
+    sources:
+      - backend/migrations/000266_document_share_links.up.sql
+      - backend/migrations/000352_share_links_expire.up.sql
+      - backend/internal/document/file/
+      - backend/internal/linksecret/linksecret.go
+    done_when:
+      - 'Server-/Service-Test: ohne Ablauf -> 365 Tage, 400 Tage -> InvalidArgument (400)'
+      - 'DB-Test: Default-Ablauf gespeichert, abgelaufener Link -> 404 wie bei Wiki/Formularen'
+      - Migration up/down/up sauber, RLS-Smoke

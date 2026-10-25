@@ -12,7 +12,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"time"
 )
 
 // tokenBytes is the entropy of one link secret.
@@ -36,4 +38,26 @@ func New() (string, error) {
 func Hash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// MaxLifetime bounds how long a share link may stay valid (decision
+// 2026-10-25): an external path that outlives anyone's memory of opening it is
+// the failure mode, so no link is minted without an end.
+const MaxLifetime = 365 * 24 * time.Hour
+
+// ErrLifetimeTooLong refuses a requested expiry past MaxLifetime.
+var ErrLifetimeTooLong = errors.New("share link may stay valid for at most 365 days")
+
+// Expiry resolves the end of a link minted at now: no request means
+// now+MaxLifetime, a request past that is refused. Whether a requested expiry
+// lies in the future stays the caller's check, each service words it itself.
+func Expiry(requested *time.Time, now time.Time) (time.Time, error) {
+	limit := now.Add(MaxLifetime)
+	if requested == nil {
+		return limit, nil
+	}
+	if requested.After(limit) {
+		return time.Time{}, ErrLifetimeTooLong
+	}
+	return *requested, nil
 }

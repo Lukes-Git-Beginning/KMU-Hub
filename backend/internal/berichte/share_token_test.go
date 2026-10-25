@@ -87,12 +87,12 @@ func TestCreateShareToken_SecretIsFullEntropyAndUnique(t *testing.T) {
 		seen[token.Token] = true
 
 		// A link without a password must not silently get one, and an unset
-		// expiry must mean "never", not "now".
+		// expiry means the cap (decision 2026-10-25), neither "never" nor "now".
 		if token.PasswordHash != nil {
 			t.Fatal("no password was requested but a hash was stored")
 		}
-		if token.ExpiresAt != nil {
-			t.Fatalf("no expiry was requested but got %v", token.ExpiresAt)
+		if want := now.AddDate(0, 0, maxShareExpiryDays); token.ExpiresAt == nil || !token.ExpiresAt.Equal(want) {
+			t.Fatalf("no expiry was requested: got %v, want %v", token.ExpiresAt, want)
 		}
 	}
 }
@@ -157,6 +157,26 @@ func TestCreateShareToken_RejectsExpiryBeyondCap(t *testing.T) {
 		if err != ErrInvalidShareExpiry {
 			t.Fatalf("expires_in_days=%d: got %v, want ErrInvalidShareExpiry", days, err)
 		}
+	}
+}
+
+// The desktop sends expires_in_days null for "never" and 0 is documented as
+// the same: both now mean the 365-day cap, so no link is minted without an end.
+func TestCreateShareToken_ZeroExpiryMeansTheCap(t *testing.T) {
+	now := time.Date(2026, 7, 27, 12, 0, 0, 0, time.UTC)
+	svc, repo := shareTestService(t, now)
+	tenant := uuid.New()
+	doc := seedShareableDocument(repo, tenant)
+
+	zero := int32(0)
+	token, err := svc.CreateShareToken(context.Background(), CreateShareTokenInput{
+		TenantID: tenant, DocumentID: doc.ID, ExpiresInDays: &zero,
+	})
+	if err != nil {
+		t.Fatalf("create share token: %v", err)
+	}
+	if want := now.AddDate(0, 0, maxShareExpiryDays); token.ExpiresAt == nil || !token.ExpiresAt.Equal(want) {
+		t.Fatalf("expires_in_days=0: got %v, want %v", token.ExpiresAt, want)
 	}
 }
 

@@ -7,6 +7,7 @@ package formulare
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
@@ -87,6 +88,36 @@ func TestFormShareLink_StoredOnlyAsHash(t *testing.T) {
 		}
 	})
 
+	// 000352: a link without a requested expiry is stored with created_at +
+	// 365 days, and once that has passed it answers like an unknown token.
+	t.Run("a link expires after a year and then answers like an unknown one", func(t *testing.T) {
+		link, err := svc.CreateShareLink(ctx, CreateShareLinkInput{TenantID: tenantID, FormSchemaID: schema.ID})
+		if err != nil {
+			t.Fatalf("CreateShareLink: %v", err)
+		}
+		defer testutil.CleanupRow(t, pool, "form_share_tokens", link.ID)
+
+		var lifetime int64
+		if err := pool.QueryRow(sysCtx,
+			`SELECT EXTRACT(EPOCH FROM expires_at - created_at)::bigint FROM form_share_tokens WHERE id = $1`,
+			link.ID,
+		).Scan(&lifetime); err != nil {
+			t.Fatalf("read stored expiry: %v", err)
+		}
+		if want := int64(linksecret.MaxLifetime.Seconds()); lifetime != want {
+			t.Fatalf("stored lifetime = %ds, want %ds", lifetime, want)
+		}
+
+		if _, err := pool.Exec(ctx,
+			`UPDATE form_share_tokens SET expires_at = NOW() - INTERVAL '1 minute' WHERE id = $1`, link.ID,
+		); err != nil {
+			t.Fatalf("expire link: %v", err)
+		}
+		if _, err := svc.SubmitByShareToken(context.Background(), link.Token, []byte(`{"f1":"c"}`), "", ""); !errors.Is(err, ErrShareLinkNotFound) {
+			t.Fatalf("SubmitByShareToken (expired) = %v, want ErrShareLinkNotFound", err)
+		}
+	})
+
 	t.Run("a link hashed by the migration backfill still takes submissions", func(t *testing.T) {
 		legacy, err := linksecret.New()
 		if err != nil {
@@ -94,8 +125,8 @@ func TestFormShareLink_StoredOnlyAsHash(t *testing.T) {
 		}
 		id := uuid.New()
 		if _, err := pool.Exec(ctx,
-			`INSERT INTO form_share_tokens (id, tenant_id, form_schema_id, token_hash)
-			 VALUES ($1, $2, $3, encode(sha256(convert_to($4::text, 'UTF8')), 'hex'))`,
+			`INSERT INTO form_share_tokens (id, tenant_id, form_schema_id, token_hash, expires_at)
+			 VALUES ($1, $2, $3, encode(sha256(convert_to($4::text, 'UTF8')), 'hex'), NOW() + INTERVAL '1 day')`,
 			id, tenantID, schema.ID, legacy,
 		); err != nil {
 			t.Fatalf("insert backfilled link: %v", err)
