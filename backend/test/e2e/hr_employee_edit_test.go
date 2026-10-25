@@ -35,6 +35,16 @@ func hrRequireFields(t *testing.T, emp map[string]interface{}, want map[string]s
 	}
 }
 
+// hrRequirePartTime checks the contract type. The gateway writes the proto enum as its number
+// (encoding/json on the pb struct, CONTRACT_PART_TIME = 2), hr-client.ts normaliseContractType
+// reads both the number and the name.
+func hrRequirePartTime(t *testing.T, emp map[string]interface{}) {
+	t.Helper()
+	if got := emp["contract_type"]; got != float64(2) && got != "CONTRACT_PART_TIME" {
+		t.Errorf("employee.contract_type = %v, want CONTRACT_PART_TIME (2)", got)
+	}
+}
+
 // TestHREmployeeEditDesktopBodyFlow is the admin side of the team page, with the bodies the
 // desktop sends: the create wizard (CreateEmployeeWizard.tsx -> toSnakeCaseEmployeeBody), the
 // edit dialog (EditMemberDialog.tsx -> toSnakeCaseUpdateBody) and the deactivate button
@@ -150,7 +160,6 @@ func TestHREmployeeEditDesktopBodyFlow(t *testing.T) {
 		hrRequireFields(t, emp, map[string]string{
 			"department":             "Innendienst",
 			"position_title":         "Teamleitung",
-			"contract_type":          "CONTRACT_PART_TIME",
 			"address_street":         "Marienplatz 2",
 			"address_city":           "München",
 			"address_postal_code":    "80331",
@@ -160,6 +169,7 @@ func TestHREmployeeEditDesktopBodyFlow(t *testing.T) {
 			"start_date": "2024-03-01",
 			"status":     "active",
 		})
+		hrRequirePartTime(t, emp)
 		if days := emp["annual_leave_days"]; days != float64(28) {
 			t.Errorf("annual_leave_days = %v, want 28 (not part of the body)", days)
 		}
@@ -228,8 +238,8 @@ func TestHREmployeeEditDesktopBodyFlow(t *testing.T) {
 		hrRequireFields(t, hrGetEmployee(t, base, adminToken, memberID), map[string]string{
 			"address_postal_code": "80331",
 			"address_country":     "DE",
-			"contract_type":       "CONTRACT_PART_TIME",
 		})
+		hrRequirePartTime(t, hrGetEmployee(t, base, adminToken, memberID))
 	})
 
 	t.Run("update for an unknown user is a 404", func(t *testing.T) {

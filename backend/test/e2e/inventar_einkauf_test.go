@@ -365,7 +365,7 @@ func TestInventarEinkaufFlow(t *testing.T) {
 				"sku":          sku,
 				"quantity":     lineQuantity,
 				"unit_price":   "4.50",
-				"tax_rate":     "19",
+				"tax_rate":     "0.19", // a fraction, NUMERIC(5,4); the desktop line dialog sends none
 			}, adminToken)
 			requireStatus(t, resp, body, http.StatusCreated)
 			var line struct {
