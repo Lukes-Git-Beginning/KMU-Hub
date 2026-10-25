@@ -1199,7 +1199,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'formulare: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -3169,3 +3169,64 @@ units:
     done_when:
       - 'Service-Test je Feld: Wert außerhalb des Enums -> ErrInvalidInput; DB-Test: unbekannte Vertrags-ID bei Partei/Erinnerung -> ErrContractNotFound'
       - 'E2E `TestVertraegeMemberFlow`: Subtest "values outside the enums and unknown references answer 500 today" wird zur Erwartung 400/404'
+
+  - id: fix-formulare-create-submission-checks-schema
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    target: Einreichung an ein unbekanntes, gelöschtes oder archiviertes Formular antwortet 404 bzw. 409 statt 500 oder 201
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-formulare-flow` (Lauf 17, Iteration 36). `Service.CreateSubmission` lädt das Formular nie
+      (`internal/formulare/service.go:446`, nur `ListActiveWebhooksForSchema` und der Insert). Folgen, im E2E als
+      IST festgehalten: (1) `POST /api/v1/formulare/schemas/{unbekannte-id}/submissions` läuft in den Fremdschlüssel
+      und antwortet 500 `{"error":"internal error"}`; (2) an ein GELÖSCHTES Formular (Soft-Delete) legt dieselbe
+      Route eine Einreichung an (201) und stößt dessen aktive Webhooks an; (3) Entwurf und archiviert nehmen
+      ebenfalls an (die Draft-Frage ist Produktentscheidung: ein Entwurf wird im Desktop zur Vorschau ausgefüllt,
+      ohne die Route zu rufen, das archivierte Formular aber sollte wie in `SubmitByShareToken` abgelehnt werden).
+      Fix im Service nach dem Muster von `SubmitByShareToken` (`form_share.go`): Schema per `GetSchema` laden,
+      `ErrSchemaNotFound` -> 404, `DeletedAt != nil` -> `ErrSchemaDeleted`, archiviert -> Konflikt. Danach
+      `submittedBy`: das Feld aus dem Body wird heute ungeprüft übernommen (ein member kann unter fremdem Namen
+      einreichen); der Handler sollte es nur für Rollen mit Fremdvergabe zulassen, sonst auf den Aufrufer
+      setzen. Das ist eine Entscheidung (Importe durch den Admin?), nicht in dieser Unit umdeuten: Frage in
+      `notes`/`offen` an Luke, Default = Aufrufer setzen nur, wenn das Desktop das Feld nirgends sendet
+      (`createSubmission` in `FormularePage.tsx` prüfen).
+    sources:
+      - backend/internal/formulare/service.go
+      - backend/internal/formulare/form_share.go
+      - backend/internal/server/formulare_grpc.go
+      - backend/internal/gateway/route_formulare.go
+      - backend/test/e2e/formulare_test.go
+    done_when:
+      - 'Service-Test: unbekanntes, gelöschtes und archiviertes Formular -> Fehler, kein Insert, kein Webhook-Enqueue'
+      - 'E2E `TestFormulareMemberFlow`: die beiden IST-Stellen (500 auf unbekanntes, 201 auf gelöschtes Formular) werden zur Erwartung 404'
+
+  - id: fix-formulare-public-submit-accepts-json-answers
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: todo
+    target: die öffentliche Ausfüllroute nimmt `answers` als JSON-Objekt, wie die angemeldete Route
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-formulare-flow` (Lauf 17, Iteration 36). `publicSubmitRequest.Answers` ist `[]byte`
+      (`route_formulare.go:1033`): Go liest dafür einen base64-String, ein JSON-Objekt
+      `{"answers":{"f1":"x"}}` ist 400 `invalid request body`. Die angemeldete Route nimmt dieselben Antworten
+      über `json.RawMessage` + `jsonBlob` als Objekt. Heute ruft keine Seite die öffentliche Route (die Ausfüllseite
+      fehlt, `url` im Share-Link ist leer), also kein Totalausfall; sobald jemand die Seite baut, schickt sie
+      naheliegend ein Objekt und bekommt 400. Fix: Request-Typ auf `json.RawMessage` und `jsonBlob(req.Answers)`
+      an den gRPC-Aufruf, den base64-String weiter akzeptieren (Abwärtskompatibilität, `jsonBlob` tut das schon).
+      `validate:"required"` bleibt (leeres Objekt `{}` ist ein Sonderfall: der Service lehnt `len(answers)==0` ab,
+      `{}` hat zwei Byte; entscheiden und festhalten, ob ein leeres Objekt 400 sein soll). OpenAPI-Spec der
+      Route auf das Objekt umstellen (`backend/api/openapi.yaml`, `swagger-cli validate`).
+    sources:
+      - backend/internal/gateway/route_formulare.go
+      - backend/api/openapi.yaml
+      - backend/test/e2e/formulare_test.go
+    done_when:
+      - 'Handler-Test: Objekt-Body und base64-Body ergeben dieselbe Einreichung'
+      - 'E2E `TestFormulareMemberFlow`: Subtest "public fill-out ..." erwartet 201 auf den Objekt-Body statt 400'
+      - swagger-cli validate grün
