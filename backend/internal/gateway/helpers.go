@@ -237,6 +237,20 @@ func ownerFilterForScope(w http.ResponseWriter, r *http.Request, resource, actio
 	return &userID, true
 }
 
+// ownerFilterUnlessAltKey is ownerFilterForScope for an edit route whose guard
+// also lets a legacy key in (RequirePermissionAny(alt, resource:action)). Holding
+// alt at a scope other than own keeps the edit tenant-wide; otherwise the scope
+// of resource:action decides. Unlike ownerFilterForScopeAny, where the narrower
+// pair wins: the seed grants manager both keys, and narrowing there would take
+// away what the alt key gives.
+func ownerFilterUnlessAltKey(w http.ResponseWriter, r *http.Request, alt [2]string, resource, action string) (*string, bool) {
+	ctx := r.Context()
+	if middleware.HoldsAnyPermission(ctx, alt) && middleware.PermissionScope(ctx, alt[0], alt[1]) != auth.ScopeOwn {
+		return nil, true
+	}
+	return ownerFilterForScope(w, r, resource, action)
+}
+
 // ownerFilterForScopeAny is ownerFilterForScope for a route guarded by
 // middleware.RequirePermissionAny across more than one resource:action pair.
 // That guard grants access if EITHER key is present, so a caller can be

@@ -29850,7 +29850,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
       summary: Update a report definition
-      description: Requires berichte:reports:write permission. Only present fields are changed.
+      description: >-
+        Requires berichte:reports:write or berichte:reports:edit. At edit scope own (member) only the
+        creator may change the definition; a foreign one answers 404. Only present fields are changed.
       tags: [berichte]
       operationId: updateBerichteDefinition
       security: [{ bearerAuth: [] }]
@@ -30349,7 +30351,10 @@ paths:
     patch:
       summary: Update a report document
       description: >
-        Requires berichte:reports:write permission. Only present fields are
+        Requires berichte:reports:write, edit or publish. At edit scope own (member)
+        only the creator may change the document; a foreign one answers 404. A
+        status change (the lifecycle) needs berichte:reports:publish or write,
+        otherwise 403. Only present fields are
         changed; omitted rows/settings keep their stored value. The first
         transition to status "released" stamps released_at, later edits leave
         it untouched.

@@ -1428,7 +1428,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     target: 'berichte: der own-Scope von berichte:reports:edit gilt für Definitionen und Dokumente'
     coverage_start: n.a.
     scope: >

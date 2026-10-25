@@ -20,8 +20,9 @@ import (
 //   - member holds `berichte:reports:create|read` at scope all and `berichte:reports:edit` at scope own (000256), plus the
 //     legacy `berichte:reports:read` (000234); delete, publish, schedules and share links are 403; manager holds the
 //     legacy `berichte:reports:write` and so also schedule:manage, share:manage and cache invalidation;
-//   - the own scope of `berichte:reports:edit` is NOT enforced: PATCH on a definition and on a document answers 200 to a
-//     second member, and a member releases a document through the same PATCH (fix-berichte-own-scope-definition-and-document-edit);
+//   - the own scope of `berichte:reports:edit` holds: PATCH on a foreign definition or document answers 404 to a second
+//     member; manager (legacy `berichte:reports:write`) and admin stay tenant-wide. A document's status change (the
+//     lifecycle) needs `berichte:reports:publish` or `write`, so a member gets 403 even on their own document;
 //   - the Report Builder saves the module of its source (`work`, `hr`, `rapporte`, ...); the service only knows
 //     finanzen|crm|helpdesk|inventar|produktion|cross and answers 400 for the other eight sources
 //     (fix-berichte-definition-module-allowlist-vs-builder-sources);
@@ -37,6 +38,7 @@ func TestBerichteMemberFlow(t *testing.T) {
 	managerToken, _ := registerAndLoginWithRole(t, base, "manager")
 	memberAToken, memberAID := registerAndLoginWithRole(t, base, "member")
 	memberBToken, _ := registerAndLoginWithRole(t, base, "member")
+	adminToken, _ := registerAndLoginWithRole(t, base, "admin")
 
 	b := base + "/api/v1/berichte"
 	suffix := time.Now().UnixNano()
@@ -198,19 +200,32 @@ func TestBerichteMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusForbidden)
 	})
 
-	t.Run("the author edits the definition, a second member edits it too (IST)", func(t *testing.T) {
+	t.Run("the author edits the definition, a second member cannot, manager and admin can", func(t *testing.T) {
 		resp, body := doRequest(t, http.MethodPatch, b+"/definitions/"+defID, map[string]interface{}{"name": defName + " v2", "is_published": true}, memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
 		def := nested(t, body, "definition")
 		if str(def, "name") != defName+" v2" || def["is_published"] != true {
 			t.Fatalf("unexpected definition %s", string(body))
 		}
-		// IST: `berichte:reports:edit` is own for member, the route does not look at the author.
-		resp, body = doRequest(t, http.MethodPatch, b+"/definitions/"+defID, map[string]interface{}{"name": defName}, memberBToken)
+		// `berichte:reports:edit` is own for member: a foreign definition is not found, and stays as it was.
+		resp, body = doRequest(t, http.MethodPatch, b+"/definitions/"+defID, map[string]interface{}{"name": "hijacked"}, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = getJSON(t, b+"/definitions/"+defID, memberBToken)
 		requireStatus(t, resp, body, http.StatusOK)
+		if str(nested(t, body, "definition"), "name") != defName+" v2" {
+			t.Fatalf("a refused edit changed the definition: %s", string(body))
+		}
+
+		resp, body = doRequest(t, http.MethodPatch, b+"/definitions/"+defID, map[string]interface{}{"description": "manager"}, managerToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = doRequest(t, http.MethodPatch, b+"/definitions/"+defID, map[string]interface{}{"name": defName}, adminToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if str(nested(t, body, "definition"), "name") != defName {
+			t.Fatalf("unexpected definition %s", string(body))
+		}
 	})
 
-	t.Run("member creates a report document and a second member edits it (IST)", func(t *testing.T) {
+	t.Run("member creates a report document, edits but does not release it, a second member cannot touch it", func(t *testing.T) {
 		resp, body := postJSON(t, b+"/documents", map[string]interface{}{"module": "bogus"}, memberAToken)
 		requireStatus(t, resp, body, http.StatusBadRequest)
 
@@ -237,12 +252,25 @@ func TestBerichteMemberFlow(t *testing.T) {
 
 		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"status": "archived-soon"}, memberAToken)
 		requireStatus(t, resp, body, http.StatusBadRequest)
+		// The lifecycle needs `publish`: the author's own status change is refused, a content save goes through.
 		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"title": "Monatsbericht v2", "status": "final"}, memberAToken)
+		requireStatus(t, resp, body, http.StatusForbidden)
+		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"title": "Monatsbericht v2", "rows": []interface{}{}}, memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
-		// IST: the author is not checked, and the lifecycle transition rides on the edit key (no `publish` for member).
-		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"title": "Monatsbericht v3", "status": "released"}, memberBToken)
+		if d := nested(t, body, "document"); str(d, "title") != "Monatsbericht v2" || str(d, "status") != "draft" {
+			t.Fatalf("unexpected document %s", string(body))
+		}
+		// A second member neither edits nor releases the foreign document.
+		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"title": "hijacked"}, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"status": "released"}, memberBToken)
+		requireStatus(t, resp, body, http.StatusForbidden)
+		// manager (publish, legacy write) runs the lifecycle on the member's document, admin edits it.
+		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"status": "final"}, managerToken)
 		requireStatus(t, resp, body, http.StatusOK)
-		if str(nested(t, body, "document"), "status") != "released" {
+		resp, body = doRequest(t, http.MethodPatch, b+"/documents/"+docID, map[string]interface{}{"title": "Monatsbericht v3", "status": "released"}, adminToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if d := nested(t, body, "document"); str(d, "title") != "Monatsbericht v3" || str(d, "status") != "released" {
 			t.Fatalf("unexpected document %s", string(body))
 		}
 

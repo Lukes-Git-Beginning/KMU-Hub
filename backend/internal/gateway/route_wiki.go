@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -291,18 +290,10 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 // wikiEditOwnerFilter narrows an edit (PATCH, restore, attachment upload) to the
-// caller's own articles when "wiki:article:edit" is their only way in and it sits
-// at scope own. The legacy "wiki:articles:write" opens the same wikiEdit guard
-// tenant-wide (manager), so holding it unnarrowed keeps the edit unbounded —
-// unlike ownerFilterForScopeAny, where the narrower pair wins: the seed grants
-// manager both keys, and narrowing there would take away what the alt key gives.
+// caller's own articles when "wiki:article:edit" at scope own is their only way
+// in; the legacy "wiki:articles:write" keeps it tenant-wide (manager).
 func wikiEditOwnerFilter(w http.ResponseWriter, r *http.Request) (*string, bool) {
-	ctx := r.Context()
-	if middleware.HoldsAnyPermission(ctx, [2]string{"wiki:articles", "write"}) &&
-		middleware.PermissionScope(ctx, "wiki:articles", "write") != auth.ScopeOwn {
-		return nil, true
-	}
-	return ownerFilterForScope(w, r, "wiki:article", "edit")
+	return ownerFilterUnlessAltKey(w, r, [2]string{"wiki:articles", "write"}, "wiki:article", "edit")
 }
 
 func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request) {

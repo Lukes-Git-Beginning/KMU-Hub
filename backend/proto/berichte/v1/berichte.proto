@@ -163,6 +163,9 @@ message UpdateDefinitionRequest {
   optional string default_format = 7;
   optional bool is_published = 8;
   string editor_id = 9;
+  // Set when the caller may only edit definitions they created (berichte:reports:edit
+  // at scope own); a foreign definition then answers not found.
+  optional string owner_id = 10;
 }
 
 message DeleteDefinitionRequest {
@@ -355,6 +358,9 @@ message UpdateDocumentRequest {
   optional string status = 6;
   bytes rows = 7;                 // empty = no change
   bytes settings = 8;             // empty = no change
+  // Set when the caller may only edit documents they created (berichte:reports:edit
+  // at scope own); a foreign document then answers not found.
+  optional string owner_id = 9;
 }
 
 message DeleteDocumentRequest {

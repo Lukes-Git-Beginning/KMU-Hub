@@ -109,6 +109,13 @@ var (
 )
 
 func isValidModule(m string) bool { _, ok := validModules[m]; return ok }
+
+// ownedBy reports whether an own-scoped edit may touch a row: without an
+// owner filter every row qualifies, with one only rows that user created
+// (a row without creator belongs to nobody, so it is foreign to everyone).
+func ownedBy(createdBy, ownerID *uuid.UUID) bool {
+	return ownerID == nil || (createdBy != nil && *createdBy == *ownerID)
+}
 func isValidKind(k string) bool   { _, ok := validKinds[k]; return ok }
 func isValidFormat(f string) bool { _, ok := validFormats[f]; return ok }
 
@@ -139,6 +146,9 @@ type UpdateDefinitionInput struct {
 	QueryConfig   json.RawMessage // empty = no change
 	DefaultFormat *string
 	IsPublished   *bool
+	// OwnerID narrows the edit to definitions this user created
+	// (berichte:reports:edit at scope own); nil leaves it tenant-wide.
+	OwnerID *uuid.UUID
 }
 
 // ListDefinitionsInput is the user-facing list request.
@@ -266,6 +276,9 @@ func (s *Service) UpdateDefinition(ctx context.Context, in UpdateDefinitionInput
 	def, err := s.repo.GetDefinition(ctx, in.TenantID, in.DefinitionID)
 	if err != nil {
 		return nil, err
+	}
+	if !ownedBy(def.CreatedBy, in.OwnerID) {
+		return nil, ErrDefinitionNotFound
 	}
 
 	if in.Name != nil {
@@ -672,6 +685,9 @@ type UpdateDocumentInput struct {
 	Status      *string
 	Rows        json.RawMessage // empty = no change
 	Settings    json.RawMessage // empty = no change
+	// OwnerID narrows the edit to documents this user created
+	// (berichte:reports:edit at scope own); nil leaves it tenant-wide.
+	OwnerID *uuid.UUID
 }
 
 // ListDocumentsInput is the user-facing document list request.
@@ -742,6 +758,9 @@ func (s *Service) UpdateDocument(ctx context.Context, in UpdateDocumentInput) (*
 	doc, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID)
 	if err != nil {
 		return nil, err
+	}
+	if !ownedBy(doc.CreatedBy, in.OwnerID) {
+		return nil, ErrDocumentNotFound
 	}
 
 	if in.Title != nil {
