@@ -1070,3 +1070,14 @@ Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `P
 - neue-units: keine
 - desktop-aufrufer: `POST /rapporte/reports/{id}/submit` -> `rapporte-client.ts:82` `submitReport` (`{report}`) -> Antwortform unverändert; `ReportDetailModal.tsx:472` bietet „Erneut einreichen“ bei `rejected` an und ruft `onUpdate(…approvalStatus:'submitted')` -> war bisher 412, läuft jetzt durch -> passt.
 - offen: Die Wiedereinreichung läuft über `onUpdate` im Desktop; ob die Seite dort `PUT` mit `approvalStatus` oder `POST /submit` ruft, habe ich nicht verfolgt (Desktop-Code ist nicht meiner). Falls `PUT`, bleibt der Status dort unberührt und die Fix-Unit für den Desktop-Pfad gehört in den nächsten Lauf. Das Backend-Verhalten von `POST /submit` ist belegt.
+
+## Iteration 73 — fix-rapporte-reviewer-id-taken-from-body — done — 2026-10-25 02:45
+- commit: (siehe git log, Subject `fix(rapporte): take the approval reviewer from the token instead of the request body`)
+- gebaut: `HandleApproveReport`/`HandleRejectReport` setzen `ReviewerId` aus `middleware.GetUserID` (leer -> 401). `reviewer_id` bleibt im Body-Struct, wird ignoriert und ist nicht mehr `required,uuid`; OpenAPI-Schema beider Routen ohne `required`, Feld als „Ignored“ beschrieben. Zwei alte Validierungstests (fehlende/ungültige `reviewer_id` -> 400) durch „Body-Feld nicht nötig“ ersetzt. Neuer Wire-Test `TestRapporteRoutes_ReviewerIsTheCallerNotTheBody` (echter Router + gRPC-Stub, fünf Fälle: fremde ID, fehlend, Müll, je Approve/Reject).
+- gate: build ok | vet ok | lint ok (0 Funde) | test ok (`DATABASE_URL` als `kmuhub_app`, `-count=1`, `internal/gateway` inkl. `TestOpenAPIRouteDrift` grün, 0 Skips) | `swagger-cli validate` ok | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 77,7 % -> 77,7 % (Bugfix, Gewinn ist Verhaltensabdeckung; `coverage_start` 76,9 %, Differenz durch frühere Iterationen)
+- mutations-probe: `ReviewerId: reviewerID` wieder auf `req.ReviewerID` gestellt -> alle fünf Fälle von `TestRapporteRoutes_ReviewerIsTheCallerNotTheBody` rot. Zurückgedreht, Diff zeigt nur den Fix.
+- verify vorgaenger: sauber (`9e582702`: nur Rapporte-Service/Repo, UPDATE trägt `tenant_id`, keine Route, kein Proto, keine Tabelle, kein neuer Guard, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: `POST /rapporte/reports/{id}/approve|reject` -> `RapportePage.tsx:323/337` sendet `{id, reviewer_id: currentUserId, review_note}` -> weiter akzeptiert, Antwortform (`{report}`) unverändert -> passt. Das FE-Feld ist jetzt überflüssig, aber unschädlich.
+- offen: Selbstfreigabe (Autor == Reviewer) bleibt erlaubt — Produktfrage, nicht gebaut. Der gRPC-Server prüft `ReviewerId` weiter nur auf UUID-Format; ein Nicht-UUID-Subject im Token (Testtoken `user-123`) endet dort in InvalidArgument, echte Tokens tragen UUIDs.

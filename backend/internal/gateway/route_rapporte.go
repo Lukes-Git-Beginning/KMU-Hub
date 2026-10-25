@@ -196,8 +196,10 @@ type updateReportRequest struct {
 	ProjectName  *string  `json:"project_name,omitempty"`
 }
 
+// approveRejectRequest still names reviewer_id because the desktop sends it, but the
+// handlers ignore it: the reviewer is the authenticated caller, never whoever the body names.
 type approveRejectRequest struct {
-	ReviewerID string `json:"reviewer_id" validate:"required,uuid"`
+	ReviewerID string `json:"reviewer_id"`
 	ReviewNote string `json:"review_note"`
 }
 
@@ -509,11 +511,16 @@ func (rr *RapporteRoutes) HandleApproveReport(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	reviewerID := middleware.GetUserID(r.Context())
+	if reviewerID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return
+	}
 
 	resp, err := client.ApproveReport(r.Context(), &rapportev1.ApproveReportRequest{
 		TenantId:   tenantID.String(),
 		ReportId:   id,
-		ReviewerId: req.ReviewerID,
+		ReviewerId: reviewerID,
 		ReviewNote: req.ReviewNote,
 	})
 	if err != nil {
@@ -544,11 +551,16 @@ func (rr *RapporteRoutes) HandleRejectReport(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	reviewerID := middleware.GetUserID(r.Context())
+	if reviewerID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return
+	}
 
 	resp, err := client.RejectReport(r.Context(), &rapportev1.RejectReportRequest{
 		TenantId:   tenantID.String(),
 		ReportId:   id,
-		ReviewerId: req.ReviewerID,
+		ReviewerId: reviewerID,
 		ReviewNote: req.ReviewNote,
 	})
 	if err != nil {

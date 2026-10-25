@@ -22169,9 +22169,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reviewer_id]
               properties:
-                reviewer_id: { type: string, format: uuid }
+                reviewer_id:
+                  type: string
+                  description: "Ignored. The reviewer is always the authenticated caller."
                 review_note: { type: string }
       responses:
         "200":
@@ -22206,9 +22207,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reviewer_id]
               properties:
-                reviewer_id: { type: string, format: uuid }
+                reviewer_id:
+                  type: string
+                  description: "Ignored. The reviewer is always the authenticated caller."
                 review_note: { type: string }
       responses:
         "200":

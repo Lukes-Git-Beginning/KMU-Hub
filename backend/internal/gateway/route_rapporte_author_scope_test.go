@@ -34,6 +34,7 @@ type rapporteScopeStub struct {
 	restricted map[string]bool
 	uploadedBy string
 	authorID   string
+	reviewers  map[string]string
 }
 
 func (s *rapporteScopeStub) record(rpc string, restricted bool) {
@@ -62,6 +63,22 @@ func (s *rapporteScopeStub) UpdateReport(_ context.Context, r *rapportev1.Update
 func (s *rapporteScopeStub) SubmitReport(_ context.Context, r *rapportev1.SubmitReportRequest) (*rapportev1.ReportResponse, error) {
 	s.record("SubmitReport", r.GetRestrictToAuthor())
 	return &rapportev1.ReportResponse{}, nil
+}
+func (s *rapporteScopeStub) ApproveReport(_ context.Context, r *rapportev1.ApproveReportRequest) (*rapportev1.ReportResponse, error) {
+	s.recordReviewer("ApproveReport", r.GetReviewerId())
+	return &rapportev1.ReportResponse{}, nil
+}
+func (s *rapporteScopeStub) RejectReport(_ context.Context, r *rapportev1.RejectReportRequest) (*rapportev1.ReportResponse, error) {
+	s.recordReviewer("RejectReport", r.GetReviewerId())
+	return &rapportev1.ReportResponse{}, nil
+}
+func (s *rapporteScopeStub) recordReviewer(rpc, reviewer string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.reviewers == nil {
+		s.reviewers = map[string]string{}
+	}
+	s.reviewers[rpc] = reviewer
 }
 func (s *rapporteScopeStub) SaveSignature(_ context.Context, r *rapportev1.SaveReportSignatureRequest) (*rapportev1.ReportResponse, error) {
 	s.record("SaveSignature", r.GetRestrictToAuthor())
@@ -213,4 +230,39 @@ func TestRapporteRoutes_MemberFillsAndSubmitsOwnReport(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 		assert.Equal(t, callerID, stub.authorID)
 	})
+}
+
+// The freigeber on an approval is the authenticated caller. The desktop still sends
+// reviewer_id, and a hostile client can name anybody: the body value must never reach
+// the service, and a client that leaves it out must not be turned away either.
+func TestRapporteRoutes_ReviewerIsTheCallerNotTheBody(t *testing.T) {
+	const reportID = "11111111-1111-1111-1111-111111111111"
+	callerID := uuid.NewString()
+	foreign := uuid.NewString()
+
+	for _, c := range []struct{ name, rpc, path, body string }{
+		{"approve with foreign reviewer", "ApproveReport", "approve", `{"reviewer_id":"` + foreign + `","review_note":"ok"}`},
+		{"approve without reviewer", "ApproveReport", "approve", `{"review_note":"ok"}`},
+		{"approve with garbage reviewer", "ApproveReport", "approve", `{"reviewer_id":"not-a-uuid"}`},
+		{"reject with foreign reviewer", "RejectReport", "reject", `{"reviewer_id":"` + foreign + `","review_note":"no"}`},
+		{"reject without reviewer", "RejectReport", "reject", `{"review_note":"no"}`},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			stub := &rapporteScopeStub{}
+			routes := newRapporteRoutes(registryFor(t, "rapporte", func(s *grpc.Server) { rapportev1.RegisterRapporteServiceServer(s, stub) }))
+			router := chi.NewRouter()
+			routes.RegisterRoutes(router, guardTestAuth)
+
+			req := httptest.NewRequest("POST", "/api/v1/rapporte/reports/"+reportID+"/"+c.path, strings.NewReader(c.body))
+			req.Header.Set("Content-Type", "application/json")
+			req = withPermissions(withAuth(req, callerID, testTenantID), "rapporte:report:approve")
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+
+			assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+			stub.mu.Lock()
+			defer stub.mu.Unlock()
+			assert.Equal(t, callerID, stub.reviewers[c.rpc])
+		})
+	}
 }
