@@ -120,6 +120,9 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 		taskEditDel = middleware.RequirePermissionAny([2]string{"tasks", "delete"}, [2]string{"work:task", "edit"})
 		timeLog     = middleware.RequirePermissionAny([2]string{"tasks", "write"}, [2]string{"work:time", "log"})
 		labelEdit   = middleware.RequirePermissionAny([2]string{"work_labels", "write"}, [2]string{"work:task", "edit"})
+		// Delete of an own comment / own time entry: the service compares the actor with
+		// author/owner, so the guard only has to let the writers through.
+		ownDelete = middleware.RequirePermissionAny([2]string{"tasks", "delete"}, [2]string{"tasks", "write"})
 	)
 
 	// Tasks
@@ -176,11 +179,13 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 	})
 
 	// Time entries (top-level update/delete) — isOwner-only in the FE, no
-	// capability gate call, stays on the coarse key.
+	// capability gate call, stays on the coarse key. Delete also opens for
+	// tasks:write: the service lets only the owner delete (DeleteEntry), and
+	// member holds tasks:write but not tasks:delete.
 	r.Route("/api/v1/time-entries", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("tasks", "write")).Put("/{id}", w.HandleUpdateTimeEntry)
-		r.With(middleware.RequirePermission("tasks", "delete")).Delete("/{id}", w.HandleDeleteTimeEntry)
+		r.With(ownDelete).Delete("/{id}", w.HandleDeleteTimeEntry)
 	})
 
 	// Task dependencies (top-level delete)
@@ -190,11 +195,12 @@ func (w *WorkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handl
 	})
 
 	// Task comments (top-level update/delete) — isOwn-only in the FE, no
-	// capability gate call, stays on the coarse key.
+	// capability gate call, stays on the coarse key. Delete also opens for
+	// tasks:write: the service lets only the author or an admin delete.
 	r.Route("/api/v1/task-comments", func(r chi.Router) {
 		r.Use(authMiddleware)
 		r.With(middleware.RequirePermission("tasks", "write")).Put("/{id}", w.HandleUpdateTaskComment)
-		r.With(middleware.RequirePermission("tasks", "delete")).Delete("/{id}", w.HandleDeleteTaskComment)
+		r.With(ownDelete).Delete("/{id}", w.HandleDeleteTaskComment)
 	})
 
 	// Entity links (top-level delete)

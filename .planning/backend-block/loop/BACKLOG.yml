@@ -187,7 +187,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: member löscht eigene Aufgaben-Kommentare und eigene Zeiteinträge, fremde weiterhin nicht
     coverage_start: n.a.
     scope: >
