@@ -1011,6 +1011,16 @@ func TestSchichten_GetShiftStats(t *testing.T) {
 // Swap request RPCs — lifecycle transitions and the own-scope premise
 // ---------------------------------------------------------------------------
 
+// seatFor assigns employeeID to a fresh shift and returns the (assignment_id, shift_id) pair a
+// swap request for that seat must carry; CreateSwapRequest rejects any other pair.
+func seatFor(repo *stubSchichtenRepo, tenantID, employeeID string) (assignmentID, shiftID string) {
+	a := &schichten.ShiftAssignment{
+		ID: uuid.New(), TenantID: uuid.MustParse(tenantID), ShiftID: uuid.New(), EmployeeID: uuid.MustParse(employeeID),
+	}
+	repo.assignments[a.ID] = a
+	return a.ID.String(), a.ShiftID.String()
+}
+
 func TestSchichten_SwapRequest_CreateApproveLifecycle(t *testing.T) {
 	repo := newStubSchichtenRepo()
 	srv := newSchichtenServerWithRepo(repo)
@@ -1019,8 +1029,9 @@ func TestSchichten_SwapRequest_CreateApproveLifecycle(t *testing.T) {
 	requestedBy := uuid.New().String()
 	swapWith := uuid.New().String()
 
+	assignmentID, shiftID := seatFor(repo, tenantID, requestedBy)
 	createResp, err := srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		TenantId: tenantID, AssignmentId: assignmentID, ShiftId: shiftID,
 		RequestedByEmployeeId: requestedBy, SwapWithEmployeeId: swapWith,
 		Reason: "Arzttermin", IdempotencyKey: "idem-1",
 	})
@@ -1047,9 +1058,11 @@ func TestSchichten_SwapRequest_RejectLifecycle(t *testing.T) {
 	ctx := context.Background()
 	tenantID := uuid.New().String()
 
+	requestedBy := uuid.New().String()
+	assignmentID, shiftID := seatFor(repo, tenantID, requestedBy)
 	createResp, err := srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
-		RequestedByEmployeeId: uuid.New().String(), SwapWithEmployeeId: uuid.New().String(),
+		TenantId: tenantID, AssignmentId: assignmentID, ShiftId: shiftID,
+		RequestedByEmployeeId: requestedBy, SwapWithEmployeeId: uuid.New().String(),
 		IdempotencyKey: "idem-2",
 	})
 	require.NoError(t, err)
@@ -1092,11 +1105,12 @@ func TestSchichten_ListSwapRequests_FiltersAndPagination(t *testing.T) {
 	srv := newSchichtenServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	shiftID := uuid.New().String()
+	requestedBy := uuid.New().String()
+	assignmentID, shiftID := seatFor(repo, tenantID, requestedBy)
 
 	_, err := srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: shiftID,
-		RequestedByEmployeeId: uuid.New().String(), SwapWithEmployeeId: uuid.New().String(), IdempotencyKey: "idem-4",
+		TenantId: tenantID, AssignmentId: assignmentID, ShiftId: shiftID,
+		RequestedByEmployeeId: requestedBy, SwapWithEmployeeId: uuid.New().String(), IdempotencyKey: "idem-4",
 	})
 	require.NoError(t, err)
 
@@ -1127,22 +1141,25 @@ func TestSchichten_ListSwapRequests_OwnEmployeeFilterMatchesBothFields(t *testin
 	colleague1, colleague2 := uuid.New().String(), uuid.New().String()
 
 	// I am the requester.
+	asg, sh := seatFor(repo, tenantID, me)
 	_, err := srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		TenantId: tenantID, AssignmentId: asg, ShiftId: sh,
 		RequestedByEmployeeId: me, SwapWithEmployeeId: colleague1, IdempotencyKey: "idem-mine-requested",
 	})
 	require.NoError(t, err)
 
 	// I am only the swap partner.
+	asg, sh = seatFor(repo, tenantID, colleague1)
 	_, err = srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		TenantId: tenantID, AssignmentId: asg, ShiftId: sh,
 		RequestedByEmployeeId: colleague1, SwapWithEmployeeId: me, IdempotencyKey: "idem-mine-partner",
 	})
 	require.NoError(t, err)
 
 	// Neither field is me.
+	asg, sh = seatFor(repo, tenantID, colleague1)
 	_, err = srv.CreateSwapRequest(ctx, &schichtenv1.CreateSwapRequestRequest{
-		TenantId: tenantID, AssignmentId: uuid.New().String(), ShiftId: uuid.New().String(),
+		TenantId: tenantID, AssignmentId: asg, ShiftId: sh,
 		RequestedByEmployeeId: colleague1, SwapWithEmployeeId: colleague2, IdempotencyKey: "idem-foreign",
 	})
 	require.NoError(t, err)

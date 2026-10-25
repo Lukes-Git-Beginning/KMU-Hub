@@ -1314,7 +1314,7 @@ func TestService_CreateSwapRequest_Success(t *testing.T) {
 	shiftID := uuid.New()
 	empA := uuid.New()
 	empB := uuid.New()
-	assignID := uuid.New()
+	assignID := seedAssignment(repo, tenantID, shiftID, empA)
 
 	req, err := svc.CreateSwapRequest(context.Background(), CreateSwapRequestInput{
 		TenantID:              tenantID,
@@ -1370,12 +1370,13 @@ func TestService_CreateSwapRequest_Idempotent(t *testing.T) {
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
+	shiftID, empA := uuid.New(), uuid.New()
 	input := CreateSwapRequestInput{
 		TenantID:              tenantID,
-		AssignmentID:          uuid.New(),
-		RequestedByEmployeeID: uuid.New(),
+		AssignmentID:          seedAssignment(repo, tenantID, shiftID, empA),
+		RequestedByEmployeeID: empA,
 		SwapWithEmployeeID:    uuid.New(),
-		ShiftID:               uuid.New(),
+		ShiftID:               shiftID,
 		IdempotencyKey:        "idem-key-003",
 	}
 
@@ -1386,6 +1387,50 @@ func TestService_CreateSwapRequest_Idempotent(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, req1.ID, req2.ID, "idempotent call must return same ID")
+}
+
+// seedAssignment gives the mock repository a seat for employeeID on shiftID and returns its id.
+func seedAssignment(repo *mockRepository, tenantID, shiftID, employeeID uuid.UUID) uuid.UUID {
+	a := &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shiftID, EmployeeID: employeeID}
+	repo.assignments[assignKey(shiftID, employeeID)] = a
+	return a.ID
+}
+
+// The assignment id in the body is client-supplied: it must be the requester's own seat on this
+// shift, or a member could attach a swap to a colleague's assignment.
+func TestService_CreateSwapRequest_AssignmentMustBelongToRequesterAndShift(t *testing.T) {
+	tenantID, shiftID := uuid.New(), uuid.New()
+	empA, empB := uuid.New(), uuid.New()
+
+	for name, mutate := range map[string]func(in *CreateSwapRequestInput, repo *mockRepository){
+		"assignment of a colleague": func(in *CreateSwapRequestInput, repo *mockRepository) {
+			in.AssignmentID = seedAssignment(repo, tenantID, shiftID, empB)
+		},
+		"assignment id from another shift": func(in *CreateSwapRequestInput, repo *mockRepository) {
+			in.AssignmentID = seedAssignment(repo, tenantID, uuid.New(), empA)
+		},
+		"requester not assigned to the shift": func(in *CreateSwapRequestInput, repo *mockRepository) {
+			in.RequestedByEmployeeID = uuid.New()
+		},
+		"unknown assignment id": func(in *CreateSwapRequestInput, repo *mockRepository) {
+			in.AssignmentID = uuid.New()
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := newMockRepository()
+			svc := NewService(repo)
+			in := CreateSwapRequestInput{
+				TenantID: tenantID, ShiftID: shiftID, RequestedByEmployeeID: empA, SwapWithEmployeeID: empB,
+				AssignmentID: seedAssignment(repo, tenantID, shiftID, empA), IdempotencyKey: "k-" + name,
+			}
+			mutate(&in, repo)
+
+			_, err := svc.CreateSwapRequest(context.Background(), in)
+
+			assert.ErrorIs(t, err, ErrAssignmentNotFound)
+			assert.Empty(t, repo.swapRequests, "no row may be created")
+		})
+	}
 }
 
 func TestService_ListSwapRequests_Success(t *testing.T) {

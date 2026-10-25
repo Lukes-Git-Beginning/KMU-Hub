@@ -2844,7 +2844,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/gateway 77,6 % (vor Bau messen)"
     scope: >
       Gefunden in e2e-schichten-member-flow (Lauf 16, Iteration 64), per Code gelesen, nicht gegen
