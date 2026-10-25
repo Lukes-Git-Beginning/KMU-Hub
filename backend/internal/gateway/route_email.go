@@ -140,20 +140,22 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// personal templates; the email server leaves shared templates and
 	// visibility changes to the coarse keys. The label catalogue is shared
 	// (decision 2026-10-25): the mailbox keys list it and assign labels to the
-	// caller's own messages (ownMessage). Label catalogue writes, the contact
-	// mail history and CRM import/export reach beyond one mailbox and stay on
-	// the coarse keys.
+	// caller's own messages (ownMessage). The email:contact_history key opens
+	// a contact's mail history; at scope own the handler asks for the caller's
+	// own mailboxes only. Label catalogue writes and CRM import/export reach
+	// beyond one mailbox and stay on the coarse keys.
 	var (
-		boxRead    = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
-		boxWrite   = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
-		boxDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
-		acctWrite  = middleware.RequirePermissionAny(emailWriteKey, emailAccountWriteKey)
-		acctDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:account", "delete"})
-		ruleRead   = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:rule", "read"})
-		ruleWrite  = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:rule", "write"})
-		ruleDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:rule", "delete"})
-		tplWrite   = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:template", "write"})
-		tplDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:template", "delete"})
+		boxRead     = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
+		boxWrite    = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
+		boxDelete   = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
+		acctWrite   = middleware.RequirePermissionAny(emailWriteKey, emailAccountWriteKey)
+		acctDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:account", "delete"})
+		ruleRead    = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:rule", "read"})
+		ruleWrite   = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:rule", "write"})
+		ruleDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:rule", "delete"})
+		tplWrite    = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:template", "write"})
+		tplDelete   = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:template", "delete"})
+		historyRead = middleware.RequirePermissionAny(emailReadKey, emailContactHistoryReadKey)
 	)
 
 	// Email Accounts
@@ -251,7 +253,7 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(boxRead).Get("/message/{messageId}", e.HandleGetEmailContactLinks)
 		r.With(boxWrite).Post("/", e.HandleLinkEmailToContact)
 		r.With(boxWrite).Delete("/", e.HandleUnlinkEmailFromContact)
-		r.With(middleware.RequirePermission("email", "read")).Get("/contact/{contactId}", e.HandleGetContactEmails)
+		r.With(historyRead).Get("/contact/{contactId}", e.HandleGetContactEmails)
 	})
 
 	// Sync
@@ -288,6 +290,13 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 var (
 	emailWriteKey        = [2]string{"email", "write"}
 	emailAccountWriteKey = [2]string{"email:account", "write"}
+)
+
+// Reading a contact's mail history takes the coarse admin key or the
+// contact-history key (member own, manager and admin all).
+var (
+	emailReadKey               = [2]string{"email", "read"}
+	emailContactHistoryReadKey = [2]string{"email:contact_history", "read"}
 )
 
 func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request) {
@@ -1203,13 +1212,21 @@ func (e *EmailRoutes) HandleGetContactEmails(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// A contact-history grant at scope own narrows the history to the caller's
+	// own mailboxes; the email server applies it in the query.
+	owner, ok := ownerFilterForScopeAny(w, r, emailReadKey, emailContactHistoryReadKey)
+	if !ok {
+		return
+	}
+
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	perPage, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 
 	resp, err := client.GetContactEmails(r.Context(), &emailv1.GetContactEmailsRequest{
-		ContactId: chi.URLParam(r, "contactId"),
-		Page:      int32(page),
-		PerPage:   int32(perPage),
+		ContactId:        chi.URLParam(r, "contactId"),
+		Page:             int32(page),
+		PerPage:          int32(perPage),
+		OwnMailboxesOnly: owner != nil,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

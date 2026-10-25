@@ -4267,12 +4267,15 @@ func (*UnlinkEmailFromContactResponse) Descriptor() ([]byte, []int) {
 }
 
 type GetContactEmailsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ContactId     string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
-	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	PerPage       int32                  `protobuf:"varint,3,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	ContactId string                 `protobuf:"bytes,1,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"`
+	Page      int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage   int32                  `protobuf:"varint,3,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	// Set by the gateway when the caller's contact-history grant is scope own:
+	// only messages of the caller's own mailboxes are returned.
+	OwnMailboxesOnly bool `protobuf:"varint,4,opt,name=own_mailboxes_only,json=ownMailboxesOnly,proto3" json:"own_mailboxes_only,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetContactEmailsRequest) Reset() {
@@ -4324,6 +4327,13 @@ func (x *GetContactEmailsRequest) GetPerPage() int32 {
 		return x.PerPage
 	}
 	return 0
+}
+
+func (x *GetContactEmailsRequest) GetOwnMailboxesOnly() bool {
+	if x != nil {
+		return x.OwnMailboxesOnly
+	}
+	return false
 }
 
 type GetContactEmailsResponse struct {
@@ -7578,12 +7588,13 @@ const file_proto_email_v1_email_proto_rawDesc = "" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x1d\n" +
 	"\n" +
 	"contact_id\x18\x02 \x01(\tR\tcontactId\" \n" +
-	"\x1eUnlinkEmailFromContactResponse\"g\n" +
+	"\x1eUnlinkEmailFromContactResponse\"\x95\x01\n" +
 	"\x17GetContactEmailsRequest\x12\x1d\n" +
 	"\n" +
 	"contact_id\x18\x01 \x01(\tR\tcontactId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x19\n" +
-	"\bper_page\x18\x03 \x01(\x05R\aperPage\"h\n" +
+	"\bper_page\x18\x03 \x01(\x05R\aperPage\x12,\n" +
+	"\x12own_mailboxes_only\x18\x04 \x01(\bR\x10ownMailboxesOnly\"h\n" +
 	"\x18GetContactEmailsResponse\x126\n" +
 	"\bmessages\x18\x01 \x03(\v2\x1a.email.v1.EmailMessageInfoR\bmessages\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"3\n" +

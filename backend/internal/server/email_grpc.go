@@ -52,7 +52,7 @@ type EmailGRPCServer struct {
 type EmailContactLinkRepository interface {
 	Create(ctx context.Context, link *models.EmailContactLink) error
 	GetByMessageID(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailContactLink, error)
-	GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
+	GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, ownerUserID *uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
 	Delete(ctx context.Context, messageID, contactID uuid.UUID, tenantID uuid.UUID) error
 }
 
@@ -1473,7 +1473,19 @@ func (s *EmailGRPCServer) GetContactEmails(ctx context.Context, req *emailv1.Get
 		perPage = 50
 	}
 
-	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, tenantID, page, perPage)
+	// The gateway sets OwnMailboxesOnly for a caller whose contact-history
+	// grant is scope own; the filter then sits in the query, so page and total
+	// only ever count the caller's own mail.
+	var owner *uuid.UUID
+	if req.OwnMailboxesOnly {
+		caller, err := callerID(ctx)
+		if err != nil {
+			return nil, err
+		}
+		owner = &caller
+	}
+
+	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, tenantID, owner, page, perPage)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}

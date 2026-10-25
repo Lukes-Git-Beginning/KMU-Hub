@@ -265,7 +265,7 @@ func (r *stubLinkRepo) GetByMessageID(_ context.Context, messageID, tenantID uui
 	return out, nil
 }
 
-func (r *stubLinkRepo) GetByContactID(_ context.Context, contactID, tenantID uuid.UUID, _, _ int) ([]*models.EmailMessage, int, error) {
+func (r *stubLinkRepo) GetByContactID(_ context.Context, contactID, tenantID uuid.UUID, _ *uuid.UUID, _, _ int) ([]*models.EmailMessage, int, error) {
 	out := make([]*models.EmailMessage, 0)
 	for _, m := range r.contactMessages[contactID] {
 		if m.TenantID == tenantID {

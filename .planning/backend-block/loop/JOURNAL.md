@@ -509,3 +509,30 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   ohne Produktionswirkung: `email_messages.message_id/preview/body_*/raw_headers` und `email_accounts.display_name`
   sind nullable, die Scans lesen sie als `string` — eine per SQL eingefügte Zeile mit NULL gibt 500. Die App
   schreibt diese Spalten immer als String (Sync/Create), deshalb keine Unit; Seeds im Test setzen sie explizit.
+
+## Iteration 14 — feat-email-contact-history-own-for-members — done — 2026-10-25 18:46
+- commit: siehe Commit `feat(email): show members the contact mail history of their own mailboxes` (dieser Eintrag)
+- gebaut: Migration 000350 seedet `email:contact_history:read` (member `own`, manager/admin `all`).
+  `GET /email/links/contact/{contactId}` nimmt `RequirePermissionAny(email:read, email:contact_history:read)`
+  (additiv); der Handler setzt bei Scope `own` das neue Proto-Feld `own_mailboxes_only`, der Server reicht dann
+  den Aufrufer (`x-user-id`) als Owner an `contactlink.GetByContactID`, das in Liste UND Count per
+  `m.account_id IN (SELECT id FROM email_accounts WHERE user_id = $3)` filtert. Proto regeneriert
+  (protoc 33.4, gen-go 1.36.11), Spec mit 400/403 und Scope-Beschreibung.
+- gate: build ok | vet ok | lint ok (0 issues: email/contactlink, server, gateway) | test ok (`internal/gateway`
+  5564 PASS, 0 SKIP; `internal/server -run Email|GetContact` 165 PASS, 0 SKIP; `internal/email/...` ok;
+  DATABASE_URL als kmuhub_app; DB-Tests real: Gateway-Kettentest 5 Subtests, Repo-Test 1) | migration ok
+  (up/down/up plus zweites Anwenden der Up-Datei, Grants member own / manager all / admin all) | rls-smoke n.a.
+  (keine Tabelle/Policy; Repo-Test prüft fremden Tenant = 0) | e2e n.a. (kein Flow berührt die Route)
+- coverage: internal/email/contactlink 35,0 % -> 78,0 %
+- mutations-probe: (1) Owner-Klausel im Repo zu `OR TRUE` -> Repo-Test (alice total 3 statt 2) und Gateway-Subtests
+  "member sees ... own mailbox only" und "total stays narrowed" rot. (2) Server ignoriert `OwnMailboxesOnly` ->
+  beide member-Subtests rot. (3) Scope-Paar im Handler nur grob (`email:read`) -> member-Subtests rot. (4) Guard
+  wieder nur grob -> member UND manager rot. Alle per Backup zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`b35523cd`: nur Test plus Router-Kommentar, keine Guard-, Seed- oder Proto-Änderung)
+- neue-units: keine
+- desktop-aufrufer: GET `/email/links/contact/{contactId}` -> `api/email-client.ts:297` (`getContactEmails`, liest
+  `GetContactEmailsResponse` `{messages,total}`) -> passt, Antwortform unverändert; member bekommt statt 403
+  jetzt 200 mit den eigenen Mails.
+- offen: Neuer Key wirkt erst nach Re-Login. Ein Custom-Role mit `email:contact_history:read` auf `team` wird
+  wie `all` behandelt (`ownerFilterForScopeAny` engt nur bei `own` ein) — heute hat keine Systemrolle `team`.
+  Lokal fehlt `make` in Git Bash; Migration per `migrate create -seq -digits 6` angelegt.

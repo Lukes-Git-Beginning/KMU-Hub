@@ -26878,6 +26878,10 @@ paths:
   /api/v1/email/links/contact/{contactId}:
     get:
       summary: Get emails linked to a CRM contact (paginated)
+      description: >
+        Takes email:read or email:contact_history:read. At scope own (member) only messages of the
+        caller's own mailboxes are listed, and `total` counts only those; manager and admin see the
+        linked mail of every mailbox.
       tags: [mails]
       operationId: getContactEmails
       security:
@@ -26906,8 +26910,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetContactEmailsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           description: Response could not be encoded
         "503":
