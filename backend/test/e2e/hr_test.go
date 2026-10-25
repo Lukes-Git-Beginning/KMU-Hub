@@ -51,6 +51,13 @@ func hrFindLeaveRequest(list []map[string]interface{}, id string) map[string]int
 	return nil
 }
 
+// The leave status travels as the proto enum number (protojson UseEnumNumbers), the numbers
+// hr-client.ts PROTO_INT_TO_LEAVE_STATUS maps; JSON numbers decode to float64.
+const (
+	leaveStatusPending  = float64(1)
+	leaveStatusApproved = float64(2)
+)
+
 // TestMemberHRSelfServiceFlow is the working day of an employee in HR, as member, and the manager
 // decisions on top of it, against the real seed keys (hr:self, team:absence:approve scope team,
 // zeiterfassung:team:view scope team). The shape of every body and response is taken from
@@ -113,7 +120,7 @@ func TestMemberHRSelfServiceFlow(t *testing.T) {
 		if lr["employee_id"] != memberID {
 			t.Fatalf("employee_id = %v, want the member %s", lr["employee_id"], memberID)
 		}
-		if lr["status"] != "LEAVE_PENDING" {
+		if lr["status"] != leaveStatusPending {
 			t.Fatalf("status = %v, want LEAVE_PENDING", lr["status"])
 		}
 		leaveRequestID, _ = lr["id"].(string)
@@ -259,7 +266,7 @@ func TestMemberHRSelfServiceFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusOK)
 		var lr map[string]interface{}
 		decodeBody(t, body, &lr)
-		if lr["status"] != "LEAVE_APPROVED" {
+		if lr["status"] != leaveStatusApproved {
 			t.Fatalf("status = %v, want LEAVE_APPROVED", lr["status"])
 		}
 		if lr["approved_by"] != managerID {
@@ -270,7 +277,7 @@ func TestMemberHRSelfServiceFlow(t *testing.T) {
 		resp, body = getJSON(t, base+"/api/v1/hr/leave/requests/"+leaveRequestID, memberToken)
 		requireStatus(t, resp, body, http.StatusOK)
 		decodeBody(t, body, &lr)
-		if lr["status"] != "LEAVE_APPROVED" {
+		if lr["status"] != leaveStatusApproved {
 			t.Fatalf("member sees status %v, want LEAVE_APPROVED", lr["status"])
 		}
 	})
