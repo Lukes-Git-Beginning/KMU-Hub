@@ -42,8 +42,9 @@ const PermRecordingsAdmin = "recordings:admin"
 
 // PermEmailWrite and PermEmailDelete are the coarse email keys of admin
 // provisioning: their holder sets up, changes and removes the mail accounts of
-// other users of the tenant. Without them the email server confines account
-// changes to the caller's own accounts.
+// other users of the tenant and maintains the shared email templates. Without
+// them the email server confines account and template changes to the caller's
+// own accounts and personal templates.
 //
 // lean: the hop carries key names, not scopes; a custom role holding the coarse
 // key at scope 'own' would reach other users' accounts. Forward the scope when a

@@ -2014,6 +2014,8 @@ func mapEmailError(err error) error {
 	// Template errors
 	case errors.Is(err, template.ErrTemplateNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, template.ErrSharedTemplate):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, template.ErrNameRequired),
 		errors.Is(err, template.ErrInvalidVisibility):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -2373,7 +2375,8 @@ func (s *EmailGRPCServer) UpdateEmailTemplate(ctx context.Context, req *emailv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	tpl, err := s.templateService.Update(ctx, id, tenantID, userID, req.IsAdmin,
+	maintainer := slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailWrite)
+	tpl, err := s.templateService.Update(ctx, id, tenantID, userID, req.IsAdmin, maintainer,
 		req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -2397,7 +2400,8 @@ func (s *EmailGRPCServer) DeleteEmailTemplate(ctx context.Context, req *emailv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.templateService.Delete(ctx, id, tenantID, userID, req.IsAdmin); err != nil {
+	maintainer := slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailDelete)
+	if err := s.templateService.Delete(ctx, id, tenantID, userID, req.IsAdmin, maintainer); err != nil {
 		return nil, mapEmailError(err)
 	}
 

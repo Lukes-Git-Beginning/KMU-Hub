@@ -897,11 +897,27 @@ func TestUpdateEmailTemplate_SwitchToSharedClearsOwner(t *testing.T) {
 	tpl := seedTemplate(f.templateRepo, tenantID, &userID, template.VisibilityPersonal, "Hallo")
 	shared := template.VisibilityShared
 
-	resp, err := f.srv.UpdateEmailTemplate(ctxWithTenant(tenantID), &emailv1.UpdateEmailTemplateRequest{
-		Id: tpl.ID.String(), UserId: userID.String(), Visibility: &shared,
-	})
+	req := &emailv1.UpdateEmailTemplateRequest{Id: tpl.ID.String(), UserId: userID.String(), Visibility: &shared}
+
+	// Sharing is a visibility change: the coarse email:write key only.
+	_, err := f.srv.UpdateEmailTemplate(ctxWithTenant(tenantID), req)
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	resp, err := f.srv.UpdateEmailTemplate(withEmailPerms(ctxWithTenant(tenantID), middleware.PermEmailWrite), req)
 	requireGRPCOK(t, err)
 	require.Equal(t, "", resp.Template.OwnerId)
+}
+
+func TestDeleteEmailTemplate_SharedNeedsTheCoarseDeleteKey(t *testing.T) {
+	f := newEmailSigRuleLabelTplFixture()
+	tenantID := uuid.New()
+	tpl := seedTemplate(f.templateRepo, tenantID, nil, template.VisibilityShared, "Team")
+	req := &emailv1.DeleteEmailTemplateRequest{Id: tpl.ID.String(), UserId: uuid.New().String()}
+
+	_, err := f.srv.DeleteEmailTemplate(withEmailPerms(ctxWithTenant(tenantID), middleware.PermEmailWrite), req)
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	_, err = f.srv.DeleteEmailTemplate(withEmailPerms(ctxWithTenant(tenantID), middleware.PermEmailDelete), req)
+	requireGRPCOK(t, err)
 }
 
 func TestUpdateEmailTemplate_InvalidID(t *testing.T) {

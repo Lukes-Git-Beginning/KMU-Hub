@@ -1411,3 +1411,27 @@ units:
     done_when:
       - "Rollen-Editor zeigt und speichert email:rule:* (Screenshot)"
       - "member sieht tenantweite Regeln ohne Lösch-/Bearbeiten-Knopf (Screenshot)"
+
+  - id: decide-email-template-create-shared-by-member
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: darf member weiterhin geteilte Vorlagen ANLEGEN? Fund aus Lauf 17 Iteration 12"
+    target: "Luke entscheidet, danach eine kleine Backend-Unit"
+    scope: >
+      `feat-email-templates-own-personal-edit` (Migration 000349) beschränkt Ändern/Löschen und den
+      Sichtbarkeitswechsel auf den groben Key (admin); member pflegt nur eigene persönliche Vorlagen. Das ANLEGEN
+      (`POST /api/v1/email/templates`, Guard `email:mailbox:write`) nimmt aber weiter `visibility: shared` von
+      jedem member an: er legt eine tenantweit sichtbare Vorlage an, die er danach selbst nicht mehr korrigieren
+      oder löschen kann (403). Die Entscheidung vom 2026-10-25 ("geteilte nur admin") nennt das Anlegen nicht
+      ausdrücklich. Optionen: (a) Anlegen mit `shared` ohne `email:write` -> 403, (b) so lassen. Zusätzlich:
+      Die Desktop-Vorlagen (`stores/mailTemplates.ts`) laufen heute rein lokal, kein FE-Aufrufer der
+      `/email/templates`-Routen — die Rechte wirken erst, wenn das FE angebunden ist.
+    sources:
+      - backend/internal/email/template/service.go (Create)
+      - backend/internal/gateway/route_email.go (Templates)
+      - desktop/src/renderer/src/stores/mailTemplates.ts
+    done_when:
+      - "Entscheidung im Unit-Text, danach Router-Test: member POST shared -> 403 (falls a)"

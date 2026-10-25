@@ -136,8 +136,11 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// email:rule keys open personal rules: the rule service lists the
 	// tenant-wide rules plus the caller's own, runs a personal rule over its
 	// owner's mailboxes only and leaves the tenant-wide rules to the coarse
-	// key. Label catalogue writes, shared-template edits, the contact mail history and CRM import/export
-	// reach beyond one mailbox and stay on the coarse keys.
+	// key. The email:template keys open changing and removing the caller's own
+	// personal templates; the email server leaves shared templates and
+	// visibility changes to the coarse keys. Label catalogue writes, the contact
+	// mail history and CRM import/export reach beyond one mailbox and stay on
+	// the coarse keys.
 	var (
 		boxRead    = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
 		boxWrite   = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
@@ -147,6 +150,8 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		ruleRead   = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:rule", "read"})
 		ruleWrite  = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:rule", "write"})
 		ruleDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:rule", "delete"})
+		tplWrite   = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:template", "write"})
+		tplDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:template", "delete"})
 	)
 
 	// Email Accounts
@@ -233,8 +238,8 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		r.With(boxRead).Get("/", e.HandleListEmailTemplates)
 		r.With(boxRead).Get("/{id}", e.HandleGetEmailTemplate)
 		r.With(boxWrite).Post("/", e.HandleCreateEmailTemplate)
-		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateEmailTemplate)
-		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailTemplate)
+		r.With(tplWrite).Put("/{id}", e.HandleUpdateEmailTemplate)
+		r.With(tplDelete).Delete("/{id}", e.HandleDeleteEmailTemplate)
 		r.With(boxRead).Post("/{id}/render", e.HandleRenderEmailTemplate)
 	})
 

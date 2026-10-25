@@ -447,3 +447,38 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   DELETE (eine Custom-Rolle mit nur `email:delete` löscht tenantweite Regeln nicht). Bestehende tenantweite
   Move-Regeln dürfen weiter in jeden Ordner des Tenants verschieben (unverändert, nicht Teil der Unit).
   manager bekommt die Keys mit (`own`), wie bei 000337/000346/000347.
+
+## Iteration 12 — feat-email-templates-own-personal-edit — done — 2026-10-25 18:27
+- commit: siehe Commit `feat(email): let members maintain their own personal templates` (dieser Eintrag)
+- gebaut: Migration 000349 seedet `email:template:write|delete` (member/manager `own`, admin `all`, zweimal
+  anwendbar, Down entfernt genau diese Keys). `template.Service.Update/Delete` bekommen `maintainer` (grobes
+  `email:write` bzw. `email:delete`, über den Hop weitergereicht): ohne ihn nur eigene persönliche Vorlagen,
+  geteilte -> `ErrSharedTemplate` (PermissionDenied/403), fremde persönliche -> NotFound (auch wenn `is_admin`
+  sie sichtbar macht), jeder echte Sichtbarkeitswechsel -> 403 (unveränderte `visibility` im Body ist erlaubt).
+  Gateway-Guards PUT/DELETE additiv `RequirePermissionAny(email:*, email:template:*)`. Spec: 403 plus
+  Beschreibung an PUT/DELETE, swagger-cli valid.
+- gate: build ok | vet ok | lint ok (0 issues: email/template, server, gateway, middleware) | test ok
+  (`internal/email/...`, `internal/middleware`, `internal/server`, `internal/gateway`: 11083 PASS, 0 SKIP, 0 FAIL,
+  DATABASE_URL als kmuhub_app; DB-Tests real gelaufen: Template-Repo 2, Gateway-Kettentest mit echtem Seed über
+  `ResolveTokenPermissions` und Postgres-Template-Repo, 8 Subtests) | migration ok (349 up/down/up, Kopf 349
+  clean, Up per psql ein zweites Mal: no-op) | rls-smoke n.a. (keine Tabelle/Policy, nur `permissions`/
+  `role_permissions`) | e2e n.a. (kein Flow berührt `/email/templates`)
+- coverage: `internal/email/template` 79,1 % -> 87,6 %
+- mutations-probe: (1) Shared-Zweig in `maintainable` entfernt -> `TestUpdateDelete_SharedTemplateNeedsTheCoarseKey`
+  und Gateway-Kettentest (shared 403) rot. (2) Besitzprüfung in `maintainable` entfernt ->
+  `TestUpdateDelete_ForeignPersonalTemplateStaysHiddenWithoutTheCoarseKey` rot. (3) Sichtbarkeitswechsel-Prüfung
+  aus -> `TestUpdate_SharingAPersonalTemplateNeedsTheCoarseKey` und Gateway-Kettentest (personal->shared, Zeile
+  unverändert) rot. (4) Delete prüft `email:write` statt `email:delete` ->
+  `TestDeleteEmailTemplate_SharedNeedsTheCoarseDeleteKey` rot. (5) PUT-Guard wieder nur grob -> Gateway-Kettentest
+  (own 200, fremde 404) rot. Alle zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`a8351f01`: Guards additiv, Seed 000348 mit Up/Down für member/manager/admin,
+  INSERT setzt `user_id`, List/Apply-Kandidaten owner-gefiltert, kein Proto, keine neue Route)
+- neue-units: `decide-email-template-create-shared-by-member` (BACKLOG-NEXT.yml, Entscheidung Luke, blocked)
+- desktop-aufrufer: PUT/DELETE `/email/templates/{id}` -> kein Aufrufer in `desktop/src/renderer/src/api/`
+  (Clients und hooks); die Mail-Vorlagen laufen über `stores/mailTemplates.ts` rein lokal ("no backend") -> passt
+  (nichts bricht), die neuen Rechte wirken erst mit einer FE-Anbindung.
+- offen: Neue Keys wirken erst nach Re-Login. Das ANLEGEN geteilter Vorlagen bleibt für member offen (POST mit
+  `email:mailbox:write`) — member kann eine geteilte Vorlage anlegen, die er danach nicht mehr ändern kann;
+  Entscheidung in der neuen NEXT-Unit. admin sieht und ändert fremde persönliche Vorlagen weiter (unverändertes
+  Verhalten, `is_admin` plus grober Key). manager bekommt die Keys mit (`own`), wie bei 000347/000348.
+  "Admin" heißt im Server: grober Key über den Hop (wie bei den Regeln), nicht die Rolle.

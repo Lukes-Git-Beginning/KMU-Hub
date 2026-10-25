@@ -26580,6 +26580,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update an email template
+      description: >
+        Without the coarse email:write key (admin) the caller changes their own personal templates
+        only: a shared template or a visibility change is 403, a colleague's personal template 404.
       tags: [mails]
       operationId: updateEmailTemplate
       security:
@@ -26603,6 +26606,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -26611,6 +26616,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an email template
+      description: >
+        Without the coarse email:delete key (admin) the caller removes their own personal templates
+        only: a shared template is 403, a colleague's personal template 404.
       tags: [mails]
       operationId: deleteEmailTemplate
       security:
@@ -26626,6 +26634,8 @@ paths:
                 type: object
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":

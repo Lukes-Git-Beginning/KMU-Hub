@@ -100,13 +100,38 @@ func (s *Service) List(ctx context.Context, tenantID, userID uuid.UUID, isAdmin 
 	return s.repo.ListVisible(ctx, tenantID, userID, isAdmin)
 }
 
+// maintainable checks that the caller may change or remove tpl. A
+// maintainer (coarse email key, admin) keeps every template it can see;
+// everyone else only their own personal templates. A foreign personal
+// template stays NotFound, as it is for the visibility filter.
+func maintainable(tpl *models.EmailTemplate, userID uuid.UUID, maintainer bool) error {
+	if maintainer {
+		return nil
+	}
+	if tpl.Visibility == VisibilityShared {
+		return ErrSharedTemplate
+	}
+	if tpl.OwnerID == nil || *tpl.OwnerID != userID {
+		return ErrTemplateNotFound
+	}
+	return nil
+}
+
 // Update applies the given optional fields to a template visible to userID.
 // Switching to shared clears the owner; switching to personal on a
-// previously shared template makes the caller its new owner.
-func (s *Service) Update(ctx context.Context, id, tenantID, userID uuid.UUID, isAdmin bool, name, subject, bodyHTML, bodyText, visibility *string) (*models.EmailTemplate, error) {
+// previously shared template makes the caller its new owner. Only a
+// maintainer touches shared templates or changes the visibility (decision
+// 2026-10-25: own personal templates free, shared ones admin only).
+func (s *Service) Update(ctx context.Context, id, tenantID, userID uuid.UUID, isAdmin, maintainer bool, name, subject, bodyHTML, bodyText, visibility *string) (*models.EmailTemplate, error) {
 	tpl, err := s.repo.GetByID(ctx, id, tenantID, userID, isAdmin)
 	if err != nil {
 		return nil, err
+	}
+	if err := maintainable(tpl, userID, maintainer); err != nil {
+		return nil, err
+	}
+	if !maintainer && visibility != nil && *visibility != tpl.Visibility {
+		return nil, ErrSharedTemplate
 	}
 
 	if name != nil {
@@ -145,9 +170,14 @@ func (s *Service) Update(ctx context.Context, id, tenantID, userID uuid.UUID, is
 	return tpl, nil
 }
 
-// Delete removes a template visible to userID.
-func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID, isAdmin bool) error {
-	if _, err := s.repo.GetByID(ctx, id, tenantID, userID, isAdmin); err != nil {
+// Delete removes a template visible to userID; without maintainer only the
+// caller's own personal template.
+func (s *Service) Delete(ctx context.Context, id, tenantID, userID uuid.UUID, isAdmin, maintainer bool) error {
+	tpl, err := s.repo.GetByID(ctx, id, tenantID, userID, isAdmin)
+	if err != nil {
+		return err
+	}
+	if err := maintainable(tpl, userID, maintainer); err != nil {
 		return err
 	}
 	if err := s.repo.Delete(ctx, id, tenantID); err != nil {

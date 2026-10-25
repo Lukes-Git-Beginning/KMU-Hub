@@ -12,4 +12,7 @@ var (
 	// ErrInvalidVisibility is returned for a visibility value other than
 	// "personal" or "shared".
 	ErrInvalidVisibility = errors.New("visibility must be personal or shared")
+	// ErrSharedTemplate is returned when a caller without the coarse email
+	// key changes or removes a shared template or switches a visibility.
+	ErrSharedTemplate = errors.New("only admins change shared templates or a template's visibility")
 )
