@@ -146,3 +146,19 @@ func TestWorkWire_UpdateTaskIsClosedMustBeABool(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Nil(t, stub.updated)
 }
+
+func TestWorkWire_UpdateTaskProjectIDReachesTheWorkService(t *testing.T) {
+	routes, stub := newWorkTaskWireRoutes(t)
+	const projectID = "660e8400-e29b-41d4-a716-446655440001"
+
+	rec := httptest.NewRecorder()
+	routes.HandleUpdateTask(rec, updateTaskRequestFor(t, map[string]any{"project_id": projectID}))
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.NotNil(t, stub.updated)
+	assert.Equal(t, projectID, stub.updated.GetProjectId())
+
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTask(rec, updateTaskRequestFor(t, map[string]any{"project_id": "not-a-uuid"}))
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}

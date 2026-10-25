@@ -301,6 +301,9 @@ type UpdateInput struct {
 	// IsClosed completes (true) or reopens (false) the task by moving it to the
 	// project's first closed/open status; ignored when StatusID is set.
 	IsClosed *bool
+	// ProjectID moves a task that has no project (and no parent/subtasks) into the project.
+	// The task gets the next task number and the first open status of that project.
+	ProjectID *uuid.UUID
 	SortOrder    *float64
 }
 
@@ -318,6 +321,33 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		}
 	}
 
+	// lean: no race guard against two concurrent moves of the same task; the (project_id,
+	// task_number) unique index keeps numbers consistent, the last move wins. Guard in
+	// Repository.Update (WHERE project_id IS NOT DISTINCT FROM old) if that ever matters.
+	moveTo := input.ProjectID
+	if moveTo != nil && existing.ProjectID != nil && *existing.ProjectID == *moveTo {
+		moveTo = nil // already there
+	}
+	if moveTo != nil {
+		// lean: a task with a parent or subtasks stays put; moving a subtree needs
+		// per-task numbers and is its own decision.
+		if existing.ProjectID != nil || existing.ParentTaskID != nil || existing.SubtaskCount > 0 {
+			return nil, ErrCannotMoveToProject
+		}
+		// Tenant-scoped lookup first: a foreign project id must read as not found.
+		if _, getErr := s.projectRepo.GetByID(ctx, *moveTo, tenantID); getErr != nil {
+			return nil, fmt.Errorf("project: %w", getErr)
+		}
+		if err := s.requireProjectEditor(ctx, *moveTo, tenantID, actorID); err != nil {
+			return nil, err
+		}
+		openStatus, statusErr := s.repo.FirstStatusByClosed(ctx, tenantID, *moveTo, false)
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		input.StatusID = &openStatus
+	}
+
 	if input.IsClosed != nil && input.StatusID == nil {
 		statusID, resolveErr := s.statusForClosedFlag(ctx, tenantID, existing, *input.IsClosed)
 		if resolveErr != nil {
@@ -330,6 +360,15 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 	// GetByID does not scan tenant_id, but repo.Update filters on it — restore
 	// it from the (already tenant-verified) lookup, or the UPDATE matches 0 rows.
 	task.TenantID = tenantID
+
+	if moveTo != nil {
+		number, numErr := s.repo.GetNextTaskNumber(ctx, tenantID, *moveTo)
+		if numErr != nil {
+			return nil, numErr
+		}
+		task.ProjectID = moveTo
+		task.TaskNumber = number
+	}
 
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)

@@ -3476,7 +3476,10 @@ type UpdateTaskRequest struct {
 	ClearDueDate bool `protobuf:"varint,12,opt,name=clear_due_date,json=clearDueDate,proto3" json:"clear_due_date,omitempty"`
 	// true moves the task to the project's first closed status, false to its first open one;
 	// ignored when status_id is set.
-	IsClosed      *bool `protobuf:"varint,13,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
+	IsClosed *bool `protobuf:"varint,13,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
+	// moves a project-less task into this project (task number and first open status are assigned);
+	// rejected for a task that already belongs to a different project.
+	ProjectId     *string `protobuf:"bytes,14,opt,name=project_id,json=projectId,proto3,oneof" json:"project_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3600,6 +3603,13 @@ func (x *UpdateTaskRequest) GetIsClosed() bool {
 		return *x.IsClosed
 	}
 	return false
+}
+
+func (x *UpdateTaskRequest) GetProjectId() string {
+	if x != nil && x.ProjectId != nil {
+		return *x.ProjectId
+	}
+	return ""
 }
 
 type UpdateTaskResponse struct {
@@ -9282,7 +9292,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_id\"S\n" +
 	"\x11ListTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x82\x05\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb5\x05\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
@@ -9300,7 +9310,9 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\n" +
 	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01\x12$\n" +
 	"\x0eclear_due_date\x18\f \x01(\bR\fclearDueDate\x12 \n" +
-	"\tis_closed\x18\r \x01(\bH\aR\bisClosed\x88\x01\x01B\b\n" +
+	"\tis_closed\x18\r \x01(\bH\aR\bisClosed\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"project_id\x18\x0e \x01(\tH\bR\tprojectId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +
@@ -9310,7 +9322,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\t_due_dateB\r\n" +
 	"\v_start_dateB\f\n" +
 	"\n" +
-	"_is_closed\"<\n" +
+	"_is_closedB\r\n" +
+	"\v_project_id\"<\n" +
 	"\x12UpdateTaskResponse\x12&\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"#\n" +
 	"\x11DeleteTaskRequest\x12\x0e\n" +

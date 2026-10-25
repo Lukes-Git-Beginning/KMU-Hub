@@ -870,6 +870,13 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 	}
 	input.ClearDueDate = req.ClearDueDate
 	input.IsClosed = req.IsClosed
+	if req.ProjectId != nil {
+		projectID, parseErr := uuid.Parse(*req.ProjectId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+		}
+		input.ProjectID = &projectID
+	}
 
 	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
 	if err != nil {
@@ -2610,7 +2617,7 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, task.ErrViewerCannotEdit):
 		return status.Error(codes.PermissionDenied, err.Error())
-	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrTaskWithoutProject):
+	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrTaskWithoutProject), errors.Is(err, task.ErrCannotMoveToProject):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, task.ErrCustomFieldNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())

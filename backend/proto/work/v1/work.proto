@@ -499,6 +499,9 @@ message UpdateTaskRequest {
   // true moves the task to the project's first closed status, false to its first open one;
   // ignored when status_id is set.
   optional bool is_closed = 13;
+  // moves a project-less task into this project (task number and first open status are assigned);
+  // rejected for a task that already belongs to a different project.
+  optional string project_id = 14;
 }
 
 message UpdateTaskResponse {

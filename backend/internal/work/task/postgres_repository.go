@@ -243,11 +243,13 @@ func (r *PostgresRepository) Update(ctx context.Context, task *models.Task) erro
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE tasks SET title = $1, description = $2, status_id = $3, priority = $4,
 		  assignee_id = $5, parent_task_id = $6, depth = $7, sort_order = $8,
-		  start_date = $9, due_date = $10, updated_at = $11, completed_at = $12
+		  start_date = $9, due_date = $10, updated_at = $11, completed_at = $12,
+		  project_id = $15, task_number = $16
 		 WHERE id = $13 AND tenant_id = $14`,
 		task.Title, task.Description, task.StatusID, task.Priority,
 		task.AssigneeID, task.ParentTaskID, task.Depth, task.SortOrder,
 		task.StartDate, task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID, task.TenantID,
+		task.ProjectID, task.TaskNumber,
 	)
 	if err != nil {
 		return err

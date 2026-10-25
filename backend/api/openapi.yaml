@@ -6270,7 +6270,9 @@ paths:
           description: >-
             Either the Idempotency-Key request is still in flight, or is_closed
             asks for a state the task cannot reach (a project-less task, or a
-            project without a closed/open status).
+            project without a closed/open status), or project_id asks for a move
+            the task cannot make (it already has a project, a parent or subtasks,
+            or the target project has no open status).
           content:
             application/json:
               schema:
@@ -41846,7 +41848,10 @@ components:
         project_id:
           type: string
           format: uuid
-          description: Reassign the task to another project (or to none for a standalone task).
+          description: >-
+            Moves a standalone task (no project, no parent, no subtasks) into this project: it gets the
+            project's next task number and first open status. A task that already has a project cannot be
+            moved (409); the same project is a no-op. The caller needs edit rights on the target project.
         priority:
           type: string
           enum: [urgent, high, normal, low]

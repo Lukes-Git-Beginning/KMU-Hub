@@ -14,7 +14,7 @@ var (
 	ErrInvalidDependencyType = errors.New("invalid dependency type")
 	ErrNotProjectMember      = errors.New("user is not a member of this project")
 	ErrViewerCannotEdit      = errors.New("viewers cannot create or edit tasks")
-	ErrCannotMoveToProject   = errors.New("cannot move task to project")
+	ErrCannotMoveToProject   = errors.New("only a task without a project, parent or subtasks can be moved into a project")
 	ErrTaskNumberConflict    = errors.New("task number conflict")
 	ErrParentInDiffProject   = errors.New("parent task must be in the same project")
 	ErrInvalidDateRange      = errors.New("start_date must not be after due_date")
