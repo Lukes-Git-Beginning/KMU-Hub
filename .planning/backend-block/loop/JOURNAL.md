@@ -790,3 +790,18 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: `hr_document_categories` nicht angefasst — `ListByTenant` liest die Zero-UUID-Vorlagen laut Unit mit, kein Bruch erwartet (nicht separat geprüft).
+
+## Iteration 23 — fix-produktion-concurrent-booking-move-deadlock — done — 2026-10-25 21:49
+- commit: (siehe git log)
+- gebaut: `asBookingConflict` bildet neben 23P01 jetzt auch 40P01 (Deadlock zweier gleichzeitiger Umbuchungen) auf `ErrBookingConflict` ab;
+  der Verlierer bekommt damit 409 (`produktion_grpc.go:629` -> AlreadyExists) statt 500. `CreateBookingWithLock` nutzt dieselbe Funktion für den INSERT.
+  Neuer deterministischer Mapping-Test `TestAsBookingConflict` (23P01, 40P01, fremder Code, nil).
+- gate: build ok | vet ok | lint ok | test ok | migration n.a. | rls-smoke n.a.
+  produktion 78,9 % Paket-Coverage; DB-Tests real gelaufen, 0 SKIP; Overlap-Test 20x mit `-count=20` grün (ohne -race, lokal nicht möglich);
+  gateway ok (inkl. TestOpenAPIRouteDrift).
+- coverage: internal/produktion n.a. (Bugfix-Unit, Vorher-Wert nicht gemessen) -> 78,9 %
+- mutations-probe: `|| pgErr.Code == pgErrCodeDeadlockDetected` entfernt -> TestAsBookingConflict rot (code 40P01), zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`db5c75b4`: nur Repo-Insert in derselben Tx plus DB-Test, keine Route/Proto/Guard)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; 409 existierte für 23P01 bereits)
+- offen: Der echte Deadlock lässt sich lokal nicht erzwingen; das Mapping ist per Unit-Test fixiert, der Concurrent-Test bleibt der CI-Flake-Wächter (`-race` nur in CI). Dasselbe Muster in `fuhrpark/postgres_repository.go:1340` ist durch `fix-fuhrpark-concurrent-booking-move-deadlock` abgedeckt.
