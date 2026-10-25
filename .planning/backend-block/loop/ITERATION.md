@@ -203,7 +203,7 @@ go vet ./internal/<svc>/... ./internal/gateway/...
 golangci-lint run --config .golangci.yml ./internal/<svc>/... ./internal/gateway/...
 go test -count=1 -coverprofile=/tmp/cov.out ./internal/<svc>/
 go tool cover -func=/tmp/cov.out | tail -1      # Zahl fuer die coverage:-Zeile im Journal
-go test -count=1 ./internal/<svc>/...           # restliche Unterpakete
+go test -count=1 -p 2 ./internal/<svc>/...      # restliche Unterpakete; -p 2 haelt die DB unter dem Verbindungslimit
 go test -count=1 ./internal/gateway/            # PFLICHT sobald du eine Route angefasst hast
 ```
 
@@ -267,7 +267,7 @@ Die naechste Iteration nimmt die naechste Unit.
 `BACKLOG.yml` aktualisieren (`done` bzw. `blocked`) und ans `JOURNAL.md` anhaengen:
 
 ```markdown
-## Iteration <n> — <unit-id> — <done|blocked> — <YYYY-MM-DD HH:mm, Tag muss stimmen>
+## Iteration <n> — <unit-id> — <done|blocked> — <Startzeit aus dem Laufkontext, woertlich>
 - commit: <sha oder ->
 - gebaut: <ein bis drei Zeilen, was real existiert>
 - gate: build ok | vet ok | lint ok | test ok | migration ok | rls-smoke ok|n.a.
@@ -345,12 +345,14 @@ nicht aus dem Journal ableiten, nicht schaetzen.** In Lauf 6 hat das Modell ab I
 doppelt und eine gar nicht. Der Treiber leitet seine Fortschrittsanzeige aus der hoechsten
 Journal-Nummer ab — eine falsche Nummer verfaelscht sie direkt.
 
-**Beim Zeitstempel zaehlt der Tag.** Ob du die Startzeit aus dem Laufkontext-Block nimmst oder
-die Uhrzeit, zu der du den Eintrag schreibst, ist gleichwertig — sie liegen typischerweise
-sieben Minuten auseinander. Ein Datum muss aber dastehen: Ersatzangaben wie "(Lauf 8)" oder
-"(siehe Commit-Zeit)" sind ein Fehler (in Lauf 7 trugen 32 von 72 Ueberschriften so etwas).
+**Der Zeitstempel ist die Startzeit aus dem Laufkontext-Block, woertlich abgeschrieben** — keine
+eigene Uhr, keine Schreibzeit, keine Umrechnung (seit Lauf 17). In Lauf 16 nahm das Modell seine
+eigene Uhr und lag um die Zeitumstellung herum eine Stunde daneben: Iteration 80 trug "03:05"
+nach Iteration 79 mit "02:52", Iteration 81 dann "02:20". Ersatzangaben wie "(Lauf 8)" oder
+"(siehe Commit-Zeit)" sind ebenso ein Fehler.
 
-Der Treiber prueft nach jeder Iteration Nummer und Datum und loggt eine gelbe `DRIFT:`-Zeile,
+Der Treiber prueft nach jeder Iteration Nummer und Startzeit (seit Lauf 17 den vollen Stempel,
+vorher nur den Tag) und loggt eine gelbe `DRIFT:`-Zeile,
 wenn eines nicht passt. Das bricht den Lauf nicht ab, steht aber morgens im `run.log`. Bis
 Lauf 8 verglich er den Zeitstempel minutengenau und feuerte deshalb 90 von 94 Mal, obwohl die
 Nummer 94 von 94 Mal stimmte — eine Warnung, die fast immer angeht, liest niemand mehr. Seitdem

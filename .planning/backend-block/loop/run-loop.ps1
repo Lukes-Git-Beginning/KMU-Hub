@@ -392,6 +392,14 @@ $rateLimitBackoffs = 0
 $BaseSha = (Invoke-Native { & git rev-parse HEAD }).Trim()
 $TotalMinutes = 0
 
+# Go-Parallelitaet fuer JEDEN go-Aufruf der Iterationen begrenzen (erben die
+# claude-Kindprozesse). Lauf 16: `go test ./internal/work/...` ohne -p riss lokal
+# das Postgres-Verbindungslimit ("too many clients"), und ein ungebremstes
+# `go build` brachte den Rechner fast zum Stehen. GOFLAGS wirkt auch dann, wenn
+# ein Gate-Kommando das -p vergisst; GOMAXPROCS begrenzt zusaetzlich t.Parallel.
+$env:GOFLAGS    = "-p=2"
+$env:GOMAXPROCS = "2"
+
 # Iterationsnummer und Startzeit sind dem Modell sonst nicht bekannt - es raet.
 # Ab Treiber-Iteration 27 schrieb es "## Iteration 28" ins Journal, seitdem lief
 # die Zaehlung durchgehend um eins vor (eine Nummer doppelt, eine fehlte), und
@@ -414,10 +422,8 @@ $CtxTemplate = @'
 Die **Nummer** gehoert unveraendert in die Kopfzeile deines Journal-Eintrags (Form siehe
 Schritt 6 oben) - leite sie nicht aus dem Journal ab, sie ist hier verbindlich.
 
-Beim **Zeitstempel** zaehlt das Datum. Nimm entweder die Startzeit oben oder die Uhrzeit, zu der
-du den Eintrag schreibst - beides ist richtig, solange der TAG stimmt. Was nicht geht, sind
-Ersatzangaben ohne Datum wie "(Lauf 8)" oder "(siehe Commit-Zeit)"; der Treiber prueft die
-Ueberschrift danach.
+Der **Zeitstempel** in der Kopfzeile ist WOERTLICH die Startzeit oben ({1}) - keine eigene Uhr,
+keine Schreibzeit, keine Umrechnung. Der Treiber prueft die Ueberschrift auf genau diesen Wert.
 
 Du musst diesen Block nicht kommentieren. In Lauf 8 haben 42 Eintraege einen Absatz darauf
 verwendet zu erklaeren, woher ihre Uhrzeit stammt - das ist Rauschen, die `offen:`-Zeile ist
@@ -529,7 +535,9 @@ while ($i -lt $MaxIterations) {
         break
     }
 
-    $started = Get-Date
+    # Stoppuhr statt Differenz zweier Lokalzeiten: am 25.10.2026 (Zeitumstellung)
+    # zeigte run.log sonst "-55 min" fuer eine Fuenf-Minuten-Iteration.
+    $iterWatch = [Diagnostics.Stopwatch]::StartNew()
 
     # --permission-mode bypassPermissions ist zwingend explizit: die globale
     # settings.json hat defaultMode "plan" - ohne Override wuerde die Iteration
@@ -569,7 +577,7 @@ while ($i -lt $MaxIterations) {
     if ((Test-Path $errFile) -and ((Get-Item $errFile).Length -eq 0)) {
         Remove-Item $errFile -Force -ErrorAction SilentlyContinue
     }
-    $elapsed  = [int]((Get-Date) - $started).TotalMinutes
+    $elapsed  = [int]$iterWatch.Elapsed.TotalMinutes
     $TotalMinutes += $elapsed
     $body     = ""
     if (Test-Path $logFile) { $body = Get-Content $logFile -Raw }
@@ -669,7 +677,12 @@ while ($i -lt $MaxIterations) {
             if ($newestNum -ne $i) {
                 Write-Line "  DRIFT: hoechste Journal-Nummer ist $newestNum, Treiber-Iteration ist $i." "Yellow"
             }
-            # Nur der KALENDERTAG wird geprueft, nicht die Minute. Die minutengenaue
+            # Seit Lauf 17 schreibt das Modell die Startzeit WOERTLICH ab (Laufkontext-Block),
+            # deshalb wird der volle Stempel geprueft. Lauf 16 zeigte, warum: das Modell
+            # nahm seine eigene Uhr und lag um die Zeitumstellung herum eine Stunde daneben
+            # (Iteration 80 "03:05" nach Iteration 79 "02:52", danach "02:20").
+            #
+            # Frueher: nur der KALENDERTAG wurde geprueft, nicht die Minute. Die minutengenaue
             # Fassung feuerte in Lauf 8 in 90 von 94 Iterationen: der Treiber liefert die
             # STARTzeit der Iteration, das Modell schreibt seinen Eintrag rund sieben
             # Minuten spaeter und datiert ihn auf den SCHREIBzeitpunkt. Die Nummer stimmte
@@ -680,9 +693,8 @@ while ($i -lt $MaxIterations) {
             # damit genau den Fall, den er fangen soll: ein Eintrag, der auf einem ganz
             # anderen TAG landet (verschleppte Iteration, falsch fortgezaehlte Nummer nach
             # einem Neustart). Der Tagesvergleich faengt das und schweigt sonst.
-            $stampDay = $stamp.Substring(0, 10)
-            if ($newest.Line -notmatch [regex]::Escape($stampDay)) {
-                Write-Line "  DRIFT: Ueberschrift traegt nicht das Datum '$stampDay'." "Yellow"
+            if ($newest.Line -notmatch [regex]::Escape($stamp)) {
+                Write-Line "  DRIFT: Ueberschrift traegt nicht die Startzeit '$stamp'." "Yellow"
             }
 
             # MODELL-DRIFT: die Ueberschrift nennt die Unit, die WIRKLICH gebaut wurde
