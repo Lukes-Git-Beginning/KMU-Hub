@@ -1581,3 +1581,29 @@ units:
       - backend/internal/server/biz_grpc_recurring.go
     done_when:
       - 'Entscheidung Luke: Folgeperiode vor Fälligkeit abrechenbar ja/nein, mit Datum in dieser Unit'
+
+  - id: decide-desktop-produktion-booking-plan-envelope
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE / Desktop-Team: Das Gateway antwortet `POST/PATCH /produktion/bookings` mit `{booking}`,
+      `POST/GET/PATCH /produktion/plans` mit `{plan}` und `GET /plans/{id}/capacity` mit `{overview}` (Proto-Envelope).
+      `produktion-client.ts` typisiert alle fünf als flaches `MachineBooking`/`ProductionPlan`/`CapacityOverview`
+      (Aufträge, BOMs, Schritte, Maschinen entpacken oder tippen die Hülle korrekt). Backend umbauen (flach) oder
+      Desktop entpacken? Desktop-Code ist für den Loop gesperrt.
+    target: Buchungs-, Plan- und Kapazitäts-Antworten und ihre FE-Typen stimmen überein
+    scope: >
+      Aus `e2e-produktion-member-flow` (Lauf 17, Iteration 29), dort festgeschrieben als `{booking}`/`{plan}` im
+      E2E. Heute hat keine Oberfläche einen Aufrufer für `useCreateMachineBooking`, `useUpdateMachineBooking`,
+      `usePlan`, `useCapacityOverview`, `useCreatePlan`, `useUpdatePlan` (nur `useProduktion.ts` selbst), es bricht
+      also nichts. Sobald ein Screen sie nutzt, liest er `data.id` aus einer Hülle. Empfehlung: Desktop entpackt wie
+      `unwrapOrder`, Backend bleibt (die anderen Produktion-Antworten tragen auch die Hülle).
+    sources:
+      - desktop/src/renderer/src/api/produktion-client.ts
+      - desktop/src/renderer/src/api/hooks/useProduktion.ts
+      - backend/test/e2e/produktion_test.go
+    done_when:
+      - 'Entscheidung Luke: Backend flach oder Desktop entpackt, mit Datum in dieser Unit'

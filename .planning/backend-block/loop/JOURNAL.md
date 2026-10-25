@@ -884,3 +884,19 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: Block B hat keine Rechte-Commits erzeugt; der Prüfbereich von r2 war deshalb dünn. Die Scan-Fix-Units sind in r1 geprüft.
+
+## Iteration 29 — e2e-produktion-member-flow — done — 2026-10-25 22:06
+- commit: (siehe git log)
+- gebaut: `backend/test/e2e/produktion_test.go`, `TestProduktionMemberFlow` mit sieben Subtests gegen den echten Seed (admin, manager, zwei member):
+  manager legt Auftrag (Duplikat -> 409) und Maschine an, partielles PATCH; admin legt Plan und Arbeitsschritte an (manager dort 403, IST: `plan:write`/`workstep:write` nur admin);
+  member liest Aufträge/Maschinen/Schritte, meldet Schritt `in_progress` -> `completed`, startet und schließt den Auftrag (Doppelstart 409), legt eine Qualitätsprüfung an;
+  elf member-Verbote (Auftrag anlegen/ändern/löschen/abbrechen, Maschine, Schritte, Plan, alle Buchungen) für beide member 403 und Auftrag danach unverändert;
+  manager storniert/löscht geplante Aufträge, abgeschlossener Auftrag löschen -> 409; admin: Überschneidung beim Anlegen 409, zwei parallele Umbuchungen auf dasselbe Fenster -> genau 200 und 409.
+  Bodies aus `produktion-client.ts`/`produktion-types.ts`. Buchungen laufen als admin, weil kein anderer Preset `booking:read/write` hält (Seed, nicht Auslassung).
+- gate: build n.a. (nur Testdatei) | vet ok (`go vet -tags=e2e ./test/e2e/`) | lint ok für die neue Datei (4 Altfunde in auth_test.go/helpers_test.go, nicht meine) | test n.a. | e2e ok (lokal, `TestProduktionMemberFlow` 2,9 s Test, 58 s Lauf mit Cache, Erstlauf 154 s mit Build) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (E2E-Unit, kein Coverage-Ziel)
+- mutations-probe: Guard `orderComplete` in `gateway/route_produktion.go` von `complete` auf `delete` gestellt -> Test rot (member-Abschluss 403), zurückgedreht (`git checkout`), Diff sauber, danach wieder grün.
+- verify vorgaenger: sauber (`3bbcd950`: nur BACKLOG/JOURNAL, kein Code)
+- neue-units: fix-produktion-workstep-order-path-check (Ende BACKLOG.yml; kein Tenant-Leck, Pfad `{orderId}` wird bei PATCH/DELETE eines Schritts ignoriert, im E2E als `IST`-Log festgehalten); decide-desktop-produktion-booking-plan-envelope (BACKLOG-NEXT.yml, blocked: Gateway `{booking}`/`{plan}`/`{overview}` gegen flache FE-Typen, kein Screen ruft es heute)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Abgleich der Bodies und der Antwortformen siehe neue-units)
+- offen: Rechte-Lücken sind der Ist-Seed und gehören zu `decide-member-manager-module-defaults` (member ohne Buchungen, manager ohne Plan/Buchungen/Schritte-Anlage). Kein Totalausfall gefunden. Der CI-Job `e2e` muss die Datei im Morgen-PR bestätigen (Flag `modules.produktion` ist laut Skript gesetzt).

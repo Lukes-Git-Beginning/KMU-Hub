@@ -988,7 +988,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'produktion: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -3029,3 +3029,30 @@ units:
       - 'Server-/Service-Test: ohne Ablauf -> 365 Tage, 400 Tage -> InvalidArgument (400)'
       - 'DB-Test: Default-Ablauf gespeichert, abgelaufener Link -> 404 wie bei Wiki/Formularen'
       - Migration up/down/up sauber, RLS-Smoke
+
+  - id: fix-produktion-workstep-order-path-check
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    target: PATCH/DELETE /orders/{orderId}/steps/{stepId} lehnt einen Schritt ab, der nicht zu {orderId} gehört
+    coverage_start: n.a.
+    scope: >
+      Fund aus `e2e-produktion-member-flow` (Lauf 17, Iteration 29): `HandleUpdateWorkStep` und
+      `HandleDeleteWorkStep` (`gateway/route_produktion_ext.go`) lesen nur `stepId`, `{orderId}` im Pfad wird
+      ignoriert. `PATCH /orders/<fremder Auftrag>/steps/<Schritt>` liefert 200 und ändert den Schritt des anderen
+      Auftrags. Kein Tenant-Leck (`tenant_id` greift, der Schritt liegt im selben Tenant), aber Pfad und Datensatz
+      widersprechen sich; ein Member mit `workstep:edit` (scope all) kann es ohnehin an jedem Schritt. Fix: im
+      Service `UpdateWorkStep`/`DeleteWorkStep` den Auftrag mitgeben und bei Abweichung `ErrWorkStepNotFound`
+      (404) liefern. gRPC-Requests tragen die Order-ID bisher nicht (`UpdateWorkStepRequest`,
+      `DeleteWorkStepRequest`): entweder Feld ergänzen (Proto + Regen) oder im Handler per `ListWorkSteps` prüfen —
+      das Zweite ohne Proto, dafür ein Roundtrip mehr. Desktop-Aufrufer: `produktion-client.ts`
+      `updateWorkStep(orderId, stepId, …)` sendet immer das passende Paar.
+    sources:
+      - backend/internal/gateway/route_produktion_ext.go
+      - backend/internal/produktion/service_ext.go
+      - backend/test/e2e/produktion_test.go
+    done_when:
+      - 'Test: Schritt unter fremdem Auftrag -> 404, unter eigenem -> 200'
+      - 'E2E `TestProduktionMemberFlow`: die IST-Zeile (`t.Logf IST: step ... accepted under foreign order`) wird zur Erwartung 404'
