@@ -934,7 +934,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: lokales E2E-Gate in der Loop-Umgebung abgenommen
     coverage_start: n.a. (Gate)
     scope: >

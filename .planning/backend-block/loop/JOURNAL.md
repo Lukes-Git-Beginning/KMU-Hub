@@ -847,3 +847,18 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: decide-recurring-generate-future-period (BACKLOG-NEXT.yml, blocked — Produktfrage "Folgeperiode vor Fälligkeit abrechenbar?")
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: `-race` nur in CI; Barriere ist rein testseitig. Produktfrage siehe decide-Unit.
+
+## Iteration 27 — e2e-local-gate-check — done — 2026-10-25 22:00
+- commit: (siehe git log)
+- gebaut: nichts am Code — lokales E2E-Gate in der Loop-Umgebung (`claude -p`, bypassPermissions) abgenommen. Volle Suite
+  `bash .planning/backend-block/loop/hooks/e2e-local.sh` ohne Regex: Exit 0, 26 Top-Level-Tests (258 RUN inkl. Subtests), 26 PASS, 0 SKIP, 0 FAIL.
+  Laufzeit gesamt 195 s: Infra 3 s, Migration 3 s, Build der 21 Binaries 150 s (Stamp neu, HEAD hatte sich geändert), Service-Start ~10 s, `go test` 34,5 s.
+  Speicherspitze der 21 Service-Prozesse (tasklist-Summe, 2-s-Takt): ~912 MB (934 220 KB); Docker-Container und `go test` nicht mitgezählt.
+- gate: build ok (im Skript) | vet n.a. | lint n.a. | test n.a. | e2e ok (lokal, 195 s, davon 150 s Build) | migration ok (frische DB, Kopf ohne Fehler) | rls-smoke n.a.
+- coverage: n.a. (Gate-Abnahme)
+- mutations-probe: n.a. (kein Code)
+- verify vorgaenger: sauber (`e8ff1134`: nur `service_db_test.go` plus Backlog/NEXT/Journal, kein Produktcode, keine Route/Proto/Guard/Migration)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Aufräumen belegt — nach dem Lauf keine `kmuhub-e2e-*`-Prozesse (tasklist leer) und keine `kmuhub-e2e`-Container (`docker ps -a` leer).
+  Regel 1 gilt damit für den Rest des Laufs; ein Lauf mit gültigem Stamp spart die 150 s Build. Services laufen weiter als Superuser `kmuhub_test` (lean-Marker im Skript), RLS wird im E2E also nicht bewiesen.
