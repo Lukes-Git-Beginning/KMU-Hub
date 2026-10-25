@@ -3,13 +3,7 @@ package server
 // DB-backed proof for fix-email-send-ignores-attachment-ids: attachment_ids of
 // SendEmail, ReplyEmail, ForwardEmail and SaveDraft were never read, so an uploaded
 // file never reached the mail. The bytes now travel in the MIME message, and the row
-// is bound to the stored copy of the mail.
-//
-// The stored copy is written through sentCopyCreator, which gives the message a
-// folder and a UID. The production send service writes it with folder_id = uuid.Nil,
-// which violates email_messages_folder_id_fkey (see fix-email-sent-copy-has-no-folder),
-// so there the binding step finds no message. Everything this test asserts about the
-// MIME message and the ownership rules holds either way.
+// is bound to the stored copy of the mail (in the account's Sent or Drafts folder).
 
 import (
 	"bufio"
@@ -32,20 +26,6 @@ import (
 	"github.com/kmuhub/kmuhub/internal/testutil"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
-
-// sentCopyCreator stores the local copy of a sent mail in a real folder.
-type sentCopyCreator struct {
-	svc    *message.Service
-	folder uuid.UUID
-	uid    int64
-}
-
-func (c *sentCopyCreator) Create(ctx context.Context, msg *models.EmailMessage) error {
-	c.uid++
-	msg.FolderID = c.folder
-	msg.UID = c.uid
-	return c.svc.Create(ctx, msg)
-}
 
 // capturingSMTP is a fake SMTP server that keeps the DATA of every mail it accepts.
 type capturingSMTP struct {
@@ -127,7 +107,9 @@ type sendAttachmentsRig struct {
 	smtp      *capturingSMTP
 	owner     uuid.UUID
 	ownerAcct uuid.UUID
-	folder    uuid.UUID
+	folder    uuid.UUID // the owner's Sent folder
+	drafts    uuid.UUID
+	provider  *stubSendAccountProvider
 }
 
 func newSendAttachmentsRig(t *testing.T) *sendAttachmentsRig {
@@ -137,7 +119,8 @@ func newSendAttachmentsRig(t *testing.T) *sendAttachmentsRig {
 
 	owner := f.user(t, f.tenantID)
 	ownerAcct := f.account(t, f.tenantID, owner, true)
-	folder := f.folder(t, f.tenantID, ownerAcct, "sent")
+	folder := f.folder(t, f.tenantID, ownerAcct, models.FolderTypeSent)
+	drafts := f.folder(t, f.tenantID, ownerAcct, models.FolderTypeDrafts)
 
 	provider := newStubSendAccountProvider()
 	provider.creds[ownerAcct] = &send.Credentials{SMTPHost: host, SMTPPort: port, Username: "acct", Password: "pw"}
@@ -147,12 +130,12 @@ func newSendAttachmentsRig(t *testing.T) *sendAttachmentsRig {
 	srv := NewEmailGRPCServer(
 		account.NewService(account.NewPostgresRepository(f.pool), nil),
 		msgSvc,
-		send.NewService(provider, &sentCopyCreator{svc: msgSvc, folder: folder}, nil),
+		send.NewService(provider, msgSvc, nil),
 		nil,
 		attachment.NewService(attachment.NewPostgresRepository(f.pool), &memAttachmentStore{keys: map[string][]byte{}}),
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	return &sendAttachmentsRig{listViewsFixture: f, srv: srv, smtp: capture, owner: owner, ownerAcct: ownerAcct, folder: folder}
+	return &sendAttachmentsRig{listViewsFixture: f, srv: srv, smtp: capture, owner: owner, ownerAcct: ownerAcct, folder: folder, drafts: drafts, provider: provider}
 }
 
 func (r *sendAttachmentsRig) upload(t *testing.T, user, acct uuid.UUID, filename, content string) string {

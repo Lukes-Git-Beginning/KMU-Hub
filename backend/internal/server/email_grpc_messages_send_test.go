@@ -141,6 +141,10 @@ func (r *stubEmailMessageRepo) GetByMessageIDHeader(_ context.Context, _ string)
 	return nil, message.ErrMessageNotFound
 }
 
+func (r *stubEmailMessageRepo) ClaimLocalCopy(_ context.Context, _ uuid.UUID, _ string, _ int64) (bool, error) {
+	return false, nil
+}
+
 func (r *stubEmailMessageRepo) FindThreadByReferences(_ context.Context, _ uuid.UUID, _ []string, _ string) (uuid.UUID, error) {
 	return uuid.Nil, message.ErrThreadNotFound
 }
@@ -797,10 +801,18 @@ func TestSendEmail_AccountNotFound(t *testing.T) {
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
+// withFolder gives an account a folder of the given type and returns its ID.
+func (f *testEmailMessagesFixture) withFolder(accountID uuid.UUID, folderType string) uuid.UUID {
+	id := uuid.New()
+	f.folderRepo.folders[id] = &models.EmailFolder{ID: id, AccountID: accountID, Name: folderType, IMAPName: folderType, FolderType: folderType}
+	return id
+}
+
 func TestSendEmail(t *testing.T) {
 	f := newEmailMessagesFixture()
 	host, port := startFakeSMTPServer(t)
 	tenantID, accountID := uuid.New(), uuid.New()
+	sentFolder := f.withFolder(accountID, models.FolderTypeSent)
 	f.accounts.creds[accountID] = &send.Credentials{SMTPHost: host, SMTPPort: port, Username: "user", Password: "pass"}
 
 	resp, err := f.srv.SendEmail(mailboxCtx(tenantID), &emailv1.SendEmailRequest{
@@ -818,6 +830,7 @@ func TestSendEmail(t *testing.T) {
 	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
 	require.NoError(t, getErr, "the sent message must be findable via a tenant-scoped lookup")
 	require.Equal(t, tenantID, stored.TenantID)
+	require.Equal(t, sentFolder, stored.FolderID, "the sent message belongs in the Sent folder")
 }
 
 func TestSaveDraft_MissingTenant(t *testing.T) {
@@ -834,9 +847,10 @@ func TestSaveDraft_InvalidAccountID(t *testing.T) {
 
 func TestSaveDraft(t *testing.T) {
 	f := newEmailMessagesFixture()
-	tenantID := uuid.New()
+	tenantID, accountID := uuid.New(), uuid.New()
+	draftsFolder := f.withFolder(accountID, models.FolderTypeDrafts)
 	resp, err := f.srv.SaveDraft(mailboxCtx(tenantID), &emailv1.SaveDraftRequest{
-		AccountId: uuid.NewString(),
+		AccountId: accountID.String(),
 		Subject:   "Draft",
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
 	})
@@ -849,6 +863,7 @@ func TestSaveDraft(t *testing.T) {
 	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
 	require.NoError(t, getErr, "the draft must be findable via a tenant-scoped lookup")
 	require.Equal(t, tenantID, stored.TenantID)
+	require.Equal(t, draftsFolder, stored.FolderID, "the draft belongs in the Drafts folder")
 }
 
 func TestReplyEmail_MissingTenant(t *testing.T) {

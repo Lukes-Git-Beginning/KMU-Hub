@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"encoding/binary"
 	"log/slog"
 	"time"
 
@@ -76,9 +77,53 @@ func (s *Service) Create(ctx context.Context, msg *models.EmailMessage) error {
 	return nil
 }
 
-// CreateSynced stores a synced message (used by sync engine).
-// Same as Create but implements the sync.MessageSyncer interface.
+// CreateLocalCopy stores a message the app produced itself (a sent mail or a
+// draft) in the account's folder of the given type (models.FolderTypeSent,
+// models.FolderTypeDrafts). It returns ErrFolderNotFound when the account has
+// no such folder yet, i.e. it was never synced.
+//
+// The copy gets a negative UID: IMAP UIDs are positive 32-bit values, so the
+// copy never collides with a synced message on UNIQUE(folder_id, uid), and the
+// delta sync (GetHighestUID) does not see it. No "received" event: the user
+// wrote this mail.
+func (s *Service) CreateLocalCopy(ctx context.Context, msg *models.EmailMessage, folderType string) error {
+	folder, err := s.folderRepo.GetByAccountAndType(ctx, msg.AccountID, folderType)
+	if err != nil {
+		return err
+	}
+	msg.FolderID = folder.ID
+	msg.UID = localCopyUID(msg.ID)
+	if err := s.repo.Create(ctx, msg); err != nil {
+		return err
+	}
+	if err := s.AssignThread(ctx, msg); err != nil {
+		slog.Warn("thread assignment failed, local copy stored without thread",
+			"message_id", msg.ID,
+			"error", err,
+		)
+	}
+	return nil
+}
+
+// localCopyUID derives a unique negative UID from the message ID.
+func localCopyUID(id uuid.UUID) int64 {
+	return -int64(binary.BigEndian.Uint64(id[:8])>>1) - 1
+}
+
+// CreateSynced stores a synced message (used by sync engine) and implements the
+// sync.MessageSyncer interface. When the server hands back a mail the app sent
+// itself (same Message-ID in the same folder), the local copy takes over the
+// real UID instead of a second row being stored.
 func (s *Service) CreateSynced(ctx context.Context, msg *models.EmailMessage) error {
+	if msg.MessageID != "" {
+		claimed, err := s.repo.ClaimLocalCopy(ctx, msg.FolderID, msg.MessageID, msg.UID)
+		if err != nil {
+			return err
+		}
+		if claimed {
+			return nil
+		}
+	}
 	return s.Create(ctx, msg)
 }
 

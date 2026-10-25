@@ -2912,7 +2912,7 @@ units:
     service: email
     model: opus
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/email/send nicht gemessen"
     scope: >
       Gefunden in fix-email-send-ignores-attachment-ids (Lauf 16, Iteration 81), gegen die echte

@@ -26105,6 +26105,9 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          # Also when the mailbox was never synced and has no Drafts folder yet.
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "500":

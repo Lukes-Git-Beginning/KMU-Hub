@@ -32,9 +32,10 @@ type Credentials struct {
 	UseSSL   bool
 }
 
-// MessageCreator stores sent messages locally.
+// MessageCreator stores sent messages and drafts locally, in the account's
+// folder of the given type.
 type MessageCreator interface {
-	Create(ctx context.Context, msg *models.EmailMessage) error
+	CreateLocalCopy(ctx context.Context, msg *models.EmailMessage, folderType string) error
 }
 
 // SignatureProvider retrieves email signatures scoped to a tenant.
@@ -226,7 +227,9 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 		UpdatedAt:      time.Now().UTC(),
 	}
 
-	if err := s.messageCreator.Create(ctx, msg); err != nil {
+	// The mail is out; a missing Sent folder (account never synced) must not
+	// turn that into an error.
+	if err := s.messageCreator.CreateLocalCopy(ctx, msg, models.FolderTypeSent); err != nil {
 		slog.Warn("failed to save sent message locally", "error", err)
 	}
 
@@ -340,7 +343,7 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 		UpdatedAt:    time.Now().UTC(),
 	}
 
-	if err := s.messageCreator.Create(ctx, msg); err != nil {
+	if err := s.messageCreator.CreateLocalCopy(ctx, msg, models.FolderTypeDrafts); err != nil {
 		return nil, fmt.Errorf("failed to save draft: %w", err)
 	}
 

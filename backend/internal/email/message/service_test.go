@@ -2,6 +2,7 @@ package message
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -132,6 +133,16 @@ func (r *mockRepo) GetByMessageIDHeader(_ context.Context, msgID string) (*model
 		return nil, ErrMessageNotFound
 	}
 	return m, nil
+}
+
+func (r *mockRepo) ClaimLocalCopy(_ context.Context, folderID uuid.UUID, msgID string, uid int64) (bool, error) {
+	for _, m := range r.messages {
+		if m.FolderID == folderID && m.UID < 0 && strings.Trim(m.MessageID, "<>") == strings.Trim(msgID, "<>") {
+			m.UID = uid
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *mockRepo) FindThreadByReferences(_ context.Context, accountID uuid.UUID, references []string, inReplyTo string) (uuid.UUID, error) {
@@ -673,4 +684,48 @@ func TestBulkAction_ArchiveResolvesPerAccount(t *testing.T) {
 	assert.Equal(t, 1, affected, "the message whose account has no archive folder must be skipped, not fail the batch")
 	assert.Equal(t, archiveFolder.ID, repo.messages[msgWithArchive.ID].FolderID)
 	assert.NotEqual(t, archiveFolder.ID, repo.messages[msgWithoutArchive.ID].FolderID)
+}
+
+func TestCreateLocalCopy_FilesTheCopyInTheFolderOfItsType(t *testing.T) {
+	repo := newMockRepo()
+	accountID := uuid.New()
+	sent := &models.EmailFolder{ID: uuid.New(), AccountID: accountID, FolderType: models.FolderTypeSent}
+	svc := NewService(repo, &mockFolderRepo{byAccountType: map[string]*models.EmailFolder{
+		accountID.String() + ":" + models.FolderTypeSent: sent,
+	}})
+
+	first, second := newTestMessage(accountID), newTestMessage(accountID)
+	require.NoError(t, svc.CreateLocalCopy(context.Background(), first, models.FolderTypeSent))
+	require.NoError(t, svc.CreateLocalCopy(context.Background(), second, models.FolderTypeSent))
+	assert.Equal(t, sent.ID, repo.messages[first.ID].FolderID)
+	assert.Less(t, repo.messages[first.ID].UID, int64(0), "a local copy never takes a positive IMAP UID")
+	assert.NotEqual(t, repo.messages[first.ID].UID, repo.messages[second.ID].UID)
+
+	// No Drafts folder yet: nothing is stored.
+	draft := newTestMessage(accountID)
+	require.ErrorIs(t, svc.CreateLocalCopy(context.Background(), draft, models.FolderTypeDrafts), ErrFolderNotFound)
+	assert.NotContains(t, repo.messages, draft.ID)
+}
+
+func TestCreateSynced_AdoptsTheLocalCopyWithTheSameMessageID(t *testing.T) {
+	repo := newMockRepo()
+	accountID := uuid.New()
+	sent := &models.EmailFolder{ID: uuid.New(), AccountID: accountID, FolderType: models.FolderTypeSent}
+	svc := NewService(repo, &mockFolderRepo{byAccountType: map[string]*models.EmailFolder{
+		accountID.String() + ":" + models.FolderTypeSent: sent,
+	}})
+	local := newTestMessage(accountID)
+	local.MessageID = "<abc@tenant.local>"
+	require.NoError(t, svc.CreateLocalCopy(context.Background(), local, models.FolderTypeSent))
+
+	synced := newTestMessage(accountID)
+	synced.FolderID, synced.UID, synced.MessageID = sent.ID, 42, "abc@tenant.local"
+	require.NoError(t, svc.CreateSynced(context.Background(), synced))
+	assert.NotContains(t, repo.messages, synced.ID, "the server's copy is not stored a second time")
+	assert.Equal(t, int64(42), repo.messages[local.ID].UID)
+
+	foreign := newTestMessage(accountID)
+	foreign.FolderID, foreign.UID, foreign.MessageID = sent.ID, 43, "other@elsewhere.example"
+	require.NoError(t, svc.CreateSynced(context.Background(), foreign))
+	assert.Contains(t, repo.messages, foreign.ID)
 }
