@@ -21296,7 +21296,7 @@ paths:
                 sku: { type: string }
                 quantity: { type: string }
                 unit_price: { type: string }
-                tax_rate: { type: string }
+                tax_rate: { type: string, description: "Fraction, 0.19 = 19 % (0..1, at most 4 decimals); otherwise 400 validation_failed" }
                 line_position: { type: integer }
       responses:
         "201":
@@ -21331,7 +21331,7 @@ paths:
                 sku: { type: string }
                 quantity: { type: string }
                 unit_price: { type: string }
-                tax_rate: { type: string }
+                tax_rate: { type: string, description: "Fraction, 0.19 = 19 % (0..1, at most 4 decimals); otherwise 400 validation_failed" }
                 line_position: { type: integer }
       responses:
         "200":

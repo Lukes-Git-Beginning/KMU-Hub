@@ -805,3 +805,17 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; 409 existierte für 23P01 bereits)
 - offen: Der echte Deadlock lässt sich lokal nicht erzwingen; das Mapping ist per Unit-Test fixiert, der Concurrent-Test bleibt der CI-Flake-Wächter (`-race` nur in CI). Dasselbe Muster in `fuhrpark/postgres_repository.go:1340` ist durch `fix-fuhrpark-concurrent-booking-move-deadlock` abgedeckt.
+
+## Iteration 24 — harden-einkauf-po-line-tax-rate-range — done — 2026-10-25 21:52
+- commit: (siehe git log)
+- gebaut: neuer Validator `rate_fraction` (0..1, höchstens 4 Nachkommastellen = NUMERIC(5,4)) in `internal/validation`; `tax_rate` bei
+  AddPOLine und UpdatePOLine trägt `omitempty,rate_fraction`. "19" ergibt jetzt 400 `validation_failed` statt 500 (22003); "0.19" läuft bis zum RPC.
+  OpenAPI: Beschreibung an beiden Request-Schemas (Bruch, 0.19 = 19 %).
+- gate: build ok | vet ok | lint ok | test ok | migration n.a. | rls-smoke n.a.
+  gateway 9652 RUN, 0 SKIP, ok (inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app); validation ok; swagger-cli validate ok
+- coverage: n.a. (Härtung, kein Coverage-Ziel)
+- mutations-probe: `LessThanOrEqual(1)` aus `rate_fraction` entfernt -> TestPOLineTaxRate_FractionOnly rot (19, 1.0001 bei add und update), zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`eab9ca11`: nur Fehler-Mapping 40P01 -> ErrBookingConflict plus Mapping-Test, keine Route/Proto/Guard/Migration)
+- neue-units: keine
+- desktop-aufrufer: POST/PATCH `/einkauf/pos/{id}/lines` -> `api/einkauf-types.ts:142,151` (optionales `tax_rate`), kein Aufrufer sendet es (EinkaufDialogs), `einkauf-export.ts:173` liest als Bruch -> passt
+- offen: PATCH mit `tax_rate: ""` ist jetzt 400 (vorher durchgereicht und an der DB-Umwandlung gescheitert); `LineItem.tax_rate` im Spec bleibt "19.00"-Beschreibung (generisches Schema, nicht angefasst).

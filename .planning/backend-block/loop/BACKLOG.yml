@@ -867,7 +867,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: tax_rate ausserhalb 0..1 ist 400, nicht 500
     coverage_start: n.a. (Haertung)
     scope: >

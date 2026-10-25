@@ -109,6 +109,16 @@ func validate() *validator.Validate {
 			}
 			return d.Exponent() >= -2
 		})
+		// rate_fraction accepts a rate written as a fraction (0.19 = 19 %): 0 <= x <= 1 with at most
+		// four digits after the point, i.e. what a NUMERIC(5,4) rate column stores. A percentage
+		// ("19") is rejected here instead of overflowing the column into a 500 (SQLSTATE 22003).
+		mustRegister(v, "rate_fraction", func(fl validator.FieldLevel) bool {
+			d, err := decimal.NewFromString(strings.TrimSpace(fl.Field().String()))
+			if err != nil {
+				return false
+			}
+			return d.GreaterThanOrEqual(decimal.Zero) && d.LessThanOrEqual(decimal.NewFromInt(1)) && d.Exponent() >= -4
+		})
 		// clearable_date is for *string PATCH fields where "absent" (nil pointer)
 		// means leave the value alone and "present but empty" is a deliberate
 		// signal to clear it. go-playground/validator's omitempty only skips a

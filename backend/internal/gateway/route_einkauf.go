@@ -171,7 +171,7 @@ type addPOLineRequest struct {
 	SKU          string `json:"sku,omitempty"`
 	Quantity     string `json:"quantity"              validate:"required,decimal_gt0"`
 	UnitPrice    string `json:"unit_price"            validate:"required,decimal_gte0"`
-	TaxRate      string `json:"tax_rate,omitempty"`
+	TaxRate      string `json:"tax_rate,omitempty"      validate:"omitempty,rate_fraction"`
 	LinePosition int32  `json:"line_position,omitempty"`
 }
 
@@ -180,7 +180,7 @@ type updatePOLineRequest struct {
 	SKU          *string `json:"sku,omitempty"`
 	Quantity     *string `json:"quantity,omitempty"     validate:"omitempty,decimal_gt0"`
 	UnitPrice    *string `json:"unit_price,omitempty"   validate:"omitempty,decimal_gte0"`
-	TaxRate      *string `json:"tax_rate,omitempty"`
+	TaxRate      *string `json:"tax_rate,omitempty"      validate:"omitempty,rate_fraction"`
 	LinePosition *int32  `json:"line_position,omitempty"`
 }
 
