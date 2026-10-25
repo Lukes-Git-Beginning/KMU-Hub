@@ -584,6 +584,23 @@ func (r *PostgresRepository) CreateSwapRequest(ctx context.Context, req *SwapReq
 	return nil
 }
 
+// IsOwnEmployeeID reports whether employeeID is the user id itself or the
+// user's HR profile id in the tenant (the desktop roster assigns by profile id).
+func (r *PostgresRepository) IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error) {
+	if employeeID == userID {
+		return true, nil
+	}
+	var own bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hr_employee_profiles
+		                WHERE tenant_id = $1 AND id = $2 AND user_id = $3)`,
+		tenantID, employeeID, userID,
+	).Scan(&own); err != nil {
+		return false, fmt.Errorf("check own employee id: %w", err)
+	}
+	return own, nil
+}
+
 // GetSwapRequest retrieves a single swap request by ID and tenant.
 func (r *PostgresRepository) GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
 	var req SwapRequest
@@ -628,8 +645,12 @@ func (r *PostgresRepository) ListSwapRequests(ctx context.Context, tenantID uuid
 		argNum++
 	}
 	if filter.OwnEmployeeID != nil {
+		// lean: Subquery auf hr_employee_profiles wie ListAssignments; streichen,
+		// sobald employee_id eine einzige Identität trägt.
+		own := fmt.Sprintf("(SELECT $%d::uuid UNION SELECT ep.id FROM hr_employee_profiles ep"+
+			" WHERE ep.tenant_id = $1 AND ep.user_id = $%d)", argNum, argNum)
 		conditions = append(conditions, fmt.Sprintf(
-			"(requested_by_employee_id = $%d OR swap_with_employee_id = $%d)", argNum, argNum))
+			"(requested_by_employee_id IN %s OR swap_with_employee_id IN %s)", own, own))
 		args = append(args, *filter.OwnEmployeeID)
 		argNum++
 	}

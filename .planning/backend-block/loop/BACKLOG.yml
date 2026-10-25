@@ -1491,7 +1491,7 @@ units:
     service: schichten
     model: opus
     deps: []
-    status: todo
+    status: done
     target: member stellt aus dem Desktop einen Tauschantrag für die eigene Schicht und sieht ihn in der Liste
     coverage_start: 80.0 (internal/schichten, gemessen Lauf 17 Iteration 44)
     scope: >

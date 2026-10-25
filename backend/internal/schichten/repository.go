@@ -18,8 +18,9 @@ type ListShiftsFilter struct {
 type SwapRequestFilter struct {
 	ShiftID *uuid.UUID
 	Status  *SwapRequestStatus
-	// OwnEmployeeID, when set, narrows to swap requests where this employee
-	// is the requester or the swap partner (matched against both fields).
+	// OwnEmployeeID, when set, is the caller's user id and narrows to swap
+	// requests where the caller is the requester or the swap partner — by user
+	// id or by HR profile id (see IsOwnEmployeeID).
 	OwnEmployeeID *uuid.UUID
 }
 
@@ -75,6 +76,9 @@ type Repository interface {
 	CreateSwapRequest(ctx context.Context, req *SwapRequest) error
 	GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error)
 	ListSwapRequests(ctx context.Context, tenantID uuid.UUID, filter SwapRequestFilter, offset, limit int) ([]*SwapRequest, int, error)
+	// IsOwnEmployeeID reports whether employeeID is one of userID's identities
+	// in the tenant: the user id itself or the user's HR profile id.
+	IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error)
 	// UpdateSwapRequestStatus sets the status of a swap request and (on approval) atomically
 	// swaps the two assignments within the same transaction.
 	UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error

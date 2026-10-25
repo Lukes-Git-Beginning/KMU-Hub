@@ -2248,8 +2248,12 @@ type CreateSwapRequestRequest struct {
 	SwapWithEmployeeId    string                 `protobuf:"bytes,5,opt,name=swap_with_employee_id,json=swapWithEmployeeId,proto3" json:"swap_with_employee_id,omitempty"`
 	Reason                string                 `protobuf:"bytes,6,opt,name=reason,proto3" json:"reason,omitempty"`
 	IdempotencyKey        string                 `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Server-injected when the caller's grant is scoped to "own": the caller's
+	// user id. requested_by_employee_id must then be one of the caller's
+	// identities (the user id or their HR profile id). Never set by clients.
+	OwnerUserId   *string `protobuf:"bytes,8,opt,name=owner_user_id,json=ownerUserId,proto3,oneof" json:"owner_user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateSwapRequestRequest) Reset() {
@@ -2331,6 +2335,13 @@ func (x *CreateSwapRequestRequest) GetIdempotencyKey() string {
 	return ""
 }
 
+func (x *CreateSwapRequestRequest) GetOwnerUserId() string {
+	if x != nil && x.OwnerUserId != nil {
+		return *x.OwnerUserId
+	}
+	return ""
+}
+
 type SwapRequestResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SwapRequest   *SwapRequest           `protobuf:"bytes,1,opt,name=swap_request,json=swapRequest,proto3" json:"swap_request,omitempty"`
@@ -2383,9 +2394,10 @@ type ListSwapRequestsRequest struct {
 	Page     int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Server-injected when the caller's grant is scoped to "own" (see
-	// middleware.PermissionScope) — narrows to swap requests where the
-	// caller is the requester or the swap partner. Never set by clients
-	// directly; the gateway derives it from the authenticated user.
+	// middleware.PermissionScope) — the caller's user id; narrows to swap
+	// requests where the caller (by user id or HR profile id) is the requester
+	// or the swap partner. Never set by clients directly; the gateway derives it
+	// from the authenticated user.
 	OwnEmployeeId *string `protobuf:"bytes,6,opt,name=own_employee_id,json=ownEmployeeId,proto3,oneof" json:"own_employee_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2842,7 +2854,7 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xa4\x02\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xdf\x02\n" +
 	"\x18CreateSwapRequestRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
 	"\rassignment_id\x18\x02 \x01(\tR\fassignmentId\x12\x19\n" +
@@ -2850,7 +2862,9 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"\x18requested_by_employee_id\x18\x04 \x01(\tR\x15requestedByEmployeeId\x121\n" +
 	"\x15swap_with_employee_id\x18\x05 \x01(\tR\x12swapWithEmployeeId\x12\x16\n" +
 	"\x06reason\x18\x06 \x01(\tR\x06reason\x12'\n" +
-	"\x0fidempotency_key\x18\a \x01(\tR\x0eidempotencyKey\"S\n" +
+	"\x0fidempotency_key\x18\a \x01(\tR\x0eidempotencyKey\x12'\n" +
+	"\rowner_user_id\x18\b \x01(\tH\x00R\vownerUserId\x88\x01\x01B\x10\n" +
+	"\x0e_owner_user_id\"S\n" +
 	"\x13SwapRequestResponse\x12<\n" +
 	"\fswap_request\x18\x01 \x01(\v2\x19.schichten.v1.SwapRequestR\vswapRequest\"\xfd\x01\n" +
 	"\x17ListSwapRequestsRequest\x12\x1b\n" +
@@ -3049,6 +3063,7 @@ func file_proto_schichten_v1_schichten_proto_init() {
 	file_proto_schichten_v1_schichten_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[26].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[30].OneofWrappers = []any{}
+	file_proto_schichten_v1_schichten_proto_msgTypes[33].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[35].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

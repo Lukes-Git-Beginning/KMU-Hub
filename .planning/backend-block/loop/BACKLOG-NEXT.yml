@@ -1629,3 +1629,26 @@ units:
       - backend/test/e2e/vertraege_test.go
     done_when:
       - Die Liste lädt mehr als 20 Verträge, Playwright-Screenshot mit 25 Verträgen
+
+  - id: fe-schichten-swap-list-drop-client-own-filter
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht im Tausch-Tab auch die Anträge, die unter seiner HR-Profil-ID laufen
+    scope: >
+      Fund aus `fix-schichten-swap-own-scope-employee-identity` (Lauf 17, Iteration 45). Seit dieser Unit filtert das
+      Backend `GET /schichten/swap-requests` bei Scope `own` auf beide Identitäten des Aufrufers (User-ID UND
+      HR-Profil-ID), und ein Tauschantrag aus dem Raster (`SchichtenPage.tsx:632`, `requestedByEmployeeId:
+      detailAssignment.userId` = Profil-ID) wird angelegt. Das Desktop filtert die Liste aber zusätzlich clientseitig
+      (`SchichtenPage.tsx:518-527`, `baseSwapRequests`) auf `requestedByEmployeeId === currentUserId ||
+      swapWithEmployeeId === currentUserId` — Anträge unter der Profil-ID verschwinden dadurch im UI, obwohl der Server
+      sie liefert, und `pendingSwapCount` zählt sie nicht. Fix im Desktop (Loop darf `desktop/` nicht ändern): den
+      Clientfilter streichen, die Liste kommt bereits serverseitig gescoped.
+    sources:
+      - desktop/src/renderer/src/modules/schichten/SchichtenPage.tsx
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/gateway/route_schichten_swap_own_identity_db_test.go
+    done_when:
+      - member mit Raster-Zuweisung legt einen Tauschantrag an und sieht ihn im Tausch-Tab (Playwright-Screenshot)

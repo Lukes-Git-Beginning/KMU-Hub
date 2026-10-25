@@ -330,6 +330,11 @@ func TestSchichtenMemberFlow(t *testing.T) {
 		resp, body = financeRequest(t, http.MethodPost, sch+"/swap-requests", swapBody(assignmentA, memberAID, memberAID), memberAToken)
 		requireStatus(t, resp, body, http.StatusBadRequest)
 
+		// Not in a colleague's name: at scope own the service checks the requester against the
+		// caller (user id or HR profile id).
+		resp, body = financeRequest(t, http.MethodPost, sch+"/swap-requests", swapBody(assignmentB, memberBID, memberCID), memberAToken)
+		requireStatus(t, resp, body, http.StatusForbidden)
+
 		// A colleague who is not on the shift can be asked; the manager's approval is where it ends.
 		swapToC = createSwap(t, memberAToken, swapBody(assignmentA, memberAID, memberCID))
 	})

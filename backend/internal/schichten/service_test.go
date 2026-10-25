@@ -30,6 +30,9 @@ type mockRepository struct {
 	createShiftErr      error
 	createAssignmentErr error
 	isMinorErr          error
+
+	// HR profile id -> user id (for the own-scope identity check)
+	profileUsers map[uuid.UUID]uuid.UUID
 }
 
 func newMockRepository() *mockRepository {
@@ -326,6 +329,10 @@ func (m *mockRepository) ListSwapRequests(ctx context.Context, tenantID uuid.UUI
 	}
 	end := min(offset+limit, total)
 	return result[offset:end], total, nil
+}
+
+func (m *mockRepository) IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error) {
+	return employeeID == userID || m.profileUsers[employeeID] == userID, nil
 }
 
 func (m *mockRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error {
@@ -1330,6 +1337,31 @@ func TestService_CreateSwapRequest_Success(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, req.ID)
 	assert.Equal(t, SwapRequestStatusPending, req.Status)
 	assert.Equal(t, tenantID, req.TenantID)
+}
+
+func TestService_CreateSwapRequest_OwnerMustBeRequester(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID, shiftID := uuid.New(), uuid.New()
+	caller, profile, colleague := uuid.New(), uuid.New(), uuid.New()
+	repo.profileUsers = map[uuid.UUID]uuid.UUID{profile: caller}
+	assignID := seedAssignment(repo, tenantID, shiftID, profile)
+	foreignAssign := seedAssignment(repo, tenantID, shiftID, colleague)
+
+	in := func(requestedBy, assignment uuid.UUID, key string) CreateSwapRequestInput {
+		return CreateSwapRequestInput{
+			TenantID: tenantID, AssignmentID: assignment, ShiftID: shiftID,
+			RequestedByEmployeeID: requestedBy, SwapWithEmployeeID: uuid.New(),
+			IdempotencyKey: key, OwnerUserID: &caller,
+		}
+	}
+
+	_, err := svc.CreateSwapRequest(context.Background(), in(profile, assignID, "own-profile"))
+	require.NoError(t, err, "the caller's HR profile id counts as the caller")
+
+	_, err = svc.CreateSwapRequest(context.Background(), in(colleague, foreignAssign, "foreign"))
+	assert.ErrorIs(t, err, ErrSwapRequesterNotCaller)
 }
 
 func TestService_CreateSwapRequest_MissingIdempotencyKey(t *testing.T) {

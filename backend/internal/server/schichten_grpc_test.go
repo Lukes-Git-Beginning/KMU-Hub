@@ -329,6 +329,10 @@ func (r *stubSchichtenRepo) GetSwapRequest(_ context.Context, tenantID, requestI
 	return req, nil
 }
 
+func (r *stubSchichtenRepo) IsOwnEmployeeID(_ context.Context, _, employeeID, userID uuid.UUID) (bool, error) {
+	return employeeID == userID, nil
+}
+
 func (r *stubSchichtenRepo) ListSwapRequests(_ context.Context, tenantID uuid.UUID, filter schichten.SwapRequestFilter, offset, limit int) ([]*schichten.SwapRequest, int, error) {
 	if r.forceErr != nil {
 		return nil, 0, r.forceErr

@@ -606,6 +606,9 @@ type CreateSwapRequestInput struct {
 	ShiftID               uuid.UUID
 	Reason                string
 	IdempotencyKey        string
+	// OwnerUserID, when set (grant scoped to "own"), is the caller's user id:
+	// RequestedByEmployeeID must then be one of the caller's identities.
+	OwnerUserID *uuid.UUID
 }
 
 // ListSwapRequestsInput contains pagination and filtering for swap request listing.
@@ -615,8 +618,8 @@ type ListSwapRequestsInput struct {
 	Status   *SwapRequestStatus
 	Page     int
 	PageSize int
-	// OwnEmployeeID, when set, narrows to swap requests where this employee
-	// is the requester or the swap partner.
+	// OwnEmployeeID, when set, is the caller's user id and narrows to swap
+	// requests where the caller is the requester or the swap partner.
 	OwnEmployeeID *uuid.UUID
 }
 
@@ -640,6 +643,19 @@ func (s *Service) CreateSwapRequest(ctx context.Context, input CreateSwapRequest
 	}
 	if input.ShiftID == uuid.Nil {
 		return nil, ErrInvalidInput
+	}
+
+	// At scope "own" the requester must be the caller — by user id or by the
+	// HR profile id the desktop roster assigns with. Refusing beats rewriting:
+	// a silently swapped requester would pair the caller with a colleague's seat.
+	if input.OwnerUserID != nil {
+		own, err := s.repo.IsOwnEmployeeID(ctx, input.TenantID, input.RequestedByEmployeeID, *input.OwnerUserID)
+		if err != nil {
+			return nil, err
+		}
+		if !own {
+			return nil, ErrSwapRequesterNotCaller
+		}
 	}
 
 	// The assignment must be the requester's own seat on this very shift; the
