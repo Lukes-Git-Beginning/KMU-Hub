@@ -1387,3 +1387,27 @@ units:
       - backend/migrations/000346_seed_team_inbox_read_for_members.up.sql
     done_when:
       - "Rollen-Editor zeigt und speichert kommunikation:team_inbox:read (Screenshot)"
+  - id: fe-email-rules-per-user-catalog-and-tenant-wide-marker
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 11"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Migration 000348 (`feat-email-rules-per-user`) legt `email:rule:read|write|delete` an (member/manager
+      `own`, admin `all`) und macht jede neue Regel zur Nutzerregel; Bestandsregeln bleiben tenantweit und nur
+      mit dem groben `email:write` änderbar. Zwei FE-Lücken: (1) der Rollen-Editor (`config/capability-catalog.ts`)
+      kennt die drei Keys nicht (er führt gar keine `email`-Keys), eine Custom-Rolle kann sie weder sehen noch setzen. (2) `RulesDialog.tsx` zeigt
+      member die tenantweiten Regeln mit Löschknopf, der Klick endet in 403. Für (2) braucht das FE ein
+      Unterscheidungsmerkmal: `EmailRuleInfo` (Proto) trägt heute weder `user_id` noch `tenant_wide` — das wäre
+      eine kleine Backend-Unit (Proto-Feld plus Regen) vor dem FE-Teil.
+    sources:
+      - desktop/src/renderer/src/config/capability-catalog.ts
+      - desktop/src/renderer/src/modules/mails/RulesDialog.tsx
+      - backend/proto/email/v1/email.proto (EmailRuleInfo)
+      - backend/migrations/000348_email_rules_per_user.up.sql
+    done_when:
+      - "Rollen-Editor zeigt und speichert email:rule:* (Screenshot)"
+      - "member sieht tenantweite Regeln ohne Lösch-/Bearbeiten-Knopf (Screenshot)"

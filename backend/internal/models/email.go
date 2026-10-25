@@ -75,33 +75,33 @@ type EmailAddress struct {
 
 // EmailMessage represents a cached email message.
 type EmailMessage struct {
-	ID              uuid.UUID      `json:"id"`
-	TenantID        uuid.UUID      `json:"tenant_id"`
-	AccountID       uuid.UUID      `json:"account_id"`
-	FolderID        uuid.UUID      `json:"folder_id"`
-	UID             int64          `json:"uid"`
-	MessageID       string         `json:"message_id"`
-	InReplyTo       string         `json:"in_reply_to"`
-	References      []string       `json:"references"`
-	ThreadID        *uuid.UUID     `json:"thread_id,omitempty"`
-	FromName        string         `json:"from_name"`
-	FromEmail       string         `json:"from_email"`
-	ToAddresses     []EmailAddress `json:"to_addresses"`
-	CcAddresses     []EmailAddress `json:"cc_addresses"`
-	BccAddresses    []EmailAddress `json:"bcc_addresses"`
-	Subject         string         `json:"subject"`
-	Preview         string         `json:"preview"`
-	BodyText        string         `json:"body_text"`
-	BodyHTML        string         `json:"body_html"`
-	IsRead          bool           `json:"is_read"`
-	IsStarred       bool           `json:"is_starred"`
-	IsDraft         bool           `json:"is_draft"`
-	HasAttachments  bool           `json:"has_attachments"`
-	Date            time.Time      `json:"date"`
-	SizeBytes       int64          `json:"size_bytes"`
-	RawHeaders      string         `json:"raw_headers,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
+	ID             uuid.UUID      `json:"id"`
+	TenantID       uuid.UUID      `json:"tenant_id"`
+	AccountID      uuid.UUID      `json:"account_id"`
+	FolderID       uuid.UUID      `json:"folder_id"`
+	UID            int64          `json:"uid"`
+	MessageID      string         `json:"message_id"`
+	InReplyTo      string         `json:"in_reply_to"`
+	References     []string       `json:"references"`
+	ThreadID       *uuid.UUID     `json:"thread_id,omitempty"`
+	FromName       string         `json:"from_name"`
+	FromEmail      string         `json:"from_email"`
+	ToAddresses    []EmailAddress `json:"to_addresses"`
+	CcAddresses    []EmailAddress `json:"cc_addresses"`
+	BccAddresses   []EmailAddress `json:"bcc_addresses"`
+	Subject        string         `json:"subject"`
+	Preview        string         `json:"preview"`
+	BodyText       string         `json:"body_text"`
+	BodyHTML       string         `json:"body_html"`
+	IsRead         bool           `json:"is_read"`
+	IsStarred      bool           `json:"is_starred"`
+	IsDraft        bool           `json:"is_draft"`
+	HasAttachments bool           `json:"has_attachments"`
+	Date           time.Time      `json:"date"`
+	SizeBytes      int64          `json:"size_bytes"`
+	RawHeaders     string         `json:"raw_headers,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
 	// LabelIDs are the mails-module labels (email_labels) assigned to this
 	// message, written by rule application or the direct assignment endpoint.
 	LabelIDs []uuid.UUID `json:"label_ids"`
@@ -194,10 +194,14 @@ const (
 type EmailRule struct {
 	ID       uuid.UUID `json:"id"`
 	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-	Field    string    `json:"field"`
-	Op       string    `json:"op"`
-	Value    string    `json:"value"`
+	// UserID is the owner of a personal rule, which runs over that user's
+	// mailboxes only. Nil marks a tenant-wide rule: maintained by admin,
+	// applied to every mailbox of the tenant.
+	UserID *uuid.UUID `json:"user_id,omitempty"`
+	Name   string     `json:"name"`
+	Field  string     `json:"field"`
+	Op     string     `json:"op"`
+	Value  string     `json:"value"`
 	// ActionType is EmailRuleActionLabel or EmailRuleActionMove.
 	ActionType string `json:"action_type"`
 	// ActionTarget is a label id (label action) or folder id (move action).
@@ -210,7 +214,10 @@ type EmailRule struct {
 // needs: the two matchable fields plus the two mutable targets. Loading whole
 // messages (bodies included) for a bulk apply would be wasteful.
 type EmailRuleCandidate struct {
-	ID        uuid.UUID
+	ID uuid.UUID
+	// OwnerID is the user holding the message's account; only their personal
+	// rules (and the tenant-wide ones) apply to it.
+	OwnerID   uuid.UUID
 	FromName  string
 	FromEmail string
 	Subject   string

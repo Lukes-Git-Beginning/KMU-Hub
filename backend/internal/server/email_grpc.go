@@ -1987,6 +1987,8 @@ func mapEmailError(err error) error {
 	// Rule errors
 	case errors.Is(err, rule.ErrRuleNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrTenantWideRule):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, rule.ErrTargetNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, rule.ErrInvalidField),
@@ -2034,13 +2036,32 @@ func mapEmailError(err error) error {
 // Rules (Regeln & Filter)
 // ============================================================================
 
+// ruleActor is the caller of a rule RPC. The coarse email:write key (forwarded
+// from the gateway, admin only) maintains the tenant-wide rules and applies the
+// rule set across every mailbox; everyone else works on their own rules and
+// mailboxes.
+func ruleActor(ctx context.Context) (rule.Actor, error) {
+	caller, err := callerID(ctx)
+	if err != nil {
+		return rule.Actor{}, err
+	}
+	return rule.Actor{
+		UserID: caller,
+		Admin:  slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailWrite),
+	}, nil
+}
+
 func (s *EmailGRPCServer) ListEmailRules(ctx context.Context, _ *emailv1.ListEmailRulesRequest) (*emailv1.ListEmailRulesResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	rules, err := s.ruleService.List(ctx, tenantID)
+	rules, err := s.ruleService.List(ctx, tenantID, actor)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -2057,8 +2078,12 @@ func (s *EmailGRPCServer) CreateEmailRule(ctx context.Context, req *emailv1.Crea
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	r, err := s.ruleService.Create(ctx, tenantID, rule.RuleInput{
+	r, err := s.ruleService.Create(ctx, tenantID, actor, rule.RuleInput{
 		Name:         &req.Name,
 		Field:        &req.Field,
 		Op:           &req.Op,
@@ -2077,13 +2102,17 @@ func (s *EmailGRPCServer) UpdateEmailRule(ctx context.Context, req *emailv1.Upda
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
 	}
 
-	r, err := s.ruleService.Update(ctx, id, tenantID, rule.RuleInput{
+	r, err := s.ruleService.Update(ctx, id, tenantID, actor, rule.RuleInput{
 		Name:         req.Name,
 		Field:        req.Field,
 		Op:           req.Op,
@@ -2102,13 +2131,17 @@ func (s *EmailGRPCServer) DeleteEmailRule(ctx context.Context, req *emailv1.Dele
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
 	}
 
-	if err := s.ruleService.Delete(ctx, id, tenantID); err != nil {
+	if err := s.ruleService.Delete(ctx, id, tenantID, actor); err != nil {
 		return nil, mapEmailError(err)
 	}
 	return &emailv1.DeleteEmailRuleResponse{Success: true}, nil
@@ -2119,8 +2152,12 @@ func (s *EmailGRPCServer) ApplyEmailRules(ctx context.Context, _ *emailv1.ApplyE
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	res, err := s.ruleService.ApplyAll(ctx, tenantID)
+	res, err := s.ruleService.ApplyAll(ctx, tenantID, actor)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}

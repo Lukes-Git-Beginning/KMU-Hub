@@ -132,9 +132,11 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// safe to hand to every employee. The email:account keys open setting up,
 	// changing and removing an account: at scope own the create handler pins
 	// user_id to the caller and the email server confines update and delete to
-	// the caller's own accounts (the dial guard keeps the hosts public). Rules
-	// (tenant-wide, applied to every mailbox), label catalogue writes,
-	// shared-template edits, the contact mail history and CRM import/export
+	// the caller's own accounts (the dial guard keeps the hosts public). The
+	// email:rule keys open personal rules: the rule service lists the
+	// tenant-wide rules plus the caller's own, runs a personal rule over its
+	// owner's mailboxes only and leaves the tenant-wide rules to the coarse
+	// key. Label catalogue writes, shared-template edits, the contact mail history and CRM import/export
 	// reach beyond one mailbox and stay on the coarse keys.
 	var (
 		boxRead    = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
@@ -142,6 +144,9 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 		boxDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
 		acctWrite  = middleware.RequirePermissionAny(emailWriteKey, emailAccountWriteKey)
 		acctDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:account", "delete"})
+		ruleRead   = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:rule", "read"})
+		ruleWrite  = middleware.RequirePermissionAny(emailWriteKey, [2]string{"email:rule", "write"})
+		ruleDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:rule", "delete"})
 	)
 
 	// Email Accounts
@@ -206,11 +211,11 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// Rules (Regeln & Filter)
 	r.Route("/api/v1/email/rules", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "read")).Get("/", e.HandleListEmailRules)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateEmailRule)
-		r.With(middleware.RequirePermission("email", "write")).Post("/apply", e.HandleApplyEmailRules)
-		r.With(middleware.RequirePermission("email", "write")).Patch("/{id}", e.HandleUpdateEmailRule)
-		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteEmailRule)
+		r.With(ruleRead).Get("/", e.HandleListEmailRules)
+		r.With(ruleWrite).Post("/", e.HandleCreateEmailRule)
+		r.With(ruleWrite).Post("/apply", e.HandleApplyEmailRules)
+		r.With(ruleWrite).Patch("/{id}", e.HandleUpdateEmailRule)
+		r.With(ruleDelete).Delete("/{id}", e.HandleDeleteEmailRule)
 	})
 
 	// Labels

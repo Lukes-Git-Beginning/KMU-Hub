@@ -19,12 +19,13 @@ type mockRepo struct {
 	rules      []*models.EmailRule
 	candidates []*models.EmailRuleCandidate
 	folders    map[uuid.UUID]uuid.UUID // folder id -> tenant id
+	folderUser map[uuid.UUID]uuid.UUID // folder id -> user holding its account
 	labels     map[uuid.UUID]uuid.UUID // label id -> tenant id
 	writes     int
 }
 
 func newMockRepo() *mockRepo {
-	return &mockRepo{folders: map[uuid.UUID]uuid.UUID{}, labels: map[uuid.UUID]uuid.UUID{}}
+	return &mockRepo{folders: map[uuid.UUID]uuid.UUID{}, folderUser: map[uuid.UUID]uuid.UUID{}, labels: map[uuid.UUID]uuid.UUID{}}
 }
 
 func (m *mockRepo) Create(_ context.Context, r *models.EmailRule) error {
@@ -76,16 +77,30 @@ func (m *mockRepo) FolderBelongsToTenant(_ context.Context, folderID, tenantID u
 	return ok && owner == tenantID, nil
 }
 
+func (m *mockRepo) FolderBelongsToUser(_ context.Context, folderID, tenantID, userID uuid.UUID) (bool, error) {
+	owner, ok := m.folders[folderID]
+	return ok && owner == tenantID && m.folderUser[folderID] == userID, nil
+}
+
 func (m *mockRepo) LabelBelongsToTenant(_ context.Context, labelID, tenantID uuid.UUID) (bool, error) {
 	owner, ok := m.labels[labelID]
 	return ok && owner == tenantID, nil
 }
 
-func (m *mockRepo) ListApplyCandidates(_ context.Context, _ uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
-	if len(m.candidates) > limit {
-		return m.candidates[:limit], nil
+func (m *mockRepo) ListApplyCandidates(_ context.Context, _ uuid.UUID, ownerID *uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
+	out := m.candidates
+	if ownerID != nil {
+		out = make([]*models.EmailRuleCandidate, 0)
+		for _, c := range m.candidates {
+			if c.OwnerID == *ownerID {
+				out = append(out, c)
+			}
+		}
 	}
-	return m.candidates, nil
+	if len(out) > limit {
+		return out[:limit], nil
+	}
+	return out, nil
 }
 
 func (m *mockRepo) ApplyToMessage(_ context.Context, _, messageID, folderID uuid.UUID, labelIDs []uuid.UUID) error {
@@ -104,6 +119,10 @@ func (m *mockRepo) ApplyToMessage(_ context.Context, _, messageID, folderID uuid
 // ---------------------------------------------------------------------------
 
 func ptr(s string) *string { return &s }
+
+// admin is the actor of the tests that are not about ownership: it holds the
+// coarse email key, so tenant-wide rules and every mailbox are in its reach.
+var admin = Actor{UserID: uuid.MustParse("00000000-0000-0000-0000-00000000ad01"), Admin: true}
 
 func validInput(target uuid.UUID) RuleInput {
 	return RuleInput{
@@ -128,7 +147,7 @@ func TestCreate_Valid(t *testing.T) {
 	label := uuid.New()
 	repo.labels[label] = tenant
 
-	r, err := svc.Create(context.Background(), tenant, validInput(label))
+	r, err := svc.Create(context.Background(), tenant, admin, validInput(label))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -168,7 +187,7 @@ func TestCreate_Rejects(t *testing.T) {
 			in := validInput(target)
 			tc.mutet(&in)
 
-			if _, err := svc.Create(context.Background(), uuid.New(), in); !errors.Is(err, tc.want) {
+			if _, err := svc.Create(context.Background(), uuid.New(), admin, in); !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
@@ -189,12 +208,13 @@ func TestCreate_MoveTargetMustBeOwnFolder(t *testing.T) {
 	in := validInput(foreignFolder)
 	in.ActionType = ptr(models.EmailRuleActionMove)
 
-	if _, err := svc.Create(context.Background(), tenant, in); !errors.Is(err, ErrTargetNotFound) {
+	if _, err := svc.Create(context.Background(), tenant, admin, in); !errors.Is(err, ErrTargetNotFound) {
 		t.Fatalf("err = %v, want %v", err, ErrTargetNotFound)
 	}
 
 	repo.folders[foreignFolder] = tenant
-	if _, err := svc.Create(context.Background(), tenant, in); err != nil {
+	repo.folderUser[foreignFolder] = admin.UserID
+	if _, err := svc.Create(context.Background(), tenant, admin, in); err != nil {
 		t.Fatalf("own folder rejected: %v", err)
 	}
 }
@@ -212,12 +232,12 @@ func TestCreate_LabelTargetMustBeOwnLabel(t *testing.T) {
 
 	in := validInput(foreignLabel)
 
-	if _, err := svc.Create(context.Background(), tenant, in); !errors.Is(err, ErrTargetNotFound) {
+	if _, err := svc.Create(context.Background(), tenant, admin, in); !errors.Is(err, ErrTargetNotFound) {
 		t.Fatalf("err = %v, want %v", err, ErrTargetNotFound)
 	}
 
 	repo.labels[foreignLabel] = tenant
-	if _, err := svc.Create(context.Background(), tenant, in); err != nil {
+	if _, err := svc.Create(context.Background(), tenant, admin, in); err != nil {
 		t.Fatalf("own label rejected: %v", err)
 	}
 }
@@ -229,12 +249,12 @@ func TestUpdate_PartialKeepsUntouchedFields(t *testing.T) {
 	tenant, label := uuid.New(), uuid.New()
 	repo.labels[label] = tenant
 
-	created, err := svc.Create(context.Background(), tenant, validInput(label))
+	created, err := svc.Create(context.Background(), tenant, admin, validInput(label))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	updated, err := svc.Update(context.Background(), created.ID, tenant, RuleInput{Value: ptr("Mahnung")})
+	updated, err := svc.Update(context.Background(), created.ID, tenant, admin, RuleInput{Value: ptr("Mahnung")})
 	if err != nil {
 		t.Fatalf("Update: %v", err)
 	}
@@ -255,12 +275,12 @@ func TestUpdate_ValidatesMergedRuleNotOnlyThePatch(t *testing.T) {
 	tenant, label := uuid.New(), uuid.New()
 	repo.labels[label] = tenant
 
-	created, err := svc.Create(context.Background(), tenant, validInput(label))
+	created, err := svc.Create(context.Background(), tenant, admin, validInput(label))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	_, err = svc.Update(context.Background(), created.ID, tenant, RuleInput{
+	_, err = svc.Update(context.Background(), created.ID, tenant, admin, RuleInput{
 		ActionType: ptr(models.EmailRuleActionMove),
 	})
 	if !errors.Is(err, ErrTargetNotFound) {
@@ -275,15 +295,15 @@ func TestUpdate_ForeignTenantIsNotFound(t *testing.T) {
 	tenant, label := uuid.New(), uuid.New()
 	repo.labels[label] = tenant
 
-	created, err := svc.Create(context.Background(), tenant, validInput(label))
+	created, err := svc.Create(context.Background(), tenant, admin, validInput(label))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if _, err := svc.Update(context.Background(), created.ID, uuid.New(), RuleInput{Value: ptr("x")}); !errors.Is(err, ErrRuleNotFound) {
+	if _, err := svc.Update(context.Background(), created.ID, uuid.New(), admin, RuleInput{Value: ptr("x")}); !errors.Is(err, ErrRuleNotFound) {
 		t.Fatalf("err = %v, want %v", err, ErrRuleNotFound)
 	}
-	if err := svc.Delete(context.Background(), created.ID, uuid.New()); !errors.Is(err, ErrRuleNotFound) {
+	if err := svc.Delete(context.Background(), created.ID, uuid.New(), admin); !errors.Is(err, ErrRuleNotFound) {
 		t.Fatalf("delete err = %v, want %v", err, ErrRuleNotFound)
 	}
 }
@@ -298,7 +318,7 @@ func TestApplyAll_NoRulesTouchesNothing(t *testing.T) {
 	repo.candidates = []*models.EmailRuleCandidate{{ID: uuid.New(), Subject: "Rechnung 5"}}
 	svc := NewService(repo)
 
-	res, err := svc.ApplyAll(context.Background(), uuid.New())
+	res, err := svc.ApplyAll(context.Background(), uuid.New(), admin)
 	if err != nil {
 		t.Fatalf("ApplyAll: %v", err)
 	}
@@ -332,7 +352,7 @@ func TestApplyAll_LabelAndMoveAndIdempotence(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	res, err := svc.ApplyAll(context.Background(), tenant)
+	res, err := svc.ApplyAll(context.Background(), tenant, admin)
 	if err != nil {
 		t.Fatalf("ApplyAll: %v", err)
 	}
@@ -359,7 +379,7 @@ func TestApplyAll_LabelAndMoveAndIdempotence(t *testing.T) {
 
 	// Second run: everything already in place, so nothing may be written again.
 	writesAfterFirst := repo.writes
-	res2, err := svc.ApplyAll(context.Background(), tenant)
+	res2, err := svc.ApplyAll(context.Background(), tenant, admin)
 	if err != nil {
 		t.Fatalf("second ApplyAll: %v", err)
 	}
@@ -392,7 +412,7 @@ func TestApplyAll_LabelsAccumulateAndFromMatchesDisplayName(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	res, err := svc.ApplyAll(context.Background(), tenant)
+	res, err := svc.ApplyAll(context.Background(), tenant, admin)
 	if err != nil {
 		t.Fatalf("ApplyAll: %v", err)
 	}
@@ -424,7 +444,7 @@ func TestApplyAll_LastMoveWins(t *testing.T) {
 	repo.candidates = []*models.EmailRuleCandidate{{ID: uuid.New(), Subject: "xyz", FolderID: uuid.New()}}
 	svc := NewService(repo)
 
-	if _, err := svc.ApplyAll(context.Background(), tenant); err != nil {
+	if _, err := svc.ApplyAll(context.Background(), tenant, admin); err != nil {
 		t.Fatalf("ApplyAll: %v", err)
 	}
 	if repo.candidates[0].FolderID != second {
@@ -448,11 +468,186 @@ func TestApplyAll_RespectsScanLimit(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	res, err := svc.ApplyAll(context.Background(), tenant)
+	res, err := svc.ApplyAll(context.Background(), tenant, admin)
 	if err != nil {
 		t.Fatalf("ApplyAll: %v", err)
 	}
 	if res.Scanned != applyScanLimit {
 		t.Errorf("scanned = %d, want the cap %d", res.Scanned, applyScanLimit)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Ownership (personal rules, migration 000348)
+// ---------------------------------------------------------------------------
+
+// ownershipFixture holds one tenant-wide rule and one personal rule each for
+// two members, all label rules on the same label.
+type ownershipFixture struct {
+	repo                *mockRepo
+	svc                 *Service
+	tenant, label       uuid.UUID
+	alice, bob          Actor
+	tenantWide, ofAlice *models.EmailRule
+	ofBob               *models.EmailRule
+}
+
+func newOwnershipFixture(t *testing.T) ownershipFixture {
+	t.Helper()
+	f := ownershipFixture{
+		repo:   newMockRepo(),
+		tenant: uuid.New(),
+		label:  uuid.New(),
+		alice:  Actor{UserID: uuid.New()},
+		bob:    Actor{UserID: uuid.New()},
+	}
+	f.svc = NewService(f.repo)
+	f.repo.labels[f.label] = f.tenant
+	f.tenantWide = &models.EmailRule{
+		ID: uuid.New(), TenantID: f.tenant, Name: "alt", Field: models.EmailRuleFieldSubject,
+		Op: models.EmailRuleOpContains, Value: "Alt", ActionType: models.EmailRuleActionLabel, ActionTarget: f.label,
+	}
+	f.repo.rules = append(f.repo.rules, f.tenantWide)
+	var err error
+	if f.ofAlice, err = f.svc.Create(context.Background(), f.tenant, f.alice, validInput(f.label)); err != nil {
+		t.Fatalf("create alice's rule: %v", err)
+	}
+	if f.ofBob, err = f.svc.Create(context.Background(), f.tenant, f.bob, validInput(f.label)); err != nil {
+		t.Fatalf("create bob's rule: %v", err)
+	}
+	return f
+}
+
+func TestCreate_StampsTheCreatorAsOwner(t *testing.T) {
+	t.Parallel()
+	f := newOwnershipFixture(t)
+	if f.ofAlice.UserID == nil || *f.ofAlice.UserID != f.alice.UserID {
+		t.Fatalf("user_id = %v, want %s", f.ofAlice.UserID, f.alice.UserID)
+	}
+	// An admin's new rule is personal too; only the pre-000348 rules are tenant-wide.
+	r, err := f.svc.Create(context.Background(), f.tenant, admin, validInput(f.label))
+	if err != nil {
+		t.Fatalf("admin create: %v", err)
+	}
+	if r.UserID == nil || *r.UserID != admin.UserID {
+		t.Fatalf("admin rule user_id = %v, want %s", r.UserID, admin.UserID)
+	}
+}
+
+func TestList_ShowsTenantWideAndOwnRulesOnly(t *testing.T) {
+	t.Parallel()
+	f := newOwnershipFixture(t)
+	for _, actor := range []Actor{f.alice, {UserID: f.alice.UserID, Admin: true}} {
+		rules, err := f.svc.List(context.Background(), f.tenant, actor)
+		if err != nil {
+			t.Fatalf("List: %v", err)
+		}
+		ids := make([]uuid.UUID, 0, len(rules))
+		for _, r := range rules {
+			ids = append(ids, r.ID)
+		}
+		if !slices.Equal(ids, []uuid.UUID{f.tenantWide.ID, f.ofAlice.ID}) {
+			t.Errorf("admin=%v: rules = %v, want tenant-wide %s and own %s", actor.Admin, ids, f.tenantWide.ID, f.ofAlice.ID)
+		}
+	}
+}
+
+func TestUpdateDelete_OwnershipHoldsWithoutTheGateway(t *testing.T) {
+	t.Parallel()
+	f := newOwnershipFixture(t)
+	ctx := context.Background()
+	patch := RuleInput{Value: ptr("Mahnung")}
+
+	if _, err := f.svc.Update(ctx, f.ofBob.ID, f.tenant, f.alice, patch); !errors.Is(err, ErrRuleNotFound) {
+		t.Errorf("update someone else's rule: err = %v, want %v", err, ErrRuleNotFound)
+	}
+	if err := f.svc.Delete(ctx, f.ofBob.ID, f.tenant, f.alice); !errors.Is(err, ErrRuleNotFound) {
+		t.Errorf("delete someone else's rule: err = %v, want %v", err, ErrRuleNotFound)
+	}
+	if _, err := f.svc.Update(ctx, f.tenantWide.ID, f.tenant, f.alice, patch); !errors.Is(err, ErrTenantWideRule) {
+		t.Errorf("update tenant-wide rule as member: err = %v, want %v", err, ErrTenantWideRule)
+	}
+	if err := f.svc.Delete(ctx, f.tenantWide.ID, f.tenant, f.alice); !errors.Is(err, ErrTenantWideRule) {
+		t.Errorf("delete tenant-wide rule as member: err = %v, want %v", err, ErrTenantWideRule)
+	}
+	// The coarse key does not open a colleague's personal rule either.
+	if _, err := f.svc.Update(ctx, f.ofBob.ID, f.tenant, admin, patch); !errors.Is(err, ErrRuleNotFound) {
+		t.Errorf("update someone else's rule as admin: err = %v, want %v", err, ErrRuleNotFound)
+	}
+
+	if _, err := f.svc.Update(ctx, f.ofAlice.ID, f.tenant, f.alice, patch); err != nil {
+		t.Errorf("update own rule: %v", err)
+	}
+	if _, err := f.svc.Update(ctx, f.tenantWide.ID, f.tenant, admin, patch); err != nil {
+		t.Errorf("update tenant-wide rule as admin: %v", err)
+	}
+	if err := f.svc.Delete(ctx, f.ofAlice.ID, f.tenant, f.alice); err != nil {
+		t.Errorf("delete own rule: %v", err)
+	}
+	if len(f.repo.rules) != 2 {
+		t.Errorf("rules left = %d, want 2 (tenant-wide and bob's)", len(f.repo.rules))
+	}
+}
+
+// A personal move rule must not point into a colleague's mailbox: the matched
+// mail would end up in their folder.
+func TestCreate_PersonalMoveTargetMustBeTheOwnersFolder(t *testing.T) {
+	t.Parallel()
+	f := newOwnershipFixture(t)
+	bobsFolder := uuid.New()
+	f.repo.folders[bobsFolder] = f.tenant
+	f.repo.folderUser[bobsFolder] = f.bob.UserID
+
+	in := validInput(bobsFolder)
+	in.ActionType = ptr(models.EmailRuleActionMove)
+	if _, err := f.svc.Create(context.Background(), f.tenant, f.alice, in); !errors.Is(err, ErrTargetNotFound) {
+		t.Fatalf("move into a colleague's folder: err = %v, want %v", err, ErrTargetNotFound)
+	}
+	if _, err := f.svc.Create(context.Background(), f.tenant, f.bob, in); err != nil {
+		t.Fatalf("move into own folder: %v", err)
+	}
+}
+
+func TestApplyAll_PersonalRulesOnlyTouchTheOwnersMailbox(t *testing.T) {
+	t.Parallel()
+	for _, runner := range []string{"admin", "alice", "bob"} {
+		t.Run(runner, func(t *testing.T) {
+			t.Parallel()
+			f := newOwnershipFixture(t)
+			// Only alice's rule matches; bob's and the tenant-wide one are retargeted away.
+			f.ofBob.Value, f.tenantWide.Value = "nie", "nie"
+			alicesMail := &models.EmailRuleCandidate{ID: uuid.New(), OwnerID: f.alice.UserID, Subject: "Rechnung 1"}
+			bobsMail := &models.EmailRuleCandidate{ID: uuid.New(), OwnerID: f.bob.UserID, Subject: "Rechnung 2"}
+			f.repo.candidates = []*models.EmailRuleCandidate{alicesMail, bobsMail}
+
+			actor := map[string]Actor{"admin": admin, "alice": f.alice, "bob": f.bob}[runner]
+			if _, err := f.svc.ApplyAll(context.Background(), f.tenant, actor); err != nil {
+				t.Fatalf("ApplyAll: %v", err)
+			}
+			if len(bobsMail.LabelIDs) != 0 {
+				t.Errorf("alice's rule labelled bob's mail: %v", bobsMail.LabelIDs)
+			}
+			wantAlice := runner != "bob" // bob's run never reaches alice's mailbox
+			if got := slices.Contains(alicesMail.LabelIDs, f.label); got != wantAlice {
+				t.Errorf("alice's mail labelled = %v, want %v", got, wantAlice)
+			}
+		})
+	}
+}
+
+func TestApplyAll_TenantWideRulesReachEveryMailbox(t *testing.T) {
+	t.Parallel()
+	f := newOwnershipFixture(t)
+	f.ofAlice.Value, f.ofBob.Value = "nie", "nie"
+	alicesMail := &models.EmailRuleCandidate{ID: uuid.New(), OwnerID: f.alice.UserID, Subject: "Alt 1"}
+	bobsMail := &models.EmailRuleCandidate{ID: uuid.New(), OwnerID: f.bob.UserID, Subject: "Alt 2"}
+	f.repo.candidates = []*models.EmailRuleCandidate{alicesMail, bobsMail}
+
+	res, err := f.svc.ApplyAll(context.Background(), f.tenant, admin)
+	if err != nil {
+		t.Fatalf("ApplyAll: %v", err)
+	}
+	if res.Affected != 2 {
+		t.Fatalf("affected = %d, want 2", res.Affected)
 	}
 }

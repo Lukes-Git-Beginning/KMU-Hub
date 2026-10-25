@@ -14,6 +14,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	"github.com/kmuhub/kmuhub/internal/email/template"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
@@ -175,12 +176,19 @@ func (r *stubRuleRepo) FolderBelongsToTenant(_ context.Context, folderID, tenant
 	return ok && owner == tenantID, nil
 }
 
+// FolderBelongsToUser treats every folder of the tenant as the caller's own;
+// the per-user folder check is covered against the database in the rule
+// package.
+func (r *stubRuleRepo) FolderBelongsToUser(ctx context.Context, folderID, tenantID, _ uuid.UUID) (bool, error) {
+	return r.FolderBelongsToTenant(ctx, folderID, tenantID)
+}
+
 func (r *stubRuleRepo) LabelBelongsToTenant(_ context.Context, labelID, tenantID uuid.UUID) (bool, error) {
 	owner, ok := r.labels[labelID]
 	return ok && owner == tenantID, nil
 }
 
-func (r *stubRuleRepo) ListApplyCandidates(_ context.Context, _ uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
+func (r *stubRuleRepo) ListApplyCandidates(_ context.Context, _ uuid.UUID, _ *uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
 	if len(r.candidates) > limit {
 		return r.candidates[:limit], nil
 	}
@@ -581,17 +589,23 @@ func TestSetDefaultSignature_NotFound(t *testing.T) {
 // Rules
 // ---------------------------------------------------------------------------
 
+// ruleAdminCtx is a request from testMailboxOwner holding the coarse email key,
+// which maintains the tenant-wide rules seedRule writes.
+func ruleAdminCtx(tenantID uuid.UUID) context.Context {
+	return withEmailPerms(mailboxCtx(tenantID), middleware.PermEmailWrite)
+}
+
 func TestListEmailRules(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
 	tenantID := uuid.New()
 	seedRule(f.ruleRepo, tenantID, models.EmailRuleFieldSubject, "Rechnung", models.EmailRuleActionLabel, uuid.New())
 
-	resp, err := f.srv.ListEmailRules(ctxWithTenant(tenantID), &emailv1.ListEmailRulesRequest{})
+	resp, err := f.srv.ListEmailRules(mailboxCtx(tenantID), &emailv1.ListEmailRulesRequest{})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Rules, 1)
 
 	// Wire-shape: a tenant with no rules gets [] back, not null.
-	empty, err := f.srv.ListEmailRules(ctxWithTenant(uuid.New()), &emailv1.ListEmailRulesRequest{})
+	empty, err := f.srv.ListEmailRules(mailboxCtx(uuid.New()), &emailv1.ListEmailRulesRequest{})
 	requireGRPCOK(t, err)
 	require.NotNil(t, empty.Rules)
 	require.Empty(t, empty.Rules)
@@ -609,7 +623,7 @@ func TestCreateEmailRule(t *testing.T) {
 	target := uuid.New()
 	f.ruleRepo.labels[target] = tenantID
 
-	resp, err := f.srv.CreateEmailRule(ctxWithTenant(tenantID), &emailv1.CreateEmailRuleRequest{
+	resp, err := f.srv.CreateEmailRule(mailboxCtx(tenantID), &emailv1.CreateEmailRuleRequest{
 		Name: "Rechnungen", Field: models.EmailRuleFieldSubject, Op: models.EmailRuleOpContains,
 		Value: "Rechnung", ActionType: models.EmailRuleActionLabel, ActionTarget: target.String(),
 	})
@@ -623,7 +637,7 @@ func TestCreateEmailRule_InvalidField(t *testing.T) {
 	tenantID := uuid.New()
 	f.ruleRepo.labels[target] = tenantID
 
-	_, err := f.srv.CreateEmailRule(ctxWithTenant(tenantID), &emailv1.CreateEmailRuleRequest{
+	_, err := f.srv.CreateEmailRule(mailboxCtx(tenantID), &emailv1.CreateEmailRuleRequest{
 		Name: "Kaputt", Field: "cc", Op: models.EmailRuleOpContains,
 		Value: "x", ActionType: models.EmailRuleActionLabel, ActionTarget: target.String(),
 	})
@@ -638,16 +652,37 @@ func TestUpdateEmailRule(t *testing.T) {
 	rl := seedRule(f.ruleRepo, tenantID, models.EmailRuleFieldSubject, "Alt", models.EmailRuleActionLabel, target)
 	newValue := "Neu"
 
-	resp, err := f.srv.UpdateEmailRule(ctxWithTenant(tenantID), &emailv1.UpdateEmailRuleRequest{
+	resp, err := f.srv.UpdateEmailRule(ruleAdminCtx(tenantID), &emailv1.UpdateEmailRuleRequest{
 		Id: rl.ID.String(), Value: &newValue,
 	})
 	requireGRPCOK(t, err)
 	require.Equal(t, "Neu", resp.Rule.Value)
 }
 
+// A tenant-wide rule is admin's: without the coarse key the server refuses to
+// change or remove it, even when the gateway let the request through.
+func TestUpdateDeleteEmailRule_TenantWideRuleNeedsTheCoarseKey(t *testing.T) {
+	f := newEmailSigRuleLabelTplFixture()
+	tenantID := uuid.New()
+	rl := seedRule(f.ruleRepo, tenantID, models.EmailRuleFieldSubject, "Alt", models.EmailRuleActionLabel, uuid.New())
+	newValue := "Neu"
+
+	_, err := f.srv.UpdateEmailRule(mailboxCtx(tenantID), &emailv1.UpdateEmailRuleRequest{Id: rl.ID.String(), Value: &newValue})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	_, err = f.srv.DeleteEmailRule(mailboxCtx(tenantID), &emailv1.DeleteEmailRuleRequest{Id: rl.ID.String()})
+	requireGRPCCode(t, err, codes.PermissionDenied)
+	require.Contains(t, f.ruleRepo.rules, rl.ID)
+}
+
+func TestCreateEmailRule_MissingCaller(t *testing.T) {
+	f := newEmailSigRuleLabelTplFixture()
+	_, err := f.srv.CreateEmailRule(ctxWithTenant(uuid.New()), &emailv1.CreateEmailRuleRequest{})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
 func TestUpdateEmailRule_InvalidID(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.UpdateEmailRule(ctxWithTenant(uuid.New()), &emailv1.UpdateEmailRuleRequest{Id: "nope"})
+	_, err := f.srv.UpdateEmailRule(mailboxCtx(uuid.New()), &emailv1.UpdateEmailRuleRequest{Id: "nope"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -656,14 +691,14 @@ func TestDeleteEmailRule(t *testing.T) {
 	tenantID := uuid.New()
 	rl := seedRule(f.ruleRepo, tenantID, models.EmailRuleFieldSubject, "x", models.EmailRuleActionLabel, uuid.New())
 
-	resp, err := f.srv.DeleteEmailRule(ctxWithTenant(tenantID), &emailv1.DeleteEmailRuleRequest{Id: rl.ID.String()})
+	resp, err := f.srv.DeleteEmailRule(ruleAdminCtx(tenantID), &emailv1.DeleteEmailRuleRequest{Id: rl.ID.String()})
 	requireGRPCOK(t, err)
 	require.True(t, resp.Success)
 }
 
 func TestDeleteEmailRule_NotFound(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.DeleteEmailRule(ctxWithTenant(uuid.New()), &emailv1.DeleteEmailRuleRequest{Id: uuid.New().String()})
+	_, err := f.srv.DeleteEmailRule(mailboxCtx(uuid.New()), &emailv1.DeleteEmailRuleRequest{Id: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -680,7 +715,7 @@ func TestApplyEmailRules(t *testing.T) {
 		{ID: uuid.New(), Subject: "Mittagessen?"},
 	}
 
-	resp, err := f.srv.ApplyEmailRules(ctxWithTenant(tenantID), &emailv1.ApplyEmailRulesRequest{})
+	resp, err := f.srv.ApplyEmailRules(ruleAdminCtx(tenantID), &emailv1.ApplyEmailRulesRequest{})
 	requireGRPCOK(t, err)
 	require.EqualValues(t, 1, resp.Affected)
 	require.EqualValues(t, 2, resp.Scanned)

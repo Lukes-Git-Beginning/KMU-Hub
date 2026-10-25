@@ -6,6 +6,10 @@ var (
 	// ErrRuleNotFound is returned when a rule does not exist within the tenant.
 	ErrRuleNotFound = errors.New("email rule not found")
 
+	// ErrTenantWideRule is returned when a caller without the coarse email key
+	// changes or removes a tenant-wide rule, which only admin maintains.
+	ErrTenantWideRule = errors.New("tenant-wide email rules are maintained by an administrator")
+
 	// ErrInvalidField is returned for a condition field the matcher cannot read.
 	ErrInvalidField = errors.New("invalid rule field")
 

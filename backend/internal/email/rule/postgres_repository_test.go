@@ -20,6 +20,7 @@ import (
 // tenant in these tests gets its own freshly minted user.
 type mailbox struct {
 	tenant  uuid.UUID
+	user    uuid.UUID
 	inbox   uuid.UUID
 	archive uuid.UUID
 	trash   uuid.UUID
@@ -31,8 +32,14 @@ type mailbox struct {
 // constants collide under t.Parallel() (the failure mode from night run 1).
 func seedMailbox(t *testing.T, pool *pgxpool.Pool, label string) mailbox {
 	t.Helper()
+	return seedMailboxIn(t, pool, uuid.New(), label)
+}
 
-	tenantID := uuid.New()
+// seedMailboxIn builds a mailbox for a fresh user of tenantID, so two calls
+// with the same tenant give two colleagues with one mailbox each.
+func seedMailboxIn(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, label string) mailbox {
+	t.Helper()
+
 	testutil.EnsureTenant(t, pool, tenantID, "email rule test "+label)
 
 	userID := testutil.SeedRow(t, pool, "users", map[string]any{
@@ -57,7 +64,7 @@ func seedMailbox(t *testing.T, pool *pgxpool.Pool, label string) mailbox {
 	})
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "email_accounts", accountID) })
 
-	mb := mailbox{tenant: tenantID}
+	mb := mailbox{tenant: tenantID, user: userID}
 	for _, f := range []struct {
 		target     *uuid.UUID
 		name, kind string
@@ -221,7 +228,7 @@ func TestRepository_ApplyCandidatesAndWrite(t *testing.T) {
 	mine := seedMailbox(t, pool, "apply")
 	ctx := testutil.WithTenantCtx(context.Background(), mine.tenant)
 
-	candidates, err := repo.ListApplyCandidates(ctx, mine.tenant, 100)
+	candidates, err := repo.ListApplyCandidates(ctx, mine.tenant, nil, 100)
 	if err != nil {
 		t.Fatalf("ListApplyCandidates: %v", err)
 	}
@@ -243,7 +250,7 @@ func TestRepository_ApplyCandidatesAndWrite(t *testing.T) {
 		t.Fatalf("ApplyToMessage: %v", err)
 	}
 
-	after, err := repo.ListApplyCandidates(ctx, mine.tenant, 100)
+	after, err := repo.ListApplyCandidates(ctx, mine.tenant, nil, 100)
 	if err != nil {
 		t.Fatalf("ListApplyCandidates after write: %v", err)
 	}
@@ -271,7 +278,7 @@ func TestRepository_ApplyToMessageIsTenantScoped(t *testing.T) {
 	other := seedMailbox(t, pool, "write-other")
 
 	otherCtx := testutil.WithTenantCtx(context.Background(), other.tenant)
-	victims, err := repo.ListApplyCandidates(otherCtx, other.tenant, 1)
+	victims, err := repo.ListApplyCandidates(otherCtx, other.tenant, nil, 1)
 	if err != nil || len(victims) == 0 {
 		t.Fatalf("seed candidates for the other tenant: %d, err=%v", len(victims), err)
 	}
@@ -282,7 +289,7 @@ func TestRepository_ApplyToMessageIsTenantScoped(t *testing.T) {
 		t.Fatalf("cross-tenant ApplyToMessage errored instead of matching zero rows: %v", err)
 	}
 
-	after, err := repo.ListApplyCandidates(otherCtx, other.tenant, 100)
+	after, err := repo.ListApplyCandidates(otherCtx, other.tenant, nil, 100)
 	if err != nil {
 		t.Fatalf("re-read: %v", err)
 	}
@@ -294,3 +301,74 @@ func TestRepository_ApplyToMessageIsTenantScoped(t *testing.T) {
 		t.Fatalf("foreign tenant's message was modified: %+v", after[idx])
 	}
 }
+
+// TestService_PersonalRuleLeavesAColleaguesMailboxAlone runs the rule service
+// on the real repository: alice's rule matches mail in both mailboxes of the
+// tenant, and neither an admin run nor alice's own run may touch bob's.
+func TestService_PersonalRuleLeavesAColleaguesMailboxAlone(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	alice := seedMailboxIn(t, pool, tenantID, "alice")
+	bob := seedMailboxIn(t, pool, tenantID, "bob")
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	repo := rule.NewPostgresRepository(pool)
+	svc := rule.NewService(repo)
+
+	// Moving into a colleague's folder is refused at the target check.
+	in := rule.RuleInput{
+		Name: ptr("Rechnungen"), Field: ptr(models.EmailRuleFieldSubject), Op: ptr(models.EmailRuleOpContains),
+		Value: ptr("Rechnung"), ActionType: ptr(models.EmailRuleActionMove), ActionTarget: ptr(bob.archive.String()),
+	}
+	if _, err := svc.Create(ctx, tenantID, rule.Actor{UserID: alice.user}, in); !errors.Is(err, rule.ErrTargetNotFound) {
+		t.Fatalf("move into bob's folder: err = %v, want %v", err, rule.ErrTargetNotFound)
+	}
+	in.ActionTarget = ptr(alice.archive.String())
+	r, err := svc.Create(ctx, tenantID, rule.Actor{UserID: alice.user}, in)
+	if err != nil {
+		t.Fatalf("create alice's rule: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "email_rules", r.ID) })
+
+	bobBefore, err := repo.ListApplyCandidates(ctx, tenantID, &bob.user, 100)
+	if err != nil || len(bobBefore) != 2 {
+		t.Fatalf("bob's candidates = %d, err = %v, want 2", len(bobBefore), err)
+	}
+	for _, c := range bobBefore {
+		if c.OwnerID != bob.user {
+			t.Fatalf("owner filter returned alice's message %s", c.ID)
+		}
+	}
+
+	for _, actor := range []rule.Actor{{UserID: alice.user}, {UserID: uuid.New(), Admin: true}} {
+		res, err := svc.ApplyAll(ctx, tenantID, actor)
+		if err != nil {
+			t.Fatalf("ApplyAll admin=%v: %v", actor.Admin, err)
+		}
+		if res.Scanned < 2 {
+			t.Fatalf("admin=%v scanned %d messages, want alice's two at least", actor.Admin, res.Scanned)
+		}
+	}
+
+	bobAfter, err := repo.ListApplyCandidates(ctx, tenantID, &bob.user, 100)
+	if err != nil {
+		t.Fatalf("re-read bob: %v", err)
+	}
+	for _, c := range bobAfter {
+		if c.FolderID != bob.inbox {
+			t.Errorf("bob's message %s moved to %s by alice's rule", c.ID, c.FolderID)
+		}
+	}
+	aliceAfter, err := repo.ListApplyCandidates(ctx, tenantID, &alice.user, 100)
+	if err != nil {
+		t.Fatalf("re-read alice: %v", err)
+	}
+	moved := slices.IndexFunc(aliceAfter, func(c *models.EmailRuleCandidate) bool { return c.FolderID == alice.archive })
+	if moved < 0 {
+		t.Errorf("alice's invoice mail was not moved into her archive: %+v", aliceAfter)
+	}
+}
+
+func ptr(s string) *string { return &s }

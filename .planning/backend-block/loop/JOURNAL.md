@@ -405,3 +405,45 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   mit grobem `email:write` bei Scope `own` könnte fremde Konten ändern (`lean:`-Marker in `grpc_tenant.go`; heute
   hält nur admin die groben Keys, Scope `all`). manager bekommt den Key mit (`own`), wie bei 000337/000346 — bitte
   bestätigen. Ein FE-Konto-Dialog für member fehlt; als FE-Thema für NEXT einordnen, falls gewünscht.
+
+## Iteration 11 — feat-email-rules-per-user — done — 2026-10-25 18:12
+- commit: siehe Commit `feat(email): scope email rules to their owner` (dieser Eintrag)
+- gebaut: Migration 000348 `email_rules.user_id` (nullable, FK users ON DELETE CASCADE, Index tenant+user; Bestand
+  bleibt NULL = tenantweit) plus `email:rule:read|write|delete` (member/manager `own`, admin `all`, zweimal
+  anwendbar; Down löscht erst die Nutzerregeln, damit sie nicht tenantweit werden). `rule.Service` mit `Actor`:
+  Create stempelt immer den Aufrufer (auch admin); List = tenantweite + eigene (fremde Nutzerregeln unsichtbar,
+  auch für admin); Update/Delete über `maintainable` (fremde -> NotFound, tenantweit ohne groben Key ->
+  `ErrTenantWideRule`/PermissionDenied); Move-Ziel einer Nutzerregel muss ein Ordner eines EIGENEN Kontos sein
+  (`FolderBelongsToUser`), sonst landete eigene Post im Postfach eines Kollegen; `ApplyAll` wendet je Nachricht
+  nur tenantweite Regeln plus die des Kontoinhabers an, Kandidaten bei admin (grobes `email:write` über den Hop)
+  tenantweit, sonst nur eigene Postfächer. Gateway-Guards additiv `RequirePermissionAny(email:*, email:rule:*)`.
+  Spec-Beschreibungen nachgezogen (Statuscodes standen schon, swagger-cli valid).
+- gate: build ok | vet ok | lint ok (0 issues: email/rule, server, gateway, models) | test ok (`internal/email/...`
+  422 PASS, `internal/server` 5004 PASS, `internal/gateway` 5542 PASS, 0 SKIP, 0 FAIL, DATABASE_URL als
+  kmuhub_app; DB-Tests real gelaufen: rule-Repo 6 inkl. neuem Service-auf-Postgres-Test, Gateway-Kettentest mit
+  echtem Seed über `ResolveTokenPermissions`) | migration ok (348 up/down/up, Kopf 348 clean, Up per psql ein
+  zweites Mal: no-op) | rls-smoke ok (`email_rules` als kmuhub_app: eigener Tenant 1, fremder 0) | e2e n.a. (kein
+  Flow berührt `/email/rules`)
+- coverage: `internal/email/rule` n.a. -> 82,3 % (kein Coverage-Ziel, Vorher nicht gemessen)
+- mutations-probe: (1) Owner-Filter in `evaluateMessage` entfernt -> `TestApplyAll_PersonalRulesOnlyTouchTheOwnersMailbox`
+  und DB-Test `TestService_PersonalRuleLeavesAColleaguesMailboxAlone` rot. (2) Fremd-Zweig in `maintainable`
+  entfernt -> `TestUpdateDelete_OwnershipHoldsWithoutTheGateway` und Gateway-Kettentest (colleague's rule) rot.
+  (3) Nutzerregel prüft Move-Ziel nur gegen Tenant -> `TestCreate_PersonalMoveTargetMustBeTheOwnersFolder` und
+  DB-Test rot. (4) List-Filter `return false` -> `TestList_ShowsTenantWideAndOwnRulesOnly` rot. (5) Kandidaten-
+  Einschränkung für Nicht-admin aus -> `TestApplyAll_PersonalRulesOnlyTouchTheOwnersMailbox/bob` rot.
+  (6) `ruleActor` Admin immer true -> `TestUpdateDeleteEmailRule_TenantWideRuleNeedsTheCoarseKey` und
+  Gateway-Kettentest (tenant-wide 403) rot. Alle zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`d6c12f0b`: Guards additiv, Seed 000347 mit Up/Down für member/manager/admin,
+  Besitzprüfung im Email-Server, Whitelist-Test mitgezogen, keine neue Route/Tabelle, kein Proto)
+- neue-units: `fe-email-rules-per-user-catalog-and-tenant-wide-marker` (BACKLOG-NEXT.yml, FE-Thema, blocked)
+- desktop-aufrufer: GET/POST `/email/rules`, DELETE `/email/rules/{id}`, POST `/email/rules/apply` ->
+  `api/email-client.ts:337-349` über `api/hooks/useEmail.ts:492` und `modules/mails/RulesDialog.tsx` -> passt:
+  Antwortformen unverändert (`{rules:[...]}`, `{rule:{...}}`). member sieht im Dialog tenantweite Regeln mit
+  Löschknopf, der Klick gibt 403 — FE kann tenantweit nicht erkennen (Proto ohne Feld), siehe neue NEXT-Unit.
+- offen: Neue Keys wirken erst nach Re-Login. Verhaltensänderung: jede ab dem Deploy angelegte Regel ist eine
+  Nutzerregel — auch die von admin; neue tenantweite Regeln lassen sich nicht mehr anlegen (Entscheidung wörtlich
+  "Neue Regeln bekommen den Aufrufer"), bitte bestätigen. admin sieht und ändert fremde Nutzerregeln nicht
+  (Postfach-Logik wie `ownAccount`). Der Admin-Zweig im Server hängt am weitergereichten `email:write`, auch für
+  DELETE (eine Custom-Rolle mit nur `email:delete` löscht tenantweite Regeln nicht). Bestehende tenantweite
+  Move-Regeln dürfen weiter in jeden Ordner des Tenants verschieben (unverändert, nicht Teil der Unit).
+  manager bekommt die Keys mit (`own`), wie bei 000337/000346/000347.

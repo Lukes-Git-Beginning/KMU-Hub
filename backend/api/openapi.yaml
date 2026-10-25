@@ -26355,7 +26355,11 @@ paths:
 
   /api/v1/email/rules:
     get:
-      summary: List the tenant's email rules
+      summary: List the tenant-wide email rules plus the caller's own
+      description: >
+        Rules created before per-user rules (migration 000348) are tenant-wide
+        and run over every mailbox; every newer rule belongs to its creator and
+        runs over that user's mailboxes only. Colleagues' rules are not listed.
       tags: [mails]
       operationId: listEmailRules
       security:
@@ -26374,7 +26378,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
-      summary: Create an email rule
+      summary: Create an email rule owned by the caller
       tags: [mails]
       operationId: createEmailRule
       security:
@@ -26399,7 +26403,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          description: Move action target is not a folder of this tenant
+          description: Move target is not a folder of the caller's own mailboxes, or label target is not a label of this tenant
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -26411,7 +26415,9 @@ paths:
       description: >
         Partial update: omitted fields keep their stored value. The merged rule
         is validated as a whole, so a patch cannot produce a combination a
-        create would have rejected.
+        create would have rejected. The caller's own rules only; a colleague's
+        rule answers 404, a tenant-wide rule 403 unless the caller holds the
+        coarse email:write key. Delete follows the same rule.
       tags: [mails]
       operationId: updateEmailRule
       security:
@@ -26476,10 +26482,13 @@ paths:
 
   /api/v1/email/rules/apply:
     post:
-      summary: Apply all rules to the tenant's stored messages
+      summary: Apply the rules to stored messages
       description: >
-        Runs every rule over the tenant's non-trashed messages, newest first,
-        capped at 2000 messages per run. Rules apply in creation order and
+        Runs the rules over non-trashed messages, newest first, capped at 2000
+        messages per run: across the tenant for a holder of the coarse
+        email:write key, over the caller's own mailboxes otherwise. A message
+        only meets the tenant-wide rules and the rules of the user holding its
+        mailbox. Rules apply in creation order and
         accumulate: labels add up, a later move overrides an earlier one.
       tags: [mails]
       operationId: applyEmailRules
