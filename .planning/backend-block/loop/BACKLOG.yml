@@ -2751,7 +2751,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/work/reaction (vor Bau messen) · internal/gateway 77,6 %"
     scope: >
       Gefunden in fix-chat-rest-writes-never-reach-other-clients (Lauf 16, Iteration 47), am Code

@@ -25,6 +25,12 @@ type Repository interface {
 	// including per-emoji count, user list, and whether the current user reacted.
 	GetReactionSummary(ctx context.Context, messageID, currentUserID uuid.UUID) ([]ReactionSummary, error)
 
+	// ReachableMessages returns, for the given messages, the channel each one lives
+	// in -- limited to the messages userID may see: the channel is public, or the
+	// user is a member of it. Unknown, foreign-tenant and private-channel messages
+	// are simply absent from the result (the caller reports them as not found).
+	ReachableMessages(ctx context.Context, messageIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]uuid.UUID, error)
+
 	// GetBatchReactionSummary returns aggregated reaction summaries for multiple messages
 	// in a single query, keyed by message ID.
 	GetBatchReactionSummary(ctx context.Context, messageIDs []uuid.UUID, currentUserID uuid.UUID) (map[uuid.UUID][]ReactionSummary, error)

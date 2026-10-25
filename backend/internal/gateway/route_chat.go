@@ -24,6 +24,7 @@ type chatBroadcaster interface {
 	BroadcastMessageCreated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
 	BroadcastMessageUpdated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
 	BroadcastMessageDeleted(ctx context.Context, channelID, messageID string)
+	BroadcastReactionToggled(ctx context.Context, channelID string, reactionData map[string]interface{})
 }
 
 // ChatRoutes handles HTTP routes for the chat backend service.
@@ -1005,6 +1006,18 @@ func (ch *ChatRoutes) HandleToggleReaction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if channelID := resp.GetChannelId(); channelID != "" {
+		payload := map[string]interface{}{
+			"message_id": messageID,
+			"channel_id": channelID,
+			"user_id":    userID,
+			"emoji":      req.Emoji,
+			"added":      resp.GetAdded(),
+		}
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastReactionToggled(ctx, channelID, payload)
+		})
+	}
 	response.JSON(w, http.StatusOK, resp)
 }
 

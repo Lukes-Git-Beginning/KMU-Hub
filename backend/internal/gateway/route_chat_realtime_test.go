@@ -76,6 +76,10 @@ func (realtimeChatStub) DeleteMessage(context.Context, *chatv1.DeleteMessageRequ
 	return &chatv1.DeleteMessageResponse{ChannelId: rtChannelID}, nil
 }
 
+func (realtimeChatStub) ToggleReaction(_ context.Context, r *chatv1.ToggleReactionRequest) (*chatv1.ToggleReactionResponse, error) {
+	return &chatv1.ToggleReactionResponse{Added: true, ChannelId: rtChannelID}, nil
+}
+
 type realtimeEnv struct {
 	routes *ChatRoutes
 	hub    *server.WebSocketHub
@@ -288,4 +292,38 @@ func TestChatRealtime_NoHubRepliesUnchanged(t *testing.T) {
 	env.routes.HandleDeleteMessage(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Equal(t, "message deleted", decodeObject(t, rec)["status"], "delete reply shape is unchanged")
+}
+
+func (e *realtimeEnv) react(t *testing.T, emoji string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := withChiURLParam(withAuth(httptest.NewRequest(http.MethodPost, "/x", jsonBody(t, map[string]any{"emoji": emoji})), rtWriterID.String(), testTenantID), "id", rtMessageID)
+	rec := httptest.NewRecorder()
+	e.routes.HandleToggleReaction(rec, req)
+	return rec
+}
+
+func TestChatRealtime_RESTReactionReachesSubscriber(t *testing.T) {
+	env := newRealtimeEnv(t)
+	env.routes.SetWSHub(env.hub)
+	reader, refused := env.subscribe(t, rtReaderID, testTenantID)
+	require.False(t, refused)
+
+	rec := env.react(t, "👍")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	assert.Equal(t, rtChannelID, decodeObject(t, rec)["channel_id"])
+
+	msg := awaitType(t, reader, server.WSReactionToggled, 2*time.Second)
+	require.NotNil(t, msg, "B never received reaction.toggled for A's REST reaction")
+	assert.Equal(t, rtChannelID, msg.ChannelID)
+	assert.Equal(t, rtMessageID, rawField(t, msg.Message, "message_id"))
+	assert.Equal(t, rtWriterID.String(), rawField(t, msg.Message, "user_id"))
+	assert.Equal(t, "👍", rawField(t, msg.Message, "emoji"))
+	assert.Equal(t, true, rawField(t, msg.Message, "added"))
+}
+
+func TestChatRealtime_ReactionWithoutHubRepliesUnchanged(t *testing.T) {
+	env := newRealtimeEnv(t)
+
+	rec := env.react(t, "👍")
+	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }

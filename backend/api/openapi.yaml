@@ -9216,6 +9216,8 @@ paths:
   /api/v1/messages/{id}/reactions:
     post:
       summary: Toggle a reaction on a message (add or remove)
+      description: >
+        404 if the message does not exist or sits in a private channel the caller has not joined.
       tags: [reactions]
       operationId: toggleReaction
       security:
@@ -9249,6 +9251,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -9277,6 +9281,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -43370,6 +43376,10 @@ components:
         added:
           type: boolean
           description: true if reaction was added, false if removed
+        channel_id:
+          type: string
+          format: uuid
+          description: Channel of the message (also pushed to its subscribers as reaction.toggled)
 
     ListReactionsResponse:
       type: object

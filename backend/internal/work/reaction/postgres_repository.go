@@ -99,6 +99,37 @@ func (r *PostgresRepository) GetReactionSummary(ctx context.Context, messageID, 
 	return summaries, rows.Err()
 }
 
+func (r *PostgresRepository) ReachableMessages(ctx context.Context, messageIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	result := make(map[uuid.UUID]uuid.UUID, len(messageIDs))
+	if len(messageIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.pool.Query(ctx,
+		`SELECT m.id, m.channel_id
+		 FROM messages m
+		 JOIN channels c ON c.id = m.channel_id AND c.tenant_id = m.tenant_id
+		 WHERE m.id = ANY($1)
+		   AND (NOT c.is_private
+		        OR EXISTS (SELECT 1 FROM channel_memberships cm
+		                   WHERE cm.channel_id = c.id AND cm.user_id = $2))`,
+		messageIDs, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var messageID, channelID uuid.UUID
+		if scanErr := rows.Scan(&messageID, &channelID); scanErr != nil {
+			return nil, scanErr
+		}
+		result[messageID] = channelID
+	}
+	return result, rows.Err()
+}
+
 func (r *PostgresRepository) GetBatchReactionSummary(ctx context.Context, messageIDs []uuid.UUID, currentUserID uuid.UUID) (map[uuid.UUID][]ReactionSummary, error) {
 	if len(messageIDs) == 0 {
 		return make(map[uuid.UUID][]ReactionSummary), nil
