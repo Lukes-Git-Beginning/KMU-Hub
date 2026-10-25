@@ -2878,7 +2878,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/work/task 85,0 %"
     scope: >
       Gefunden in cov-work-task (Lauf 16, Iteration 68), gegen die echte DB belegt: eine Vorlage

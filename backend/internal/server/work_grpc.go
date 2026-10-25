@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -420,6 +421,12 @@ func (s *WorkGRPCServer) SaveProjectAsTemplate(ctx context.Context, req *workv1.
 		return nil, mapWorkError(err)
 	}
 
+	// SaveAsTemplate only writes the project row; the template carries nothing
+	// to instantiate unless the statuses and tasks go with it.
+	if err := s.copyProjectContent(ctx, tenantID, projectID, tmpl.ID, createdBy); err != nil {
+		return nil, err
+	}
+
 	return &workv1.SaveProjectAsTemplateResponse{
 		Template: projectToProto(tmpl, 0, 0, ""),
 	}, nil
@@ -446,9 +453,72 @@ func (s *WorkGRPCServer) CreateProjectFromTemplate(ctx context.Context, req *wor
 		return nil, mapWorkError(err)
 	}
 
+	if err := s.copyProjectContent(ctx, tenantID, templateID, p.ID, createdBy); err != nil {
+		return nil, err
+	}
+
 	return &workv1.CreateProjectFromTemplateResponse{
 		Project: projectToProto(p, 0, 0, ""),
 	}, nil
+}
+
+// copyProjectContent copies the statuses and then the tasks (with parents and
+// dependencies) of one project into another that was just created. The task
+// service takes the status translation from here because a status belongs to
+// exactly one project: the copied statuses are matched to the source ones by name
+// (unique per project, case-insensitive).
+// lean: kein gemeinsamer Transaktionsrahmen über Projekt-, Status- und Task-Service;
+// bei einem Fehler wird das neue Projekt wieder gelöscht, statt es halb gefüllt stehen
+// zu lassen. Echte Transaktion, wenn der Work-Server eine Unit-of-Work bekommt.
+func (s *WorkGRPCServer) copyProjectContent(ctx context.Context, tenantID, sourceID, targetID, actorID uuid.UUID) error {
+	if err := s.statusService.CopyForProject(ctx, sourceID, targetID); err != nil {
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+
+	statusMap, err := s.statusMapByName(ctx, sourceID, targetID)
+	if err != nil {
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+
+	if err := s.taskService.CreateFromTemplate(ctx, tenantID, sourceID, targetID, actorID, statusMap); err != nil {
+		slog.Error("copy project tasks failed", "source_project_id", sourceID, "target_project_id", targetID, "error", err)
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+	return nil
+}
+
+func (s *WorkGRPCServer) statusMapByName(ctx context.Context, sourceID, targetID uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	targetStatuses, err := s.statusService.ListByProject(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	byName := make(map[string]uuid.UUID, len(targetStatuses))
+	for _, st := range targetStatuses {
+		byName[strings.ToLower(st.Name)] = st.ID
+	}
+
+	sourceStatuses, err := s.statusService.ListByProject(ctx, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	statusMap := make(map[uuid.UUID]uuid.UUID, len(sourceStatuses))
+	for _, st := range sourceStatuses {
+		if id, ok := byName[strings.ToLower(st.Name)]; ok {
+			statusMap[st.ID] = id
+		}
+	}
+	return statusMap, nil
+}
+
+// discardProject removes a project whose content copy failed. A failure here is
+// logged only: the caller already returns the original error.
+func (s *WorkGRPCServer) discardProject(ctx context.Context, tenantID, projectID, actorID uuid.UUID) {
+	if err := s.projectService.Delete(ctx, projectID, tenantID, actorID, projectsOpenToTenant); err != nil {
+		slog.Error("discard half-copied project failed", "project_id", projectID, "error", err)
+	}
 }
 
 // ============================================================================

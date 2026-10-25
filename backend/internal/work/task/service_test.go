@@ -1040,7 +1040,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 		},
 	}
 
-	err := svc.CreateFromTemplate(ctx, tenantID, sourceProjectID, targetProjectID, actorID)
+	err := svc.CreateFromTemplate(ctx, tenantID, sourceProjectID, targetProjectID, actorID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

@@ -751,8 +751,19 @@ func (s *Service) ListMyTasks(ctx context.Context, tenantID, userID uuid.UUID, f
 	return s.repo.List(ctx, tenantID, filters)
 }
 
-// CreateFromTemplate copies all tasks from a source project into a target project
-func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID) error {
+// CreateFromTemplate copies all tasks (and their dependencies) from a source
+// project into a target project. statusMap translates a source status ID to the
+// matching status of the target project (statuses belong to one project); a task
+// whose status has no entry lands without a status instead of pointing into the
+// source project. Assignee and dates are deliberately not carried over.
+func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID, statusMap map[uuid.UUID]uuid.UUID) error {
+	// Both projects must belong to the caller's tenant before anything is read or written.
+	for _, id := range []uuid.UUID{sourceProjectID, targetProjectID} {
+		if _, err := s.projectRepo.GetByID(ctx, id, tenantID); err != nil {
+			return fmt.Errorf("project: %w", err)
+		}
+	}
+
 	// Get all tasks from source project (ordered by depth ASC to process parents first)
 	sourceTasks, err := s.repo.ListByProject(ctx, sourceProjectID)
 	if err != nil {
@@ -784,13 +795,21 @@ func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjec
 			}
 		}
 
+		var statusID *uuid.UUID
+		if src.StatusID != nil {
+			if mapped, ok := statusMap[*src.StatusID]; ok {
+				statusID = &mapped
+			}
+		}
+
 		newTask := &models.Task{
 			ID:           newID,
+			TenantID:     tenantID,
 			ProjectID:    &targetProjectID,
 			TaskNumber:   taskNumber,
 			Title:        src.Title,
 			Description:  src.Description,
-			StatusID:     src.StatusID,
+			StatusID:     statusID,
 			Priority:     src.Priority,
 			ParentTaskID: parentID,
 			Depth:        src.Depth,
