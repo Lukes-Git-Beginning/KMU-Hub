@@ -1367,3 +1367,23 @@ units:
       - backend/internal/gateway/route_hr.go (HandleListWorkTimeEntries)
     done_when:
       - "Header-Widget, Export und Profil-Korrekturen senden employee_id des Nutzers; admin sieht dort nur eigene Einträge (Screenshot)"
+
+  - id: fe-capability-catalog-team-inbox-read
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 8"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Migration 000346 (`feat-team-inbox-for-members`) legt `kommunikation:team_inbox:read` an (member/manager
+      `own`, admin `all`); das Gateway nimmt den Key additiv an den Inbox-Leserouten an. Der Rollen-Editor kennt
+      ihn nicht: `config/capability-catalog.ts` listet unter `kommunikation` nur die fünf `manage`-Keys. Eine
+      Custom-Rolle kann den Team-Inbox-Lesezugriff deshalb weder sehen noch setzen; die Presets wirken trotzdem.
+      Fix im FE: `fine('kommunikation:team_inbox:read')` in den Katalog, i18n ×4 für das Label.
+    sources:
+      - desktop/src/renderer/src/config/capability-catalog.ts
+      - backend/migrations/000346_seed_team_inbox_read_for_members.up.sql
+    done_when:
+      - "Rollen-Editor zeigt und speichert kommunikation:team_inbox:read (Screenshot)"

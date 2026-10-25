@@ -74,9 +74,15 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 	// RequireRole-gated, so there is no additive target for it at all.
 	// kommunikation:webhook:manage has no backend endpoint (chat/inbox never
 	// grew a webhook route) — key stays unused, no route invented.
+	//
+	// kommunikation:team_inbox:read opens the read routes a team inbox member
+	// needs (decision 2026-10-25). Every one of them is already bounded to the
+	// caller: own messages, single messages by visibility, team inboxes and
+	// message lists by membership — so the key carries no wider reach.
 	var (
 		inboxCannedManage    = middleware.RequirePermissionAny([2]string{"inbox", "write"}, [2]string{"kommunikation:canned", "manage"})
 		inboxTeamInboxManage = middleware.RequirePermissionAny([2]string{"inbox", "write"}, [2]string{"kommunikation:team_inbox", "manage"})
+		inboxTeamInboxRead   = middleware.RequirePermissionAny([2]string{"inbox", "read"}, [2]string{"kommunikation:team_inbox", "read"})
 	)
 
 	r.Route("/api/v1/inbox", func(r chi.Router) {
@@ -84,9 +90,9 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.Use(RequireAuthenticated)
 
 		// Message endpoints
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages", ir.HandleListMessages)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/unread-count", ir.HandleGetUnreadCount)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}", ir.HandleGetMessage)
+		r.With(inboxTeamInboxRead).Get("/messages", ir.HandleListMessages)
+		r.With(inboxTeamInboxRead).Get("/messages/unread-count", ir.HandleGetUnreadCount)
+		r.With(inboxTeamInboxRead).Get("/messages/{id}", ir.HandleGetMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/read", ir.HandleMarkRead)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/unread", ir.HandleMarkUnread)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/star", ir.HandleToggleStar)
@@ -100,7 +106,7 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/unsnooze", ir.HandleUnsnoozeMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/reply", ir.HandleReplyToMessage)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/assign", ir.HandleAssignMessage)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/unread-count", ir.HandleGetUnreadCount)
+		r.With(inboxTeamInboxRead).Get("/unread-count", ir.HandleGetUnreadCount)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-read", ir.HandleBulkMarkRead)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk-archive", ir.HandleBulkArchive)
 		// Paths the desktop client calls (inbox-client.ts bulkMarkRead/bulkArchive).
@@ -108,7 +114,7 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/bulk/archive", ir.HandleBulkArchive)
 
 		// Thread + canned-response endpoints (reuse inbox read/write permissions)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/messages/{id}/thread", ir.HandleListThreadMessages)
+		r.With(inboxTeamInboxRead).Get("/messages/{id}/thread", ir.HandleListThreadMessages)
 		r.With(middleware.RequirePermission("inbox", "read")).Get("/canned-responses", ir.HandleListCannedResponses)
 		r.With(inboxCannedManage).Post("/canned-responses", ir.HandleCreateCannedResponse)
 		r.With(inboxCannedManage).Put("/canned-responses/{id}", ir.HandleUpdateCannedResponse)
@@ -118,10 +124,10 @@ func (ir *InboxRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Han
 		r.With(middleware.RequireRole("admin", "manager")).Post("/teams", ir.HandleCreateTeamInbox)
 		r.With(inboxTeamInboxManage).Put("/teams/{id}", ir.HandleUpdateTeamInbox)
 		r.With(middleware.RequireRole("admin", "manager")).Delete("/teams/{id}", ir.HandleDeleteTeamInbox)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/teams", ir.HandleListTeamInboxes)
+		r.With(inboxTeamInboxRead).Get("/teams", ir.HandleListTeamInboxes)
 		r.With(inboxTeamInboxManage).Post("/teams/{id}/members", ir.HandleAddTeamMember)
 		r.With(inboxTeamInboxManage).Delete("/teams/{id}/members/{user_id}", ir.HandleRemoveTeamMember)
-		r.With(middleware.RequirePermission("inbox", "read")).Get("/teams/{id}/members", ir.HandleListTeamMembers)
+		r.With(inboxTeamInboxRead).Get("/teams/{id}/members", ir.HandleListTeamMembers)
 		r.With(middleware.RequirePermission("inbox", "write")).Post("/messages/{id}/claim", ir.HandleClaimMessage)
 
 		// Routing rule endpoints (admin/manager only)

@@ -76,7 +76,13 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID
 }
 
 func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*models.InboxMessage, int, error) {
-	where := "WHERE tenant_id = $1 AND user_id = $2"
+	// The caller's own messages; filtered to a team inbox, also that team's messages when the
+	// caller ($2) is one of its members. A non-member gets only own messages of that team.
+	reach := "user_id = $2"
+	if filter.TeamInboxID != nil {
+		reach = "(user_id = $2 OR team_inbox_id IN (SELECT team_inbox_id FROM team_inbox_members WHERE user_id = $2))"
+	}
+	where := "WHERE tenant_id = $1 AND " + reach
 	args := []interface{}{filter.TenantID, filter.UserID}
 	argIdx := 3
 
@@ -130,7 +136,7 @@ func (r *PostgresRepository) List(ctx context.Context, filter ListFilter) ([]*mo
 	}
 
 	// Count query (without cursor and limit for total count)
-	countWhere := "WHERE tenant_id = $1 AND user_id = $2"
+	countWhere := "WHERE tenant_id = $1 AND " + reach
 	countArgs := []interface{}{filter.TenantID, filter.UserID}
 	countIdx := 3
 

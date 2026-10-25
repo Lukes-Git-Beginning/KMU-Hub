@@ -302,3 +302,34 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   `updated_count` weiterhin = Anzahl angefragter IDs, auch wenn unsichtbare übersprungen wurden (Altverhalten, kein
   FE-Leser). Die Team-Inbox-Liste selbst (`ListMessages` mit `team_inbox_id`) filtert weiter auf `user_id` — das ist
   `feat-team-inbox-for-members`.
+
+## Iteration 8 — feat-team-inbox-for-members — done — 2026-10-25 17:36
+- commit: siehe Commit `feat(inbox): let members read the team inboxes they belong to` (dieser Eintrag)
+- gebaut: Neuer feiner Key `kommunikation:team_inbox:read` (Migration 000346: member/manager `own`, admin `all`).
+  Gateway nimmt ihn additiv (`inboxTeamInboxRead` = Any(`inbox:read`, neu)) an GET `/messages`, `/messages/unread-count`,
+  `/unread-count`, `/messages/{id}`, `/messages/{id}/thread`, `/teams`, `/teams/{id}/members` — nicht an Canned-
+  Responses und `/rules`. Datengrenze vor dem Grant: `message.PostgresRepository.List` mit `team_inbox_id` liefert
+  eigene Nachrichten ODER (bei Mitgliedschaft des Aufrufers) alle Nachrichten des Teams; ohne Teamfilter weiter nur
+  eigene. Team-Liste war schon mitgliedschaftsbasiert (`ListByUser`), Einzelnachricht seit Iteration 7.
+  E2E `TestInboxTeamAndRoutingFlow` um member-Schritte erweitert (eigenes Postfach sichtbar, nach Entfernen weg).
+- gate: build ok | vet ok (inkl. `-tags=e2e`) | lint ok (0 issues) | test ok (inbox/... + server + gateway: 10710 PASS,
+  0 Skips, 0 FAIL, inkl. TestOpenAPIRouteDrift; neue DB-Tests `TestList_TeamInboxFilterFollowsMembership` und
+  `TestInboxTeamInbox_MemberReadsOwnTeamsOnly` real als kmuhub_app gelaufen, Token über ResolveTokenPermissions) |
+  migration ok (up, down, up, zweites Anwenden INSERT 0 0; Kopf 346) | rls-smoke n.a. (keine Tabelle/Policy) |
+  e2e ok (lokal, 2:41, `TestInboxTeamAndRoutingFlow`, beide neuen Subtests PASS)
+- coverage: n.a. (kein Coverage-Ziel; `internal/inbox/message` nach der Änderung 81,1 %)
+- mutations-probe: (1) Mitgliedschafts-Zweig in `List` entfernt -> Repo-DB-Test und Router-Test rot (Team-Mitglied
+  sieht 0 statt 2). (2) `/teams` zurück auf `RequirePermission("inbox","read")` -> Router-Test rot (member 403).
+  (3) `/messages` ebenso -> Router-Test rot. Alle zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`1c5b1e64`: kein Gateway-Code, kein Proto, keine Route/Tabelle/Permission;
+  Sichtbarkeitsprädikat tenant-gescoped, Aufrufer aus dem Kontext, keine Stubs)
+- neue-units: `fe-capability-catalog-team-inbox-read` (BACKLOG-NEXT.yml, Frontend: Rollen-Editor kennt den neuen Key nicht)
+- desktop-aufrufer: GET `/inbox/teams`, `/teams/{id}/members`, `/messages` -> `api/inbox-client.ts:84,167,183` über
+  `api/hooks/useInbox.ts:41,57,69` (`KommunikationPage`, `ConversationList`, `KommunikationSettingsPanel`) -> passt:
+  Antwortformen unverändert, member bekommt jetzt 200 statt 403. Das FE gated die Seite nicht auf `inbox:read`.
+- offen: Neuer Key wirkt erst nach Re-Login (Produktion). manager bekommt den Key mit (`own`), obwohl die Entscheidung
+  member nennt — manager hielt `kommunikation:team_inbox:manage`, konnte die Postfächer aber nicht lesen; bitte
+  bestätigen. Mit dem Key sieht member auch sein persönliches Postfach (GET `/messages` ohne Filter = eigene
+  Nachrichten) und den eigenen Ungelesen-Zähler — beides war vorher 403. Schreibrouten (lesen markieren, Claim,
+  Antworten) bleiben `inbox:write` = admin-only; ob member Team-Nachrichten bearbeiten darf, ist eine eigene Entscheidung.
+  Mitgliederliste offener Team-Postfächer bleibt für Nicht-Mitglieder lesbar (Altverhalten seit Lauf 14, `visibility`).
