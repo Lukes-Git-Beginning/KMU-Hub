@@ -1,4 +1,4 @@
-# Backend-Nachtloop — Arbeitsqueue (Lauf 17, noch nicht gestaged)
+# Backend-Nachtloop — Arbeitsqueue (Lauf 17, gestaged 2026-10-25)
 #
 # Eine Unit = eine Iteration = ein Commit.
 #
@@ -40,8 +40,117 @@
 # lässt den Vorflug des nächsten Laufs abbrechen, bevor die erste Iteration startet (Regel 11).
 #
 # ==========================================================================================
-# STAND 2026-10-25: LEER. Lauf 16 hat die Queue vollständig abgearbeitet. Lauf 17 wird in
-# dieser Session gestaged (Entscheidungsrunde, lokaler E2E-Stack, Treiber-Pflege).
+# STAND DER VORBEREITUNG (2026-10-25, gegen Code, CI, lokale DB und Produktion geprüft)
+#
+#   - `main` = `6001c1a9` (Merge PR #28 `b88d7eac` plus zwei Docs-Commits), Produktion auf
+#     demselben Code (CD 2026-10-25 13:27, Kopf 345 clean, 32 Container healthy).
+#     `backend-loop` = `main` plus Staging-Commits (Archiv Lauf 16, Entscheidungsrunde,
+#     Treiber-Pflege, lokaler E2E-Stack plus CI-Erweiterung, dieser Backlog).
+#   - MIGRATIONSKOPF = 345 (Repo, lokale DB, Produktion). Nummer IMMER zur Laufzeit ermitteln:
+#     ls backend/migrations | grep -E "^[0-9]{6}" | sort | tail -1
+#   - CI grün auf `b88d7eac` (Run 40196109073, Attempt 2). Attempt 1 fiel an zwei Flakes in nicht
+#     angefassten Paketen (produktion 40P01, recurring), beide sind Units in Block B.
+#   - TREIBER (Staging-Commit): setzt `GOFLAGS=-p=2` und `GOMAXPROCS=2` für jede Iteration, misst
+#     per Stoppuhr und prüft die Journal-Kopfzeile auf den VOLLEN Startstempel (siehe ITERATION.md
+#     Schritt 6: woertlich abschreiben).
+#   - E2E-STACK NEU: lokal per `bash .planning/backend-block/loop/hooks/e2e-local.sh ['<Regex>']`
+#     (Wegwerf-Postgres/Redis/MinIO in Docker, 21 Services nativ auf 127.0.0.1, CI-Env). In der
+#     Staging-Session lief die volle Suite damit grün: volle Suite ~35 s, Stack ~20 s, Build mit Cache
+#     ~50 s; alle neun neuen Module per Probe gemountet (Admin-GET je Modul 200). Der CI-Job `e2e` startet seit
+#     dem Staging zusätzlich produktion, vertraege, rapporte, fuhrpark, vermietung, wiki,
+#     berichte, formulare und helpdesk mit ihren Flags. Abgenommen wird das im Morgen-PR.
+#
+# COVERAGE-AUSGANGSLAGE: 74,5 % gesamt bei Gate 15 % (Run 40196109073). Paketwerte stehen je
+# Unit in `coverage_start`.
+#
+# ------------------------------------------------------------------------------------------
+# DER ROTE FADEN DIESES LAUFS
+#
+# "RECHTE GEGEN DEN ECHTEN SEED — UND JEDES MODUL EINMAL ENDE-ZU-ENDE."
+#
+# Lauf 16 hat gezeigt, dass Unit-Tests mit handgebauten Tokens Seed- und Token-Fehler nicht
+# sehen: Der erste member-E2E fand ein hr:self-Leck, einen Altgrant aus 000068 und eine
+# Prod-Altlast (Urlaubsarten). Die Rollenmatrix bildet den Ist-Seed ab, nicht die Absicht. Lauf 17
+# scannt deshalb die alten Grants, baut die in der Entscheidungsrunde 2026-10-25 freigegebenen
+# Rechte, nimmt die Rechte-Commits in Review-Units gegen den echten Seed ab und bringt neun
+# Module zum ersten Mal in den E2E-Stack.
+#
+#   BLOCK S (2)   — RECHTE-SCANS (opus): Altgrants member/manager, grobe Keys mit Scope != all.
+#                   Funde, die fremde Daten öffnen, werden Fix-Units VOR der ersten todo-Unit.
+#   BLOCK A (15)  — LECKS UND GRENZEN (überwiegend opus): Inbox-Sichtbarkeit und Team-Inbox,
+#                   E-Mail (Dial-Filter, Self-Setup, Regeln/Vorlagen/Labels/Verlauf pro
+#                   Nutzer), Privatfahrten maskieren, Share-Token als Hash plus Ablauf,
+#                   Join-Token nur für Teilnehmer, CalDAV-Widerruf, Egress erst nach Stempel.
+#   REVIEW r1
+#   BLOCK B (5)   — BAUBARE RESTE: Urlaubsarten beim Provisioning, produktion 40P01 -> 409,
+#                   tax_rate 0..1, Seitengröße 200 in den Branchenlisten, recurring-Flake.
+#   BLOCK E (12)  — E2E: zuerst `e2e-local-gate-check`, dann member-Flows für produktion,
+#                   rapporte, fuhrpark (2), vermietung (2), vertraege, formulare, helpdesk,
+#                   wiki, berichte. Review r2 steht nach der Gate-Prüfung.
+#   BLOCK D (34)  — ENTSCHIEDENE FEATURES aus der Runde 2026-10-25, jede Unit trägt ihre
+#                   `decision`: Rechte für member/manager (13), Datenschutz (7),
+#                   Schichten/Fuhrpark/Work/HR (5), Finanzen/Einkauf (6), Chat-Gruppen-DM und
+#                   Alarmregel (3). Reviews r3–r5 dazwischen.
+#   BLOCK C (17)  — COVERAGE-SCHUB auf die Pakete unter 60 %. Review r6 danach.
+#   BLOCK F (16)  — COVERAGE-FÜLLUNG (60–70 %), nur wenn alles davor durch ist.
+#
+#   ZUSAMMENSETZUNG: 107 Units gestaged, davon 41 opus. Scans und Reviews legen Fix-Units nach.
+#   Reihenfolge = Dateireihenfolge = Priorität. Was ein Scan, ein Review oder ein E2E-Flow als
+#   Totalausfall oder Leck findet, gehört VOR die erste `todo`-Unit.
+#
+# ------------------------------------------------------------------------------------------
+# REGELN, DIE IN DIESEM LAUF NEU SIND
+#
+#   1. LOKALES E2E-GATE. Für E2E-Units und für jede Unit, die einen Flow in `backend/test/e2e/`
+#      ändert oder deren Verhalten ein bestehender Flow prüft (die Unit nennt ihn), gilt:
+#      `bash .planning/backend-block/loop/hooks/e2e-local.sh '<Regex>'` ist grün. Gate-Zeile
+#      `e2e ok (lokal, <Laufzeit>)`. Das Skript baut nur, wenn sich `backend/` geändert hat. Nicht
+#      bei jeder Unit laufen lassen, nur wo diese Regel es verlangt. Scheitert der STACK (nicht
+#      der Test), steht die Ursache in `offen:` und es gilt der alte Fallback (`go vet -tags=e2e`
+#      plus "E2E erst in CI abgenommen"). Ist `e2e-local-gate-check` blocked, gilt der Fallback
+#      für den ganzen Lauf. Stack-Fixes im Skript darf der Loop machen, `.github/` nicht.
+#   2. RECHTE NUR MIT ECHTEM TOKEN PRÜFEN. Ein Test, der einen Grant, Guard oder Scope belegt,
+#      holt das Token über die DB (`ResolveTokenPermissions`/`GetUserGrants` nach der Migration)
+#      oder per Login im E2E, nie von Hand gebaut. Lehre hr:self (Lauf 16): `resource = 'hr'`
+#      ohne Doppelpunkt fiel durch `resource LIKE '%:%'`, der handgebaute Token sah das nicht.
+#      Neue Keys deshalb dreiteilig (`modul:objekt`, Aktion separat).
+#   3. REVIEW-UNITS (`review-run17-r*`, opus) prüfen die Rechte-Commits seit dem vorigen Review
+#      gegen den echten Seed (Scope siehe Unit). Ihr End-SHA steht im Journal, die nächste
+#      Review-Unit beginnt dort.
+#   4. ENTSCHEIDUNGEN STEHEN IN DER UNIT. `decision` ist Lukes Entscheidung vom 2026-10-25,
+#      nicht neu verhandeln. Passt der Code nicht zur Annahme der Entscheidung (Spalte fehlt,
+#      Route anders), `blocked` mit präziser Frage, nicht eigenmächtig umdeuten.
+#   5. JOURNAL-STEMPEL = Startzeit aus dem Laufkontext, wörtlich (ITERATION.md Schritt 6).
+#
+#   WEITER GÜLTIG AUS LAUF 16 (Volltext: archive/lauf-16/BACKLOG.yml):
+#   a. ERST DIE DATENGRENZE, DANN DER GRANT. Ein Grant, der fremde Daten freigibt, ist schlimmer
+#      als der 403: erst die Begrenzung bauen oder die Unit nach NEXT mit der fehlenden Regel.
+#   b. GUARDS NUR ADDITIV: `RequirePermission(grob)` -> `RequirePermissionAny(grob, fein)`, nie
+#      ersetzen. Bei Any-Guards mit Own-Scope `ownerFilterForScopeAny` (`gateway/helpers.go`).
+#   c. SEED-FORM: `INSERT INTO permissions (name, resource, action) ... ON CONFLICT DO NOTHING`.
+#      Grants: `INSERT INTO role_permissions (role_id, permission_id, scope) SELECT r.id, p.id,
+#      '<own|team|all>' FROM roles r, permissions p WHERE r.name = '<rolle>' AND r.tenant_id IS
+#      NULL AND p.name IN (...) ON CONFLICT (role_id, permission_id) DO NOTHING` (Vorlage 000256).
+#      Down entfernt genau diese Zeilen. Admin bekommt jeden neuen Key mit. Zweimal anwendbar.
+#   d. NEUE KEYS WIRKEN ERST NACH RE-LOGIN. In `offen:` vermerken, wenn Produktion einen braucht.
+#   e. ROLLE IM gRPC-SERVER: Rollen reisen nicht über den Hop, nur `x-user-id`, `x-tenant-id` und
+#      die Whitelist `forwardedPermissions` (`middleware/grpc_tenant.go`). Whitelist-Test mitziehen.
+#   f. E2E ALS MEMBER. `registerAndLoginAdmin` nur, wo die Funktion admin-only ist.
+#   g. Aus Lauf 15: kein "nur dokumentiert" für Totalausfälle (Fix-Unit VOR die erste todo-Unit),
+#      Desktop-Aufrufer greppen und die Pflichtzeile `desktop-aufrufer:` füllen.
+#
+# SPERREN
+#
+#   - Kein Push, kein PR, kein Produktionszugriff (Guard). Keine neue `config.RequireX`.
+#   - `.github/` gesperrt. `deploy/` gesperrt bis auf GENAU `deploy/docker/prometheus/rules/
+#     alerts.yml` für `feat-alert-rule-audit-events-dropped`. Ein neues optionales Env (z. B.
+#     `EMAIL_DIAL_ALLOWLIST`) darf in `internal/config`, der Compose-Passthrough nicht. Ihn in
+#     `offen:` vermerken.
+#   - Desktop-Code (`desktop/`) ist tabu: lesen ja, ändern nein. FE-Funde als Unit nach NEXT.
+#   - Customization Draft/Deploy-Overlay, Code in `internal/biz/bexio` (G3), WASM: gesperrt. CSAT
+#     bleibt aus; nur die Token-Ablage (`harden-share-tokens-hashed-berichte-csat`) ist erlaubt.
+#   - Dokumente: KEIN Zugriffsmodell bauen (`decide-document-access-baseline` hängt am Pilot).
+#   - Neue Tabelle: `tenant_id NOT NULL` + RLS + tenant-gescopte INSERTs UND SELECTs.
 # ==========================================================================================
 
 units:
@@ -2373,27 +2482,6 @@ units:
       - backend/internal/work/video/
     done_when:
       - '`internal/work/video` ≥ 75 % (go test -cover, Wert im Journal)'
-      - Mutationsprobe dokumentiert
-      - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
-
-  - id: cov-biz-bexio
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: todo
-    target: internal/biz/bexio von 54,4 % auf ≥ 70 %
-    coverage_start: internal/biz/bexio 54,4 %
-    scope: >
-      Coverage-Unit: `internal/biz/bexio` steht bei 54,4 % (CI-Run 40196109073, `b88d7eac`). Ziel ≥ 70 %.
-      Tests gegen echte Pfade: Hat das Paket SQL, dann DB-Tests mit `DATABASE_URL` als `kmuhub_app` (keine
-      Mocks für das, was die DB prüft). Externe Systeme über `httptest`/Fakes am Rand, nicht durch Umgehen
-      der Logik. Mutationsprobe Pflicht. Ein Bug, der beim Testen auffällt, wird Fix-Unit (Regel), nicht
-      im Test umschifft. Bexio ist in Produktion aus, niedrigste Priorität.
-    sources:
-      - backend/internal/biz/bexio/
-    done_when:
-      - '`internal/biz/bexio` ≥ 70 % (go test -cover, Wert im Journal)'
       - Mutationsprobe dokumentiert
       - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
 
