@@ -169,6 +169,12 @@ message AssignmentResponse {
 message ListAssignmentsRequest {
   string tenant_id = 1;
   string shift_id = 2;
+  // Server-injected when the caller's schichten:assignment:read grant is
+  // scoped to "own" — narrows to the caller's assignments, matched by user id
+  // or by the caller's HR profile id (the desktop roster assigns by profile).
+  // Never set by clients directly; the gateway derives it from the
+  // authenticated user.
+  optional string own_user_id = 3;
 }
 
 message ListAssignmentsResponse {

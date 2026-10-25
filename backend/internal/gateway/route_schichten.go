@@ -441,9 +441,17 @@ func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// A grant scoped to "own" narrows the roster to the caller's own
+	// assignments; the colleagues' stay with a wider grant (manager).
+	ownerID, ok := ownerFilterForScope(w, r, "schichten:assignment", "read")
+	if !ok {
+		return
+	}
+
 	resp, err := client.ListAssignments(r.Context(), &schichtenv1.ListAssignmentsRequest{
-		TenantId: tenantID.String(),
-		ShiftId:  id,
+		TenantId:  tenantID.String(),
+		ShiftId:   id,
+		OwnUserId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

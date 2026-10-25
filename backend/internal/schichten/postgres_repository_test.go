@@ -315,7 +315,7 @@ func TestListAssignments_OrdersByAssignedAt(t *testing.T) {
 	later := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, uuid.New(), now.Add(2*time.Hour))
 	earlier := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, uuid.New(), now.Add(1*time.Hour))
 
-	assignments, err := repo.ListAssignments(ctx, tenantID, shift.ID)
+	assignments, err := repo.ListAssignments(ctx, tenantID, shift.ID, nil)
 	if err != nil {
 		t.Fatalf("ListAssignments: %v", err)
 	}

@@ -357,12 +357,14 @@ func (s *Service) UnassignEmployee(ctx context.Context, tenantID, shiftID, emplo
 	return nil
 }
 
-// ListAssignments returns all assignments for a shift.
-func (s *Service) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+// ListAssignments returns the assignments of a shift. ownUserID, when set
+// (schichten:assignment:read at scope own), narrows them to the caller's own
+// so a member sees their roster without the colleagues'.
+func (s *Service) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	if _, err := s.repo.GetShift(ctx, tenantID, shiftID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListAssignments(ctx, tenantID, shiftID)
+	return s.repo.ListAssignments(ctx, tenantID, shiftID, ownUserID)
 }
 
 // ============================================================================

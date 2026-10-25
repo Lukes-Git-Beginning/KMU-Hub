@@ -268,13 +268,24 @@ func (r *PostgresRepository) GetAssignment(ctx context.Context, tenantID, shiftI
 	return &a, nil
 }
 
-func (r *PostgresRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+// ListAssignments returns a shift's assignments. A non-nil ownUserID keeps
+// only the rows that belong to that user: employee_id holds either the user id
+// (API callers, swap requests) or the user's HR profile id (the desktop roster
+// assigns by hr_employee_profiles.id), so both identities count as own.
+//
+// lean: Subquery auf hr_employee_profiles; streichen, sobald employee_id eine
+// einzige Identität trägt (fix-schichten-employee-id-identity-for-own-scope).
+func (r *PostgresRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, shift_id, employee_id, assigned_at, assigned_by
 		 FROM shift_assignments
 		 WHERE tenant_id = $1 AND shift_id = $2
+		   AND ($3::uuid IS NULL
+		        OR employee_id = $3
+		        OR employee_id IN (SELECT ep.id FROM hr_employee_profiles ep
+		                           WHERE ep.tenant_id = $1 AND ep.user_id = $3))
 		 ORDER BY assigned_at ASC`,
-		tenantID, shiftID,
+		tenantID, shiftID, ownUserID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list assignments: %w", err)

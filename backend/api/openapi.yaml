@@ -18727,6 +18727,10 @@ paths:
   /api/v1/schichten/shifts/{id}/assignments:
     get:
       summary: List employee assignments for a shift
+      description: >
+        Requires `schichten:assignment:read`. At scope `own` (member) the list holds only the
+        caller's own assignments, matched by user id or by the caller's HR profile id; a shift
+        without one answers 200 with an empty list. Wider scopes see the whole roster.
       tags: [schichten]
       operationId: listShiftAssignments
       security: [{ bearerAuth: [] }]

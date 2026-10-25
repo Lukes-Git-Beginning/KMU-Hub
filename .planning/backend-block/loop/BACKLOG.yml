@@ -1465,7 +1465,7 @@ units:
     service: schichten
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): member sieht eigene
@@ -1485,6 +1485,52 @@ units:
       - >
         `bash .planning/backend-block/loop/hooks/e2e-local.sh TestSchichtenMemberFlow` grün (Flow um Lesen
         der eigenen Zuweisung erweitern)
+
+  - id: fix-schichten-swap-own-scope-employee-identity
+    phase: 4
+    service: schichten
+    model: opus
+    deps: []
+    status: todo
+    target: member stellt aus dem Desktop einen Tauschantrag für die eigene Schicht und sieht ihn in der Liste
+    coverage_start: 80.0 (internal/schichten, gemessen Lauf 17 Iteration 44)
+    scope: >
+      TOTALAUSFALL für die Rolle member, gefunden in `feat-schichten-own-assignments-for-members`
+      (Lauf 17 Iteration 44), per Code-Kette belegt, nicht im Desktop geklickt. `shift_assignments.employee_id`
+      trägt zwei Identitäten: das Desktop-Raster weist per HR-Profil-ID zu (`SchichtenPage.tsx:421-436`
+      `employees` = `useEmployees()`, `id: e.id` = `hr_employee_profiles.id`; Zuweisen `:699/737/767` mit
+      `employee_id: emp.id`), API und E2E per User-ID. Der Tauschantrag aus dem Detail-Dialog sendet
+      `requestedByEmployeeId: detailAssignment.userId` (`SchichtenPage.tsx:632`) = `employee_id` der
+      Zuweisung = Profil-ID. `HandleCreateSwapRequest` (`gateway/route_schichten.go`, own-Scope von
+      `schichten:swap:create`) vergleicht das mit der JWT-User-ID und antwortet 403 — für JEDEN member, dessen
+      Zuweisung aus dem Raster kommt. Bis Iteration 44 unerreichbar (member bekam die Zuweisungen gar nicht),
+      seit `schichten:assignment:read` own (Migration 000355) erreichbar. Dasselbe in der Liste:
+      `ListSwapRequests` filtert own über `requested_by_employee_id = <User-ID> OR swap_with_employee_id =
+      <User-ID>` (`schichten/postgres_repository.go`), Anträge mit Profil-IDs fehlen dem member; der
+      Desktop-Filter (`SchichtenPage.tsx:518-527`) vergleicht ebenfalls mit `currentUserId`.
+      Fix: own-Prüfung beim Anlegen und own-Filter der Liste akzeptieren beide Identitäten des Aufrufers
+      (User-ID und seine HR-Profil-ID im Mandanten), wie `PostgresRepository.ListAssignments` seit Iteration 44
+      (Subquery auf `hr_employee_profiles`, lean-Marker). Die Prüfung beim Anlegen gehört in den Service
+      (Gateway reicht die User-ID als `owner_user_id` durch), nicht als Stringvergleich im Handler.
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/schichten/service.go
+      - backend/internal/gateway/route_schichten_swap_pin_test.go
+      - backend/internal/gateway/route_schichten_own_assignments_db_test.go
+      - desktop/src/renderer/src/modules/schichten/SchichtenPage.tsx
+    notes: >
+      Datenmodell-Frage für Luke (nicht in dieser Unit entscheiden): soll `employee_id` in shift_assignments
+      und shift_swap_requests auf EINE Identität vereinheitlicht werden (User-ID wie in HR-Abwesenheiten, oder
+      Profil-ID wie im Raster)? Dann fällt die Subquery wieder weg (lean-Marker in `ListAssignments`). Bis dahin
+      ist "beide Identitäten zählen als own" die Datengrenze. Kein neuer Key, kein Re-Login nötig.
+    done_when:
+      - >
+        DB-Test mit echtem Seed-Token (Muster `route_schichten_own_assignments_db_test.go`): member legt einen
+        Tauschantrag mit seiner HR-Profil-ID als requested_by an -> 201, mit der Profil-ID eines Kollegen -> 403;
+        die own-Liste enthält Anträge unter User-ID und Profil-ID, fremde nicht
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh TestSchichtenMemberFlow` grün
 
   - id: feat-helpdesk-assigned-tickets-edit-for-members
     phase: 4

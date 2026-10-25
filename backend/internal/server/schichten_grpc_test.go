@@ -171,13 +171,13 @@ func (r *stubSchichtenRepo) GetAssignment(_ context.Context, tenantID, shiftID, 
 	return nil, schichten.ErrAssignmentNotFound
 }
 
-func (r *stubSchichtenRepo) ListAssignments(_ context.Context, tenantID, shiftID uuid.UUID) ([]*schichten.ShiftAssignment, error) {
+func (r *stubSchichtenRepo) ListAssignments(_ context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*schichten.ShiftAssignment, error) {
 	if r.forceErr != nil {
 		return nil, r.forceErr
 	}
 	var out []*schichten.ShiftAssignment
 	for _, a := range r.assignments {
-		if a.TenantID == tenantID && a.ShiftID == shiftID {
+		if a.TenantID == tenantID && a.ShiftID == shiftID && (ownUserID == nil || a.EmployeeID == *ownUserID) {
 			out = append(out, a)
 		}
 	}

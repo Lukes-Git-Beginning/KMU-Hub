@@ -37,7 +37,9 @@ type Repository interface {
 	CreateAssignment(ctx context.Context, a *ShiftAssignment) error
 	DeleteAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) error
 	GetAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) (*ShiftAssignment, error)
-	ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error)
+	// ListAssignments lists a shift's assignments; a non-nil ownUserID narrows
+	// them to that user's own (see PostgresRepository.ListAssignments).
+	ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error)
 	// CountAssignments returns the number of assignments for a shift (capacity guard).
 	CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error)
 

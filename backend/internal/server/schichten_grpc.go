@@ -249,7 +249,16 @@ func (s *SchichtenGRPCServer) ListAssignments(ctx context.Context, req *schichte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid shift_id: %v", err)
 	}
 
-	assignments, err := s.svc.ListAssignments(ctx, tenantID, shiftID)
+	var ownUserID *uuid.UUID
+	if oid := req.GetOwnUserId(); oid != "" {
+		id, err := uuid.Parse(oid)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid own_user_id: %v", err)
+		}
+		ownUserID = &id
+	}
+
+	assignments, err := s.svc.ListAssignments(ctx, tenantID, shiftID, ownUserID)
 	if err != nil {
 		return nil, mapSchichtenError(err)
 	}

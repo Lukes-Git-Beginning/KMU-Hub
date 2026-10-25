@@ -153,10 +153,10 @@ func (m *mockRepository) GetAssignment(ctx context.Context, tenantID, shiftID, e
 	return a, nil
 }
 
-func (m *mockRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+func (m *mockRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	var result []*ShiftAssignment
 	for _, a := range m.assignments {
-		if a.ShiftID == shiftID && a.TenantID == tenantID {
+		if a.ShiftID == shiftID && a.TenantID == tenantID && (ownUserID == nil || a.EmployeeID == *ownUserID) {
 			result = append(result, a)
 		}
 	}
@@ -631,7 +631,7 @@ func TestService_ListAssignments_ShiftNotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.ListAssignments(context.Background(), uuid.New(), uuid.New())
+	_, err := svc.ListAssignments(context.Background(), uuid.New(), uuid.New(), nil)
 	assert.ErrorIs(t, err, ErrShiftNotFound)
 }
 
@@ -1688,7 +1688,7 @@ func TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected(t *testing.T) {
 	// hours. A fixed AssignEmployee would reject this with a collision error.
 	assert.NoError(t, err, "BUG: AssignEmployee has no overlap guard — a nested shift is silently accepted")
 
-	assignments, err := repo.ListAssignments(context.Background(), tenantID, inner.ID)
+	assignments, err := repo.ListAssignments(context.Background(), tenantID, inner.ID, nil)
 	require.NoError(t, err)
 	assert.Len(t, assignments, 1, "the double-booked assignment was actually written")
 }

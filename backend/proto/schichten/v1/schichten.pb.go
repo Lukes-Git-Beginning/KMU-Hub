@@ -1171,9 +1171,15 @@ func (x *AssignmentResponse) GetAssignment() *ShiftAssignment {
 }
 
 type ListAssignmentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ShiftId       string                 `protobuf:"bytes,2,opt,name=shift_id,json=shiftId,proto3" json:"shift_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ShiftId  string                 `protobuf:"bytes,2,opt,name=shift_id,json=shiftId,proto3" json:"shift_id,omitempty"`
+	// Server-injected when the caller's schichten:assignment:read grant is
+	// scoped to "own" — narrows to the caller's assignments, matched by user id
+	// or by the caller's HR profile id (the desktop roster assigns by profile).
+	// Never set by clients directly; the gateway derives it from the
+	// authenticated user.
+	OwnUserId     *string `protobuf:"bytes,3,opt,name=own_user_id,json=ownUserId,proto3,oneof" json:"own_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1218,6 +1224,13 @@ func (x *ListAssignmentsRequest) GetTenantId() string {
 func (x *ListAssignmentsRequest) GetShiftId() string {
 	if x != nil {
 		return x.ShiftId
+	}
+	return ""
+}
+
+func (x *ListAssignmentsRequest) GetOwnUserId() string {
+	if x != nil && x.OwnUserId != nil {
+		return *x.OwnUserId
 	}
 	return ""
 }
@@ -2729,10 +2742,12 @@ const file_proto_schichten_v1_schichten_proto_rawDesc = "" +
 	"\x12AssignmentResponse\x12=\n" +
 	"\n" +
 	"assignment\x18\x01 \x01(\v2\x1d.schichten.v1.ShiftAssignmentR\n" +
-	"assignment\"P\n" +
+	"assignment\"\x85\x01\n" +
 	"\x16ListAssignmentsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
-	"\bshift_id\x18\x02 \x01(\tR\ashiftId\"Z\n" +
+	"\bshift_id\x18\x02 \x01(\tR\ashiftId\x12#\n" +
+	"\vown_user_id\x18\x03 \x01(\tH\x00R\townUserId\x88\x01\x01B\x0e\n" +
+	"\f_own_user_id\"Z\n" +
 	"\x17ListAssignmentsResponse\x12?\n" +
 	"\vassignments\x18\x01 \x03(\v2\x1d.schichten.v1.ShiftAssignmentR\vassignments\"\xa5\x02\n" +
 	"\x15CreateTemplateRequest\x12\x1b\n" +
@@ -3029,6 +3044,7 @@ func file_proto_schichten_v1_schichten_proto_init() {
 	file_proto_schichten_v1_schichten_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[9].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_schichten_v1_schichten_proto_msgTypes[17].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[19].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_schichten_v1_schichten_proto_msgTypes[26].OneofWrappers = []any{}

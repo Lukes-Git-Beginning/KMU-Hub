@@ -145,7 +145,7 @@ func TestSchichtenMemberFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("member: reads the plan, nothing else", func(t *testing.T) {
+	t.Run("member: reads the plan and their own roster, nothing else", func(t *testing.T) {
 		q := url.Values{"from": {start.Add(-time.Hour).Format(time.RFC3339)}, "to": {end.Add(time.Hour).Format(time.RFC3339)}}
 		resp, body := getJSON(t, sch+"/shifts?"+q.Encode(), memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
@@ -183,13 +183,50 @@ func TestSchichtenMemberFlow(t *testing.T) {
 			t.Fatalf("expected a boolean compliant, got %s", string(body))
 		}
 
-		// Everything that plans or reads the roster is the manager's (decide-member-manager-module-defaults).
+		// The member reads their own roster (schichten:assignment:read at scope own, 000355): on
+		// the shared shift only their own assignment, a member without one gets an empty list.
+		ownRoster := func(token string) []map[string]interface{} {
+			t.Helper()
+			resp, body := getJSON(t, fmt.Sprintf("%s/shifts/%s/assignments", sch, shiftID), token)
+			requireStatus(t, resp, body, http.StatusOK)
+			var out struct {
+				Assignments []map[string]interface{} `json:"assignments"`
+			}
+			decodeBody(t, body, &out)
+			if out.Assignments == nil {
+				t.Fatalf("expected assignments as a list, got %s", string(body))
+			}
+			return out.Assignments
+		}
+		if mine := ownRoster(memberAToken); len(mine) != 1 || mine[0]["employee_id"] != memberAID || mine[0]["id"] != assignmentA {
+			t.Fatalf("member A should see only their own assignment %s, got %v", assignmentA, mine)
+		}
+		if none := ownRoster(memberCToken); len(none) != 0 {
+			t.Fatalf("member C has no assignment on the shift and should see none, got %v", none)
+		}
+
+		// Shift templates are readable for the member (useTemplatesList, the "Vorlagen" tab).
+		resp, body = getJSON(t, sch+"/templates", memberAToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		var tpl struct {
+			Templates []map[string]interface{} `json:"templates"`
+		}
+		decodeBody(t, body, &tpl)
+		foundTpl := false
+		for _, x := range tpl.Templates {
+			if x["id"] == templateID {
+				foundTpl = true
+			}
+		}
+		if !foundTpl {
+			t.Fatalf("expected template %s in the member's list, got %s", templateID, string(body))
+		}
+
+		// Everything that plans the roster is the manager's (decide-member-manager-module-defaults).
 		refused := []struct {
 			name, method, path string
 			body               interface{}
 		}{
-			{"assignments", http.MethodGet, "/shifts/" + shiftID + "/assignments", nil},
-			{"templates", http.MethodGet, "/templates", nil},
 			{"create template", http.MethodPost, "/templates", map[string]interface{}{
 				"name": "x", "day_of_week": 1, "start_hour": 8, "start_minute": 0, "duration_minutes": 60,
 			}},
