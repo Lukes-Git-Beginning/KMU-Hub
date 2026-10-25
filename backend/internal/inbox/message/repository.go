@@ -31,8 +31,9 @@ type Repository interface {
 	// Create persists a new inbox message.
 	Create(ctx context.Context, msg *models.InboxMessage) error
 
-	// GetByID retrieves an inbox message by its ID, scoped to the tenant.
-	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error)
+	// GetByID retrieves an inbox message by its ID, scoped to the tenant and to the
+	// messages userID may see (owner, assignee or member of its team inbox).
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) (*models.InboxMessage, error)
 
 	// List retrieves inbox messages with filtering and cursor-based pagination.
 	// Returns messages and total count.
@@ -79,11 +80,13 @@ type Repository interface {
 	// GetUnreadCounts returns unread counts grouped by channel for a user.
 	GetUnreadCounts(ctx context.Context, userID uuid.UUID) ([]models.UnreadCount, error)
 
-	// BulkMarkRead marks multiple inbox messages as read, scoped to the tenant.
-	BulkMarkRead(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error
+	// BulkMarkRead marks multiple inbox messages as read, scoped to the tenant and to the
+	// messages userID may see. Invisible IDs are skipped.
+	BulkMarkRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, ids []uuid.UUID) error
 
-	// BulkArchive archives multiple inbox messages, scoped to the tenant.
-	BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error
+	// BulkArchive archives multiple inbox messages, scoped to the tenant and to the
+	// messages userID may see. Invisible IDs are skipped.
+	BulkArchive(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, ids []uuid.UUID) error
 
 	// GetBySourceID retrieves an inbox message by user, channel, and source ID.
 	// Used for deduplication checks.

@@ -49,16 +49,21 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessag
 	return err
 }
 
-func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
+// visibleToCaller limits a message to the caller bound as $3: its owner, its assignee and the
+// members of its team inbox.
+const visibleToCaller = `(user_id = $3 OR assigned_to = $3
+	OR team_inbox_id IN (SELECT team_inbox_id FROM team_inbox_members WHERE user_id = $3))`
+
+func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) (*models.InboxMessage, error) {
 	query := `
 		SELECT id, tenant_id, user_id, channel, source_id, sender_name, sender_id, sender_email,
 			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
-		FROM inbox_messages WHERE id = $1 AND tenant_id = $2`
+		FROM inbox_messages WHERE id = $1 AND tenant_id = $2 AND ` + visibleToCaller
 
 	msg := &models.InboxMessage{}
-	err := r.pool.QueryRow(ctx, query, id, tenantID).Scan(
+	err := r.pool.QueryRow(ctx, query, id, tenantID, userID).Scan(
 		&msg.ID, &msg.TenantID, &msg.UserID, &msg.Channel, &msg.SourceID, &msg.SenderName, &msg.SenderID, &msg.SenderEmail,
 		&msg.Subject, &msg.Preview, &msg.IsRead, &msg.IsStarred, &msg.IsArchived, &msg.Status, &msg.SnoozedUntil,
 		&msg.AssignedTo, &msg.TeamInboxID, &msg.Tags, &msg.DeepLink, &msg.CRMContactID,
@@ -424,24 +429,24 @@ func (r *PostgresRepository) GetUnreadCounts(ctx context.Context, userID uuid.UU
 	return counts, rows.Err()
 }
 
-func (r *PostgresRepository) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (r *PostgresRepository) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	_, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2",
-		ids, tenantID,
+		"UPDATE inbox_messages SET is_read = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2 AND "+visibleToCaller,
+		ids, tenantID, userID,
 	)
 	return err
 }
 
-func (r *PostgresRepository) BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (r *PostgresRepository) BulkArchive(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
 	_, err := r.pool.Exec(ctx,
-		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2",
-		ids, tenantID,
+		"UPDATE inbox_messages SET is_archived = true, updated_at = NOW() WHERE id = ANY($1) AND tenant_id = $2 AND "+visibleToCaller,
+		ids, tenantID, userID,
 	)
 	return err
 }

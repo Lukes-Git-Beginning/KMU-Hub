@@ -65,9 +65,20 @@ func (s *Service) Create(ctx context.Context, msg *models.InboxMessage) error {
 	return s.repo.Create(ctx, msg)
 }
 
-// GetByID retrieves an inbox message by its ID, scoped to the tenant.
-func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
-	return s.repo.GetByID(ctx, id, tenantID)
+// GetByID retrieves an inbox message by its ID, scoped to the tenant and to what userID may
+// see: the owner, the assignee and the members of the message's team inbox. Anything else is
+// ErrMessageNotFound, like a message of another tenant.
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) (*models.InboxMessage, error) {
+	return s.repo.GetByID(ctx, id, tenantID, userID)
+}
+
+// requireVisible returns ErrMessageNotFound unless userID may see the message (see GetByID).
+// The single-message writes below run tenant-scoped after this check.
+// lean: check-then-write instead of the predicate in every UPDATE; move visibleToCaller into the
+// writes if team membership starts changing concurrently with message actions.
+func (s *Service) requireVisible(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	_, err := s.repo.GetByID(ctx, id, tenantID, userID)
+	return err
 }
 
 // List retrieves inbox messages with filtering and pagination.
@@ -79,9 +90,9 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*models.InboxM
 }
 
 // MarkRead marks an inbox message as read and syncs back to the originating system.
-// tenantID is used for the initial GetByID isolation check.
-func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
-	msg, err := s.repo.GetByID(ctx, id, tenantID)
+// The initial GetByID enforces tenant isolation and the caller's visibility.
+func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	msg, err := s.repo.GetByID(ctx, id, tenantID, userID)
 	if err != nil {
 		return err
 	}
@@ -106,61 +117,85 @@ func (s *Service) MarkRead(ctx context.Context, id uuid.UUID, tenantID uuid.UUID
 }
 
 // MarkUnread marks an inbox message as unread.
-func (s *Service) MarkUnread(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+func (s *Service) MarkUnread(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
+	}
 	return s.repo.MarkUnread(ctx, tenantID, id)
 }
 
 // ToggleStar toggles the starred status of an inbox message.
-func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+func (s *Service) ToggleStar(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
+	}
 	return s.repo.ToggleStar(ctx, tenantID, id)
 }
 
 // SetStatus sets the conversation-level status of an inbox message.
 // status must be one of open, pending, resolved, closed.
-func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, status string) error {
+func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, status string) error {
 	if !ValidStatuses[status] {
 		return ErrInvalidStatus
+	}
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
 	}
 	return s.repo.SetStatus(ctx, tenantID, id, status)
 }
 
 // AddTag adds a tag to an inbox message. Empty (after trimming) tags are rejected.
-func (s *Service) AddTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, tag string) error {
+func (s *Service) AddTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, tag string) error {
 	tag = strings.TrimSpace(tag)
 	if tag == "" {
 		return ErrInvalidTag
+	}
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
 	}
 	return s.repo.AddTag(ctx, tenantID, id, tag)
 }
 
 // RemoveTag removes a tag from an inbox message.
-func (s *Service) RemoveTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, tag string) error {
+func (s *Service) RemoveTag(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, tag string) error {
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
+	}
 	return s.repo.RemoveTag(ctx, tenantID, id, tag)
 }
 
 // Archive archives an inbox message.
-func (s *Service) Archive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+func (s *Service) Archive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
+	}
 	return s.repo.Archive(ctx, tenantID, id)
 }
 
 // Unarchive unarchives an inbox message.
-func (s *Service) Unarchive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) error {
+func (s *Service) Unarchive(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
+	}
 	return s.repo.Unarchive(ctx, tenantID, id)
 }
 
 // Snooze snoozes an inbox message until the given time.
 // The snooze time must be in the future.
-func (s *Service) Snooze(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, until time.Time) error {
+func (s *Service) Snooze(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, until time.Time) error {
 	if until.Before(time.Now()) {
 		return ErrInvalidSnoozeTime
+	}
+	if err := s.requireVisible(ctx, id, tenantID, userID); err != nil {
+		return err
 	}
 	return s.repo.Snooze(ctx, tenantID, id, until)
 }
 
 // Reply routes a reply back through the originating channel's adapter.
-// tenantID is used for the initial GetByID isolation check.
+// The initial GetByID enforces tenant isolation and the replier's visibility.
 func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, body string) error {
-	msg, err := s.repo.GetByID(ctx, id, tenantID)
+	msg, err := s.repo.GetByID(ctx, id, tenantID, userID)
 	if err != nil {
 		return err
 	}
@@ -175,9 +210,9 @@ func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, u
 
 // Forward routes a message to a new recipient through the originating channel's
 // adapter, e.g. forwarding an email to an external address with an optional note.
-// tenantID is used for the initial GetByID isolation check.
+// The initial GetByID enforces tenant isolation and the forwarder's visibility.
 func (s *Service) Forward(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID, to string, note string) error {
-	msg, err := s.repo.GetByID(ctx, id, tenantID)
+	msg, err := s.repo.GetByID(ctx, id, tenantID, userID)
 	if err != nil {
 		return err
 	}
@@ -196,9 +231,12 @@ func (s *Service) Forward(ctx context.Context, id uuid.UUID, tenantID uuid.UUID,
 	return nil
 }
 
-// AssignMessage assigns an inbox message to a user.
-// Returns ErrAlreadyAssigned if the message is already assigned.
-func (s *Service) AssignMessage(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, assigneeID uuid.UUID) error {
+// AssignMessage assigns an inbox message to a user on behalf of actorID, who must be able to
+// see it. Returns ErrAlreadyAssigned if the message is already assigned.
+func (s *Service) AssignMessage(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, actorID uuid.UUID, assigneeID uuid.UUID) error {
+	if err := s.requireVisible(ctx, id, tenantID, actorID); err != nil {
+		return err
+	}
 	assigned, err := s.repo.AssignMessage(ctx, tenantID, id, assigneeID)
 	if err != nil {
 		return err
@@ -214,20 +252,20 @@ func (s *Service) GetUnreadCounts(ctx context.Context, userID uuid.UUID) ([]mode
 	return s.repo.GetUnreadCounts(ctx, userID)
 }
 
-// BulkMarkRead marks multiple inbox messages as read.
-func (s *Service) BulkMarkRead(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) error {
+// BulkMarkRead marks the given inbox messages userID may see as read.
+func (s *Service) BulkMarkRead(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BulkMarkRead(ctx, tenantID, ids)
+	return s.repo.BulkMarkRead(ctx, tenantID, userID, ids)
 }
 
-// BulkArchive archives multiple inbox messages.
-func (s *Service) BulkArchive(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID) error {
+// BulkArchive archives the given inbox messages userID may see.
+func (s *Service) BulkArchive(ctx context.Context, ids []uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.repo.BulkArchive(ctx, tenantID, ids)
+	return s.repo.BulkArchive(ctx, tenantID, userID, ids)
 }
 
 // Update updates an inbox message.

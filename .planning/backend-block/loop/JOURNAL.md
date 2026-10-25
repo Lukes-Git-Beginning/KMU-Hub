@@ -269,3 +269,36 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   davon, dass ein fehlender Scope als `all` galt; er fragt jetzt den eigenen Saldo ab. `GET /hr/leave/requests/{id}`
   (in der Unit "erwägen") nicht angefasst: kein Desktop-Aufrufer (`useLeaveRequest` unbenutzt), manager/hr_admin
   bekommen dort für fremde Anträge weiter 403 — kein Ausfall, deshalb keine Unit. Kein neuer Key, kein Re-Login nötig.
+
+## Iteration 7 — harden-inbox-message-user-scoping — done — 2026-10-25 17:21
+- commit: siehe Commit `fix(inbox): limit single-message actions to owner, assignee and team members` (dieser Eintrag)
+- gebaut: Sichtbarkeit nach Lukes Entscheidung = Eigentümer ODER zugewiesen ODER Mitglied der Team-Inbox der Nachricht.
+  SQL-Prädikat `visibleToCaller` in `message.PostgresRepository.GetByID` (neuer Parameter `userID`) und in
+  `BulkMarkRead`/`BulkArchive` (unsichtbare IDs werden übersprungen). `message.Service`: GetByID, MarkRead/Unread,
+  ToggleStar, SetStatus, Add/RemoveTag, Archive/Unarchive, Snooze, AssignMessage (Akteur), Reply, Forward und Bulk*
+  prüfen den Aufrufer vor dem Schreiben (`requireVisible`, `lean:`-Marker). `InboxGRPCServer` nimmt den Aufrufer für
+  alle Einzelnachrichten-RPCs plus ListThreadMessages/Unsnooze/Bulk aus dem Kontext (`callerID`, x-user-id) →
+  fehlend = Unauthenticated, unsichtbar = NotFound; Reply/Forward/Claim nutzen weiter `req.UserId` (Gateway setzt
+  beides aus dem Token). Helpdesk `CreateTicketFromMessage` braucht keine Änderung: der Outbound-Interceptor reicht
+  x-user-id durch, d. h. ein Ticket entsteht nur aus einer Nachricht, die der Anfragende sieht.
+  Kein Guard, keine Route, kein Proto, keine Migration angefasst.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (server + inbox/... + gateway: 10702 PASS, 0 Skips, 0 FAIL;
+  inbox/message 41 PASS inkl. neuem DB-Test `TestGetByID_VisibleToOwnerAssigneeAndTeamMemberOnly` real gelaufen als
+  kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | e2e ok (lokal, 2:36,
+  `TestInboxTeamAndRoutingFlow` als Smoke, kein Flow ruft die Einzelnachrichten-RPCs)
+- coverage: n.a. (kein Coverage-Ziel; `internal/inbox/message` nach der Änderung 78,8 %)
+- mutations-probe: (1) `visibleToCaller` auf `... OR $3 IS NOT NULL` aufgeweicht -> DB-Test rot (Kollege sieht Team- und
+  Privatnachricht, Bulk-Schreiben landet). (2) Team-Zweig aus dem Prädikat entfernt -> DB-Test rot (Team-Mitglied
+  NotFound, Bulk-Archiv landet nicht). (3) `requireVisible` auf `return nil` -> `TestSingleMessageWrites_RejectInvisibleCaller`
+  und `TestInboxMessageRPCs_VisibleToOwnerAssigneeAndTeamMember` rot. Alle zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`2d60e1fb`: Handler über `client.GetEmployeeLeaveBalance`, `.proto` mit `.pb.go`
+  regeneriert, Guard additiv `requireSelfReadOr`, keine Route/Tabelle/Permission neu, Antwortform unverändert)
+- neue-units: keine
+- desktop-aufrufer: `/inbox/messages/{id}/*` + `/messages/bulk/*` -> `api/inbox-client.ts:105-160` (über
+  `api/hooks/useInbox.ts`) -> passt: das FE öffnet Nachrichten nur aus `GET /inbox/messages`, das schon auf
+  `user_id = Aufrufer` filtert; Antwortformen unverändert, nur Fremd-IDs bekommen jetzt 404.
+- offen: Änderung in Testerwartungen: ein Nicht-Mitglied, das NICHT Eigentümer ist, bekommt bei Claim jetzt 404 statt
+  403 (Sichtbarkeit vor Mitgliedschaft); die 403-Pfade testen jetzt den Eigentümer ohne Mitgliedschaft. Bulk meldet
+  `updated_count` weiterhin = Anzahl angefragter IDs, auch wenn unsichtbare übersprungen wurden (Altverhalten, kein
+  FE-Leser). Die Team-Inbox-Liste selbst (`ListMessages` mit `team_inbox_id`) filtert weiter auf `user_id` — das ist
+  `feat-team-inbox-for-members`.

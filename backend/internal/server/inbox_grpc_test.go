@@ -18,6 +18,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/inbox/routing"
 	"github.com/kmuhub/kmuhub/internal/inbox/team"
 	"github.com/kmuhub/kmuhub/internal/inbox/thread"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 )
@@ -30,6 +31,8 @@ import (
 type stubMessageRepo struct {
 	mu       sync.Mutex
 	messages map[uuid.UUID]*models.InboxMessage
+	// isMember answers team-inbox membership for the visibility check (wired to the stub team repo).
+	isMember func(teamInboxID, userID uuid.UUID) bool
 }
 
 func newStubMessageRepo() *stubMessageRepo {
@@ -58,11 +61,18 @@ func (r *stubMessageRepo) Create(_ context.Context, msg *models.InboxMessage) er
 	return nil
 }
 
-func (r *stubMessageRepo) GetByID(_ context.Context, id, tenantID uuid.UUID) (*models.InboxMessage, error) {
+// visible mirrors visibleToCaller in postgres_repository.go: owner, assignee or team-inbox member.
+func (r *stubMessageRepo) visible(m *models.InboxMessage, userID uuid.UUID) bool {
+	return m.UserID == userID ||
+		(m.AssignedTo != nil && *m.AssignedTo == userID) ||
+		(m.TeamInboxID != nil && r.isMember != nil && r.isMember(*m.TeamInboxID, userID))
+}
+
+func (r *stubMessageRepo) GetByID(_ context.Context, id, tenantID, userID uuid.UUID) (*models.InboxMessage, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	m, ok := r.messages[id]
-	if !ok || m.TenantID != tenantID {
+	if !ok || m.TenantID != tenantID || !r.visible(m, userID) {
 		return nil, message.ErrMessageNotFound
 	}
 	cp := *m
@@ -183,8 +193,11 @@ func (r *stubMessageRepo) GetUnreadCounts(_ context.Context, userID uuid.UUID) (
 	return out, nil
 }
 
-func (r *stubMessageRepo) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (r *stubMessageRepo) BulkMarkRead(ctx context.Context, tenantID, userID uuid.UUID, ids []uuid.UUID) error {
 	for _, id := range ids {
+		if _, err := r.GetByID(ctx, id, tenantID, userID); err != nil {
+			return err
+		}
 		if err := r.MarkRead(ctx, tenantID, id); err != nil {
 			return err
 		}
@@ -192,8 +205,11 @@ func (r *stubMessageRepo) BulkMarkRead(ctx context.Context, tenantID uuid.UUID, 
 	return nil
 }
 
-func (r *stubMessageRepo) BulkArchive(ctx context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (r *stubMessageRepo) BulkArchive(ctx context.Context, tenantID, userID uuid.UUID, ids []uuid.UUID) error {
 	for _, id := range ids {
+		if _, err := r.GetByID(ctx, id, tenantID, userID); err != nil {
+			return err
+		}
 		if err := r.Archive(ctx, tenantID, id); err != nil {
 			return err
 		}
@@ -597,6 +613,10 @@ func newTestInboxServer() (*InboxGRPCServer, *inboxTestDeps) {
 	routingRepo := newStubRoutingRepo()
 	threadRepo := newStubThreadRepo()
 
+	msgRepo.isMember = func(teamInboxID, userID uuid.UUID) bool {
+		ok, _ := teamRepo.IsMember(context.Background(), teamInboxID, userID)
+		return ok
+	}
 	msgSvc := message.NewService(msgRepo, adapter.NewAdapterRegistry())
 	teamSvc := team.NewService(teamRepo, msgRepo)
 	routingSvc := routing.NewService(routingRepo, msgRepo, nil)
@@ -609,6 +629,14 @@ func newTestInboxServer() (*InboxGRPCServer, *inboxTestDeps) {
 		routingRepo: routingRepo,
 		threadRepo:  threadRepo,
 	}
+}
+
+// inboxTestOwner owns the messages the tests seed without a specific owner; inboxCtx carries
+// them as the caller, the way TenantInboundUnaryInterceptor does from x-user-id.
+var inboxTestOwner = uuid.MustParse("6f1d2c3b-0000-4000-8000-00000000a11e")
+
+func inboxCtx(tenantID uuid.UUID) context.Context {
+	return context.WithValue(tenantCtx(tenantID), middleware.UserIDKey, inboxTestOwner.String())
 }
 
 func seedInboxMessage(t *testing.T, deps *inboxTestDeps, tenantID, userID uuid.UUID, mutate func(*models.InboxMessage)) *models.InboxMessage {
@@ -639,9 +667,9 @@ func seedInboxMessage(t *testing.T, deps *inboxTestDeps, tenantID, userID uuid.U
 func TestSetMessageStatus_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	resp, err := srv.SetMessageStatus(tenantCtx(tenantID), &inboxv1.SetMessageStatusRequest{
+	resp, err := srv.SetMessageStatus(inboxCtx(tenantID), &inboxv1.SetMessageStatusRequest{
 		MessageId: msg.ID.String(),
 		Status:    "resolved",
 	})
@@ -652,9 +680,9 @@ func TestSetMessageStatus_HappyPath(t *testing.T) {
 func TestSetMessageStatus_InvalidStatus(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.SetMessageStatus(tenantCtx(tenantID), &inboxv1.SetMessageStatusRequest{
+	_, err := srv.SetMessageStatus(inboxCtx(tenantID), &inboxv1.SetMessageStatusRequest{
 		MessageId: msg.ID.String(),
 		Status:    "not-a-real-status",
 	})
@@ -672,7 +700,7 @@ func TestSetMessageStatus_MissingTenant(t *testing.T) {
 
 func TestSetMessageStatus_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.SetMessageStatus(tenantCtx(uuid.New()), &inboxv1.SetMessageStatusRequest{
+	_, err := srv.SetMessageStatus(inboxCtx(uuid.New()), &inboxv1.SetMessageStatusRequest{
 		MessageId: "not-a-uuid",
 		Status:    "open",
 	})
@@ -681,7 +709,7 @@ func TestSetMessageStatus_InvalidMessageID(t *testing.T) {
 
 func TestSetMessageStatus_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.SetMessageStatus(tenantCtx(uuid.New()), &inboxv1.SetMessageStatusRequest{
+	_, err := srv.SetMessageStatus(inboxCtx(uuid.New()), &inboxv1.SetMessageStatusRequest{
 		MessageId: uuid.New().String(),
 		Status:    "open",
 	})
@@ -695,9 +723,9 @@ func TestSetMessageStatus_NotFound(t *testing.T) {
 func TestAddMessageTag_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	resp, err := srv.AddMessageTag(tenantCtx(tenantID), &inboxv1.AddMessageTagRequest{
+	resp, err := srv.AddMessageTag(inboxCtx(tenantID), &inboxv1.AddMessageTagRequest{
 		MessageId: msg.ID.String(),
 		Tag:       "vip",
 	})
@@ -708,9 +736,9 @@ func TestAddMessageTag_HappyPath(t *testing.T) {
 func TestAddMessageTag_EmptyTagRejected(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.AddMessageTag(tenantCtx(tenantID), &inboxv1.AddMessageTagRequest{
+	_, err := srv.AddMessageTag(inboxCtx(tenantID), &inboxv1.AddMessageTagRequest{
 		MessageId: msg.ID.String(),
 		Tag:       "   ",
 	})
@@ -719,7 +747,7 @@ func TestAddMessageTag_EmptyTagRejected(t *testing.T) {
 
 func TestAddMessageTag_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.AddMessageTag(tenantCtx(uuid.New()), &inboxv1.AddMessageTagRequest{
+	_, err := srv.AddMessageTag(inboxCtx(uuid.New()), &inboxv1.AddMessageTagRequest{
 		MessageId: "bad-id",
 		Tag:       "vip",
 	})
@@ -729,11 +757,11 @@ func TestAddMessageTag_InvalidMessageID(t *testing.T) {
 func TestRemoveMessageTag_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.Tags = []string{"vip", "urgent"}
 	})
 
-	resp, err := srv.RemoveMessageTag(tenantCtx(tenantID), &inboxv1.RemoveMessageTagRequest{
+	resp, err := srv.RemoveMessageTag(inboxCtx(tenantID), &inboxv1.RemoveMessageTagRequest{
 		MessageId: msg.ID.String(),
 		Tag:       "vip",
 	})
@@ -744,7 +772,7 @@ func TestRemoveMessageTag_HappyPath(t *testing.T) {
 
 func TestRemoveMessageTag_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.RemoveMessageTag(tenantCtx(uuid.New()), &inboxv1.RemoveMessageTagRequest{
+	_, err := srv.RemoveMessageTag(inboxCtx(uuid.New()), &inboxv1.RemoveMessageTagRequest{
 		MessageId: uuid.New().String(),
 		Tag:       "vip",
 	})
@@ -758,12 +786,12 @@ func TestRemoveMessageTag_NotFound(t *testing.T) {
 func TestListThreadMessages_SeedsInboundOnFirstRead(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.SenderName = "Kunde Müller"
 		m.Preview = "Hallo, ich habe eine Frage."
 	})
 
-	resp, err := srv.ListThreadMessages(tenantCtx(tenantID), &inboxv1.ListThreadMessagesRequest{
+	resp, err := srv.ListThreadMessages(inboxCtx(tenantID), &inboxv1.ListThreadMessagesRequest{
 		MessageId: msg.ID.String(),
 	})
 	require.NoError(t, err)
@@ -774,7 +802,7 @@ func TestListThreadMessages_SeedsInboundOnFirstRead(t *testing.T) {
 
 func TestListThreadMessages_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ListThreadMessages(tenantCtx(uuid.New()), &inboxv1.ListThreadMessagesRequest{
+	_, err := srv.ListThreadMessages(inboxCtx(uuid.New()), &inboxv1.ListThreadMessagesRequest{
 		MessageId: "bad-id",
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -782,7 +810,7 @@ func TestListThreadMessages_InvalidMessageID(t *testing.T) {
 
 func TestListThreadMessages_MessageNotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ListThreadMessages(tenantCtx(uuid.New()), &inboxv1.ListThreadMessagesRequest{
+	_, err := srv.ListThreadMessages(inboxCtx(uuid.New()), &inboxv1.ListThreadMessagesRequest{
 		MessageId: uuid.New().String(),
 	})
 	requireGRPCCode(t, err, codes.NotFound)
@@ -798,11 +826,11 @@ func TestForwardMessage_AdapterNotFound(t *testing.T) {
 	// reachable error path without wiring a real channel adapter.
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.ForwardMessage(tenantCtx(tenantID), &inboxv1.ForwardMessageRequest{
+	_, err := srv.ForwardMessage(inboxCtx(tenantID), &inboxv1.ForwardMessageRequest{
 		MessageId: msg.ID.String(),
-		UserId:    uuid.New().String(),
+		UserId:    inboxTestOwner.String(),
 		To:        "someone@example.com",
 	})
 	requireGRPCCode(t, err, codes.Unimplemented)
@@ -811,9 +839,9 @@ func TestForwardMessage_AdapterNotFound(t *testing.T) {
 func TestForwardMessage_InvalidUserID(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.ForwardMessage(tenantCtx(tenantID), &inboxv1.ForwardMessageRequest{
+	_, err := srv.ForwardMessage(inboxCtx(tenantID), &inboxv1.ForwardMessageRequest{
 		MessageId: msg.ID.String(),
 		UserId:    "bad-id",
 		To:        "someone@example.com",
@@ -823,7 +851,7 @@ func TestForwardMessage_InvalidUserID(t *testing.T) {
 
 func TestForwardMessage_MessageNotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ForwardMessage(tenantCtx(uuid.New()), &inboxv1.ForwardMessageRequest{
+	_, err := srv.ForwardMessage(inboxCtx(uuid.New()), &inboxv1.ForwardMessageRequest{
 		MessageId: uuid.New().String(),
 		UserId:    uuid.New().String(),
 		To:        "someone@example.com",
@@ -834,11 +862,11 @@ func TestForwardMessage_MessageNotFound(t *testing.T) {
 func TestReplyToMessage_AdapterNotFound(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.ReplyToMessage(tenantCtx(tenantID), &inboxv1.ReplyToMessageRequest{
+	_, err := srv.ReplyToMessage(inboxCtx(tenantID), &inboxv1.ReplyToMessageRequest{
 		MessageId: msg.ID.String(),
-		UserId:    uuid.New().String(),
+		UserId:    inboxTestOwner.String(),
 		Body:      "Danke fuer Ihre Nachricht.",
 	})
 	requireGRPCCode(t, err, codes.Unimplemented)
@@ -846,7 +874,7 @@ func TestReplyToMessage_AdapterNotFound(t *testing.T) {
 
 func TestReplyToMessage_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ReplyToMessage(tenantCtx(uuid.New()), &inboxv1.ReplyToMessageRequest{
+	_, err := srv.ReplyToMessage(inboxCtx(uuid.New()), &inboxv1.ReplyToMessageRequest{
 		MessageId: "bad-id",
 		UserId:    uuid.New().String(),
 		Body:      "x",
@@ -863,7 +891,7 @@ func TestListMessages_EmptyResultIsNotNil(t *testing.T) {
 	tenantID := uuid.New()
 	userID := uuid.New()
 
-	resp, err := srv.ListMessages(tenantCtx(tenantID), &inboxv1.ListMessagesRequest{
+	resp, err := srv.ListMessages(inboxCtx(tenantID), &inboxv1.ListMessagesRequest{
 		UserId: userID.String(),
 	})
 	require.NoError(t, err)
@@ -873,7 +901,7 @@ func TestListMessages_EmptyResultIsNotNil(t *testing.T) {
 
 func TestListTeamInboxes_EmptyResultIsNotNil(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	resp, err := srv.ListTeamInboxes(tenantCtx(uuid.New()), &inboxv1.ListTeamInboxesRequest{
+	resp, err := srv.ListTeamInboxes(inboxCtx(uuid.New()), &inboxv1.ListTeamInboxesRequest{
 		UserId: uuid.New().String(),
 	})
 	require.NoError(t, err)
@@ -886,7 +914,7 @@ func TestListTeamMembers_EmptyResultIsNotNil(t *testing.T) {
 	tenantID := uuid.New()
 	inbox := &models.TeamInbox{ID: uuid.New(), TenantID: tenantID, Name: "Leer", Visibility: "open"}
 	require.NoError(t, deps.teamRepo.CreateTeamInbox(context.Background(), inbox))
-	resp, err := srv.ListTeamMembers(tenantCtx(tenantID), &inboxv1.ListTeamMembersRequest{
+	resp, err := srv.ListTeamMembers(inboxCtx(tenantID), &inboxv1.ListTeamMembersRequest{
 		TeamInboxId: inbox.ID.String(), UserId: uuid.New().String(),
 	})
 	require.NoError(t, err)
@@ -896,7 +924,7 @@ func TestListTeamMembers_EmptyResultIsNotNil(t *testing.T) {
 
 func TestListRoutingRules_EmptyResultIsNotNil(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	resp, err := srv.ListRoutingRules(tenantCtx(uuid.New()), &inboxv1.ListRoutingRulesRequest{})
+	resp, err := srv.ListRoutingRules(inboxCtx(uuid.New()), &inboxv1.ListRoutingRulesRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp.Rules)
 	require.Empty(t, resp.Rules)

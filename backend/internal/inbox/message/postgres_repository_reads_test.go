@@ -395,7 +395,7 @@ func TestUnsnoozeExpired_ResetsOnlyPastEntries(t *testing.T) {
 		t.Fatalf("expected at least the seeded expired entry to be reset, got count=%d", count)
 	}
 
-	gotExpired, err := repo.GetByID(ctx, expired.ID, tenantID)
+	gotExpired, err := repo.GetByID(ctx, expired.ID, tenantID, userID)
 	if err != nil {
 		t.Fatalf("GetByID (expired): %v", err)
 	}
@@ -406,7 +406,7 @@ func TestUnsnoozeExpired_ResetsOnlyPastEntries(t *testing.T) {
 		t.Fatalf("expected expired entry to be marked unread again")
 	}
 
-	gotFuture, err := repo.GetByID(ctx, stillSnoozed.ID, tenantID)
+	gotFuture, err := repo.GetByID(ctx, stillSnoozed.ID, tenantID, userID)
 	if err != nil {
 		t.Fatalf("GetByID (future): %v", err)
 	}

@@ -89,10 +89,10 @@ func TestInboxMessageRPCs_GuardLadder(t *testing.T) {
 			requireGRPCCode(t, call(context.Background(), uuid.NewString()), codes.InvalidArgument)
 		})
 		t.Run(name+"/invalid id", func(t *testing.T) {
-			requireGRPCCode(t, call(tenantCtx(uuid.New()), "nope"), codes.InvalidArgument)
+			requireGRPCCode(t, call(inboxCtx(uuid.New()), "nope"), codes.InvalidArgument)
 		})
 		t.Run(name+"/unknown id", func(t *testing.T) {
-			requireGRPCCode(t, call(tenantCtx(uuid.New()), uuid.NewString()), codes.NotFound)
+			requireGRPCCode(t, call(inboxCtx(uuid.New()), uuid.NewString()), codes.NotFound)
 		})
 	}
 }
@@ -100,25 +100,92 @@ func TestInboxMessageRPCs_GuardLadder(t *testing.T) {
 func TestInboxMessageRPCs_ForeignTenantSeesNotFound(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	owner, intruder := uuid.New(), uuid.New()
-	msg := seedInboxMessage(t, deps, owner, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, owner, inboxTestOwner, nil)
 
-	_, err := srv.GetMessage(tenantCtx(intruder), &inboxv1.GetMessageRequest{MessageId: msg.ID.String()})
+	_, err := srv.GetMessage(inboxCtx(intruder), &inboxv1.GetMessageRequest{MessageId: msg.ID.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 
-	_, err = srv.ArchiveMessage(tenantCtx(intruder), &inboxv1.ArchiveMessageRequest{MessageId: msg.ID.String()})
+	_, err = srv.ArchiveMessage(inboxCtx(intruder), &inboxv1.ArchiveMessageRequest{MessageId: msg.ID.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 
 	// The owner's copy is untouched by the intruder's attempt.
-	got, err := srv.GetMessage(tenantCtx(owner), &inboxv1.GetMessageRequest{MessageId: msg.ID.String()})
+	got, err := srv.GetMessage(inboxCtx(owner), &inboxv1.GetMessageRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.False(t, got.Message.IsArchived)
+}
+
+// A colleague in the same tenant (not owner, not assignee, not a member of the message's team
+// inbox) gets NotFound on every single-message RPC and cannot touch the message; the assignee
+// and team members keep access (Reply then fails only at the missing channel adapter).
+func TestInboxMessageRPCs_VisibleToOwnerAssigneeAndTeamMember(t *testing.T) {
+	srv, deps := newTestInboxServer()
+	tenantID := uuid.New()
+	assignee, member, colleague := uuid.New(), uuid.New(), uuid.New()
+	teamID := seedTeamInboxWithMember(t, deps, tenantID, member, "manual")
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
+		m.TeamInboxID = &teamID
+		m.AssignedTo = &assignee
+	})
+	personal := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
+	as := func(user uuid.UUID) context.Context {
+		return context.WithValue(tenantCtx(tenantID), middleware.UserIDKey, user.String())
+	}
+	id := msg.ID.String()
+
+	t.Run("colleague sees NotFound", func(t *testing.T) {
+		ctx := as(colleague)
+		_, err := srv.GetMessage(ctx, &inboxv1.GetMessageRequest{MessageId: id})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.ArchiveMessage(ctx, &inboxv1.ArchiveMessageRequest{MessageId: id})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.ReplyToMessage(ctx, &inboxv1.ReplyToMessageRequest{MessageId: id, UserId: colleague.String(), Body: "hi"})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.ListThreadMessages(ctx, &inboxv1.ListThreadMessagesRequest{MessageId: id})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.SetMessageStatus(ctx, &inboxv1.SetMessageStatusRequest{MessageId: id, Status: "closed"})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.AddMessageTag(ctx, &inboxv1.AddMessageTagRequest{MessageId: id, Tag: "x"})
+		requireGRPCCode(t, err, codes.NotFound)
+		_, err = srv.BulkArchive(ctx, &inboxv1.BulkArchiveRequest{MessageIds: []string{id}})
+		requireGRPCCode(t, err, codes.NotFound)
+		// A team member's visibility ends at the team inbox: the owner's personal message stays hidden.
+		_, err = srv.GetMessage(as(member), &inboxv1.GetMessageRequest{MessageId: personal.ID.String()})
+		requireGRPCCode(t, err, codes.NotFound)
+
+		got, err := srv.GetMessage(inboxCtx(tenantID), &inboxv1.GetMessageRequest{MessageId: id})
+		require.NoError(t, err)
+		require.False(t, got.Message.IsArchived)
+		require.Equal(t, "open", got.Message.Status)
+		require.Empty(t, got.Message.Tags)
+	})
+
+	t.Run("missing caller is Unauthenticated", func(t *testing.T) {
+		_, err := srv.GetMessage(tenantCtx(tenantID), &inboxv1.GetMessageRequest{MessageId: id})
+		requireGRPCCode(t, err, codes.Unauthenticated)
+	})
+
+	for name, user := range map[string]uuid.UUID{"assignee": assignee, "team member": member} {
+		t.Run(name+" keeps access", func(t *testing.T) {
+			ctx := as(user)
+			got, err := srv.GetMessage(ctx, &inboxv1.GetMessageRequest{MessageId: id})
+			require.NoError(t, err)
+			require.Equal(t, id, got.Message.Id)
+			_, err = srv.ReplyToMessage(ctx, &inboxv1.ReplyToMessageRequest{MessageId: id, UserId: user.String(), Body: "hi"})
+			requireGRPCCode(t, err, codes.Unimplemented) // past the visibility check, no email adapter wired
+			arch, err := srv.ArchiveMessage(ctx, &inboxv1.ArchiveMessageRequest{MessageId: id})
+			require.NoError(t, err)
+			require.True(t, arch.Message.IsArchived)
+			_, err = srv.UnarchiveMessage(ctx, &inboxv1.UnarchiveMessageRequest{MessageId: id})
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestInboxMessageRPCs_HappyPaths(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	ctx := inboxCtx(tenantID)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 	id := msg.ID.String()
 
 	got, err := srv.GetMessage(ctx, &inboxv1.GetMessageRequest{MessageId: id})
@@ -168,12 +235,12 @@ func TestInboxMessageRPCs_HappyPaths(t *testing.T) {
 func TestSnoozeMessage_RequiresTimestampAndFutureTime(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.SnoozeMessage(tenantCtx(tenantID), &inboxv1.SnoozeMessageRequest{MessageId: msg.ID.String()})
+	_, err := srv.SnoozeMessage(inboxCtx(tenantID), &inboxv1.SnoozeMessageRequest{MessageId: msg.ID.String()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
-	_, err = srv.SnoozeMessage(tenantCtx(tenantID), &inboxv1.SnoozeMessageRequest{
+	_, err = srv.SnoozeMessage(inboxCtx(tenantID), &inboxv1.SnoozeMessageRequest{
 		MessageId: msg.ID.String(), SnoozeUntil: timestamppb.New(time.Now().Add(-time.Hour)),
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -181,7 +248,7 @@ func TestSnoozeMessage_RequiresTimestampAndFutureTime(t *testing.T) {
 
 func TestAssignMessage_InvalidAssignee(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.AssignMessage(tenantCtx(uuid.New()), &inboxv1.AssignMessageRequest{
+	_, err := srv.AssignMessage(inboxCtx(uuid.New()), &inboxv1.AssignMessageRequest{
 		MessageId: uuid.NewString(), AssigneeId: "nope",
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -190,7 +257,7 @@ func TestAssignMessage_InvalidAssignee(t *testing.T) {
 func TestClaimMessage_Paths(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
+	ctx := inboxCtx(tenantID)
 	userID := uuid.New()
 
 	t.Run("invalid user", func(t *testing.T) {
@@ -199,7 +266,7 @@ func TestClaimMessage_Paths(t *testing.T) {
 	})
 
 	t.Run("message outside any team inbox", func(t *testing.T) {
-		msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+		msg := seedInboxMessage(t, deps, tenantID, userID, nil)
 		_, err := srv.ClaimMessage(ctx, &inboxv1.ClaimMessageRequest{MessageId: msg.ID.String(), UserId: userID.String()})
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
@@ -211,7 +278,8 @@ func TestClaimMessage_Paths(t *testing.T) {
 		require.NoError(t, err)
 		teamID, err := uuid.Parse(created.TeamInbox.Id)
 		require.NoError(t, err)
-		msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.TeamInboxID = &teamID })
+		// userID owns the message (so it is visible) but is not a member of the team inbox.
+		msg := seedInboxMessage(t, deps, tenantID, userID, func(m *models.InboxMessage) { m.TeamInboxID = &teamID })
 
 		_, err = srv.ClaimMessage(ctx, &inboxv1.ClaimMessageRequest{MessageId: msg.ID.String(), UserId: userID.String()})
 		requireGRPCCode(t, err, codes.PermissionDenied)
@@ -224,7 +292,7 @@ func TestClaimMessage_Paths(t *testing.T) {
 		require.NoError(t, err)
 		teamID, err := uuid.Parse(created.TeamInbox.Id)
 		require.NoError(t, err)
-		msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.TeamInboxID = &teamID })
+		msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.TeamInboxID = &teamID })
 
 		resp, err := srv.ClaimMessage(ctx, &inboxv1.ClaimMessageRequest{MessageId: msg.ID.String(), UserId: userID.String()})
 		require.NoError(t, err)
@@ -238,9 +306,9 @@ func TestClaimMessage_Paths(t *testing.T) {
 func TestReplyAndForward_InvalidUserID(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.ReplyToMessage(tenantCtx(tenantID), &inboxv1.ReplyToMessageRequest{
+	_, err := srv.ReplyToMessage(inboxCtx(tenantID), &inboxv1.ReplyToMessageRequest{
 		MessageId: msg.ID.String(), UserId: "nope", Body: "x",
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -256,11 +324,11 @@ func TestListMessages_Guards(t *testing.T) {
 	_, err := srv.ListMessages(context.Background(), &inboxv1.ListMessagesRequest{UserId: uuid.NewString()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
-	_, err = srv.ListMessages(tenantCtx(uuid.New()), &inboxv1.ListMessagesRequest{UserId: "nope"})
+	_, err = srv.ListMessages(inboxCtx(uuid.New()), &inboxv1.ListMessagesRequest{UserId: "nope"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
 	bad := "nope"
-	_, err = srv.ListMessages(tenantCtx(uuid.New()), &inboxv1.ListMessagesRequest{
+	_, err = srv.ListMessages(inboxCtx(uuid.New()), &inboxv1.ListMessagesRequest{
 		UserId: uuid.NewString(), TeamInboxId: &bad,
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -277,7 +345,7 @@ func TestListMessages_AllFiltersAndNextPageToken(t *testing.T) {
 	team := uuid.NewString()
 	cursor := buildPageToken(time.Now().UTC(), uuid.New())
 
-	resp, err := srv.ListMessages(tenantCtx(tenantID), &inboxv1.ListMessagesRequest{
+	resp, err := srv.ListMessages(inboxCtx(tenantID), &inboxv1.ListMessagesRequest{
 		UserId:      userID.String(),
 		PageSize:    1,
 		PageToken:   cursor,
@@ -296,7 +364,7 @@ func TestListMessages_AllFiltersAndNextPageToken(t *testing.T) {
 	require.Equal(t, buildPageToken(msg.ReceivedAt, msg.ID), resp.NextPageToken)
 
 	// A malformed cursor is ignored rather than failing the list.
-	resp, err = srv.ListMessages(tenantCtx(tenantID), &inboxv1.ListMessagesRequest{
+	resp, err = srv.ListMessages(inboxCtx(tenantID), &inboxv1.ListMessagesRequest{
 		UserId: userID.String(), PageToken: "garbage",
 	})
 	require.NoError(t, err)
@@ -309,7 +377,7 @@ func TestListMessages_ForeignTenantGetsNothing(t *testing.T) {
 	userID := uuid.New()
 	seedInboxMessage(t, deps, owner, userID, nil)
 
-	resp, err := srv.ListMessages(tenantCtx(uuid.New()), &inboxv1.ListMessagesRequest{UserId: userID.String()})
+	resp, err := srv.ListMessages(inboxCtx(uuid.New()), &inboxv1.ListMessagesRequest{UserId: userID.String()})
 	require.NoError(t, err)
 	require.Empty(t, resp.Messages)
 	require.NotNil(t, resp.Messages)
@@ -318,9 +386,9 @@ func TestListMessages_ForeignTenantGetsNothing(t *testing.T) {
 func TestBulkRPCs(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
-	a := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
-	b := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	ctx := inboxCtx(tenantID)
+	a := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
+	b := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 	ids := []string{a.ID.String(), b.ID.String()}
 
 	read, err := srv.BulkMarkRead(ctx, &inboxv1.BulkMarkReadRequest{MessageIds: ids})
@@ -346,7 +414,7 @@ func TestBulkRPCs(t *testing.T) {
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
 	// A foreign tenant's bulk call cannot touch the owner's rows.
-	_, err = srv.BulkArchive(tenantCtx(uuid.New()), &inboxv1.BulkArchiveRequest{MessageIds: ids})
+	_, err = srv.BulkArchive(inboxCtx(uuid.New()), &inboxv1.BulkArchiveRequest{MessageIds: ids})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -363,7 +431,7 @@ func TestGetUnreadCount_InvalidUser(t *testing.T) {
 func TestCannedResponses_CRUD(t *testing.T) {
 	srv, _ := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
+	ctx := inboxCtx(tenantID)
 
 	created, err := srv.CreateCannedResponse(ctx, &inboxv1.CreateCannedResponseRequest{Name: "Danke", Body: "Vielen Dank"})
 	require.NoError(t, err)
@@ -380,7 +448,7 @@ func TestCannedResponses_CRUD(t *testing.T) {
 	require.Equal(t, "Besten Dank", updated.Body)
 
 	// A foreign tenant sees none of it and cannot change or delete it.
-	other := tenantCtx(uuid.New())
+	other := inboxCtx(uuid.New())
 	foreign, err := srv.ListCannedResponses(other, &inboxv1.ListCannedResponsesRequest{})
 	require.NoError(t, err)
 	require.Empty(t, foreign.CannedResponses)
@@ -397,7 +465,7 @@ func TestCannedResponses_CRUD(t *testing.T) {
 
 func TestCannedResponses_Guards(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 
 	_, err := srv.CreateCannedResponse(context.Background(), &inboxv1.CreateCannedResponseRequest{Name: "a", Body: "b"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -427,7 +495,7 @@ func TestCannedResponses_Guards(t *testing.T) {
 func TestTeamInbox_LifecycleAndAdminGate(t *testing.T) {
 	srv, _ := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
+	ctx := inboxCtx(tenantID)
 	admin, member := uuid.New(), uuid.New()
 
 	created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{
@@ -474,7 +542,7 @@ func TestTeamInbox_LifecycleAndAdminGate(t *testing.T) {
 	require.Len(t, list.TeamInboxes, 1)
 
 	// Another tenant cannot see or change it.
-	other := tenantCtx(uuid.New())
+	other := inboxCtx(uuid.New())
 	_, err = srv.UpdateTeamInbox(other, &inboxv1.UpdateTeamInboxRequest{TeamInboxId: teamID, UserId: admin.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 	foreign, err := srv.ListTeamInboxes(other, &inboxv1.ListTeamInboxesRequest{UserId: member.String()})
@@ -489,7 +557,7 @@ func TestTeamInbox_LifecycleAndAdminGate(t *testing.T) {
 
 func TestTeamInbox_MemberManagement(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	admin, member := uuid.New(), uuid.New()
 
 	created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{UserId: admin.String(), Name: "Team"})
@@ -519,7 +587,7 @@ func TestTeamInbox_MemberManagement(t *testing.T) {
 // themselves as admin of any team inbox of the tenant and evict members.
 func TestTeamInbox_MemberManagementRequiresInboxAdmin(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	admin, member, attacker := uuid.New(), uuid.New(), uuid.New()
 
 	created, err := srv.CreateTeamInbox(ctx, &inboxv1.CreateTeamInboxRequest{
@@ -547,7 +615,7 @@ func TestTeamInbox_MemberManagementRequiresInboxAdmin(t *testing.T) {
 	require.Len(t, members.Members, 2)
 
 	// Another tenant sees the inbox as non-existent, even with a forged admin id.
-	other := tenantCtx(uuid.New())
+	other := inboxCtx(uuid.New())
 	_, err = srv.AddTeamMember(other, &inboxv1.AddTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: attacker.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 	_, err = srv.RemoveTeamMember(other, &inboxv1.RemoveTeamMemberRequest{TeamInboxId: teamID, UserId: admin.String(), MemberUserId: member.String()})
@@ -560,7 +628,7 @@ func TestTeamInbox_MemberManagementRequiresInboxAdmin(t *testing.T) {
 
 func TestTeamInbox_Guards(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	no := context.Background()
 	id, bad := uuid.NewString(), "nope"
 
@@ -618,7 +686,7 @@ func TestTeamInbox_Guards(t *testing.T) {
 // open inbox lists for any caller, and a foreign tenant sees nothing at all.
 func TestListTeamMembers_PrivateInboxHidesMembersFromOutsiders(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	admin, member, outsider := uuid.New(), uuid.New(), uuid.New()
 
 	create := func(name string, vis inboxv1.TeamInboxVisibility) string {
@@ -644,7 +712,7 @@ func TestListTeamMembers_PrivateInboxHidesMembersFromOutsiders(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Members, 2)
 
-	other := tenantCtx(uuid.New())
+	other := inboxCtx(uuid.New())
 	for _, id := range []string{privateID, openID} {
 		_, err = srv.ListTeamMembers(other, &inboxv1.ListTeamMembersRequest{TeamInboxId: id, UserId: admin.String()})
 		requireGRPCCode(t, err, codes.NotFound)
@@ -675,7 +743,7 @@ func mustList(t *testing.T, items ...map[string]any) *structpb.ListValue {
 
 func TestRoutingRule_Guards(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	no := context.Background()
 	id, bad := uuid.NewString(), "nope"
 
@@ -708,13 +776,13 @@ func TestRoutingRule_ForeignTenantCannotTouch(t *testing.T) {
 	rule := &models.RoutingRule{ID: uuid.New(), TenantID: owner, Name: "r", IsActive: true}
 	require.NoError(t, deps.routingRepo.Create(context.Background(), rule))
 
-	other := tenantCtx(uuid.New())
+	other := inboxCtx(uuid.New())
 	_, err := srv.UpdateRoutingRule(other, &inboxv1.UpdateRoutingRuleRequest{RuleId: rule.ID.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 	_, err = srv.DeleteRoutingRule(other, &inboxv1.DeleteRoutingRuleRequest{RuleId: rule.ID.String()})
 	requireGRPCCode(t, err, codes.NotFound)
 
-	mine, err := srv.ListRoutingRules(tenantCtx(owner), &inboxv1.ListRoutingRulesRequest{})
+	mine, err := srv.ListRoutingRules(inboxCtx(owner), &inboxv1.ListRoutingRulesRequest{})
 	require.NoError(t, err)
 	require.Len(t, mine.Rules, 1)
 }
@@ -722,7 +790,7 @@ func TestRoutingRule_ForeignTenantCannotTouch(t *testing.T) {
 func TestRoutingRule_UpdateAndDelete(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
+	ctx := inboxCtx(tenantID)
 	rule := &models.RoutingRule{
 		ID: uuid.New(), TenantID: tenantID, Name: "r", IsActive: true,
 		Conditions: []byte(`{"field":"sender_email","operator":"contains","value":"x"}`),
@@ -775,7 +843,7 @@ func TestRoutingRule_UpdateAndDelete(t *testing.T) {
 func TestCreateRoutingRule_ActionsRoundTripAsArray(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	ctx := tenantCtx(tenantID)
+	ctx := inboxCtx(tenantID)
 	conditions := mustStruct(t, map[string]any{"field": "sender_email", "operator": "contains", "value": "x"})
 
 	created, err := srv.CreateRoutingRule(ctx, &inboxv1.CreateRoutingRuleRequest{
@@ -800,7 +868,7 @@ func TestCreateRoutingRule_ActionsRoundTripAsArray(t *testing.T) {
 
 func TestCreateRoutingRule_InvalidActionsAreRejected(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	conditions := mustStruct(t, map[string]any{"field": "sender_email", "operator": "contains", "value": "x"})
 
 	for name, actions := range map[string]*structpb.ListValue{
@@ -819,7 +887,7 @@ func TestCreateRoutingRule_InvalidActionsAreRejected(t *testing.T) {
 
 func TestTestRoutingRule(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	email := "kunde@example.com"
 	msg := &inboxv1.InboxMessageInfo{
 		Channel:     inboxv1.Channel_CHANNEL_EMAIL,
@@ -854,7 +922,7 @@ func TestTestRoutingRule(t *testing.T) {
 // holder cannot enrol themselves into an inbox they do not belong to.
 func TestTeamInbox_ManagePermissionDeletesButCannotSelfEnrol(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	ctx := tenantCtx(uuid.New())
+	ctx := inboxCtx(uuid.New())
 	admin, manager := uuid.New(), uuid.New()
 	managerCtx := context.WithValue(ctx, middleware.UserPermsKey, []string{middleware.PermTeamInboxManage})
 

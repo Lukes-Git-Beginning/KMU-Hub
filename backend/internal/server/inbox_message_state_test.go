@@ -21,22 +21,22 @@ import (
 func TestInboxMarkRead_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsRead = false })
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsRead = false })
 
-	resp, err := srv.MarkRead(tenantCtx(tenantID), &inboxv1.MarkReadRequest{MessageId: msg.ID.String()})
+	resp, err := srv.MarkRead(inboxCtx(tenantID), &inboxv1.MarkReadRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.True(t, resp.Message.IsRead)
 }
 
 func TestInboxMarkRead_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.MarkRead(tenantCtx(uuid.New()), &inboxv1.MarkReadRequest{MessageId: uuid.New().String()})
+	_, err := srv.MarkRead(inboxCtx(uuid.New()), &inboxv1.MarkReadRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
 func TestInboxMarkRead_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.MarkRead(tenantCtx(uuid.New()), &inboxv1.MarkReadRequest{MessageId: "not-a-uuid"})
+	_, err := srv.MarkRead(inboxCtx(uuid.New()), &inboxv1.MarkReadRequest{MessageId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -49,16 +49,16 @@ func TestInboxMarkRead_MissingTenant(t *testing.T) {
 func TestInboxMarkUnread_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsRead = true })
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsRead = true })
 
-	resp, err := srv.MarkUnread(tenantCtx(tenantID), &inboxv1.MarkUnreadRequest{MessageId: msg.ID.String()})
+	resp, err := srv.MarkUnread(inboxCtx(tenantID), &inboxv1.MarkUnreadRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.False(t, resp.Message.IsRead)
 }
 
 func TestInboxMarkUnread_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.MarkUnread(tenantCtx(uuid.New()), &inboxv1.MarkUnreadRequest{MessageId: uuid.New().String()})
+	_, err := srv.MarkUnread(inboxCtx(uuid.New()), &inboxv1.MarkUnreadRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -69,20 +69,20 @@ func TestInboxMarkUnread_NotFound(t *testing.T) {
 func TestInboxToggleStar_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsStarred = false })
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsStarred = false })
 
-	resp, err := srv.ToggleStar(tenantCtx(tenantID), &inboxv1.ToggleStarRequest{MessageId: msg.ID.String()})
+	resp, err := srv.ToggleStar(inboxCtx(tenantID), &inboxv1.ToggleStarRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.True(t, resp.Message.IsStarred)
 
-	resp, err = srv.ToggleStar(tenantCtx(tenantID), &inboxv1.ToggleStarRequest{MessageId: msg.ID.String()})
+	resp, err = srv.ToggleStar(inboxCtx(tenantID), &inboxv1.ToggleStarRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.False(t, resp.Message.IsStarred)
 }
 
 func TestInboxToggleStar_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ToggleStar(tenantCtx(uuid.New()), &inboxv1.ToggleStarRequest{MessageId: uuid.New().String()})
+	_, err := srv.ToggleStar(inboxCtx(uuid.New()), &inboxv1.ToggleStarRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -93,32 +93,32 @@ func TestInboxToggleStar_NotFound(t *testing.T) {
 func TestInboxArchiveMessage_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsArchived = false })
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsArchived = false })
 
-	resp, err := srv.ArchiveMessage(tenantCtx(tenantID), &inboxv1.ArchiveMessageRequest{MessageId: msg.ID.String()})
+	resp, err := srv.ArchiveMessage(inboxCtx(tenantID), &inboxv1.ArchiveMessageRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.True(t, resp.Message.IsArchived)
 }
 
 func TestInboxArchiveMessage_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ArchiveMessage(tenantCtx(uuid.New()), &inboxv1.ArchiveMessageRequest{MessageId: uuid.New().String()})
+	_, err := srv.ArchiveMessage(inboxCtx(uuid.New()), &inboxv1.ArchiveMessageRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
 func TestInboxUnarchiveMessage_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsArchived = true })
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsArchived = true })
 
-	resp, err := srv.UnarchiveMessage(tenantCtx(tenantID), &inboxv1.UnarchiveMessageRequest{MessageId: msg.ID.String()})
+	resp, err := srv.UnarchiveMessage(inboxCtx(tenantID), &inboxv1.UnarchiveMessageRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.False(t, resp.Message.IsArchived)
 }
 
 func TestInboxUnarchiveMessage_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.UnarchiveMessage(tenantCtx(uuid.New()), &inboxv1.UnarchiveMessageRequest{MessageId: uuid.New().String()})
+	_, err := srv.UnarchiveMessage(inboxCtx(uuid.New()), &inboxv1.UnarchiveMessageRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -129,10 +129,10 @@ func TestInboxUnarchiveMessage_NotFound(t *testing.T) {
 func TestInboxSnoozeMessage_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 	until := time.Now().Add(2 * time.Hour).UTC()
 
-	resp, err := srv.SnoozeMessage(tenantCtx(tenantID), &inboxv1.SnoozeMessageRequest{
+	resp, err := srv.SnoozeMessage(inboxCtx(tenantID), &inboxv1.SnoozeMessageRequest{
 		MessageId:   msg.ID.String(),
 		SnoozeUntil: timestamppb.New(until),
 	})
@@ -143,18 +143,18 @@ func TestInboxSnoozeMessage_HappyPath(t *testing.T) {
 func TestInboxSnoozeMessage_MissingSnoozeUntil(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.SnoozeMessage(tenantCtx(tenantID), &inboxv1.SnoozeMessageRequest{MessageId: msg.ID.String()})
+	_, err := srv.SnoozeMessage(inboxCtx(tenantID), &inboxv1.SnoozeMessageRequest{MessageId: msg.ID.String()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestInboxSnoozeMessage_PastTimeRejected(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.SnoozeMessage(tenantCtx(tenantID), &inboxv1.SnoozeMessageRequest{
+	_, err := srv.SnoozeMessage(inboxCtx(tenantID), &inboxv1.SnoozeMessageRequest{
 		MessageId:   msg.ID.String(),
 		SnoozeUntil: timestamppb.New(time.Now().Add(-time.Hour)),
 	})
@@ -163,7 +163,7 @@ func TestInboxSnoozeMessage_PastTimeRejected(t *testing.T) {
 
 func TestInboxSnoozeMessage_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.SnoozeMessage(tenantCtx(uuid.New()), &inboxv1.SnoozeMessageRequest{
+	_, err := srv.SnoozeMessage(inboxCtx(uuid.New()), &inboxv1.SnoozeMessageRequest{
 		MessageId:   uuid.New().String(),
 		SnoozeUntil: timestamppb.New(time.Now().Add(time.Hour)),
 	})
@@ -174,24 +174,24 @@ func TestInboxUnsnoozeMessage_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
 	until := time.Now().Add(time.Hour).UTC()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.SnoozedUntil = &until
 	})
 
-	resp, err := srv.UnsnoozeMessage(tenantCtx(tenantID), &inboxv1.UnsnoozeMessageRequest{MessageId: msg.ID.String()})
+	resp, err := srv.UnsnoozeMessage(inboxCtx(tenantID), &inboxv1.UnsnoozeMessageRequest{MessageId: msg.ID.String()})
 	require.NoError(t, err)
 	require.Nil(t, resp.Message.SnoozedUntil)
 }
 
 func TestInboxUnsnoozeMessage_NotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.UnsnoozeMessage(tenantCtx(uuid.New()), &inboxv1.UnsnoozeMessageRequest{MessageId: uuid.New().String()})
+	_, err := srv.UnsnoozeMessage(inboxCtx(uuid.New()), &inboxv1.UnsnoozeMessageRequest{MessageId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
 func TestInboxUnsnoozeMessage_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.UnsnoozeMessage(tenantCtx(uuid.New()), &inboxv1.UnsnoozeMessageRequest{MessageId: "bad-id"})
+	_, err := srv.UnsnoozeMessage(inboxCtx(uuid.New()), &inboxv1.UnsnoozeMessageRequest{MessageId: "bad-id"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -203,9 +203,9 @@ func TestInboxAssignMessage_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
 	assigneeID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	resp, err := srv.AssignMessage(tenantCtx(tenantID), &inboxv1.AssignMessageRequest{
+	resp, err := srv.AssignMessage(inboxCtx(tenantID), &inboxv1.AssignMessageRequest{
 		MessageId:  msg.ID.String(),
 		AssigneeId: assigneeID.String(),
 	})
@@ -217,11 +217,11 @@ func TestInboxAssignMessage_AlreadyAssigned(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
 	firstAssignee := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.AssignedTo = &firstAssignee
 	})
 
-	_, err := srv.AssignMessage(tenantCtx(tenantID), &inboxv1.AssignMessageRequest{
+	_, err := srv.AssignMessage(inboxCtx(tenantID), &inboxv1.AssignMessageRequest{
 		MessageId:  msg.ID.String(),
 		AssigneeId: uuid.New().String(),
 	})
@@ -231,9 +231,9 @@ func TestInboxAssignMessage_AlreadyAssigned(t *testing.T) {
 func TestInboxAssignMessage_InvalidAssigneeID(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.AssignMessage(tenantCtx(tenantID), &inboxv1.AssignMessageRequest{
+	_, err := srv.AssignMessage(inboxCtx(tenantID), &inboxv1.AssignMessageRequest{
 		MessageId:  msg.ID.String(),
 		AssigneeId: "not-a-uuid",
 	})
@@ -242,7 +242,7 @@ func TestInboxAssignMessage_InvalidAssigneeID(t *testing.T) {
 
 func TestInboxAssignMessage_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.AssignMessage(tenantCtx(uuid.New()), &inboxv1.AssignMessageRequest{
+	_, err := srv.AssignMessage(inboxCtx(uuid.New()), &inboxv1.AssignMessageRequest{
 		MessageId:  "not-a-uuid",
 		AssigneeId: uuid.New().String(),
 	})
@@ -275,11 +275,11 @@ func TestInboxClaimMessage_HappyPath(t *testing.T) {
 	tenantID := uuid.New()
 	userID := uuid.New()
 	teamInboxID := seedTeamInboxWithMember(t, deps, tenantID, userID, "manual")
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.TeamInboxID = &teamInboxID
 	})
 
-	resp, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	resp, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
 		UserId:    userID.String(),
 	})
@@ -290,11 +290,11 @@ func TestInboxClaimMessage_HappyPath(t *testing.T) {
 func TestInboxClaimMessage_NotInTeamInbox(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil) // TeamInboxID stays nil
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil) // TeamInboxID stays nil
 
-	_, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
-		UserId:    uuid.New().String(),
+		UserId:    inboxTestOwner.String(), // the owner sees it; claiming needs a team inbox
 	})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
 }
@@ -303,13 +303,13 @@ func TestInboxClaimMessage_NotTeamMember(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
 	teamInboxID := seedTeamInboxWithMember(t, deps, tenantID, uuid.New(), "manual")
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.TeamInboxID = &teamInboxID
 	})
 
-	_, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
-		UserId:    uuid.New().String(), // not added as a member
+		UserId:    inboxTestOwner.String(), // sees it as owner, but is not a member
 	})
 	requireGRPCCode(t, err, codes.PermissionDenied)
 }
@@ -319,11 +319,11 @@ func TestInboxClaimMessage_RoundRobinRejected(t *testing.T) {
 	tenantID := uuid.New()
 	userID := uuid.New()
 	teamInboxID := seedTeamInboxWithMember(t, deps, tenantID, userID, "round_robin")
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.TeamInboxID = &teamInboxID
 	})
 
-	_, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
 		UserId:    userID.String(),
 	})
@@ -336,12 +336,12 @@ func TestInboxClaimMessage_AlreadyAssigned(t *testing.T) {
 	userID := uuid.New()
 	teamInboxID := seedTeamInboxWithMember(t, deps, tenantID, userID, "manual")
 	otherAssignee := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) {
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) {
 		m.TeamInboxID = &teamInboxID
 		m.AssignedTo = &otherAssignee
 	})
 
-	_, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
 		UserId:    userID.String(),
 	})
@@ -350,7 +350,7 @@ func TestInboxClaimMessage_AlreadyAssigned(t *testing.T) {
 
 func TestInboxClaimMessage_MessageNotFound(t *testing.T) {
 	srv, _ := newTestInboxServer()
-	_, err := srv.ClaimMessage(tenantCtx(uuid.New()), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(uuid.New()), &inboxv1.ClaimMessageRequest{
 		MessageId: uuid.New().String(),
 		UserId:    uuid.New().String(),
 	})
@@ -360,9 +360,9 @@ func TestInboxClaimMessage_MessageNotFound(t *testing.T) {
 func TestInboxClaimMessage_InvalidUserID(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.ClaimMessage(tenantCtx(tenantID), &inboxv1.ClaimMessageRequest{
+	_, err := srv.ClaimMessage(inboxCtx(tenantID), &inboxv1.ClaimMessageRequest{
 		MessageId: msg.ID.String(),
 		UserId:    "not-a-uuid",
 	})
@@ -389,7 +389,7 @@ func TestInboxGetUnreadCount_AggregatesByChannel(t *testing.T) {
 		m.IsRead = false
 		m.SnoozedUntil = &futureSnooze
 	})
-	seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.Channel = "email"; m.IsRead = false }) // other user
+	seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.Channel = "email"; m.IsRead = false }) // other user
 
 	resp, err := srv.GetUnreadCount(context.Background(), &inboxv1.GetUnreadCountRequest{UserId: userID.String()})
 	require.NoError(t, err)
@@ -421,16 +421,16 @@ func TestInboxGetUnreadCount_InvalidUserID(t *testing.T) {
 func TestInboxBulkMarkRead_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg1 := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsRead = false })
-	msg2 := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsRead = false })
+	msg1 := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsRead = false })
+	msg2 := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsRead = false })
 
-	resp, err := srv.BulkMarkRead(tenantCtx(tenantID), &inboxv1.BulkMarkReadRequest{
+	resp, err := srv.BulkMarkRead(inboxCtx(tenantID), &inboxv1.BulkMarkReadRequest{
 		MessageIds: []string{msg1.ID.String(), msg2.ID.String()},
 	})
 	require.NoError(t, err)
 	require.EqualValues(t, 2, resp.UpdatedCount)
 
-	got1, err := deps.messageRepo.GetByID(context.Background(), msg1.ID, tenantID)
+	got1, err := deps.messageRepo.GetByID(context.Background(), msg1.ID, tenantID, inboxTestOwner)
 	require.NoError(t, err)
 	require.True(t, got1.IsRead)
 }
@@ -438,9 +438,9 @@ func TestInboxBulkMarkRead_HappyPath(t *testing.T) {
 func TestInboxBulkMarkRead_InvalidIDInList(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.BulkMarkRead(tenantCtx(tenantID), &inboxv1.BulkMarkReadRequest{
+	_, err := srv.BulkMarkRead(inboxCtx(tenantID), &inboxv1.BulkMarkReadRequest{
 		MessageIds: []string{msg.ID.String(), "not-a-uuid"},
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -457,16 +457,16 @@ func TestInboxBulkMarkRead_MissingTenant(t *testing.T) {
 func TestInboxBulkArchive_HappyPath(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg1 := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsArchived = false })
-	msg2 := seedInboxMessage(t, deps, tenantID, uuid.New(), func(m *models.InboxMessage) { m.IsArchived = false })
+	msg1 := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsArchived = false })
+	msg2 := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.IsArchived = false })
 
-	resp, err := srv.BulkArchive(tenantCtx(tenantID), &inboxv1.BulkArchiveRequest{
+	resp, err := srv.BulkArchive(inboxCtx(tenantID), &inboxv1.BulkArchiveRequest{
 		MessageIds: []string{msg1.ID.String(), msg2.ID.String()},
 	})
 	require.NoError(t, err)
 	require.EqualValues(t, 2, resp.UpdatedCount)
 
-	got2, err := deps.messageRepo.GetByID(context.Background(), msg2.ID, tenantID)
+	got2, err := deps.messageRepo.GetByID(context.Background(), msg2.ID, tenantID, inboxTestOwner)
 	require.NoError(t, err)
 	require.True(t, got2.IsArchived)
 }
@@ -474,9 +474,9 @@ func TestInboxBulkArchive_HappyPath(t *testing.T) {
 func TestInboxBulkArchive_InvalidIDInList(t *testing.T) {
 	srv, deps := newTestInboxServer()
 	tenantID := uuid.New()
-	msg := seedInboxMessage(t, deps, tenantID, uuid.New(), nil)
+	msg := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
 
-	_, err := srv.BulkArchive(tenantCtx(tenantID), &inboxv1.BulkArchiveRequest{
+	_, err := srv.BulkArchive(inboxCtx(tenantID), &inboxv1.BulkArchiveRequest{
 		MessageIds: []string{msg.ID.String(), "not-a-uuid"},
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
