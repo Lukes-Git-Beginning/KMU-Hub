@@ -93,7 +93,7 @@ func TestTaskFileAttachFlow_RealSQL(t *testing.T) {
 		ID: uuid.New(), TaskID: created.ID, Filename: own.Filename, MimeType: own.MimeType,
 		FileSize: own.FileSize, StorageKey: own.StorageKey, UploadedBy: me, CreatedAt: time.Now(),
 	}
-	if err := svc.AttachFile(ctxOwn, tenantOwn, attached); err != nil {
+	if err := svc.AttachFile(ctxOwn, tenantOwn, me, attached); err != nil {
 		t.Fatalf("attach own upload to a standalone task: %v", err)
 	}
 	files, err := repo.ListFiles(ctxOwn, created.ID)
@@ -108,7 +108,7 @@ func TestTaskFileAttachFlow_RealSQL(t *testing.T) {
 
 	// Another tenant's upload key is refused and nothing is written.
 	foreign := upload(ctxOther, other)
-	err = svc.AttachFile(ctxOwn, tenantOwn, &models.TaskFile{
+	err = svc.AttachFile(ctxOwn, tenantOwn, me, &models.TaskFile{
 		ID: uuid.New(), TaskID: created.ID, Filename: "x.pdf", MimeType: "application/pdf",
 		FileSize: 1, StorageKey: foreign.StorageKey, UploadedBy: me, CreatedAt: time.Now(),
 	})
@@ -125,7 +125,7 @@ func TestTaskFileAttachFlow_RealSQL(t *testing.T) {
 	}
 
 	// Attaching to another tenant's task id finds no task.
-	err = svc.AttachFile(ctxOther, tenantOther, &models.TaskFile{
+	err = svc.AttachFile(ctxOther, tenantOther, other, &models.TaskFile{
 		ID: uuid.New(), TaskID: created.ID, Filename: "y.pdf", MimeType: "application/pdf",
 		FileSize: 1, StorageKey: foreign.StorageKey, UploadedBy: other, CreatedAt: time.Now(),
 	})

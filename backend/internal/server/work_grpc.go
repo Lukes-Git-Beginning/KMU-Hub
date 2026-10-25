@@ -1345,6 +1345,11 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 		return nil, status.Error(codes.InvalidArgument, "invalid uploaded_by")
 	}
 
+	actorID, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	f := &models.TaskFile{
 		ID:         uuid.New(),
 		TaskID:     taskID,
@@ -1359,7 +1364,7 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 		f.ThumbnailKey = req.ThumbnailKey
 	}
 
-	if err := s.taskService.AttachFile(ctx, tenantID, f); err != nil {
+	if err := s.taskService.AttachFile(ctx, tenantID, actorID, f); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1379,7 +1384,12 @@ func (s *WorkGRPCServer) RemoveTaskFile(ctx context.Context, req *workv1.RemoveT
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	if err := s.taskRepo.RemoveFile(ctx, tenantID, id); err != nil {
+	actorID, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.taskService.RemoveFile(ctx, tenantID, actorID, id); err != nil {
 		return nil, mapWorkError(err)
 	}
 

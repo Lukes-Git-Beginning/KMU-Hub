@@ -405,8 +405,15 @@ func (r *workTaskMockRepo) RemoveFile(_ context.Context, _, id uuid.UUID) error 
 	delete(r.files, id)
 	return nil
 }
-func (r *workTaskMockRepo) GetFile(_ context.Context, _, _ uuid.UUID) (*models.TaskFile, error) {
-	return nil, r.forceErr
+func (r *workTaskMockRepo) GetFile(_ context.Context, _, id uuid.UUID) (*models.TaskFile, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	f, ok := r.files[id]
+	if !ok {
+		return nil, task.ErrFileNotFound
+	}
+	return &f, nil
 }
 func (r *workTaskMockRepo) ListFiles(_ context.Context, taskID uuid.UUID) ([]models.TaskFile, error) {
 	if r.forceErr != nil {

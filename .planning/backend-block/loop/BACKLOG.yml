@@ -2722,7 +2722,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/work/task 74,1 % · internal/server 75,8 %"
     scope: >
       Gefunden in fix-work-task-file-attach-flow (Lauf 16, Iteration 45). `AttachFileToTask` und

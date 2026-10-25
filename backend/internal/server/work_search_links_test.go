@@ -225,11 +225,13 @@ func TestAttachFileToTask_InvalidUploadedBy(t *testing.T) {
 
 func TestAttachFileToTask_RepoErrorMapped(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
-	taskRepo.forceErr = errStubWorkTaskRepoFailure
 	tenantID := uuid.New()
+	taskID := uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
+	taskRepo.forceErr = errStubWorkTaskRepoFailure
 
 	_, err := srv.AttachFileToTask(ctxWithWorkTenant(tenantID), &workv1.AttachFileToTaskRequest{
-		TaskId: uuid.NewString(), UploadedBy: uuid.NewString(), Filename: "a.png",
+		TaskId: taskID.String(), UploadedBy: uuid.NewString(), Filename: "a.png",
 		StorageKey: file.UnattachedUploadPrefix(tenantID) + uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.Internal)
@@ -249,6 +251,7 @@ func TestAttachFileToTask_ForeignStorageKeyRejected(t *testing.T) {
 func TestAttachFileToTask_HappyPath(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
 	taskID := uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
 	uploadedBy := uuid.New()
 	tenantID := uuid.New()
 
@@ -298,8 +301,9 @@ func TestRemoveTaskFile_NotFound(t *testing.T) {
 
 func TestRemoveTaskFile_HappyPath(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
-	fileID := uuid.New()
-	taskRepo.files = map[uuid.UUID]models.TaskFile{fileID: {ID: fileID, TaskID: uuid.New(), Filename: "x.png"}}
+	fileID, taskID := uuid.New(), uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
+	taskRepo.files = map[uuid.UUID]models.TaskFile{fileID: {ID: fileID, TaskID: taskID, Filename: "x.png"}}
 
 	_, err := srv.RemoveTaskFile(ctxWithWorkTenant(uuid.New()), &workv1.RemoveTaskFileRequest{Id: fileID.String()})
 	require.NoError(t, err)

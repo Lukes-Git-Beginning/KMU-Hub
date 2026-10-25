@@ -59,17 +59,49 @@ func (s *Service) SetFileSigner(signer FileURLSigner) {
 // AttachFile records a file the caller uploaded beforehand through
 // POST /files/upload (without a channel). The storage keys are client-supplied,
 // so they must be uploads of the caller's own tenant — otherwise a task could
-// point at another tenant's object and hand out a download URL for it.
+// point at another tenant's object and hand out a download URL for it. Like
+// every other task write it needs project edit rights on the task's project.
 // lean: file_size is taken as sent, not checked against the object; the quota
 // was charged with the real size at upload. Stat the object if the size ever
 // feeds billing.
-func (s *Service) AttachFile(ctx context.Context, tenantID uuid.UUID, f *models.TaskFile) error {
+func (s *Service) AttachFile(ctx context.Context, tenantID, actorID uuid.UUID, f *models.TaskFile) error {
 	if !chatfile.IsTenantUpload(tenantID, f.StorageKey) ||
 		(f.ThumbnailKey != nil && !chatfile.IsTenantUpload(tenantID, *f.ThumbnailKey)) {
 		return ErrForeignStorageKey
 	}
+	if err := s.requireTaskEditor(ctx, tenantID, f.TaskID, actorID); err != nil {
+		return err
+	}
 	f.TenantID = tenantID
 	return s.repo.AttachFile(ctx, f)
+}
+
+// RemoveFile deletes a task file record of the caller's tenant. Same edit-right
+// rule as AttachFile; a file of another tenant is ErrFileNotFound.
+// lean: the stored object and the quota are not released here; see the
+// document cleanup path if task files ever need reclaiming.
+func (s *Service) RemoveFile(ctx context.Context, tenantID, actorID, fileID uuid.UUID) error {
+	f, err := s.repo.GetFile(ctx, tenantID, fileID)
+	if err != nil {
+		return err
+	}
+	if err := s.requireTaskEditor(ctx, tenantID, f.TaskID, actorID); err != nil {
+		return err
+	}
+	return s.repo.RemoveFile(ctx, tenantID, fileID)
+}
+
+// requireTaskEditor applies the rule Update uses: a task with a project needs
+// project edit rights, a project-less task is open to every caller of the tenant.
+func (s *Service) requireTaskEditor(ctx context.Context, tenantID, taskID, actorID uuid.UUID) error {
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
+	if err != nil {
+		return err
+	}
+	if existing.ProjectID == nil {
+		return nil
+	}
+	return s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID)
 }
 
 // GetFileDownloadURL presigns the download of a task file of the caller's
