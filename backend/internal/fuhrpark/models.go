@@ -133,6 +133,11 @@ type TripLog struct {
 	DriverName       string    `json:"driver_name"`
 	BusinessPartner  string    `json:"business_partner"`
 	Notes            string    `json:"notes"`
+	// DriverUserID links the entry to the driver's account; nil for an external driver.
+	DriverUserID *uuid.UUID `json:"driver_user_id"`
+	// DriverUserIDSet is read by UpdateTripLog only: false keeps the stored link, true
+	// writes DriverUserID (nil clears it).
+	DriverUserIDSet bool      `json:"-"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

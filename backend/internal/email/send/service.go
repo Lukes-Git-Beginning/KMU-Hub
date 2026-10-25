@@ -32,9 +32,10 @@ type Credentials struct {
 	UseSSL   bool
 }
 
-// MessageCreator stores sent messages locally.
+// MessageCreator stores sent messages and drafts locally, in the account's
+// folder of the given type.
 type MessageCreator interface {
-	Create(ctx context.Context, msg *models.EmailMessage) error
+	CreateLocalCopy(ctx context.Context, msg *models.EmailMessage, folderType string) error
 }
 
 // SignatureProvider retrieves email signatures scoped to a tenant.
@@ -77,6 +78,7 @@ type ReplyInput struct {
 	BodyHTML      string
 	BodyText      string
 	SignatureID   *uuid.UUID
+	Attachments   []AttachmentData
 }
 
 // ForwardInput contains the data needed to forward an email.
@@ -108,6 +110,8 @@ type DraftInput struct {
 	BodyHTML  string
 	BodyText  string
 	SignatureID *uuid.UUID
+	// HasAttachments marks a draft whose uploads the caller binds to it afterwards.
+	HasAttachments bool
 }
 
 // Service handles email sending and composition.
@@ -223,7 +227,9 @@ func (s *Service) Send(ctx context.Context, input SendInput) (*models.EmailMessa
 		UpdatedAt:      time.Now().UTC(),
 	}
 
-	if err := s.messageCreator.Create(ctx, msg); err != nil {
+	// The mail is out; a missing Sent folder (account never synced) must not
+	// turn that into an error.
+	if err := s.messageCreator.CreateLocalCopy(ctx, msg, models.FolderTypeSent); err != nil {
 		slog.Warn("failed to save sent message locally", "error", err)
 	}
 
@@ -258,6 +264,7 @@ func (s *Service) Reply(ctx context.Context, input ReplyInput) (*models.EmailMes
 		BodyHTML:    input.BodyHTML,
 		BodyText:    input.BodyText,
 		SignatureID: input.SignatureID,
+		Attachments: input.Attachments,
 	})
 }
 
@@ -330,12 +337,13 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 		BodyHTML:     bodyHTML,
 		BodyText:     input.BodyText,
 		IsDraft:      true,
+		HasAttachments: input.HasAttachments,
 		Date:         time.Now().UTC(),
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),
 	}
 
-	if err := s.messageCreator.Create(ctx, msg); err != nil {
+	if err := s.messageCreator.CreateLocalCopy(ctx, msg, models.FolderTypeDrafts); err != nil {
 		return nil, fmt.Errorf("failed to save draft: %w", err)
 	}
 

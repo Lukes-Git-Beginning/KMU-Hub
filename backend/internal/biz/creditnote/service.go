@@ -71,7 +71,8 @@ type CreateInput struct {
 }
 
 // Create creates a new draft credit note against an existing invoice.
-// The original invoice must be in sent, paid, or overdue status.
+// The original invoice must be in sent, paid, or overdue status, and the sum of its
+// credit notes may not exceed its gross total (ErrCreditExceedsInvoice).
 func (s *Service) Create(ctx context.Context, input CreateInput) (*models.CreditNote, error) {
 	if len(input.LineItems) == 0 {
 		return nil, ErrNoLineItems
@@ -83,10 +84,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 		return nil, fmt.Errorf("get original invoice: %w", err)
 	}
 
-	switch inv.Status {
-	case models.InvoiceStatusSent, models.InvoiceStatusPaid, models.InvoiceStatusOverdue:
-		// Valid states for credit note creation
-	default:
+	if !creditableStatus(inv.Status) {
 		return nil, ErrInvalidInvoiceForCredit
 	}
 
@@ -124,6 +122,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 		currency = models.DefaultCurrency
 	}
 
+	if s.pool == nil {
+		return nil, fmt.Errorf("credit note service: pool not configured (required for Create)")
+	}
+
 	now := time.Now()
 	cn := &models.CreditNote{
 		ID:                uuid.New(),
@@ -148,7 +150,7 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 		UpdatedAt:         now,
 	}
 
-	if createErr := s.repo.Create(ctx, cn); createErr != nil {
+	if createErr := s.createWithinLimit(ctx, cn); createErr != nil {
 		return nil, createErr
 	}
 
@@ -160,6 +162,51 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Credit
 	)
 
 	return cn, nil
+}
+
+// createWithinLimit inserts cn only if it keeps the invoice's credit notes (drafts
+// included) within the invoice's gross total. The invoice row is locked for the
+// whole transaction, so two concurrent credit notes cannot both pass the check.
+func (s *Service) createWithinLimit(ctx context.Context, cn *models.CreditNote) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	invStatus, invGross, err := s.invoiceReader.LockForCreditInTx(ctx, tx, cn.TenantID, cn.OriginalInvoiceID)
+	if err != nil {
+		return fmt.Errorf("lock original invoice: %w", err)
+	}
+	if !creditableStatus(invStatus) {
+		return ErrInvalidInvoiceForCredit
+	}
+
+	credited, err := s.repo.SumGrossByInvoiceInTx(ctx, tx, cn.TenantID, cn.OriginalInvoiceID)
+	if err != nil {
+		return err
+	}
+	if remaining := invGross.Sub(credited); cn.GrossTotal.GreaterThan(remaining) {
+		return fmt.Errorf("%w (noch gutschreibbar: %s, Gutschrift: %s)",
+			ErrCreditExceedsInvoice, remaining.StringFixed(2), cn.GrossTotal.StringFixed(2))
+	}
+
+	if err := s.repo.CreateInTx(ctx, tx, cn); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit create tx: %w", err)
+	}
+	return nil
+}
+
+// creditableStatus reports whether an invoice in this status may be credited.
+func creditableStatus(status string) bool {
+	switch status {
+	case models.InvoiceStatusSent, models.InvoiceStatusPaid, models.InvoiceStatusOverdue:
+		return true
+	}
+	return false
 }
 
 // GetByID retrieves a credit note by ID.

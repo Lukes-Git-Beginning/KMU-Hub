@@ -13,6 +13,9 @@ import (
 type ToggleResult struct {
 	Reactions []ReactionSummary `json:"reactions"`
 	Added     bool              `json:"added"`
+	// ChannelID is the channel of the reacted-to message, so the caller can
+	// push the change to the channel's subscribers.
+	ChannelID uuid.UUID `json:"channel_id"`
 }
 
 // Service handles reaction business logic
@@ -29,6 +32,11 @@ func NewService(repo Repository) *Service {
 // Returns the updated reaction summary for the message and whether the reaction was added.
 func (s *Service) ToggleReaction(ctx context.Context, messageID, userID uuid.UUID, emoji string) (*ToggleResult, error) {
 	if err := validateEmoji(emoji); err != nil {
+		return nil, err
+	}
+
+	channelID, err := s.requireReachable(ctx, messageID, userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -68,16 +76,23 @@ func (s *Service) ToggleReaction(ctx context.Context, messageID, userID uuid.UUI
 	return &ToggleResult{
 		Reactions: summaries,
 		Added:     !exists,
+		ChannelID: channelID,
 	}, nil
 }
 
 // ListReactions returns all individual reactions for a message.
-func (s *Service) ListReactions(ctx context.Context, messageID uuid.UUID) ([]Reaction, error) {
+func (s *Service) ListReactions(ctx context.Context, messageID, userID uuid.UUID) ([]Reaction, error) {
+	if _, err := s.requireReachable(ctx, messageID, userID); err != nil {
+		return nil, err
+	}
 	return s.repo.ListReactions(ctx, messageID)
 }
 
 // GetReactionSummary returns aggregated reaction summaries for a single message.
 func (s *Service) GetReactionSummary(ctx context.Context, messageID, currentUserID uuid.UUID) ([]ReactionSummary, error) {
+	if _, err := s.requireReachable(ctx, messageID, currentUserID); err != nil {
+		return nil, err
+	}
 	return s.repo.GetReactionSummary(ctx, messageID, currentUserID)
 }
 
@@ -86,7 +101,37 @@ func (s *Service) GetBatchReactionSummary(ctx context.Context, messageIDs []uuid
 	if len(messageIDs) == 0 {
 		return make(map[uuid.UUID][]ReactionSummary), nil
 	}
-	return s.repo.GetBatchReactionSummary(ctx, messageIDs, currentUserID)
+	// Messages the user cannot reach are dropped silently: a batch is a bulk
+	// read for a visible message list, and one stray ID must not fail the rest.
+	reachable, err := s.repo.ReachableMessages(ctx, messageIDs, currentUserID)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, 0, len(reachable))
+	for _, id := range messageIDs {
+		if _, ok := reachable[id]; ok {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return make(map[uuid.UUID][]ReactionSummary), nil
+	}
+	return s.repo.GetBatchReactionSummary(ctx, ids, currentUserID)
+}
+
+// requireReachable returns the channel of the message, or ErrMessageNotFound if
+// the message is unknown for the tenant or sits in a private channel the user
+// has not joined.
+func (s *Service) requireReachable(ctx context.Context, messageID, userID uuid.UUID) (uuid.UUID, error) {
+	reachable, err := s.repo.ReachableMessages(ctx, []uuid.UUID{messageID}, userID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	channelID, ok := reachable[messageID]
+	if !ok {
+		return uuid.Nil, ErrMessageNotFound
+	}
+	return channelID, nil
 }
 
 // validateEmoji checks that the emoji string is non-empty and within the 32-byte limit.

@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -48,9 +49,93 @@ type globalSearchResult struct {
 	Error   string      `json:"error,omitempty"`
 }
 
+// globalSearchItem is the flat hit the desktop reads (GlobalSearchResultItem in
+// useGlobalSearch.ts), not the raw CRM/Documents proto.
+type globalSearchItem struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	URL         string `json:"url"`
+	EntityType  string `json:"entity_type,omitempty"`
+	MimeType    string `json:"mime_type,omitempty"`
+	FileName    string `json:"file_name,omitempty"`
+	ContentText string `json:"content_text,omitempty"`
+}
+
+// crmSearchURL points a CRM hit at the desktop route that opens it. The app has
+// no detail route for a contact (the list opens it via ?contact=) or for an
+// activity.
+func crmSearchURL(entityType, id string) string {
+	switch entityType {
+	case "contact":
+		return "/kontakte?contact=" + url.QueryEscape(id)
+	case "company":
+		return "/kontakte/firmen/" + url.PathEscape(id)
+	case "deal":
+		return "/kontakte/pipeline/" + url.PathEscape(id)
+	case "activity":
+		return "/kontakte/aktivitaeten"
+	default:
+		return "/kontakte"
+	}
+}
+
+// crmSearchReadKeys maps each CRM search entity type to the read keys of the
+// list route that shows the same rows (contactRead, companyRead, dealRead,
+// activityRead in route_crm.go). A search hit is a row of that list, so a caller
+// who may not open the list must not find its rows through a search either.
+var crmSearchReadKeys = []struct {
+	entityType string
+	keys       [][2]string
+}{
+	{"contact", [][2]string{{"contacts", "read"}, {"crm:contact", "read"}}},
+	{"company", [][2]string{{"companies", "read"}, {"crm:contact", "read"}}},
+	{"deal", [][2]string{{"deals", "read"}, {"crm:deal", "read"}}},
+	{"activity", [][2]string{{"activities", "read"}, {"crm:contact", "read"}}},
+}
+
+// Read keys of the other global-search sources, matching their own list routes
+// (docRead in route_document.go, boxRead in route_email.go).
+var (
+	documentSearchReadKeys = [][2]string{{"documents", "read"}, {"documents:file", "read"}}
+	emailSearchReadKeys    = [][2]string{{"email", "read"}, {"email:mailbox", "read"}}
+)
+
+func holdsAnyOf(ctx context.Context, keys [][2]string) bool {
+	return middleware.HoldsAnyPermission(ctx, keys[0], keys[1:]...)
+}
+
+// readableCRMSearchTypes narrows the requested CRM entity types (none = every
+// type) to those the caller may list. A type CRM does not know passes through
+// for the CRM service to reject. An empty result means nothing is readable:
+// never forward it, because an empty list asks CRM for every type.
+func readableCRMSearchTypes(ctx context.Context, requested []string) []string {
+	if len(requested) == 0 {
+		for _, t := range crmSearchReadKeys {
+			requested = append(requested, t.entityType)
+		}
+	}
+	readable := make([]string, 0, len(requested))
+	for _, et := range requested {
+		allowed := true
+		for _, t := range crmSearchReadKeys {
+			if t.entityType == et {
+				allowed = holdsAnyOf(ctx, t.keys)
+				break
+			}
+		}
+		if allowed {
+			readable = append(readable, et)
+		}
+	}
+	return readable
+}
+
 // HandleGlobalSearch fans out a search query to CRM, Documents, and Email
 // in parallel with a 500ms timeout. Each module's failure is isolated and
-// reported individually.
+// reported individually. search:read only opens the route: a source the caller
+// may not read in its own module is left out of the response, and CRM is asked
+// only for the entity types the caller may list.
 func (g *GlobalSearchRoutes) HandleGlobalSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	if query == "" {
@@ -73,35 +158,26 @@ func (g *GlobalSearchRoutes) HandleGlobalSearch(w http.ResponseWriter, r *http.R
 
 	var wg sync.WaitGroup
 
-	// CRM search
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		result := g.searchCRM(ctx, query, int32(limit))
-		mu.Lock()
-		results = append(results, result)
-		mu.Unlock()
-	}()
+	fanOut := func(search func() globalSearchResult) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := search()
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+		}()
+	}
 
-	// Document search
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		result := g.searchDocuments(ctx, query, int32(limit))
-		mu.Lock()
-		results = append(results, result)
-		mu.Unlock()
-	}()
-
-	// Email search
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		result := g.searchEmail(ctx, query, int32(limit))
-		mu.Lock()
-		results = append(results, result)
-		mu.Unlock()
-	}()
+	if crmTypes := readableCRMSearchTypes(ctx, nil); len(crmTypes) > 0 {
+		fanOut(func() globalSearchResult { return g.searchCRM(ctx, query, int32(limit), crmTypes) })
+	}
+	if holdsAnyOf(ctx, documentSearchReadKeys) {
+		fanOut(func() globalSearchResult { return g.searchDocuments(ctx, query, int32(limit)) })
+	}
+	if holdsAnyOf(ctx, emailSearchReadKeys) {
+		fanOut(func() globalSearchResult { return g.searchEmail(ctx, query, int32(limit)) })
+	}
 
 	wg.Wait()
 
@@ -111,7 +187,7 @@ func (g *GlobalSearchRoutes) HandleGlobalSearch(w http.ResponseWriter, r *http.R
 	})
 }
 
-func (g *GlobalSearchRoutes) searchCRM(ctx context.Context, query string, limit int32) globalSearchResult {
+func (g *GlobalSearchRoutes) searchCRM(ctx context.Context, query string, limit int32, entityTypes []string) globalSearchResult {
 	conn, err := g.registry.GetConnection("crm")
 	if err != nil {
 		return globalSearchResult{Module: "crm", Error: "service unavailable"}
@@ -119,17 +195,28 @@ func (g *GlobalSearchRoutes) searchCRM(ctx context.Context, query string, limit 
 
 	client := crmv1.NewCRMServiceClient(conn)
 	resp, err := client.Search(ctx, &crmv1.SearchRequest{
-		Query: query,
-		Limit: limit,
+		Query:       query,
+		EntityTypes: entityTypes,
+		Limit:       limit,
 	})
 	if err != nil {
 		return globalSearchResult{Module: "crm", Error: "search failed"}
 	}
 
+	items := make([]globalSearchItem, 0, len(resp.Results))
+	for _, hit := range resp.Results {
+		items = append(items, globalSearchItem{
+			ID:          hit.GetId(),
+			Title:       hit.GetTitle(),
+			Description: hit.GetSubtitle(),
+			URL:         crmSearchURL(hit.GetEntityType(), hit.GetId()),
+			EntityType:  hit.GetEntityType(),
+		})
+	}
 	return globalSearchResult{
 		Module:  "crm",
-		Results: resp.Results,
-		Total:   int32(len(resp.Results)),
+		Results: items,
+		Total:   int32(len(items)),
 	}
 }
 
@@ -149,9 +236,21 @@ func (g *GlobalSearchRoutes) searchDocuments(ctx context.Context, query string, 
 		return globalSearchResult{Module: "documents", Error: "search failed"}
 	}
 
+	// The documents page has no deep link to a single file, so every hit opens the page.
+	items := make([]globalSearchItem, 0, len(resp.Results))
+	for _, hit := range resp.Results {
+		items = append(items, globalSearchItem{
+			ID:          hit.GetFile().GetId(),
+			Title:       hit.GetFile().GetFilename(),
+			URL:         "/dokumente",
+			FileName:    hit.GetFile().GetFilename(),
+			MimeType:    hit.GetFile().GetMimeType(),
+			ContentText: hit.GetSnippet(),
+		})
+	}
 	return globalSearchResult{
 		Module:  "documents",
-		Results: resp.Results,
+		Results: items,
 		Total:   resp.Total,
 	}
 }

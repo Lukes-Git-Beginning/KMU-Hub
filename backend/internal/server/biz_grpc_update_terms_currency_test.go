@@ -67,3 +67,26 @@ func TestUpdateQuote_CarriesCurrency(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "USD", resp.GetQuote().GetCurrency())
 }
+
+func TestUpdateInvoice_DueDateBeatsNumericTermsAndFreeTextIsKept(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newStubInvoiceRepo()
+	inv := draftInvoice(tenantID)
+	repo.invoices[inv.ID] = inv
+	srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+
+	resp, err := srv.UpdateInvoice(context.Background(), &bizv1.UpdateInvoiceRequest{
+		TenantId: tenantID.String(), Id: inv.ID.String(),
+		InvoiceDate: "2026-05-01", PaymentTerms: "14 Tage netto", DueDate: "2026-05-09",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "2026-05-09", resp.GetInvoice().GetDueDate(), "due_date wins over the days in payment_terms")
+	assert.Equal(t, "14 Tage netto", resp.GetInvoice().GetPaymentTerms())
+
+	resp, err = srv.UpdateInvoice(context.Background(), &bizv1.UpdateInvoiceRequest{
+		TenantId: tenantID.String(), Id: inv.ID.String(), PaymentTerms: "Sofort fällig",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Sofort fällig", resp.GetInvoice().GetPaymentTerms(), "terms without a number are kept as text")
+	assert.Equal(t, "2026-05-09", resp.GetInvoice().GetDueDate())
+}

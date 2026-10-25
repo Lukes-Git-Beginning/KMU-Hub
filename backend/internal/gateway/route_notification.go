@@ -593,9 +593,17 @@ type updateQuietHoursRequest struct {
 	Enabled    *bool  `json:"enabled"`
 }
 
+// completeFields reports whether the body names every field of the schedule. A
+// partial PUT (just the switch, just the times) must not reset the rest.
+func (req updateQuietHoursRequest) completeFields() bool {
+	return req.StartTime != "" && req.EndTime != "" && req.Timezone != "" &&
+		(req.Days != nil || req.DaysOfWeek != nil) && (req.IsActive != nil || req.Enabled != nil)
+}
+
 // quietHoursRPCFields resolves the weekdays (ISO) and the switch of an update body.
-// Without any weekday the schedule applies every day; without a switch it is off.
-func (req updateQuietHoursRequest) quietHoursRPCFields() (days []int32, enabled bool, ok bool) {
+// What the body leaves out keeps the value of current (the stored record or the form
+// defaults).
+func (req updateQuietHoursRequest) quietHoursRPCFields(current *notificationv1.QuietHoursInfo) (days []int32, enabled bool, ok bool) {
 	switch {
 	case req.Days != nil:
 		days, ok = desktopDaysToISO(req.Days)
@@ -608,13 +616,15 @@ func (req updateQuietHoursRequest) quietHoursRPCFields() (days []int32, enabled 
 			days[i] = int32(d)
 		}
 	default:
-		days = []int32{1, 2, 3, 4, 5, 6, 7}
+		days = current.GetDaysOfWeek()
 	}
 	switch {
 	case req.IsActive != nil:
 		enabled = *req.IsActive
 	case req.Enabled != nil:
 		enabled = *req.Enabled
+	default:
+		enabled = current.GetEnabled()
 	}
 	return days, enabled, true
 }
@@ -633,22 +643,38 @@ func (n *NotificationRoutes) HandleUpdateQuietHours(w http.ResponseWriter, r *ht
 		return
 	}
 
-	daysOfWeek, enabled, ok := req.quietHoursRPCFields()
+	current := quietHoursOrDefault(nil)
+	if !req.completeFields() {
+		got, err := client.GetQuietHours(r.Context(), &notificationv1.GetQuietHoursRequest{UserId: userID})
+		if err != nil {
+			respondGRPCError(w, err)
+			return
+		}
+		current = quietHoursOrDefault(got.GetQuietHours())
+	}
+
+	daysOfWeek, enabled, ok := req.quietHoursRPCFields(current)
 	if !ok {
 		response.Error(w, http.StatusBadRequest, "days must be between 0 (Sunday) and 6 (Saturday)")
 		return
 	}
-	// lean: the desktop form has no timezone field; default to the product locale
-	// rather than UTC. Per-user timezone once the form offers one.
-	timezone := req.Timezone
+	startTime, endTime, timezone := req.StartTime, req.EndTime, req.Timezone
+	if startTime == "" {
+		startTime = current.GetStartTime()
+	}
+	if endTime == "" {
+		endTime = current.GetEndTime()
+	}
+	// lean: the desktop form has no timezone field; a first save falls back to the
+	// product locale rather than UTC. Per-user timezone once the form offers one.
 	if timezone == "" {
-		timezone = defaultQuietTimezone
+		timezone = current.GetTimezone()
 	}
 
 	resp, err := client.UpdateQuietHours(r.Context(), &notificationv1.UpdateQuietHoursRequest{
 		UserId:     userID,
-		StartTime:  req.StartTime,
-		EndTime:    req.EndTime,
+		StartTime:  startTime,
+		EndTime:    endTime,
 		Timezone:   timezone,
 		DaysOfWeek: daysOfWeek,
 		Enabled:    enabled,

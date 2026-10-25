@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/work/project"
@@ -20,7 +22,21 @@ type Service struct {
 	repo         Repository
 	projectRepo  project.Repository
 	eventEmitter EventEmitter
+	// openProjects: a project member-less caller may work on the tasks of any
+	// project of the tenant (see SetOpenProjects).
+	openProjects bool
+	// fileSigner presigns task file downloads; nil = no object store.
+	fileSigner FileURLSigner
 }
+
+// FileURLSigner hands out a time-limited download URL for a stored object.
+// chat/file.MinIOStore satisfies it.
+type FileURLSigner interface {
+	GetPresignedURL(ctx context.Context, key string, expiry time.Duration) (string, error)
+}
+
+// fileURLExpiry matches the chat file download URLs.
+const fileURLExpiry = 15 * time.Minute
 
 // NewService creates a new task service
 func NewService(repo Repository, projectRepo project.Repository) *Service {
@@ -33,6 +49,105 @@ func NewService(repo Repository, projectRepo project.Repository) *Service {
 // SetEventEmitter sets the optional event emitter for notification events.
 func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
+}
+
+// SetFileSigner wires the object store task file downloads are presigned with.
+func (s *Service) SetFileSigner(signer FileURLSigner) {
+	s.fileSigner = signer
+}
+
+// AttachFile records a file the caller uploaded beforehand through
+// POST /files/upload (without a channel). The storage keys are client-supplied,
+// so they must be uploads of the caller's own tenant — otherwise a task could
+// point at another tenant's object and hand out a download URL for it. Like
+// every other task write it needs project edit rights on the task's project.
+// lean: file_size is taken as sent, not checked against the object; the quota
+// was charged with the real size at upload. Stat the object if the size ever
+// feeds billing.
+func (s *Service) AttachFile(ctx context.Context, tenantID, actorID uuid.UUID, f *models.TaskFile) error {
+	if !chatfile.IsTenantUpload(tenantID, f.StorageKey) ||
+		(f.ThumbnailKey != nil && !chatfile.IsTenantUpload(tenantID, *f.ThumbnailKey)) {
+		return ErrForeignStorageKey
+	}
+	if err := s.requireTaskEditor(ctx, tenantID, f.TaskID, actorID); err != nil {
+		return err
+	}
+	f.TenantID = tenantID
+	return s.repo.AttachFile(ctx, f)
+}
+
+// RemoveFile deletes a task file record of the caller's tenant. Same edit-right
+// rule as AttachFile; a file of another tenant is ErrFileNotFound.
+// lean: the stored object and the quota are not released here; see the
+// document cleanup path if task files ever need reclaiming.
+func (s *Service) RemoveFile(ctx context.Context, tenantID, actorID, fileID uuid.UUID) error {
+	f, err := s.repo.GetFile(ctx, tenantID, fileID)
+	if err != nil {
+		return err
+	}
+	if err := s.requireTaskEditor(ctx, tenantID, f.TaskID, actorID); err != nil {
+		return err
+	}
+	return s.repo.RemoveFile(ctx, tenantID, fileID)
+}
+
+// requireTaskEditor applies the rule Update uses: a task with a project needs
+// project edit rights, a project-less task is open to every caller of the tenant.
+func (s *Service) requireTaskEditor(ctx context.Context, tenantID, taskID, actorID uuid.UUID) error {
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
+	if err != nil {
+		return err
+	}
+	if existing.ProjectID == nil {
+		return nil
+	}
+	return s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID)
+}
+
+// GetFileDownloadURL presigns the download of a task file of the caller's
+// tenant. Reading the file needs no more than reading the task's file list.
+func (s *Service) GetFileDownloadURL(ctx context.Context, tenantID, fileID uuid.UUID) (string, error) {
+	if s.fileSigner == nil {
+		return "", ErrFileStoreUnavailable
+	}
+	f, err := s.repo.GetFile(ctx, tenantID, fileID)
+	if err != nil {
+		return "", err
+	}
+	return s.fileSigner.GetPresignedURL(ctx, f.StorageKey, fileURLExpiry)
+}
+
+// SetOpenProjects makes every project of the tenant editable for any caller who
+// reached the service through a project permission: a missing membership then
+// counts as editor. An explicit viewer membership still blocks writes. The
+// server passes the same switch it hands the project service as isAdmin, so
+// "I can see this project" and "I can work in it" never diverge.
+func (s *Service) SetOpenProjects(open bool) {
+	s.openProjects = open
+}
+
+// requireProjectEditor is the one membership check for every task write.
+// Closed (default): the actor must be a member and not a viewer. Open: a
+// non-member is an editor, but the project must exist in the tenant — the
+// membership lookup used to be the only thing that kept a foreign project ID out.
+func (s *Service) requireProjectEditor(ctx context.Context, projectID, tenantID, actorID uuid.UUID) error {
+	member, err := s.projectRepo.GetMember(ctx, projectID, actorID)
+	if err != nil {
+		if !s.openProjects {
+			return ErrNotProjectMember
+		}
+		if !errors.Is(err, project.ErrNotProjectMember) {
+			return fmt.Errorf("project member: %w", err)
+		}
+		if _, getErr := s.projectRepo.GetByID(ctx, projectID, tenantID); getErr != nil {
+			return fmt.Errorf("project: %w", getErr)
+		}
+		return nil
+	}
+	if member.Role == models.ProjectRoleViewer {
+		return ErrViewerCannotEdit
+	}
+	return nil
 }
 
 // resolveActorName best-effort resolves a user's display name for event actor
@@ -88,12 +203,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 
 	// Check project membership if project_id is set
 	if input.ProjectID != nil {
-		member, err := s.projectRepo.GetMember(ctx, *input.ProjectID, input.CreatedBy)
-		if err != nil {
-			return nil, ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return nil, ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *input.ProjectID, input.TenantID, input.CreatedBy); err != nil {
+			return nil, err
 		}
 	}
 
@@ -193,16 +304,39 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	return s.repo.GetByID(ctx, task.ID, input.TenantID)
 }
 
+// statusForClosedFlag resolves "complete"/"reopen" to a concrete status of the task's
+// project. nil means the task already is in the requested state.
+func (s *Service) statusForClosedFlag(ctx context.Context, tenantID uuid.UUID, existing *models.TaskWithRelations, closed bool) (*uuid.UUID, error) {
+	if existing.ProjectID == nil {
+		return nil, ErrTaskWithoutProject
+	}
+	if existing.StatusID != nil && existing.StatusIsClosed == closed {
+		return nil, nil
+	}
+	id, err := s.repo.FirstStatusByClosed(ctx, tenantID, *existing.ProjectID, closed)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
 // UpdateInput contains the data that can be updated on a task
 type UpdateInput struct {
-	Title       *string
-	Description *string
-	StatusID    *uuid.UUID
-	Priority    *string
-	AssigneeID  *uuid.UUID // uuid.Nil to clear
-	StartDate   *time.Time
-	DueDate     *time.Time
-	SortOrder   *float64
+	Title        *string
+	Description  *string
+	StatusID     *uuid.UUID
+	Priority     *string
+	AssigneeID   *uuid.UUID // uuid.Nil to clear
+	StartDate    *time.Time
+	DueDate      *time.Time
+	ClearDueDate bool // removes the due date; wins over DueDate
+	// IsClosed completes (true) or reopens (false) the task by moving it to the
+	// project's first closed/open status; ignored when StatusID is set.
+	IsClosed *bool
+	// ProjectID moves a task that has no project (and no parent/subtasks) into the project.
+	// The task gets the next task number and the first open status of that project.
+	ProjectID *uuid.UUID
+	SortOrder    *float64
 }
 
 // Update updates an existing task
@@ -214,19 +348,59 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 
 	// Check project membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return nil, ErrNotProjectMember
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return nil, err
 		}
-		if member.Role == models.ProjectRoleViewer {
-			return nil, ErrViewerCannotEdit
+	}
+
+	// lean: no race guard against two concurrent moves of the same task; the (project_id,
+	// task_number) unique index keeps numbers consistent, the last move wins. Guard in
+	// Repository.Update (WHERE project_id IS NOT DISTINCT FROM old) if that ever matters.
+	moveTo := input.ProjectID
+	if moveTo != nil && existing.ProjectID != nil && *existing.ProjectID == *moveTo {
+		moveTo = nil // already there
+	}
+	if moveTo != nil {
+		// lean: a task with a parent or subtasks stays put; moving a subtree needs
+		// per-task numbers and is its own decision.
+		if existing.ProjectID != nil || existing.ParentTaskID != nil || existing.SubtaskCount > 0 {
+			return nil, ErrCannotMoveToProject
 		}
+		// Tenant-scoped lookup first: a foreign project id must read as not found.
+		if _, getErr := s.projectRepo.GetByID(ctx, *moveTo, tenantID); getErr != nil {
+			return nil, fmt.Errorf("project: %w", getErr)
+		}
+		if err := s.requireProjectEditor(ctx, *moveTo, tenantID, actorID); err != nil {
+			return nil, err
+		}
+		openStatus, statusErr := s.repo.FirstStatusByClosed(ctx, tenantID, *moveTo, false)
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		input.StatusID = &openStatus
+	}
+
+	if input.IsClosed != nil && input.StatusID == nil {
+		statusID, resolveErr := s.statusForClosedFlag(ctx, tenantID, existing, *input.IsClosed)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		input.StatusID = statusID
 	}
 
 	task := &existing.Task
 	// GetByID does not scan tenant_id, but repo.Update filters on it — restore
 	// it from the (already tenant-verified) lookup, or the UPDATE matches 0 rows.
 	task.TenantID = tenantID
+
+	if moveTo != nil {
+		number, numErr := s.repo.GetNextTaskNumber(ctx, tenantID, *moveTo)
+		if numErr != nil {
+			return nil, numErr
+		}
+		task.ProjectID = moveTo
+		task.TaskNumber = number
+	}
 
 	if input.Title != nil {
 		title := strings.TrimSpace(*input.Title)
@@ -308,7 +482,12 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		task.Priority = *input.Priority
 	}
 
-	if input.DueDate != nil {
+	if input.ClearDueDate {
+		if task.DueDate != nil {
+			_ = s.logFieldChange(ctx, taskID, actorID, models.TaskActionDueDateChanged, "due_date", task.DueDate.Format(time.DateOnly), "")
+			task.DueDate = nil
+		}
+	} else if input.DueDate != nil {
 		old := ""
 		if task.DueDate != nil {
 			old = task.DueDate.Format(time.DateOnly)
@@ -396,12 +575,8 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 
 	// Check membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return err
 		}
 	}
 
@@ -473,12 +648,8 @@ func (s *Service) Delete(ctx context.Context, tenantID, taskID uuid.UUID, actorI
 
 	// Check project membership
 	if existing.ProjectID != nil {
-		member, memberErr := s.projectRepo.GetMember(ctx, *existing.ProjectID, actorID)
-		if memberErr != nil {
-			return ErrNotProjectMember
-		}
-		if member.Role == models.ProjectRoleViewer {
-			return ErrViewerCannotEdit
+		if err := s.requireProjectEditor(ctx, *existing.ProjectID, tenantID, actorID); err != nil {
+			return err
 		}
 	}
 
@@ -580,8 +751,19 @@ func (s *Service) ListMyTasks(ctx context.Context, tenantID, userID uuid.UUID, f
 	return s.repo.List(ctx, tenantID, filters)
 }
 
-// CreateFromTemplate copies all tasks from a source project into a target project
-func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID) error {
+// CreateFromTemplate copies all tasks (and their dependencies) from a source
+// project into a target project. statusMap translates a source status ID to the
+// matching status of the target project (statuses belong to one project); a task
+// whose status has no entry lands without a status instead of pointing into the
+// source project. Assignee and dates are deliberately not carried over.
+func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID, statusMap map[uuid.UUID]uuid.UUID) error {
+	// Both projects must belong to the caller's tenant before anything is read or written.
+	for _, id := range []uuid.UUID{sourceProjectID, targetProjectID} {
+		if _, err := s.projectRepo.GetByID(ctx, id, tenantID); err != nil {
+			return fmt.Errorf("project: %w", err)
+		}
+	}
+
 	// Get all tasks from source project (ordered by depth ASC to process parents first)
 	sourceTasks, err := s.repo.ListByProject(ctx, sourceProjectID)
 	if err != nil {
@@ -613,13 +795,21 @@ func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjec
 			}
 		}
 
+		var statusID *uuid.UUID
+		if src.StatusID != nil {
+			if mapped, ok := statusMap[*src.StatusID]; ok {
+				statusID = &mapped
+			}
+		}
+
 		newTask := &models.Task{
 			ID:           newID,
+			TenantID:     tenantID,
 			ProjectID:    &targetProjectID,
 			TaskNumber:   taskNumber,
 			Title:        src.Title,
 			Description:  src.Description,
-			StatusID:     src.StatusID,
+			StatusID:     statusID,
 			Priority:     src.Priority,
 			ParentTaskID: parentID,
 			Depth:        src.Depth,

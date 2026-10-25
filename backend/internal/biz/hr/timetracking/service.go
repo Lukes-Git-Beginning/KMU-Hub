@@ -690,12 +690,33 @@ func (s *Service) GetTimeAnalytics(ctx context.Context, tenantID, employeeID uui
 // Team Time
 // ============================================================================
 
-// GetTeamTime returns aggregated weekly time for all employees of the tenant.
-func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time) ([]TeamTimeEntry, error) {
+// listAllEmployees pages through employeeRepo.List. The repository caps a page at 100 rows
+// and falls back to 20 for anything larger, so a single call with PerPage 500 silently
+// returned 20 employees.
+func (s *Service) listAllEmployees(ctx context.Context, filter employee.EmployeeFilter) ([]*models.EmployeeProfile, error) {
+	const pageSize = 100
+	filter.PerPage = pageSize
+	var all []*models.EmployeeProfile
+	for filter.Page = 1; ; filter.Page++ {
+		page, total, err := s.employeeRepo.List(ctx, filter)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) == 0 || len(all) >= total {
+			return all, nil
+		}
+	}
+}
+
+// GetTeamTime returns aggregated weekly time for the employees of the tenant. A non-nil
+// managerUserID narrows the list to that manager's reporting line (hr_employee_profiles.
+// manager_user_id), applied in the employee query; nil lists everyone.
+func (s *Service) GetTeamTime(ctx context.Context, tenantID uuid.UUID, weekStart time.Time, managerUserID *uuid.UUID) ([]TeamTimeEntry, error) {
 	// Ensure Monday
 	weekStart = s.weekStartForDate(ctx, tenantID, weekStart)
 
-	employees, _, listErr := s.employeeRepo.List(ctx, employee.EmployeeFilter{TenantID: tenantID, Page: 1, PerPage: 500})
+	employees, listErr := s.listAllEmployees(ctx, employee.EmployeeFilter{TenantID: tenantID, ManagerUserID: managerUserID})
 	if listErr != nil {
 		return nil, listErr
 	}

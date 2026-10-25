@@ -24,13 +24,11 @@ import (
 //     downstream CRMService/DocumentService enforce RLS on it. That is the
 //     established thick-service pattern for this codebase, not a gap specific
 //     to global search.
-//  2. Permission is checked exactly once, at the route group
-//     (RequirePermission("search", "read"), route_search_global.go:39) — there
-//     is no per-module permission check inside HandleGlobalSearch itself. All
-//     three fanned-out RPCs (CRMService.Search, DocumentService.SearchFiles)
-//     receive the same caller identity and are expected to apply their own
-//     module-level authorization downstream, same as any other cross-module
-//     read in this gateway. Not a per-route problem to fix here.
+//  2. search:read only opens the route. HandleGlobalSearch asks each source
+//     only when the caller holds that source's own read key, and CRM only for
+//     the entity types the caller may list — pinned in
+//     route_search_permission_test.go. The tests below carry every read key
+//     (searchAllSourcesPerms) so all three modules are asked.
 //
 // No bufconn stub exists in this repo for CRMServiceClient/DocumentServiceClient
 // (same limitation noted in route_booking_admin_test.go), so the RPC calls
@@ -39,6 +37,9 @@ import (
 // still answers 200, which is exactly the behaviour under test.
 
 var _ RouteRegistrar = (*GlobalSearchRoutes)(nil)
+
+// searchAllSourcesPerms holds a read key of every global-search source.
+var searchAllSourcesPerms = []string{"contacts:read", "companies:read", "deals:read", "activities:read", "documents:read", "email:read"}
 
 type globalSearchTestModule struct {
 	Module  string `json:"module"`
@@ -97,7 +98,7 @@ func TestHandleGlobalSearch_EmptyQuery_BadRequest(t *testing.T) {
 func TestHandleGlobalSearch_EmptyRegistry_AllModulesReportUnavailable(t *testing.T) {
 	routes := NewGlobalSearchRoutes(emptyRegistry())
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil)
+	req := withPermissions(httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil), searchAllSourcesPerms...)
 	routes.HandleGlobalSearch(rec, req)
 	assertStatus(t, rec, http.StatusOK)
 
@@ -126,7 +127,7 @@ func TestHandleGlobalSearch_RegisteredServices_RPCFailureIsolatedPerModule(t *te
 	routes := NewGlobalSearchRoutes(reg)
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil)
+	req := withPermissions(httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil), searchAllSourcesPerms...)
 	routes.HandleGlobalSearch(rec, req)
 	assertStatus(t, rec, http.StatusOK)
 
@@ -148,7 +149,7 @@ func TestHandleGlobalSearch_EmailModule_AlwaysEmptyStub(t *testing.T) {
 	// deliberate diff, not a silent behaviour shift.
 	routes := NewGlobalSearchRoutes(emptyRegistry())
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil)
+	req := withPermissions(httptest.NewRequest(http.MethodGet, "/api/v1/search/global?q=acme", nil), searchAllSourcesPerms...)
 	routes.HandleGlobalSearch(rec, req)
 	assertStatus(t, rec, http.StatusOK)
 

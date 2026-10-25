@@ -640,6 +640,16 @@ func (s *Service) CreateSwapRequest(ctx context.Context, input CreateSwapRequest
 		return nil, ErrInvalidInput
 	}
 
+	// The assignment must be the requester's own seat on this very shift; the
+	// body fields are client-supplied and otherwise name any assignment.
+	own, err := s.repo.GetAssignment(ctx, input.TenantID, input.ShiftID, input.RequestedByEmployeeID)
+	if err != nil {
+		return nil, err
+	}
+	if own.ID != input.AssignmentID {
+		return nil, ErrAssignmentNotFound
+	}
+
 	now := time.Now()
 	req := &SwapRequest{
 		ID:                    uuid.New(),

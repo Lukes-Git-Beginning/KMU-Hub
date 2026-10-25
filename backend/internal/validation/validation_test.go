@@ -89,3 +89,28 @@ func TestErrorBody_NonValidationError(t *testing.T) {
 		t.Error("ErrorBody: want ok=false for non-validation error")
 	}
 }
+
+func TestValidate_ClearableRules(t *testing.T) {
+	type form struct {
+		Kind  *string `json:"kind" validate:"omitempty,clearable_oneof=a b"`
+		Phone *string `json:"phone" validate:"omitempty,clearable_phone_dach"`
+	}
+	str := func(s string) *string { return &s }
+
+	cases := []struct {
+		name string
+		in   form
+		ok   bool
+	}{
+		{"nil passes", form{}, true},
+		{"empty clears", form{Kind: str(""), Phone: str("")}, true},
+		{"allowed value", form{Kind: str("b"), Phone: str("+49 711 4455660")}, true},
+		{"unknown value", form{Kind: str("c")}, false},
+		{"bad phone", form{Phone: str("abc")}, false},
+	}
+	for _, tc := range cases {
+		if err := Validate(&tc.in); (err == nil) != tc.ok {
+			t.Errorf("%s: err = %v, want ok=%v", tc.name, err, tc.ok)
+		}
+	}
+}

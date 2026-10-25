@@ -16,11 +16,14 @@ type Repository interface {
 	GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error)
 	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error)
 	GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (string, error)
+	// AttachToMessage binds pre-send uploads (message_id NULL) to the message they were sent with.
+	AttachToMessage(ctx context.Context, ids []uuid.UUID, messageID uuid.UUID, tenantID uuid.UUID) error
 }
 
 // ObjectStore defines the interface for attachment file storage (MinIO).
 type ObjectStore interface {
 	Upload(ctx context.Context, accountID uuid.UUID, messageUID uint32, filename string, reader io.Reader, size int64, contentType string) (string, error)
+	Download(ctx context.Context, minioKey string) (io.ReadCloser, error)
 	GetPresignedURL(ctx context.Context, minioKey string, expiry time.Duration) (string, error)
 	Delete(ctx context.Context, minioKey string) error
 }

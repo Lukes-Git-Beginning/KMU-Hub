@@ -485,12 +485,13 @@ func seedEmailFolder(repo *stubFolderRepo, accountID uuid.UUID) *models.EmailFol
 }
 
 func TestListFolders(t *testing.T) {
-	accountID := uuid.New()
+	accountRepo, tenantID := newStubAccountRepo(), uuid.New()
+	accountID := seedEmailAccount(accountRepo, tenantID, testMailboxOwner, true).ID
 	folderRepo := newStubFolderRepo()
 	seedEmailFolder(folderRepo, accountID)
-	srv := newTestEmailAccountsServer(newStubAccountRepo(), folderRepo)
+	srv := newTestEmailAccountsServer(accountRepo, folderRepo)
 
-	resp, err := srv.ListFolders(context.Background(), &emailv1.ListFoldersRequest{AccountId: accountID.String()})
+	resp, err := srv.ListFolders(mailboxCtx(tenantID), &emailv1.ListFoldersRequest{AccountId: accountID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Folders, 1)
 	require.Equal(t, "INBOX", resp.Folders[0].Name)
@@ -504,11 +505,12 @@ func TestListFolders_InvalidAccountID(t *testing.T) {
 }
 
 func TestGetFolder(t *testing.T) {
+	accountRepo, tenantID := newStubAccountRepo(), uuid.New()
 	folderRepo := newStubFolderRepo()
-	f := seedEmailFolder(folderRepo, uuid.New())
-	srv := newTestEmailAccountsServer(newStubAccountRepo(), folderRepo)
+	f := seedEmailFolder(folderRepo, seedEmailAccount(accountRepo, tenantID, testMailboxOwner, true).ID)
+	srv := newTestEmailAccountsServer(accountRepo, folderRepo)
 
-	resp, err := srv.GetFolder(context.Background(), &emailv1.GetFolderRequest{Id: f.ID.String()})
+	resp, err := srv.GetFolder(mailboxCtx(tenantID), &emailv1.GetFolderRequest{Id: f.ID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, f.ID.String(), resp.Folder.Id)
 }
@@ -521,14 +523,15 @@ func TestGetFolder_NotFound(t *testing.T) {
 }
 
 func TestSyncFolders(t *testing.T) {
-	accountID := uuid.New()
+	accountRepo, tenantID := newStubAccountRepo(), uuid.New()
+	accountID := seedEmailAccount(accountRepo, tenantID, testMailboxOwner, true).ID
 	folderRepo := newStubFolderRepo()
 	seedEmailFolder(folderRepo, accountID)
-	srv := newTestEmailAccountsServer(newStubAccountRepo(), folderRepo)
+	srv := newTestEmailAccountsServer(accountRepo, folderRepo)
 
 	// No worker is registered for accountID, so the engine's TriggerSync call
 	// inside SyncFolders is a documented no-op -- it must not error or panic.
-	resp, err := srv.SyncFolders(context.Background(), &emailv1.SyncFoldersRequest{AccountId: accountID.String()})
+	resp, err := srv.SyncFolders(mailboxCtx(tenantID), &emailv1.SyncFoldersRequest{AccountId: accountID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Folders, 1)
 }
@@ -541,9 +544,11 @@ func TestSyncFolders_InvalidAccountID(t *testing.T) {
 }
 
 func TestTriggerSync(t *testing.T) {
-	srv := newTestEmailAccountsServer(newStubAccountRepo(), newStubFolderRepo())
+	accountRepo, tenantID := newStubAccountRepo(), uuid.New()
+	accountID := seedEmailAccount(accountRepo, tenantID, testMailboxOwner, true).ID
+	srv := newTestEmailAccountsServer(accountRepo, newStubFolderRepo())
 
-	resp, err := srv.TriggerSync(context.Background(), &emailv1.TriggerSyncRequest{AccountId: uuid.NewString()})
+	resp, err := srv.TriggerSync(mailboxCtx(tenantID), &emailv1.TriggerSyncRequest{AccountId: accountID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, "started", resp.Status)
 }
@@ -556,9 +561,11 @@ func TestTriggerSync_InvalidAccountID(t *testing.T) {
 }
 
 func TestGetSyncStatus_Idle(t *testing.T) {
-	srv := newTestEmailAccountsServer(newStubAccountRepo(), newStubFolderRepo())
+	accountRepo, tenantID := newStubAccountRepo(), uuid.New()
+	accountID := seedEmailAccount(accountRepo, tenantID, testMailboxOwner, true).ID
+	srv := newTestEmailAccountsServer(accountRepo, newStubFolderRepo())
 
-	resp, err := srv.GetSyncStatus(context.Background(), &emailv1.GetSyncStatusRequest{AccountId: uuid.NewString()})
+	resp, err := srv.GetSyncStatus(mailboxCtx(tenantID), &emailv1.GetSyncStatusRequest{AccountId: accountID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, "idle", resp.Status)
 }

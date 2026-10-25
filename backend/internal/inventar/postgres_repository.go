@@ -601,7 +601,7 @@ func (r *PostgresRepository) CompleteInventurSessionTx(ctx context.Context, tena
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
 
-	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
+	items, _, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
 	if err != nil {
 		return nil, err
 	}
@@ -625,21 +625,21 @@ func (r *PostgresRepository) CompleteInventurSessionTx(ctx context.Context, tena
 
 // ApplyStockMovementsTx applies the movements atomically, all or none; see
 // applyMovementsInTx for the locking and insufficient-stock semantics.
-func (r *PostgresRepository) ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+func (r *PostgresRepository) ApplyStockMovementsTx(ctx context.Context, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, []*Movement, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return nil, fmt.Errorf("begin stock movement tx: %w", err)
+		return nil, nil, fmt.Errorf("begin stock movement tx: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op once committed
 
-	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
+	items, rows, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit stock movement tx: %w", err)
+		return nil, nil, fmt.Errorf("commit stock movement tx: %w", err)
 	}
-	return items, nil
+	return items, rows, nil
 }
 
 // applyMovementsInTx applies each movement under the given transaction: the
@@ -651,7 +651,7 @@ func (r *PostgresRepository) ApplyStockMovementsTx(ctx context.Context, tenantID
 // With more than one item the rows are locked up front in id order, so two
 // transactions touching the same items in opposite order (a transfer A->B
 // against B->A, two picking lists) queue instead of deadlocking.
-func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, error) {
+func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, movements []StockMovementInput) ([]*Item, []*Movement, error) {
 	if len(movements) > 1 {
 		ids := make([]uuid.UUID, 0, len(movements))
 		for _, mv := range movements {
@@ -664,54 +664,77 @@ func (r *PostgresRepository) applyMovementsInTx(ctx context.Context, tx pgx.Tx, 
 			 FOR UPDATE`,
 			ids, tenantID,
 		); err != nil {
-			return nil, fmt.Errorf("lock items for stock movements: %w", err)
+			return nil, nil, fmt.Errorf("lock items for stock movements: %w", err)
 		}
 	}
 
 	items := make([]*Item, 0, len(movements))
+	rows := make([]*Movement, 0, len(movements))
 	for _, mv := range movements {
+		// Locks the row and reads every column, so the caller gets the full
+		// item (and the movement below) from the transaction instead of a
+		// second read after the commit.
 		var it Item
 		err := tx.QueryRow(ctx,
-			`SELECT id, tenant_id, quantity, min_quantity
+			`SELECT id, tenant_id, name, sku, barcode, quantity, min_quantity, unit, location, location_id,
+			        category, price, currency, batch_number, serial_numbers, linked_purchase_order,
+			        created_at, updated_at, deleted_at
 			 FROM inventory_items
 			 WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 			 FOR UPDATE`,
 			mv.ItemID, tenantID,
-		).Scan(&it.ID, &it.TenantID, &it.Quantity, &it.MinQuantity)
+		).Scan(
+			&it.ID, &it.TenantID, &it.Name, &it.SKU, &it.Barcode,
+			&it.Quantity, &it.MinQuantity, &it.Unit, &it.Location, &it.LocationID,
+			&it.Category, &it.Price, &it.Currency, &it.BatchNumber, &it.SerialNumbers, &it.LinkedPurchaseOrder,
+			&it.CreatedAt, &it.UpdatedAt, &it.DeletedAt,
+		)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrItemNotFound
+			return nil, nil, ErrItemNotFound
 		}
 		if err != nil {
-			return nil, fmt.Errorf("lock item for stock movement: %w", err)
+			return nil, nil, fmt.Errorf("lock item for stock movement: %w", err)
 		}
 		if it.Quantity+mv.Delta < 0 {
-			return nil, fmt.Errorf("%w: item %s has %d, requested %d",
+			return nil, nil, fmt.Errorf("%w: item %s has %d, requested %d",
 				ErrInsufficientStock, mv.ItemID, it.Quantity, -mv.Delta)
 		}
 		it.Quantity += mv.Delta
 
-		if _, err := tx.Exec(ctx,
-			`UPDATE inventory_items SET quantity = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		if err := tx.QueryRow(ctx,
+			`UPDATE inventory_items SET quantity = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3
+			 RETURNING updated_at`,
 			it.Quantity, mv.ItemID, tenantID,
-		); err != nil {
-			return nil, fmt.Errorf("update item quantity in tx: %w", err)
+		).Scan(&it.UpdatedAt); err != nil {
+			return nil, nil, fmt.Errorf("update item quantity in tx: %w", err)
 		}
 
 		movementID := mv.ID
 		if movementID == uuid.Nil {
 			movementID = uuid.New()
 		}
-		if _, err := tx.Exec(ctx,
+		row := Movement{
+			ID:           movementID,
+			TenantID:     tenantID,
+			ItemID:       mv.ItemID,
+			MovementType: mv.MovementType,
+			Quantity:     mv.Delta,
+			PerformedBy:  mv.PerformedBy,
+			Reason:       mv.Reason,
+		}
+		if err := tx.QueryRow(ctx,
 			`INSERT INTO inventory_movements
 			    (id, tenant_id, item_id, movement_type, quantity, performed_by, reason, created_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			 RETURNING created_at`,
 			movementID, tenantID, mv.ItemID, mv.MovementType, mv.Delta, mv.PerformedBy, mv.Reason,
-		); err != nil {
-			return nil, fmt.Errorf("insert movement in tx: %w", err)
+		).Scan(&row.CreatedAt); err != nil {
+			return nil, nil, fmt.Errorf("insert movement in tx: %w", err)
 		}
 		items = append(items, &it)
+		rows = append(rows, &row)
 	}
-	return items, nil
+	return items, rows, nil
 }
 
 func (r *PostgresRepository) UpsertInventurCount(ctx context.Context, count *InventurCount) error {
@@ -894,7 +917,7 @@ func (r *PostgresRepository) BookPickingListTx(ctx context.Context, tenantID, li
 		return false, nil, nil
 	}
 
-	items, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
+	items, _, err := r.applyMovementsInTx(ctx, tx, tenantID, movements)
 	if err != nil {
 		return false, nil, err
 	}

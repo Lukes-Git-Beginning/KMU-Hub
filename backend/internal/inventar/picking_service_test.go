@@ -52,7 +52,7 @@ func (m *mockRepository) BookPickingListTx(_ context.Context, tenantID, listID u
 		return false, nil, nil
 	}
 
-	items, err := m.applyMovements(tenantID, movements)
+	items, _, err := m.applyMovements(tenantID, movements)
 	if err != nil {
 		return false, nil, err
 	}

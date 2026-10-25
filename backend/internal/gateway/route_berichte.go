@@ -100,6 +100,7 @@ func (br *BerichteRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(scheduleManage).Patch("/", br.HandleUpdateSchedule)
 				r.With(scheduleManage).Delete("/", br.HandleDeleteSchedule)
 				r.With(scheduleManage).Post("/toggle", br.HandleToggleSchedule)
+				r.With(scheduleManage).Post("/run", br.HandleRunSchedule)
 			})
 		})
 
@@ -1056,6 +1057,73 @@ func (br *BerichteRoutes) HandleToggleSchedule(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response.JSON(w, http.StatusOK, reportScheduleEnvelope{Schedule: toReportScheduleWire(resp.GetSchedule())})
+}
+
+// scheduleLookupPageSize and scheduleLookupMaxPages bound the ListSchedules walk in
+// HandleRunSchedule: the service has no GetSchedule RPC, so the schedule is found by paging.
+const (
+	scheduleLookupPageSize = 100
+	scheduleLookupMaxPages = 20
+)
+
+// HandleRunSchedule runs a schedule's report now with the schedule's own params
+// (POST /berichte/schedules/{id}/run). The run result is dropped: the caller only
+// needs the schedule back, delivery stays with the scheduler.
+func (br *BerichteRoutes) HandleRunSchedule(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	client, err := br.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, br.ServiceName())
+		return
+	}
+
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	// lean: kein GetSchedule-RPC; ListSchedules blaettern. Eigener RPC, wenn Zeitplaene > 2000 pro Mandant werden
+	var found *berichtev1.Schedule
+	for page := 1; page <= scheduleLookupMaxPages && found == nil; page++ {
+		resp, listErr := client.ListSchedules(r.Context(), &berichtev1.ListSchedulesRequest{
+			TenantId: tenantID.String(),
+			Page:     int32(page),
+			PageSize: scheduleLookupPageSize,
+		})
+		if listErr != nil {
+			respondGRPCError(w, listErr)
+			return
+		}
+		for _, sc := range resp.GetSchedules() {
+			if sc.GetId() == id {
+				found = sc
+				break
+			}
+		}
+		if len(resp.GetSchedules()) < scheduleLookupPageSize {
+			break
+		}
+	}
+	if found == nil {
+		response.Error(w, http.StatusNotFound, "schedule not found")
+		return
+	}
+
+	if _, err = client.RunReport(r.Context(), &berichtev1.RunReportRequest{
+		TenantId:     tenantID.String(),
+		DefinitionId: found.GetDefinitionId(),
+		Params:       found.GetParams(),
+		ForceRefresh: true,
+		Trigger:      "manual",
+	}); err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.JSON(w, http.StatusOK, reportScheduleEnvelope{Schedule: toReportScheduleWire(found)})
 }
 
 // ============================================================================

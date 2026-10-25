@@ -19,7 +19,7 @@ type mockMessageCreator struct {
 	messages []*models.EmailMessage
 }
 
-func (m *mockMessageCreator) Create(_ context.Context, msg *models.EmailMessage) error {
+func (m *mockMessageCreator) CreateLocalCopy(_ context.Context, msg *models.EmailMessage, _ string) error {
 	m.messages = append(m.messages, msg)
 	return nil
 }

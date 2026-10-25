@@ -79,3 +79,34 @@ func TestService_Update_ExplicitDueDateAndDeliveryDate(t *testing.T) {
 	require.NotNil(t, got.DeliveryDate)
 	assert.Equal(t, "2026-03-28", got.DeliveryDate.Format("2006-01-02"))
 }
+
+func TestService_Update_ExplicitDueDateBeatsPaymentTermsDays(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID) // invoice date 2026-03-01
+
+	days := 14
+	got, err := svc.Update(context.Background(), tenantID, inv.ID, UpdateInput{
+		PaymentTermsDays: &days, DueDate: day(2026, time.March, 9),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "2026-03-09", got.DueDate.Format("2006-01-02"), "the named due date is not overwritten by the terms")
+	assert.Equal(t, "14 Tage netto", got.PaymentTerms)
+}
+
+func TestService_Update_FreeTextTermsKeepTheDueDate(t *testing.T) {
+	svc, repo, _, _, _ := newTestService()
+	tenantID := uuid.New()
+	inv := createDraftInvoice(t, repo, tenantID) // due 2026-03-31
+
+	terms := "Sofort fällig"
+	got, err := svc.Update(context.Background(), tenantID, inv.ID, UpdateInput{PaymentTerms: &terms})
+	require.NoError(t, err)
+	assert.Equal(t, "Sofort fällig", got.PaymentTerms)
+	assert.Equal(t, "2026-03-31", got.DueDate.Format("2006-01-02"))
+
+	empty := ""
+	got, err = svc.Update(context.Background(), tenantID, inv.ID, UpdateInput{PaymentTerms: &empty})
+	require.NoError(t, err)
+	assert.Equal(t, "Sofort fällig", got.PaymentTerms, "an empty label leaves the stored one")
+}

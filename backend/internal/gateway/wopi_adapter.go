@@ -1,11 +1,11 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"io"
 
 	"github.com/google/uuid"
+	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/document/wopi"
 	"github.com/kmuhub/kmuhub/internal/models"
@@ -78,27 +78,23 @@ func (a *WOPIFileAdapter) GetDownloadURL(ctx context.Context, fileID uuid.UUID, 
 	return resp.DownloadUrl, nil
 }
 
-// CreateVersion creates a new file version via gRPC.
-// Note: For WOPI PutFile, the body is streamed. Since gRPC doesn't support
-// streaming the body in a unary RPC, we pass metadata only. The actual file
-// content save is handled by the gateway reading the body and uploading to
-// MinIO directly, then calling the gRPC to record the version metadata.
-// For simplicity in MVP, we return a stub version.
-// tenantID is passed from the WOPI token claims for proper isolation.
+// CreateVersion stores the editor's saved content as the file's new current
+// version. The body travels in the request (the document service's receive
+// limit covers the 50 MiB cap); an unchanged save creates no version there.
+// tenantID is embedded in the gRPC metadata from the WOPI token claims.
 func (a *WOPIFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input wopi.VersionInput) (*models.DocumentFileVersion, error) {
 	client, err := a.getClient()
 	if err != nil {
 		return nil, err
 	}
 
-	// Read the body into a buffer to get the storage key
-	// In production, this would upload to MinIO and get a storage key.
-	// For now, we read the body and create a version record.
-	body, err := io.ReadAll(input.Reader)
+	body, err := io.ReadAll(io.LimitReader(input.Reader, maxDocumentUploadBytes+1))
 	if err != nil {
 		return nil, err
 	}
-	_ = body // Content is handled by the WOPI handler's fileStore
+	if len(body) > maxDocumentUploadBytes {
+		return nil, wopi.ErrContentTooLarge
+	}
 
 	label := "Auto-saved via WOPI"
 	if input.Label != nil {
@@ -107,11 +103,9 @@ func (a *WOPIFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, t
 
 	resp, err := client.CreateFileVersion(ctx, &documentv1.CreateFileVersionRequest{
 		FileId:       fileID.String(),
-		StorageKey:   "", // Will be set by service
-		FileSize:     int64(len(body)),
-		CreatedBy:    input.UserID.String(),
 		VersionLabel: label,
-	})
+		Content:      body,
+	}, grpc.MaxCallSendMsgSize(60<<20))
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +127,3 @@ func (a *WOPIFileAdapter) CreateVersion(ctx context.Context, fileID uuid.UUID, t
 
 // Ensure WOPIFileAdapter satisfies the interface at compile time.
 var _ wopi.FileServiceInterface = (*WOPIFileAdapter)(nil)
-
-// Suppress unused import.
-var _ = bytes.NewReader

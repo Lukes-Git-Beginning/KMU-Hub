@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -577,9 +578,24 @@ func (b *BizRoutes) HandleGetFinanceDashboard(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	resp, err := client.GetFinanceDashboard(r.Context(), &bizv1.GetFinanceDashboardRequest{
-		TenantId: tenantID,
-	})
+	req := &bizv1.GetFinanceDashboardRequest{TenantId: tenantID}
+	for name, dst := range map[string]**string{"date_from": &req.DateFrom, "date_to": &req.DateTo} {
+		v := r.URL.Query().Get(name)
+		if v == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", v); err != nil {
+			response.Error(w, http.StatusBadRequest, name+" must be a date (YYYY-MM-DD)")
+			return
+		}
+		*dst = &v
+	}
+	if req.DateFrom != nil && req.DateTo != nil && *req.DateFrom > *req.DateTo {
+		response.Error(w, http.StatusBadRequest, "date_from must not be after date_to")
+		return
+	}
+
+	resp, err := client.GetFinanceDashboard(r.Context(), req)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

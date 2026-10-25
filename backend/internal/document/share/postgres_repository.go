@@ -42,6 +42,23 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// GetByID loads one share of the tenant; a missing or foreign share is ErrShareNotFound.
+func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DocumentShare, error) {
+	var s models.DocumentShare
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, entity_type, entity_id, shared_with_user_id, permission, shared_by, created_at
+		 FROM document_shares
+		 WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	).Scan(&s.ID, &s.TenantID, &s.EntityType, &s.EntityID, &s.SharedWithUserID, &s.Permission, &s.SharedBy, &s.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrShareNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 func (r *PostgresRepository) ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT ds.id, ds.entity_type, ds.entity_id, ds.shared_with_user_id,

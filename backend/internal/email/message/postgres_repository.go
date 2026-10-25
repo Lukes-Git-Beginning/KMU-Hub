@@ -304,7 +304,7 @@ func (r *PostgresRepository) DeleteByFolder(ctx context.Context, folderID uuid.U
 func (r *PostgresRepository) GetHighestUID(ctx context.Context, folderID uuid.UUID) (uint32, error) {
 	var uid *int64
 	err := r.pool.QueryRow(ctx,
-		`SELECT MAX(uid) FROM email_messages WHERE folder_id = $1`, folderID,
+		`SELECT MAX(uid) FROM email_messages WHERE folder_id = $1 AND uid > 0`, folderID,
 	).Scan(&uid)
 	if err != nil {
 		return 0, err
@@ -326,6 +326,22 @@ func (r *PostgresRepository) GetByMessageIDHeader(ctx context.Context, messageID
 		 ORDER BY date DESC LIMIT 1`, messageIDHeader,
 	)
 	return scanMessage(row)
+}
+
+// ClaimLocalCopy matches the Message-ID without angle brackets: the send path
+// stores "<id@host>", the IMAP envelope delivers "id@host".
+func (r *PostgresRepository) ClaimLocalCopy(ctx context.Context, folderID uuid.UUID, messageIDHeader string, uid int64) (bool, error) {
+	tag, err := r.pool.Exec(ctx,
+		`UPDATE email_messages SET uid = $3, updated_at = now()
+		 WHERE id = (SELECT id FROM email_messages
+		             WHERE folder_id = $1 AND uid < 0 AND btrim(message_id, '<>') = btrim($2, '<>')
+		             ORDER BY created_at LIMIT 1)`,
+		folderID, messageIDHeader, uid,
+	)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 func (r *PostgresRepository) FindThreadByReferences(ctx context.Context, accountID uuid.UUID, references []string, inReplyTo string) (uuid.UUID, error) {

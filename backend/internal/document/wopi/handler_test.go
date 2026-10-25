@@ -267,6 +267,27 @@ func TestHandler_PutFile(t *testing.T) {
 	tenantID := uuid.New()
 	userID := uuid.New()
 
+	t.Run("content over the upload limit is 413", func(t *testing.T) {
+		fs := &fakeFileService{
+			getByIDFn: func(ctx context.Context, id, tid uuid.UUID) (*models.DocumentFile, error) {
+				return &models.DocumentFile{ID: fileID, MimeType: "application/pdf"}, nil
+			},
+			createVersionFn: func(ctx context.Context, fID, tID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error) {
+				return nil, ErrContentTooLarge
+			},
+		}
+		h := NewHandler(tokenSvc, lockSvc, fs, nil)
+		token := mustToken(t, tokenSvc, fileID.String(), userID.String(), tenantID.String(), true)
+
+		req := httptest.NewRequest(http.MethodPost, "/wopi/files/"+fileID.String()+"/contents?access_token="+token, strings.NewReader("big"))
+		rec := httptest.NewRecorder()
+		h.PutFile(rec, req, fileID.String())
+
+		if rec.Code != http.StatusRequestEntityTooLarge {
+			t.Fatalf("status = %d, want 413", rec.Code)
+		}
+	})
+
 	t.Run("success creates version", func(t *testing.T) {
 		fs := &fakeFileService{
 			getByIDFn: func(ctx context.Context, id, tid uuid.UUID) (*models.DocumentFile, error) {

@@ -91,6 +91,13 @@ func (wr *WikiRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 			})
 		})
 
+		// Attachments by their own ID -- the desktop deletes an attachment without
+		// knowing (or sending) the article. DeleteAttachment is keyed by tenant +
+		// attachment, so the article-scoped route above checks nothing more.
+		r.Route("/attachments", func(r chi.Router) {
+			r.With(wikiDelete).Delete("/{attachmentId}", wr.HandleDeleteAttachment)
+		})
+
 		// Search
 		r.With(wikiRead).Get("/search", wr.HandleSearchArticles)
 

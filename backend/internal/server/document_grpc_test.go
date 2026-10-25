@@ -499,28 +499,6 @@ func TestGetWOPIDiscovery_ReturnsStaticActions(t *testing.T) {
 	require.Len(t, resp.Actions, 18)
 }
 
-// CreateFileVersion builds its response directly from the request without
-// touching any service field (see the comment in document_grpc.go: "For
-// gRPC version creation, we don't have a reader"), so unlike every other
-// handler in this file it is safe to exercise end to end against the
-// nil-service server, not just its validation branches.
-func TestCreateFileVersion_BuildsResponseWithoutService(t *testing.T) {
-	ts := newTestDocumentServer()
-	fileID := uuid.New()
-	createdBy := uuid.New()
-	resp, err := ts.CreateFileVersion(context.Background(), &documentv1.CreateFileVersionRequest{
-		FileId:       fileID.String(),
-		CreatedBy:    createdBy.String(),
-		StorageKey:   "key",
-		FileSize:     100,
-		VersionLabel: "v1",
-	})
-	require.NoError(t, err)
-	require.Equal(t, fileID.String(), resp.Version.FileId)
-	require.Equal(t, createdBy.String(), resp.Version.CreatedBy)
-	require.Equal(t, "v1", resp.Version.VersionLabel)
-}
-
 // ---------------------------------------------------------------------------
 // Handler validation paths - every branch that returns before touching a nil
 // service field. Methods with zero such branches (GetSharedFile,
@@ -765,12 +743,16 @@ func TestDocumentHandlers_Validation(t *testing.T) {
 	})
 
 	t.Run("CreateFileVersion_InvalidFileID", func(t *testing.T) {
-		_, err := newTestDocumentServer().CreateFileVersion(bg, &documentv1.CreateFileVersionRequest{FileId: "bogus"})
+		_, err := newTestDocumentServer().CreateFileVersion(tenantCtx, &documentv1.CreateFileVersionRequest{FileId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
-	t.Run("CreateFileVersion_InvalidCreatedBy", func(t *testing.T) {
-		_, err := newTestDocumentServer().CreateFileVersion(bg, &documentv1.CreateFileVersionRequest{FileId: someID, CreatedBy: "bogus"})
+	t.Run("CreateFileVersion_MissingTenant", func(t *testing.T) {
+		_, err := newTestDocumentServer().CreateFileVersion(bg, &documentv1.CreateFileVersionRequest{FileId: someID})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+	t.Run("CreateFileVersion_MissingUser", func(t *testing.T) {
+		_, err := newTestDocumentServer().CreateFileVersion(tenantCtx, &documentv1.CreateFileVersionRequest{FileId: someID})
+		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 
 	t.Run("ListFileVersions_InvalidFileID", func(t *testing.T) {
@@ -895,11 +877,12 @@ func TestDocumentHandlers_Validation(t *testing.T) {
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
-	t.Run("ShareEntity_InvalidSharedBy", func(t *testing.T) {
+	t.Run("ShareEntity_MissingCaller", func(t *testing.T) {
+		// shared_by from the client is ignored; the caller comes from the context.
 		_, err := newTestDocumentServer().ShareEntity(tenantCtx, &documentv1.ShareEntityRequest{
-			EntityId: someID, SharedWithUserId: someID, SharedBy: "bogus",
+			EntityId: someID, SharedWithUserId: someID, SharedBy: someID,
 		})
-		requireGRPCCode(t, err, codes.InvalidArgument)
+		requireGRPCCode(t, err, codes.Unauthenticated)
 	})
 
 	t.Run("UnshareEntity_InvalidEntityID", func(t *testing.T) {

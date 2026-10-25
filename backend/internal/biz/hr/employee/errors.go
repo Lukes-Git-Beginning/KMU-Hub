@@ -35,4 +35,7 @@ var (
 	ErrInvalidExitType = errors.New("unknown exit type")
 	// ErrExitBeforeLastWorkDay is returned when the exit date precedes the last working day.
 	ErrExitBeforeLastWorkDay = errors.New("the exit date cannot precede the last working day")
+	// ErrInvalidCountry is returned when address_country is not a two-letter code.
+	// The column is VARCHAR(2) NOT NULL, so it can neither be cleared nor be longer.
+	ErrInvalidCountry = errors.New("address_country must be a two-letter country code")
 )

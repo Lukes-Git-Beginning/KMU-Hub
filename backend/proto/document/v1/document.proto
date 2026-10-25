@@ -400,6 +400,9 @@ message CreateFileVersionRequest {
   string storage_key = 3;
   int64 file_size = 4;
   string created_by = 5;
+  // content, when present, is the new content of the file (an editor's save);
+  // absent freezes the file's current content as a version.
+  optional bytes content = 6;
 }
 
 message CreateFileVersionResponse {
@@ -579,6 +582,8 @@ message UnshareEntityRequest {
   string entity_type = 1;
   string entity_id = 2;
   string shared_with_user_id = 3;
+  // When set, the share is resolved by its ID and the other fields are ignored.
+  string share_id = 4;
 }
 
 message UnshareEntityResponse {}

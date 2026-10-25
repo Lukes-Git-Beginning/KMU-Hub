@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
+	"github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/models"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
@@ -204,41 +205,80 @@ func TestListTaskActivities_HappyPathDefaultsPageAndSize(t *testing.T) {
 // AttachFileToTask / RemoveTaskFile / ListTaskFiles
 // ============================================================================
 
+func TestAttachFileToTask_MissingTenant(t *testing.T) {
+	srv := newWorkValidationTestServer()
+	_, err := srv.AttachFileToTask(context.Background(), &workv1.AttachFileToTaskRequest{TaskId: uuid.NewString(), UploadedBy: uuid.NewString()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+}
+
 func TestAttachFileToTask_InvalidTaskID(t *testing.T) {
 	srv := newWorkValidationTestServer()
-	_, err := srv.AttachFileToTask(context.Background(), &workv1.AttachFileToTaskRequest{TaskId: "not-a-uuid", UploadedBy: uuid.NewString()})
+	_, err := srv.AttachFileToTask(ctxWithWorkTenant(uuid.New()), &workv1.AttachFileToTaskRequest{TaskId: "not-a-uuid", UploadedBy: uuid.NewString()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestAttachFileToTask_InvalidUploadedBy(t *testing.T) {
 	srv := newWorkValidationTestServer()
-	_, err := srv.AttachFileToTask(context.Background(), &workv1.AttachFileToTaskRequest{TaskId: uuid.NewString(), UploadedBy: "not-a-uuid"})
+	_, err := srv.AttachFileToTask(ctxWithWorkTenant(uuid.New()), &workv1.AttachFileToTaskRequest{TaskId: uuid.NewString(), UploadedBy: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestAttachFileToTask_RepoErrorMapped(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
+	tenantID := uuid.New()
+	taskID := uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
 	taskRepo.forceErr = errStubWorkTaskRepoFailure
 
-	_, err := srv.AttachFileToTask(context.Background(), &workv1.AttachFileToTaskRequest{
-		TaskId: uuid.NewString(), UploadedBy: uuid.NewString(), Filename: "a.png",
+	_, err := srv.AttachFileToTask(ctxWithWorkTenant(tenantID), &workv1.AttachFileToTaskRequest{
+		TaskId: taskID.String(), UploadedBy: uuid.NewString(), Filename: "a.png",
+		StorageKey: file.UnattachedUploadPrefix(tenantID) + uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.Internal)
+}
+
+func TestAttachFileToTask_ForeignStorageKeyRejected(t *testing.T) {
+	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
+
+	_, err := srv.AttachFileToTask(ctxWithWorkTenant(uuid.New()), &workv1.AttachFileToTaskRequest{
+		TaskId: uuid.NewString(), UploadedBy: uuid.NewString(), Filename: "a.pdf",
+		StorageKey: file.UnattachedUploadPrefix(uuid.New()) + uuid.NewString(),
+	})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	assert.Empty(t, taskRepo.files)
 }
 
 func TestAttachFileToTask_HappyPath(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
 	taskID := uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
 	uploadedBy := uuid.New()
+	tenantID := uuid.New()
 
-	resp, err := srv.AttachFileToTask(context.Background(), &workv1.AttachFileToTaskRequest{
+	resp, err := srv.AttachFileToTask(ctxWithWorkTenant(tenantID), &workv1.AttachFileToTaskRequest{
 		TaskId: taskID.String(), UploadedBy: uploadedBy.String(), Filename: "report.pdf", MimeType: "application/pdf", FileSize: 1024,
+		StorageKey: file.UnattachedUploadPrefix(tenantID) + uuid.NewString(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.File)
 	assert.Equal(t, "report.pdf", resp.File.Filename)
 	assert.Nil(t, resp.File.ThumbnailKey)
 	require.Contains(t, taskRepo.files, uuid.MustParse(resp.File.Id))
+	assert.Equal(t, tenantID, taskRepo.files[uuid.MustParse(resp.File.Id)].TenantID)
+}
+
+func TestGetTaskFileDownloadURL_Validation(t *testing.T) {
+	srv := newWorkValidationTestServer()
+	_, err := srv.GetTaskFileDownloadURL(context.Background(), &workv1.GetTaskFileDownloadURLRequest{Id: uuid.NewString()})
+	requireGRPCCode(t, err, codes.Unauthenticated)
+	_, err = srv.GetTaskFileDownloadURL(ctxWithWorkTenant(uuid.New()), &workv1.GetTaskFileDownloadURLRequest{Id: "not-a-uuid"})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+}
+
+func TestGetTaskFileDownloadURL_NoStoreIsUnavailable(t *testing.T) {
+	srv, _, _, _ := newWorkProjectTaskTestServer()
+	_, err := srv.GetTaskFileDownloadURL(ctxWithWorkTenant(uuid.New()), &workv1.GetTaskFileDownloadURLRequest{Id: uuid.NewString()})
+	requireGRPCCode(t, err, codes.Unavailable)
 }
 
 func TestRemoveTaskFile_MissingTenant(t *testing.T) {
@@ -261,8 +301,9 @@ func TestRemoveTaskFile_NotFound(t *testing.T) {
 
 func TestRemoveTaskFile_HappyPath(t *testing.T) {
 	srv, _, _, taskRepo := newWorkProjectTaskTestServer()
-	fileID := uuid.New()
-	taskRepo.files = map[uuid.UUID]models.TaskFile{fileID: {ID: fileID, TaskID: uuid.New(), Filename: "x.png"}}
+	fileID, taskID := uuid.New(), uuid.New()
+	taskRepo.tasks[taskID] = &models.TaskWithRelations{Task: models.Task{ID: taskID}}
+	taskRepo.files = map[uuid.UUID]models.TaskFile{fileID: {ID: fileID, TaskID: taskID, Filename: "x.png"}}
 
 	_, err := srv.RemoveTaskFile(ctxWithWorkTenant(uuid.New()), &workv1.RemoveTaskFileRequest{Id: fileID.String()})
 	require.NoError(t, err)

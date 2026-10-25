@@ -93,6 +93,9 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 	dialerRouter := chi.NewRouter()
 	NewDialerRoutes(emptyRegistry()).RegisterRoutes(dialerRouter, guardTestAuth)
 
+	videoRouter := chi.NewRouter()
+	NewVideoRoutes(emptyRegistry(), "", "").RegisterRoutes(videoRouter, guardTestAuth)
+
 	berichteRouter := chi.NewRouter()
 	NewBerichteRoutes(emptyRegistry(), berichteFlagsON()).RegisterRoutes(berichteRouter, guardTestAuth)
 
@@ -245,8 +248,9 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"file activity, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:read"}, allowed},
 		{"file activity, edit key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/activity", []string{"documents:file:edit"}, denied},
 
-		// --- documents: copy is a read-action in the FE, stays coarse-only ---
-		{"file copy still requires documents:write only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},
+		// --- documents: a copy is a new file, so it takes the upload capability ---
+		{"file copy, edit key does not grant it", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:edit"}, denied},
+		{"file copy, catalogue upload key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:file:upload"}, allowed},
 		{"file copy with documents:write", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/copy", []string{"documents:write"}, allowed},
 
 		// --- documents: shares and versions ---
@@ -256,11 +260,32 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"version list, read key does not grant it", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/versions", []string{"documents:read"}, denied},
 		{"version revert, catalogue key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/versions/revert", []string{"documents:version:restore"}, allowed},
 
-		// --- documents: tags/links/search have no catalogue key, untouched ---
-		{"tag create still requires documents:write only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, denied},
+		// --- documents: tags/links/search/virtual/WOPI follow the file capability they act through ---
+		{"tag create, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:edit"}, allowed},
 		{"tag create with documents:write", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:write"}, allowed},
-		{"entity link delete by ID still requires documents:write only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, denied},
+		{"tag create, read key does not grant it", documentRouter, "POST", "/api/v1/documents/tags/", []string{"documents:file:read"}, denied},
+		{"tag list, catalogue read key only", documentRouter, "GET", "/api/v1/documents/tags/", []string{"documents:file:read"}, allowed},
+		{"tag list, legacy key only", documentRouter, "GET", "/api/v1/documents/tags/", []string{"documents:read"}, allowed},
+		{"tag a file, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/tags/file", []string{"documents:file:edit"}, allowed},
+		{"untag a file, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/tags/file", []string{"documents:file:edit"}, allowed},
+		{"tag delete still needs documents:delete", documentRouter, "DELETE", "/api/v1/documents/tags/" + articleID, []string{"documents:file:edit"}, denied},
+		{"entity link delete by ID, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:file:edit"}, allowed},
 		{"entity link delete by ID with documents:write", documentRouter, "DELETE", "/api/v1/documents/links/" + articleID, []string{"documents:write"}, allowed},
+		{"entity link list, catalogue read key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:read"}, allowed},
+		{"entity link create, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:edit"}, allowed},
+		{"entity link create, read key does not grant it", documentRouter, "POST", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:read"}, denied},
+		{"entity unlink, catalogue edit key only", documentRouter, "DELETE", "/api/v1/documents/files/" + articleID + "/links", []string{"documents:file:edit"}, allowed},
+		{"search, catalogue read key only", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:file:read"}, allowed},
+		{"search, legacy key only", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:read"}, allowed},
+		{"search, no document key", documentRouter, "GET", "/api/v1/documents/search/", []string{"documents:module:view"}, denied},
+		{"virtual files, catalogue read key only", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:file:read"}, allowed},
+		{"virtual files, legacy key only", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:read"}, allowed},
+		{"virtual files, no document key", documentRouter, "GET", "/api/v1/documents/virtual/", []string{"documents:module:view"}, denied},
+		{"wopi token, catalogue edit key only", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:file:edit"}, allowed},
+		{"wopi token, legacy write key only", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:write"}, allowed},
+		{"wopi token, read key does not grant it", documentRouter, "POST", "/api/v1/documents/wopi/token", []string{"documents:file:read"}, denied},
+		{"wopi discovery, catalogue read key only", documentRouter, "GET", "/api/v1/documents/wopi/discovery", []string{"documents:file:read"}, allowed},
+		{"space init stays admin-only", documentRouter, "POST", "/api/v1/documents/folders/initialize-user", []string{"documents:file:upload"}, denied},
 
 		// --- documents: share links ---
 		{"share link list, catalogue key only", documentRouter, "GET", "/api/v1/documents/files/" + articleID + "/share-links", []string{"documents:file:read"}, allowed},
@@ -602,13 +627,32 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"report approve requires the fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:edit"}, denied},
 		{"report approve with fine approve key", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/approve", []string{"rapporte:report:approve"}, allowed},
 
-		// --- rapporte: submit/lines/attachments/signature have no catalogue key, untouched ---
-		{"report submit still requires report:write only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:edit"}, denied},
-		{"report submit with report:write", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:write"}, allowed},
+		// --- rapporte: submit/signature/lines/attachments accept the legacy key AND the
+		// fine report:edit key the member preset holds (the member could create a report
+		// but never fill or submit it); reads accept report:read ---
+		{"report submit, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:write"}, allowed},
+		{"report submit, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:edit"}, allowed},
+		{"report submit, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/submit", []string{"rapporte:report:read"}, denied},
+		{"signature, edit key only", rapporteRouter, "PUT", "/api/v1/rapporte/reports/" + articleID + "/signature", []string{"rapporte:report:edit"}, allowed},
+		{"signature, create key does not grant it", rapporteRouter, "PUT", "/api/v1/rapporte/reports/" + articleID + "/signature", []string{"rapporte:report:create"}, denied},
+		{"line add, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:line:write"}, allowed},
+		{"line add, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:edit"}, allowed},
+		{"line add, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:read", "rapporte:line:read"}, denied},
+		{"line list, report read key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:report:read"}, allowed},
+		{"line list, legacy key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/lines", []string{"rapporte:line:read"}, allowed},
+		{"line patch, edit key only", rapporteRouter, "PATCH", "/api/v1/rapporte/lines/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"line delete, edit key only", rapporteRouter, "DELETE", "/api/v1/rapporte/lines/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"attachment upload, edit key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:report:edit"}, allowed},
+		{"attachment upload, legacy key only", rapporteRouter, "POST", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:attachment:write"}, allowed},
+		{"attachment list, report read key only", rapporteRouter, "GET", "/api/v1/rapporte/reports/" + articleID + "/attachments", []string{"rapporte:report:read"}, allowed},
+		{"attachment delete, edit key only", rapporteRouter, "DELETE", "/api/v1/rapporte/attachments/" + articleID + "/", []string{"rapporte:report:edit"}, allowed},
+		{"attachment delete, no rapporte key", rapporteRouter, "DELETE", "/api/v1/rapporte/attachments/" + articleID + "/", []string{"rapporte:template:read"}, denied},
 
-		// --- rapporte: measurements have no FE caller (local mock store), untouched ---
-		{"measurement create still requires measurement:write only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, denied},
-		{"measurement create with measurement:write", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
+		// --- rapporte: measurements accept the legacy write key and the manage key the
+		// member/manager presets hold; the report-edit scope narrows them in the handler ---
+		{"measurement create, manage key only", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:manage"}, allowed},
+		{"measurement create, legacy write key", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:write"}, allowed},
+		{"measurement create, read key does not grant it", rapporteRouter, "POST", "/api/v1/rapporte/measurements", []string{"rapporte:measurement:read"}, denied},
 
 		// --- dialer: campaigns (legacy resource already lives in module:subject
 		// shape, so read/calls/agent/outcomes concatenate to their catalogue key
@@ -630,6 +674,24 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"contact requeue, campaigns:manage also grants it", dialerRouter, "POST", "/api/v1/dialer/campaigns/" + articleID + "/contacts/" + articleID + "/requeue", []string{"dialer:campaigns:manage"}, allowed},
 		{"get next contact still requires calls:write only", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:campaigns:manage"}, denied},
 		{"get next contact with calls:write", dialerRouter, "GET", "/api/v1/dialer/campaigns/" + articleID + "/next", []string{"dialer:calls:write"}, allowed},
+
+		// --- dialer: outcomes list is an agent's own read (workspace closes calls with it),
+		// the write routes stay outcomes:manage ---
+		{"outcomes list, calls:write grants the read", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:calls:write"}, allowed},
+		{"outcomes list, legacy manage key still grants it", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:outcomes:manage"}, allowed},
+		{"outcomes list, denied without either key", dialerRouter, "GET", "/api/v1/dialer/outcomes/", []string{"dialer:campaigns:read"}, denied},
+		{"outcome create, calls:write does not grant it", dialerRouter, "POST", "/api/v1/dialer/outcomes/", []string{"dialer:calls:write"}, denied},
+		{"outcome update, calls:write does not grant it", dialerRouter, "PUT", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
+		{"outcome delete, calls:write does not grant it", dialerRouter, "DELETE", "/api/v1/dialer/outcomes/" + articleID, []string{"dialer:calls:write"}, denied},
+
+		// --- dialer: an agent's own status is part of the workspace; the campaign roster is the
+		// supervisor view and stays agent:manage ---
+		{"agent status read, calls:write grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:calls:write"}, allowed},
+		{"agent status set, calls:write grants it", dialerRouter, "PUT", "/api/v1/dialer/agent-status/", []string{"dialer:calls:write"}, allowed},
+		{"agent status read, legacy manage key still grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:agent:manage"}, allowed},
+		{"agent status read, denied without either key", dialerRouter, "GET", "/api/v1/dialer/agent-status/", []string{"dialer:campaigns:read"}, denied},
+		{"campaign roster, calls:write does not grant it", dialerRouter, "GET", "/api/v1/dialer/agent-status/campaign/" + articleID, []string{"dialer:calls:write"}, denied},
+		{"campaign roster, manage key grants it", dialerRouter, "GET", "/api/v1/dialer/agent-status/campaign/" + articleID, []string{"dialer:agent:manage"}, allowed},
 
 		// --- berichte: definitions ---
 		{"definition create, legacy key only", berichteRouter, "POST", "/api/v1/berichte/definitions/", []string{"berichte:reports:write"}, allowed},
@@ -711,6 +773,14 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		// instantiate one) ---
 		{"templates list, catalogue create key only", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:create"}, allowed},
 		{"templates list, read key does not grant it", automationRouter, "GET", "/api/v1/automations/templates", []string{"automatisierung:automations:read"}, denied},
+
+		// --- video: the initiator consent is stamped by whoever starts the
+		// recording, so meetings:write (member, manager) opens it next to the
+		// admin-only recording:write ---
+		{"initiator consent, meetings:write grants it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"meetings:write"}, allowed},
+		{"initiator consent, legacy recording:write still grants it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"recording:write"}, allowed},
+		{"initiator consent, denied without either key", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/initiator-consent", []string{"meetings:read"}, denied},
+		{"recording tag-consents stays admin-only, meetings:write does not grant it", videoRouter, "POST", "/api/v1/video/recordings/" + articleID + "/tag-consents", []string{"meetings:write"}, denied},
 
 		// --- automatisierung: test-condition/dry-run run from AutomationWizard,
 		// reused for both the create flow and the "Bearbeiten" edit hand-off ---

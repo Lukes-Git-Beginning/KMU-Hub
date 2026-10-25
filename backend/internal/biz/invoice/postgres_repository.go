@@ -398,6 +398,26 @@ func (r *PostgresRepository) UpdateStatusInTx(ctx context.Context, tx pgx.Tx, te
 	return err
 }
 
+// LockForCreditInTx row-locks an invoice (SELECT ... FOR UPDATE) inside the caller's
+// transaction and returns its status and gross total. Credit-note creation uses it to
+// serialize concurrent credit notes against one invoice (over-credit check).
+func (r *PostgresRepository) LockForCreditInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID) (string, decimal.Decimal, error) {
+	var status, gross string
+	err := tx.QueryRow(ctx,
+		`SELECT status, gross_total::text FROM finance_invoices
+		WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+		tenantID, id,
+	).Scan(&status, &gross)
+	if err != nil {
+		return "", decimal.Zero, fmt.Errorf("lock invoice for credit note: %w", err)
+	}
+	total, err := decimal.NewFromString(gross)
+	if err != nil {
+		return "", decimal.Zero, fmt.Errorf("parse invoice gross total: %w", err)
+	}
+	return status, total, nil
+}
+
 // SetLock sets locked_at and locked_by on the invoice without triggering a
 // full Update (which would unnecessarily re-write all line items).
 // Used by LockInvoice (service_gobd.go).

@@ -32,6 +32,13 @@ const (
 	VideoService_ListRecordings_FullMethodName             = "/video.v1.VideoService/ListRecordings"
 	VideoService_DeleteRecording_FullMethodName            = "/video.v1.VideoService/DeleteRecording"
 	VideoService_GetRecordingDownloadURL_FullMethodName    = "/video.v1.VideoService/GetRecordingDownloadURL"
+	VideoService_ConfirmInitiatorConsent_FullMethodName    = "/video.v1.VideoService/ConfirmInitiatorConsent"
+	VideoService_GetRecordingConsents_FullMethodName       = "/video.v1.VideoService/GetRecordingConsents"
+	VideoService_TagRecordingWithConsents_FullMethodName   = "/video.v1.VideoService/TagRecordingWithConsents"
+	VideoService_UpdateRecordingMetadata_FullMethodName    = "/video.v1.VideoService/UpdateRecordingMetadata"
+	VideoService_ListRecordingsByMeeting_FullMethodName    = "/video.v1.VideoService/ListRecordingsByMeeting"
+	VideoService_GetRecordingStatus_FullMethodName         = "/video.v1.VideoService/GetRecordingStatus"
+	VideoService_CleanupExpiredRecording_FullMethodName    = "/video.v1.VideoService/CleanupExpiredRecording"
 	VideoService_CreateMeeting_FullMethodName              = "/video.v1.VideoService/CreateMeeting"
 	VideoService_GetMeeting_FullMethodName                 = "/video.v1.VideoService/GetMeeting"
 	VideoService_UpdateMeeting_FullMethodName              = "/video.v1.VideoService/UpdateMeeting"
@@ -94,6 +101,16 @@ type VideoServiceClient interface {
 	ListRecordings(ctx context.Context, in *ListRecordingsRequest, opts ...grpc.CallOption) (*ListRecordingsResponse, error)
 	DeleteRecording(ctx context.Context, in *DeleteRecordingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetRecordingDownloadURL(ctx context.Context, in *GetRecordingDownloadURLRequest, opts ...grpc.CallOption) (*GetRecordingDownloadURLResponse, error)
+	// Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+	// confirms the pre-dialog after StartRecording created the row.
+	ConfirmInitiatorConsent(ctx context.Context, in *ConfirmInitiatorConsentRequest, opts ...grpc.CallOption) (*ConfirmInitiatorConsentResponse, error)
+	// Recording tagging (S1.7 / Welle 1.B): consent snapshot, metadata, per-meeting list, status, cleanup.
+	GetRecordingConsents(ctx context.Context, in *GetRecordingConsentsRequest, opts ...grpc.CallOption) (*GetRecordingConsentsResponse, error)
+	TagRecordingWithConsents(ctx context.Context, in *TagRecordingWithConsentsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	UpdateRecordingMetadata(ctx context.Context, in *UpdateRecordingMetadataRequest, opts ...grpc.CallOption) (*Recording, error)
+	ListRecordingsByMeeting(ctx context.Context, in *ListRecordingsByMeetingRequest, opts ...grpc.CallOption) (*ListRecordingsByMeetingResponse, error)
+	GetRecordingStatus(ctx context.Context, in *GetRecordingStatusRequest, opts ...grpc.CallOption) (*Recording, error)
+	CleanupExpiredRecording(ctx context.Context, in *CleanupExpiredRecordingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Meeting Management
 	CreateMeeting(ctx context.Context, in *CreateMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
 	GetMeeting(ctx context.Context, in *GetMeetingRequest, opts ...grpc.CallOption) (*Meeting, error)
@@ -277,6 +294,76 @@ func (c *videoServiceClient) GetRecordingDownloadURL(ctx context.Context, in *Ge
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetRecordingDownloadURLResponse)
 	err := c.cc.Invoke(ctx, VideoService_GetRecordingDownloadURL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ConfirmInitiatorConsent(ctx context.Context, in *ConfirmInitiatorConsentRequest, opts ...grpc.CallOption) (*ConfirmInitiatorConsentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConfirmInitiatorConsentResponse)
+	err := c.cc.Invoke(ctx, VideoService_ConfirmInitiatorConsent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) GetRecordingConsents(ctx context.Context, in *GetRecordingConsentsRequest, opts ...grpc.CallOption) (*GetRecordingConsentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRecordingConsentsResponse)
+	err := c.cc.Invoke(ctx, VideoService_GetRecordingConsents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) TagRecordingWithConsents(ctx context.Context, in *TagRecordingWithConsentsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_TagRecordingWithConsents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) UpdateRecordingMetadata(ctx context.Context, in *UpdateRecordingMetadataRequest, opts ...grpc.CallOption) (*Recording, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Recording)
+	err := c.cc.Invoke(ctx, VideoService_UpdateRecordingMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) ListRecordingsByMeeting(ctx context.Context, in *ListRecordingsByMeetingRequest, opts ...grpc.CallOption) (*ListRecordingsByMeetingResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRecordingsByMeetingResponse)
+	err := c.cc.Invoke(ctx, VideoService_ListRecordingsByMeeting_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) GetRecordingStatus(ctx context.Context, in *GetRecordingStatusRequest, opts ...grpc.CallOption) (*Recording, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Recording)
+	err := c.cc.Invoke(ctx, VideoService_GetRecordingStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *videoServiceClient) CleanupExpiredRecording(ctx context.Context, in *CleanupExpiredRecordingRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, VideoService_CleanupExpiredRecording_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -721,6 +808,16 @@ type VideoServiceServer interface {
 	ListRecordings(context.Context, *ListRecordingsRequest) (*ListRecordingsResponse, error)
 	DeleteRecording(context.Context, *DeleteRecordingRequest) (*emptypb.Empty, error)
 	GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error)
+	// Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+	// confirms the pre-dialog after StartRecording created the row.
+	ConfirmInitiatorConsent(context.Context, *ConfirmInitiatorConsentRequest) (*ConfirmInitiatorConsentResponse, error)
+	// Recording tagging (S1.7 / Welle 1.B): consent snapshot, metadata, per-meeting list, status, cleanup.
+	GetRecordingConsents(context.Context, *GetRecordingConsentsRequest) (*GetRecordingConsentsResponse, error)
+	TagRecordingWithConsents(context.Context, *TagRecordingWithConsentsRequest) (*emptypb.Empty, error)
+	UpdateRecordingMetadata(context.Context, *UpdateRecordingMetadataRequest) (*Recording, error)
+	ListRecordingsByMeeting(context.Context, *ListRecordingsByMeetingRequest) (*ListRecordingsByMeetingResponse, error)
+	GetRecordingStatus(context.Context, *GetRecordingStatusRequest) (*Recording, error)
+	CleanupExpiredRecording(context.Context, *CleanupExpiredRecordingRequest) (*emptypb.Empty, error)
 	// Meeting Management
 	CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error)
 	GetMeeting(context.Context, *GetMeetingRequest) (*Meeting, error)
@@ -825,6 +922,27 @@ func (UnimplementedVideoServiceServer) DeleteRecording(context.Context, *DeleteR
 }
 func (UnimplementedVideoServiceServer) GetRecordingDownloadURL(context.Context, *GetRecordingDownloadURLRequest) (*GetRecordingDownloadURLResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetRecordingDownloadURL not implemented")
+}
+func (UnimplementedVideoServiceServer) ConfirmInitiatorConsent(context.Context, *ConfirmInitiatorConsentRequest) (*ConfirmInitiatorConsentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ConfirmInitiatorConsent not implemented")
+}
+func (UnimplementedVideoServiceServer) GetRecordingConsents(context.Context, *GetRecordingConsentsRequest) (*GetRecordingConsentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRecordingConsents not implemented")
+}
+func (UnimplementedVideoServiceServer) TagRecordingWithConsents(context.Context, *TagRecordingWithConsentsRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method TagRecordingWithConsents not implemented")
+}
+func (UnimplementedVideoServiceServer) UpdateRecordingMetadata(context.Context, *UpdateRecordingMetadataRequest) (*Recording, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRecordingMetadata not implemented")
+}
+func (UnimplementedVideoServiceServer) ListRecordingsByMeeting(context.Context, *ListRecordingsByMeetingRequest) (*ListRecordingsByMeetingResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRecordingsByMeeting not implemented")
+}
+func (UnimplementedVideoServiceServer) GetRecordingStatus(context.Context, *GetRecordingStatusRequest) (*Recording, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRecordingStatus not implemented")
+}
+func (UnimplementedVideoServiceServer) CleanupExpiredRecording(context.Context, *CleanupExpiredRecordingRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanupExpiredRecording not implemented")
 }
 func (UnimplementedVideoServiceServer) CreateMeeting(context.Context, *CreateMeetingRequest) (*Meeting, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateMeeting not implemented")
@@ -1185,6 +1303,132 @@ func _VideoService_GetRecordingDownloadURL_Handler(srv interface{}, ctx context.
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VideoServiceServer).GetRecordingDownloadURL(ctx, req.(*GetRecordingDownloadURLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ConfirmInitiatorConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfirmInitiatorConsentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ConfirmInitiatorConsent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ConfirmInitiatorConsent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ConfirmInitiatorConsent(ctx, req.(*ConfirmInitiatorConsentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_GetRecordingConsents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRecordingConsentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).GetRecordingConsents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_GetRecordingConsents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).GetRecordingConsents(ctx, req.(*GetRecordingConsentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_TagRecordingWithConsents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TagRecordingWithConsentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).TagRecordingWithConsents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_TagRecordingWithConsents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).TagRecordingWithConsents(ctx, req.(*TagRecordingWithConsentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_UpdateRecordingMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRecordingMetadataRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).UpdateRecordingMetadata(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_UpdateRecordingMetadata_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).UpdateRecordingMetadata(ctx, req.(*UpdateRecordingMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_ListRecordingsByMeeting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRecordingsByMeetingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).ListRecordingsByMeeting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_ListRecordingsByMeeting_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).ListRecordingsByMeeting(ctx, req.(*ListRecordingsByMeetingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_GetRecordingStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRecordingStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).GetRecordingStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_GetRecordingStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).GetRecordingStatus(ctx, req.(*GetRecordingStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VideoService_CleanupExpiredRecording_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CleanupExpiredRecordingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VideoServiceServer).CleanupExpiredRecording(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: VideoService_CleanupExpiredRecording_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VideoServiceServer).CleanupExpiredRecording(ctx, req.(*CleanupExpiredRecordingRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1999,6 +2243,34 @@ var VideoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetRecordingDownloadURL",
 			Handler:    _VideoService_GetRecordingDownloadURL_Handler,
+		},
+		{
+			MethodName: "ConfirmInitiatorConsent",
+			Handler:    _VideoService_ConfirmInitiatorConsent_Handler,
+		},
+		{
+			MethodName: "GetRecordingConsents",
+			Handler:    _VideoService_GetRecordingConsents_Handler,
+		},
+		{
+			MethodName: "TagRecordingWithConsents",
+			Handler:    _VideoService_TagRecordingWithConsents_Handler,
+		},
+		{
+			MethodName: "UpdateRecordingMetadata",
+			Handler:    _VideoService_UpdateRecordingMetadata_Handler,
+		},
+		{
+			MethodName: "ListRecordingsByMeeting",
+			Handler:    _VideoService_ListRecordingsByMeeting_Handler,
+		},
+		{
+			MethodName: "GetRecordingStatus",
+			Handler:    _VideoService_GetRecordingStatus_Handler,
+		},
+		{
+			MethodName: "CleanupExpiredRecording",
+			Handler:    _VideoService_CleanupExpiredRecording_Handler,
 		},
 		{
 			MethodName: "CreateMeeting",

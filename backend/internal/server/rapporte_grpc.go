@@ -75,6 +75,10 @@ func (s *RapporteGRPCServer) CreateReport(ctx context.Context, req *rapportev1.C
 }
 
 func (s *RapporteGRPCServer) GetReport(ctx context.Context, req *rapportev1.GetReportRequest) (*rapportev1.ReportResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -92,6 +96,10 @@ func (s *RapporteGRPCServer) GetReport(ctx context.Context, req *rapportev1.GetR
 }
 
 func (s *RapporteGRPCServer) UpdateReport(ctx context.Context, req *rapportev1.UpdateReportRequest) (*rapportev1.ReportResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -133,6 +141,10 @@ func (s *RapporteGRPCServer) UpdateReport(ctx context.Context, req *rapportev1.U
 }
 
 func (s *RapporteGRPCServer) DeleteReport(ctx context.Context, req *rapportev1.DeleteReportRequest) (*rapportev1.DeleteReportResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -192,6 +204,10 @@ func (s *RapporteGRPCServer) ListReports(ctx context.Context, req *rapportev1.Li
 // ============================================================================
 
 func (s *RapporteGRPCServer) SubmitReport(ctx context.Context, req *rapportev1.SubmitReportRequest) (*rapportev1.ReportResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -268,6 +284,10 @@ func (s *RapporteGRPCServer) RejectReport(ctx context.Context, req *rapportev1.R
 // ============================================================================
 
 func (s *RapporteGRPCServer) AddLine(ctx context.Context, req *rapportev1.AddLineRequest) (*rapportev1.LineResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -293,6 +313,10 @@ func (s *RapporteGRPCServer) AddLine(ctx context.Context, req *rapportev1.AddLin
 }
 
 func (s *RapporteGRPCServer) UpdateLine(ctx context.Context, req *rapportev1.UpdateLineRequest) (*rapportev1.LineResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -325,6 +349,10 @@ func (s *RapporteGRPCServer) UpdateLine(ctx context.Context, req *rapportev1.Upd
 }
 
 func (s *RapporteGRPCServer) DeleteLine(ctx context.Context, req *rapportev1.DeleteLineRequest) (*rapportev1.DeleteLineResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -341,6 +369,10 @@ func (s *RapporteGRPCServer) DeleteLine(ctx context.Context, req *rapportev1.Del
 }
 
 func (s *RapporteGRPCServer) ListLines(ctx context.Context, req *rapportev1.ListLinesRequest) (*rapportev1.ListLinesResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -367,6 +399,10 @@ func (s *RapporteGRPCServer) ListLines(ctx context.Context, req *rapportev1.List
 // ============================================================================
 
 func (s *RapporteGRPCServer) UploadAttachment(ctx context.Context, req *rapportev1.UploadAttachmentRequest) (*rapportev1.AttachmentResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -405,6 +441,10 @@ func (s *RapporteGRPCServer) UploadAttachment(ctx context.Context, req *rapporte
 }
 
 func (s *RapporteGRPCServer) ListAttachments(ctx context.Context, req *rapportev1.ListAttachmentsRequest) (*rapportev1.ListAttachmentsResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -436,6 +476,10 @@ func (s *RapporteGRPCServer) ListAttachments(ctx context.Context, req *rapportev
 }
 
 func (s *RapporteGRPCServer) DeleteAttachment(ctx context.Context, req *rapportev1.DeleteAttachmentRequest) (*rapportev1.DeleteAttachmentResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -456,6 +500,10 @@ func (s *RapporteGRPCServer) DeleteAttachment(ctx context.Context, req *rapporte
 // ============================================================================
 
 func (s *RapporteGRPCServer) SaveSignature(ctx context.Context, req *rapportev1.SaveReportSignatureRequest) (*rapportev1.ReportResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -526,6 +574,10 @@ func (s *RapporteGRPCServer) ListPendingApprovals(ctx context.Context, req *rapp
 }
 
 func (s *RapporteGRPCServer) ExportPDF(ctx context.Context, req *rapportev1.ExportPDFRequest) (*rapportev1.ExportPDFResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -614,6 +666,10 @@ func (s *RapporteGRPCServer) ListWorkers(ctx context.Context, req *rapportev1.Li
 // ============================================================================
 
 func (s *RapporteGRPCServer) CreateMeasurement(ctx context.Context, req *rapportev1.CreateMeasurementRequest) (*rapportev1.CreateMeasurementResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -626,6 +682,11 @@ func (s *RapporteGRPCServer) CreateMeasurement(ctx context.Context, req *rapport
 			return nil, status.Errorf(codes.InvalidArgument, "invalid report_id: %v", parseErr)
 		}
 		reportID = &parsed
+	}
+	if req.GetRestrictToAuthor() {
+		if err := s.authorizeMeasurement(ctx, tenantID, reportID, true); err != nil {
+			return nil, err
+		}
 	}
 
 	m, err := s.repo.CreateMeasurement(ctx, tenantID, reportID,
@@ -686,6 +747,10 @@ func (s *RapporteGRPCServer) ListMeasurements(ctx context.Context, req *rapporte
 }
 
 func (s *RapporteGRPCServer) UpdateMeasurement(ctx context.Context, req *rapportev1.UpdateMeasurementRequest) (*rapportev1.UpdateMeasurementResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -693,6 +758,10 @@ func (s *RapporteGRPCServer) UpdateMeasurement(ctx context.Context, req *rapport
 	measurementID, err := uuid.Parse(req.GetMeasurementId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	if err := s.authorizeMeasurementByID(ctx, tenantID, measurementID, req.GetRestrictToAuthor()); err != nil {
+		return nil, err
 	}
 
 	m, err := s.repo.UpdateMeasurement(ctx, tenantID, measurementID,
@@ -704,6 +773,10 @@ func (s *RapporteGRPCServer) UpdateMeasurement(ctx context.Context, req *rapport
 }
 
 func (s *RapporteGRPCServer) DeleteMeasurement(ctx context.Context, req *rapportev1.DeleteMeasurementRequest) (*rapportev1.DeleteMeasurementResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -711,6 +784,10 @@ func (s *RapporteGRPCServer) DeleteMeasurement(ctx context.Context, req *rapport
 	measurementID, err := uuid.Parse(req.GetMeasurementId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	if err := s.authorizeMeasurementByID(ctx, tenantID, measurementID, req.GetRestrictToAuthor()); err != nil {
+		return nil, err
 	}
 
 	if err := s.repo.DeleteMeasurement(ctx, tenantID, measurementID); err != nil {
@@ -720,6 +797,10 @@ func (s *RapporteGRPCServer) DeleteMeasurement(ctx context.Context, req *rapport
 }
 
 func (s *RapporteGRPCServer) AddMeasurementPosition(ctx context.Context, req *rapportev1.AddMeasurementPositionRequest) (*rapportev1.AddMeasurementPositionResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -727,6 +808,10 @@ func (s *RapporteGRPCServer) AddMeasurementPosition(ctx context.Context, req *ra
 	measurementID, err := uuid.Parse(req.GetMeasurementId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid measurement_id: %v", err)
+	}
+
+	if err := s.authorizeMeasurementByID(ctx, tenantID, measurementID, req.GetRestrictToAuthor()); err != nil {
+		return nil, err
 	}
 
 	p, err := s.repo.AddMeasurementPosition(ctx, tenantID, measurementID,
@@ -739,6 +824,10 @@ func (s *RapporteGRPCServer) AddMeasurementPosition(ctx context.Context, req *ra
 }
 
 func (s *RapporteGRPCServer) DeleteMeasurementPosition(ctx context.Context, req *rapportev1.DeleteMeasurementPositionRequest) (*rapportev1.DeleteMeasurementPositionResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -746,6 +835,16 @@ func (s *RapporteGRPCServer) DeleteMeasurementPosition(ctx context.Context, req 
 	positionID, err := uuid.Parse(req.GetPositionId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid position_id: %v", err)
+	}
+
+	if req.GetRestrictToAuthor() {
+		measurementID, err := s.repo.MeasurementIDOfPosition(ctx, tenantID, positionID)
+		if err != nil {
+			return nil, mapRapporteError(err)
+		}
+		if err := s.authorizeMeasurementByID(ctx, tenantID, measurementID, true); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.repo.DeleteMeasurementPosition(ctx, tenantID, positionID); err != nil {
@@ -1044,6 +1143,43 @@ func rapporteTemplateToProto(t *rapporte.ReportTemplate) *rapportev1.ReportTempl
 		CreatedAt:       t.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       t.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+// rapporteAuthorScope narrows ctx to the caller's own reports when the gateway says
+// the caller's grant is scoped to "own". The caller is the x-user-id the gateway
+// propagates; an author-only request without one is refused rather than widened.
+func rapporteAuthorScope(ctx context.Context, restrict bool) (context.Context, error) {
+	if !restrict {
+		return ctx, nil
+	}
+	userID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, "author-scoped request without a caller")
+	}
+	return rapporte.WithAuthorOnly(ctx, userID), nil
+}
+
+// authorizeMeasurement applies the report author check to a measurement that hangs
+// off a report. A measurement without a report belongs to no author and stays open
+// to everyone who may write measurements.
+func (s *RapporteGRPCServer) authorizeMeasurement(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, write bool) error {
+	if reportID == nil {
+		return nil
+	}
+	return mapRapporteError(s.svc.AuthorizeReport(ctx, tenantID, *reportID, write))
+}
+
+// authorizeMeasurementByID resolves the measurement first; it only costs a lookup
+// when the caller is author-only.
+func (s *RapporteGRPCServer) authorizeMeasurementByID(ctx context.Context, tenantID, measurementID uuid.UUID, restricted bool) error {
+	if !restricted {
+		return nil
+	}
+	m, err := s.repo.GetMeasurement(ctx, tenantID, measurementID)
+	if err != nil {
+		return mapRapporteError(err)
+	}
+	return s.authorizeMeasurement(ctx, tenantID, m.ReportID, true)
 }
 
 // ============================================================================

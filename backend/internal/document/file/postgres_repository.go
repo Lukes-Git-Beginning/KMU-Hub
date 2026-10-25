@@ -282,10 +282,12 @@ func (r *PostgresRepository) GetVersionByID(ctx context.Context, fileID, version
 	return &v, nil
 }
 
-func (r *PostgresRepository) UpdateCurrentVersion(ctx context.Context, fileID uuid.UUID, versionNumber int) error {
+func (r *PostgresRepository) PromoteVersion(ctx context.Context, v *models.DocumentFileVersion) error {
 	tag, err := r.pool.Exec(ctx,
-		`UPDATE document_files SET current_version = $1, updated_at = NOW() WHERE id = $2`,
-		versionNumber, fileID)
+		`UPDATE document_files
+		 SET current_version = $1, storage_key = $2, file_size = $3, updated_at = NOW()
+		 WHERE id = $4 AND tenant_id = $5`,
+		v.VersionNumber, v.StorageKey, v.FileSize, v.FileID, v.TenantID)
 	if err != nil {
 		return err
 	}

@@ -6359,8 +6359,11 @@ func (x *ListOpenItemsResponse) GetSummary() *OpenItemsSummary {
 }
 
 type GetFinanceDashboardRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Inclusive reporting range, YYYY-MM-DD. Both unset: January 1st of the current year until now.
+	DateFrom      *string `protobuf:"bytes,2,opt,name=date_from,json=dateFrom,proto3,oneof" json:"date_from,omitempty"`
+	DateTo        *string `protobuf:"bytes,3,opt,name=date_to,json=dateTo,proto3,oneof" json:"date_to,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6398,6 +6401,20 @@ func (*GetFinanceDashboardRequest) Descriptor() ([]byte, []int) {
 func (x *GetFinanceDashboardRequest) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *GetFinanceDashboardRequest) GetDateFrom() string {
+	if x != nil && x.DateFrom != nil {
+		return *x.DateFrom
+	}
+	return ""
+}
+
+func (x *GetFinanceDashboardRequest) GetDateTo() string {
+	if x != nil && x.DateTo != nil {
+		return *x.DateTo
 	}
 	return ""
 }
@@ -15052,9 +15069,15 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x15ListOpenItemsResponse\x12&\n" +
 	"\x05items\x18\x01 \x03(\v2\x10.biz.v1.OpenItemR\x05items\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x122\n" +
-	"\asummary\x18\x03 \x01(\v2\x18.biz.v1.OpenItemsSummaryR\asummary\"9\n" +
+	"\asummary\x18\x03 \x01(\v2\x18.biz.v1.OpenItemsSummaryR\asummary\"\x93\x01\n" +
 	"\x1aGetFinanceDashboardRequest\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"U\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12 \n" +
+	"\tdate_from\x18\x02 \x01(\tH\x00R\bdateFrom\x88\x01\x01\x12\x1c\n" +
+	"\adate_to\x18\x03 \x01(\tH\x01R\x06dateTo\x88\x01\x01B\f\n" +
+	"\n" +
+	"_date_fromB\n" +
+	"\n" +
+	"\b_date_to\"U\n" +
 	"\x1bGetFinanceDashboardResponse\x126\n" +
 	"\tdashboard\x18\x01 \x01(\v2\x18.biz.v1.FinanceDashboardR\tdashboard\"\x97\x01\n" +
 	"\x12ExportDATEVRequest\x12\x1b\n" +
@@ -16461,6 +16484,7 @@ func file_proto_biz_v1_biz_proto_init() {
 	file_proto_biz_v1_biz_proto_msgTypes[39].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[43].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[79].OneofWrappers = []any{}
+	file_proto_biz_v1_biz_proto_msgTypes[85].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[151].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[159].OneofWrappers = []any{}
 	file_proto_biz_v1_biz_proto_msgTypes[160].OneofWrappers = []any{}

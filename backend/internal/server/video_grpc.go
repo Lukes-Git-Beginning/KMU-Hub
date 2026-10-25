@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -25,8 +26,6 @@ import (
 // VideoGRPCServer implements the Video gRPC service and its recording-tagging extension.
 type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
-	videov1.UnimplementedVideoServiceRecordingTagServer
-	videov1.UnimplementedVideoServicePreConsentServer
 	videoService     *video.Service
 	meetingService   *meeting.Service
 	recordingService *recording.Service
@@ -298,8 +297,10 @@ func (s *VideoGRPCServer) StartRecording(ctx context.Context, req *videov1.Start
 }
 
 // authorizeRecordingOwner allows an action on a recording only for its initiator
-// or a host/co-host of the meeting it belongs to. verb names the action in the
-// PermissionDenied message.
+// or a host/co-host of the meeting it belongs to. A tenant admin (recordings:admin,
+// forwarded over the gRPC hop) may additionally delete any recording of the tenant,
+// including call recordings that have no meeting; stop has no such waiver. verb
+// names the action in the PermissionDenied message.
 func (s *VideoGRPCServer) authorizeRecordingOwner(ctx context.Context, recordingID uuid.UUID, verb string) error {
 	tenantID, tenantErr := middleware.GetTenantID(ctx)
 	if tenantErr != nil {
@@ -316,12 +317,16 @@ func (s *VideoGRPCServer) authorizeRecordingOwner(ctx context.Context, recording
 	}
 
 	authorized := rec.StartedBy != nil && *rec.StartedBy == callerID
+	if !authorized && verb == "delete" {
+		authorized = slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermRecordingsAdmin)
+	}
 	if !authorized && rec.MeetingID != nil {
 		isHost, hostErr := s.meetingService.IsHostOrCoHost(ctx, *rec.MeetingID, tenantID, callerID)
-		if hostErr != nil {
+		// A deleted meeting has no host left: the caller is simply not one.
+		if hostErr != nil && !errors.Is(hostErr, meeting.ErrNotFound) {
 			return status.Errorf(codes.Internal, "authz check failed: %v", hostErr)
 		}
-		authorized = isHost
+		authorized = hostErr == nil && isHost
 	}
 	if !authorized {
 		return status.Errorf(codes.PermissionDenied, "only the recording initiator or meeting host/co-host may %s a recording", verb)
@@ -465,7 +470,7 @@ func (s *VideoGRPCServer) DeleteRecording(ctx context.Context, req *videov1.Dele
 // ============================================================================
 
 func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1.GetRecordingConsentsRequest) (*videov1.GetRecordingConsentsResponse, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
@@ -487,21 +492,21 @@ func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1
 	}
 
 	return &videov1.GetRecordingConsentsResponse{
-		RecordingID:  recordingID.String(),
+		RecordingId:  recordingID.String(),
 		Consents:     protoConsents,
 		AllConsented: cs.AllConsented,
 	}, nil
 }
 
 func (s *VideoGRPCServer) TagRecordingWithConsents(ctx context.Context, req *videov1.TagRecordingWithConsentsRequest) (*emptypb.Empty, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
 	snapshot := make([]recording.ParticipantConsentInfo, 0, len(req.Snapshot))
 	for _, e := range req.Snapshot {
-		uid, parseErr := uuid.Parse(e.UserID)
+		uid, parseErr := uuid.Parse(e.UserId)
 		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid user_id in snapshot")
 		}
@@ -519,13 +524,13 @@ func (s *VideoGRPCServer) TagRecordingWithConsents(ctx context.Context, req *vid
 }
 
 func (s *VideoGRPCServer) UpdateRecordingMetadata(ctx context.Context, req *videov1.UpdateRecordingMetadataRequest) (*videov1.Recording, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
 	meta := recording.RecordingMetadata{
-		FileURL:       req.FileURL,
+		FileURL:       req.FileUrl,
 		FileSizeBytes: req.FileSizeBytes,
 	}
 	if req.DurationSeconds != nil {
@@ -550,14 +555,14 @@ func (s *VideoGRPCServer) UpdateRecordingMetadata(ctx context.Context, req *vide
 }
 
 func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *videov1.ListRecordingsByMeetingRequest) (*videov1.ListRecordingsByMeetingResponse, error) {
-	meetingID, err := uuid.Parse(req.MeetingID)
+	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
 	var tenantID uuid.UUID
-	if req.TenantID != "" {
-		tenantID, err = uuid.Parse(req.TenantID)
+	if req.TenantId != "" {
+		tenantID, err = uuid.Parse(req.TenantId)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 		}
@@ -580,7 +585,7 @@ func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *vide
 }
 
 func (s *VideoGRPCServer) GetRecordingStatus(ctx context.Context, req *videov1.GetRecordingStatusRequest) (*videov1.Recording, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
@@ -594,7 +599,7 @@ func (s *VideoGRPCServer) GetRecordingStatus(ctx context.Context, req *videov1.G
 }
 
 func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *videov1.CleanupExpiredRecordingRequest) (*emptypb.Empty, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
@@ -612,19 +617,19 @@ func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *vide
 // ConfirmInitiatorConsent stamps pre_recording_consent_at on a recording row.
 // Called by the gateway after the initiator acknowledges the pre-recording dialog.
 func (s *VideoGRPCServer) ConfirmInitiatorConsent(ctx context.Context, req *videov1.ConfirmInitiatorConsentRequest) (*videov1.ConfirmInitiatorConsentResponse, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.GetRecordingId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
-	userID, err := uuid.Parse(req.UserID)
+	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
 	var tenantID uuid.UUID
-	if req.TenantID != "" {
-		tenantID, err = uuid.Parse(req.TenantID)
+	if req.GetTenantId() != "" {
+		tenantID, err = uuid.Parse(req.GetTenantId())
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 		}

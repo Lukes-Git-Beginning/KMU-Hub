@@ -75,7 +75,7 @@ func TestHandleCreateReport_InvalidJSON(t *testing.T) {
 
 // --- HandleApproveReport ---
 
-func TestHandleApproveReport_MissingReviewerID(t *testing.T) {
+func TestHandleApproveReport_BodyReviewerIDIsNotRequired(t *testing.T) {
 	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/rapporte/reports/550e8400-e29b-41d4-a716-446655440000/approve",
@@ -85,20 +85,7 @@ func TestHandleApproveReport_MissingReviewerID(t *testing.T) {
 	req = withAuth(req, "user-123", testTenantID)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleApproveReport(rec, req)
-	assertValidationError(t, rec, "reviewer_id")
-}
-
-func TestHandleApproveReport_InvalidReviewerIDUUID(t *testing.T) {
-	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/api/v1/rapporte/reports/550e8400-e29b-41d4-a716-446655440000/approve",
-		jsonBody(t, map[string]interface{}{
-			"reviewer_id": "not-a-uuid",
-		}))
-	req = withAuth(req, "user-123", testTenantID)
-	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
-	routes.HandleApproveReport(rec, req)
-	assertValidationError(t, rec, "reviewer_id")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 // --- HandleAddLine ---
@@ -381,7 +368,7 @@ func TestHandleRejectReport_InvalidIDUUID(t *testing.T) {
 	assertStatus(t, rec, http.StatusBadRequest)
 }
 
-func TestHandleRejectReport_MissingReviewerID(t *testing.T) {
+func TestHandleRejectReport_BodyReviewerIDIsNotRequired(t *testing.T) {
 	routes := NewRapporteRoutes(registryWithService("rapporte"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/rapporte/reports/550e8400-e29b-41d4-a716-446655440000/reject",
@@ -391,7 +378,7 @@ func TestHandleRejectReport_MissingReviewerID(t *testing.T) {
 	req = withAuth(req, "user-123", testTenantID)
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleRejectReport(rec, req)
-	assertValidationError(t, rec, "reviewer_id")
+	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
 func TestHandleRejectReport_MissingTenant(t *testing.T) {

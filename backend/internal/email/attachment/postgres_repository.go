@@ -24,11 +24,11 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func (r *PostgresRepository) Create(ctx context.Context, att *models.EmailAttachment) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO email_attachments (id, tenant_id, message_id, filename, content_type,
+		`INSERT INTO email_attachments (id, tenant_id, message_id, account_id, filename, content_type,
 			size_bytes, minio_key, content_id, is_inline, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		att.ID, att.TenantID, att.MessageID, att.Filename, att.ContentType,
-		att.SizeBytes, att.MinIOKey, att.ContentID, att.IsInline, att.CreatedAt,
+		 VALUES ($1, $2, NULLIF($3::uuid, $12::uuid), NULLIF($4::uuid, $12::uuid), $5, $6, $7, $8, $9, $10, $11)`,
+		att.ID, att.TenantID, att.MessageID, att.AccountID, att.Filename, att.ContentType,
+		att.SizeBytes, att.MinIOKey, att.ContentID, att.IsInline, att.CreatedAt, uuid.Nil,
 	)
 	if err != nil {
 		return fmt.Errorf("insert attachment: %w", err)
@@ -38,7 +38,7 @@ func (r *PostgresRepository) Create(ctx context.Context, att *models.EmailAttach
 
 func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT id, tenant_id, message_id, filename, content_type, size_bytes, minio_key,
+		`SELECT id, tenant_id, COALESCE(message_id, '00000000-0000-0000-0000-000000000000'), COALESCE(account_id, '00000000-0000-0000-0000-000000000000'), filename, content_type, size_bytes, minio_key,
 			content_id, is_inline, created_at
 		 FROM email_attachments WHERE message_id = $1 AND tenant_id = $2
 		 ORDER BY created_at ASC`, messageID, tenantID,
@@ -51,7 +51,7 @@ func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UU
 	var attachments []*models.EmailAttachment
 	for rows.Next() {
 		var att models.EmailAttachment
-		if scanErr := rows.Scan(&att.ID, &att.TenantID, &att.MessageID, &att.Filename, &att.ContentType,
+		if scanErr := rows.Scan(&att.ID, &att.TenantID, &att.MessageID, &att.AccountID, &att.Filename, &att.ContentType,
 			&att.SizeBytes, &att.MinIOKey, &att.ContentID, &att.IsInline,
 			&att.CreatedAt); scanErr != nil {
 			return nil, scanErr
@@ -64,10 +64,10 @@ func (r *PostgresRepository) GetByMessage(ctx context.Context, messageID uuid.UU
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAttachment, error) {
 	var att models.EmailAttachment
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, message_id, filename, content_type, size_bytes, minio_key,
+		`SELECT id, tenant_id, COALESCE(message_id, '00000000-0000-0000-0000-000000000000'), COALESCE(account_id, '00000000-0000-0000-0000-000000000000'), filename, content_type, size_bytes, minio_key,
 			content_id, is_inline, created_at
 		 FROM email_attachments WHERE id = $1 AND tenant_id = $2`, id, tenantID,
-	).Scan(&att.ID, &att.TenantID, &att.MessageID, &att.Filename, &att.ContentType,
+	).Scan(&att.ID, &att.TenantID, &att.MessageID, &att.AccountID, &att.Filename, &att.ContentType,
 		&att.SizeBytes, &att.MinIOKey, &att.ContentID, &att.IsInline, &att.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -90,4 +90,15 @@ func (r *PostgresRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, 
 		return "", err
 	}
 	return minioKey, nil
+}
+
+func (r *PostgresRepository) AttachToMessage(ctx context.Context, ids []uuid.UUID, messageID uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE email_attachments SET message_id = $1
+		 WHERE id = ANY($2) AND tenant_id = $3 AND message_id IS NULL`, messageID, ids, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("attach to message: %w", err)
+	}
+	return nil
 }

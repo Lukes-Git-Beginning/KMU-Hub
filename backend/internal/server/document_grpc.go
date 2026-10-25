@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
@@ -634,30 +636,49 @@ func (s *DocumentGRPCServer) GetFileVersionDownloadURL(ctx context.Context, req 
 	}, nil
 }
 
+// maxVersionLabelLen mirrors document_file_versions.version_label VARCHAR(255).
+const maxVersionLabelLen = 255
+
+// CreateFileVersion records a new version of a file. With content set (an
+// editor's save, see gateway.WOPIFileAdapter) that content becomes the file's
+// current content; without it the file's current content is frozen. The author
+// always comes from the caller's JWT, so storage_key, file_size and created_by
+// in the request are ignored.
 func (s *DocumentGRPCServer) CreateFileVersion(ctx context.Context, req *documentv1.CreateFileVersionRequest) (*documentv1.CreateFileVersionResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+
 	fileID, err := uuid.Parse(req.FileId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid file_id")
 	}
 
-	createdBy, err := uuid.Parse(req.CreatedBy)
+	actorID, actorErr := actorIDFromContext(ctx)
+	if actorErr != nil {
+		return nil, actorErr
+	}
+
+	var label *string
+	if l := strings.TrimSpace(req.VersionLabel); l != "" {
+		if utf8.RuneCountInString(l) > maxVersionLabelLen {
+			return nil, status.Error(codes.InvalidArgument, "version_label too long")
+		}
+		label = &l
+	}
+
+	var v *models.DocumentFileVersion
+	if req.Content != nil {
+		v, err = s.fileService.SaveContent(ctx, fileID, tenantID, actorID, req.Content, label)
+	} else {
+		v, err = s.fileService.SnapshotVersion(ctx, fileID, tenantID, actorID, label)
+	}
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+		return nil, mapDocumentError(err)
 	}
 
-	// Note: For gRPC version creation, we don't have a reader. This RPC is for
-	// metadata-only version recording when the storage_key is already known.
-	// WOPI PutFile uses the file service directly (not via gRPC).
-	v := &documentv1.DocumentFileVersion{
-		FileId:       req.FileId,
-		StorageKey:   req.StorageKey,
-		FileSize:     req.FileSize,
-		CreatedBy:    createdBy.String(),
-		VersionLabel: req.VersionLabel,
-	}
-	_ = fileID // Used for validation
-
-	return &documentv1.CreateFileVersionResponse{Version: v}, nil
+	return &documentv1.CreateFileVersionResponse{Version: toProtoFileVersion(v)}, nil
 }
 
 func (s *DocumentGRPCServer) ListFileVersions(ctx context.Context, req *documentv1.ListFileVersionsRequest) (*documentv1.ListFileVersionsResponse, error) {
@@ -953,9 +974,19 @@ func (s *DocumentGRPCServer) ShareEntity(ctx context.Context, req *documentv1.Sh
 		return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
 	}
 
-	sharedBy, err := uuid.Parse(req.SharedBy)
+	// The sharer is the authenticated caller; the client-supplied shared_by is ignored.
+	sharedBy, err := actorIDFromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid shared_by")
+		return nil, err
+	}
+
+	// Only the owner may share, so a recipient cannot pass a share on.
+	ownerID, err := s.shareableEntityOwner(ctx, tenantID, req.EntityType, entityID)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != sharedBy {
+		return nil, status.Error(codes.PermissionDenied, "only the owner may share this "+req.EntityType)
 	}
 
 	input := share.ShareInput{
@@ -976,9 +1007,37 @@ func (s *DocumentGRPCServer) ShareEntity(ctx context.Context, req *documentv1.Sh
 }
 
 func (s *DocumentGRPCServer) UnshareEntity(ctx context.Context, req *documentv1.UnshareEntityRequest) (*documentv1.UnshareEntityResponse, error) {
-	entityID, err := uuid.Parse(req.EntityId)
+	// By share ID (DELETE /documents/shares/{id}): the other fields are ignored.
+	var shareID, entityID, sharedWithUserID uuid.UUID
+	var err error
+	if req.ShareId != "" {
+		if shareID, err = uuid.Parse(req.ShareId); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid share_id")
+		}
+	} else {
+		if entityID, err = uuid.Parse(req.EntityId); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
+		}
+		if sharedWithUserID, err = uuid.Parse(req.SharedWithUserId); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
+		}
+	}
+
+	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid entity_id")
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	caller, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ShareId != "" {
+		sh, err := s.shareService.GetByID(ctx, tenantID, shareID)
+		if err != nil {
+			return nil, mapDocumentError(err)
+		}
+		return s.withdrawShare(ctx, tenantID, caller, sh)
 	}
 
 	// UnshareEntity in share service uses shareID; here we look up by entity+user
@@ -987,21 +1046,52 @@ func (s *DocumentGRPCServer) UnshareEntity(ctx context.Context, req *documentv1.
 		return nil, mapDocumentError(err)
 	}
 
-	sharedWithUserID, err := uuid.Parse(req.SharedWithUserId)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid shared_with_user_id")
-	}
-
 	for _, sh := range shares {
 		if sh.SharedWithUserID == sharedWithUserID {
-			if err := s.shareService.UnshareEntity(ctx, sh.ID); err != nil {
-				return nil, mapDocumentError(err)
-			}
-			return &documentv1.UnshareEntityResponse{}, nil
+			return s.withdrawShare(ctx, tenantID, caller, sh)
 		}
 	}
 
 	return nil, status.Error(codes.NotFound, "share not found")
+}
+
+// withdrawShare deletes a share if the caller created it or owns the shared entity.
+func (s *DocumentGRPCServer) withdrawShare(ctx context.Context, tenantID, caller uuid.UUID, sh *models.DocumentShare) (*documentv1.UnshareEntityResponse, error) {
+	if sh.SharedBy != caller {
+		ownerID, ownerErr := s.shareableEntityOwner(ctx, tenantID, sh.EntityType, sh.EntityID)
+		if ownerErr != nil || ownerID != caller {
+			return nil, status.Error(codes.PermissionDenied, "only the sharer or the owner may withdraw this share")
+		}
+	}
+	if err := s.shareService.UnshareEntity(ctx, sh.ID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+	return &documentv1.UnshareEntityResponse{}, nil
+}
+
+// shareableEntityOwner returns the owner of a live file (owner_id) or folder
+// (created_by) of the tenant. A missing, trashed or foreign entity is NotFound,
+// an unknown entity type InvalidArgument.
+func (s *DocumentGRPCServer) shareableEntityOwner(ctx context.Context, tenantID uuid.UUID, entityType string, entityID uuid.UUID) (uuid.UUID, error) {
+	switch entityType {
+	case models.ShareEntityFile:
+		f, err := s.fileService.GetByID(ctx, entityID, tenantID)
+		if errors.Is(err, file.ErrFileDeleted) {
+			return uuid.Nil, status.Error(codes.NotFound, file.ErrFileNotFound.Error())
+		}
+		if err != nil {
+			return uuid.Nil, mapDocumentError(err)
+		}
+		return f.OwnerID, nil
+	case models.ShareEntityFolder:
+		f, err := s.folderService.GetByID(ctx, tenantID, entityID)
+		if err != nil {
+			return uuid.Nil, mapDocumentError(err)
+		}
+		return f.CreatedBy, nil
+	default:
+		return uuid.Nil, mapDocumentError(share.ErrInvalidEntityType)
+	}
 }
 
 func (s *DocumentGRPCServer) ListShares(ctx context.Context, req *documentv1.ListSharesRequest) (*documentv1.ListSharesResponse, error) {

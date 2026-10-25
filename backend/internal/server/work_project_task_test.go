@@ -153,7 +153,7 @@ func (r *projectMockRepo) GetMember(_ context.Context, projectID, userID uuid.UU
 			return &mm, nil
 		}
 	}
-	return nil, project.ErrNotFound
+	return nil, project.ErrNotProjectMember
 }
 
 func (r *projectMockRepo) ListMembers(_ context.Context, projectID uuid.UUID) ([]models.ProjectMember, error) {
@@ -1143,15 +1143,40 @@ func TestCreateTask_StandaloneHappyPath(t *testing.T) {
 	assert.Nil(t, resp.Task.ProjectId)
 }
 
-func TestCreateTask_NotProjectMemberRejected(t *testing.T) {
-	srv, _, _, _ := newWorkProjectTaskTestServer()
+// Projects are open to the tenant (projectsOpenToTenant): a caller without a
+// membership may create tasks in a project of their tenant.
+func TestCreateTask_NonMemberAllowedInOpenProject(t *testing.T) {
+	srv, projRepo, _, _ := newWorkProjectTaskTestServer()
 	tenantID := uuid.New()
-	projectID := uuid.New() // no membership seeded for this project
+	projectID := uuid.New()
+	projRepo.projects[projectID] = &models.Project{ID: projectID, TenantID: tenantID}
 
-	_, err := srv.CreateTask(ctxWithWorkTenant(tenantID), &workv1.CreateTaskRequest{
+	resp, err := srv.CreateTask(ctxWithWorkTenant(tenantID), &workv1.CreateTaskRequest{
 		Title: "T", CreatedBy: uuid.NewString(), ProjectId: projectID.String(),
 	})
+	require.NoError(t, err)
+	assert.Equal(t, projectID.String(), *resp.Task.ProjectId)
+}
+
+// The membership wall is still there for closed projects (switch off).
+func TestCreateTask_NotProjectMemberRejectedWhenClosed(t *testing.T) {
+	srv, _, _, _ := newWorkProjectTaskTestServer()
+	srv.taskService.SetOpenProjects(false)
+
+	_, err := srv.CreateTask(ctxWithWorkTenant(uuid.New()), &workv1.CreateTaskRequest{
+		Title: "T", CreatedBy: uuid.NewString(), ProjectId: uuid.NewString(),
+	})
 	requireGRPCCode(t, err, codes.PermissionDenied)
+}
+
+// An unknown project ID (or another tenant's) is NotFound, not an editor pass.
+func TestCreateTask_UnknownProjectIsNotFound(t *testing.T) {
+	srv, _, _, _ := newWorkProjectTaskTestServer()
+
+	_, err := srv.CreateTask(ctxWithWorkTenant(uuid.New()), &workv1.CreateTaskRequest{
+		Title: "T", CreatedBy: uuid.NewString(), ProjectId: uuid.NewString(),
+	})
+	requireGRPCCode(t, err, codes.NotFound)
 }
 
 func TestCreateTask_TitleRequiredRejected(t *testing.T) {

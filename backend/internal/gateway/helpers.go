@@ -1,12 +1,14 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -104,6 +106,52 @@ func parsePagination(r *http.Request, defaultPage, defaultPageSize int) (page, p
 	if ps := r.URL.Query().Get("page_size"); ps != "" {
 		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
 			pageSize = parsed
+		}
+	}
+	return page, pageSize
+}
+
+// parsePaginationOrLimitOffset is parsePagination for lists whose desktop hooks speak limit/offset
+// (hr-hooks: ListLeaveRequestsParams, ListWorkTimeEntriesParams, ListEmployeesParams). When page or
+// page_size is present they win and limit/offset are ignored; otherwise limit becomes the page size
+// (same 1..100 bound as parsePagination) and offset is mapped to page = offset/limit + 1. An offset
+// that is not a multiple of limit rounds down to the page that contains it.
+func parsePaginationOrLimitOffset(r *http.Request, defaultPage, defaultPageSize int) (page, pageSize int) {
+	page, pageSize = parsePagination(r, defaultPage, defaultPageSize)
+
+	q := r.URL.Query()
+	if q.Get("page") != "" || q.Get("page_size") != "" {
+		return page, pageSize
+	}
+	limit, err := strconv.Atoi(q.Get("limit"))
+	if err != nil || limit <= 0 || limit > 100 {
+		return page, pageSize
+	}
+	pageSize = limit
+	if offset, err := strconv.Atoi(q.Get("offset")); err == nil && offset > 0 {
+		page = offset/limit + 1
+	}
+	return page, pageSize
+}
+
+// listPageSizeMax is the page-size ceiling of the CRM and task lists (contacts, companies, deals,
+// activities, tasks) that the desktop fills with up to 200 rows at once.
+const listPageSizeMax = 200
+
+// parsePaginationMax is parsePagination with a caller-chosen ceiling: a page_size above maxPageSize
+// is clamped to it (not silently replaced by the default), so a client that asks for 500 rows gets
+// the largest page the route serves.
+func parsePaginationMax(r *http.Request, defaultPage, defaultPageSize, maxPageSize int) (page, pageSize int) {
+	page, pageSize = defaultPage, defaultPageSize
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if ps := r.URL.Query().Get("page_size"); ps != "" {
+		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 {
+			pageSize = min(parsed, maxPageSize)
 		}
 	}
 	return page, pageSize
@@ -214,14 +262,76 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 	return &userID, true
 }
 
+// narrowestScopeAny returns the narrowest scope the caller holds across the given
+// resource:action pairs, for a route guarded by middleware.RequirePermissionAny. The narrower
+// pair wins for the same reason as in ownerFilterForScopeAny: an unassigned pair resolves to
+// auth.ScopeAll and must not widen a scope the caller's other grant deliberately set. A value
+// that is none of own/team/all ranks as the narrowest, so a typo in a role never opens a list.
+func narrowestScopeAny(ctx context.Context, pairs ...[2]string) string {
+	rank := map[string]int{auth.ScopeOwn: 0, auth.ScopeTeam: 1, auth.ScopeAll: 2}
+	narrowest := auth.ScopeAll
+	for _, p := range pairs {
+		scope := middleware.PermissionScope(ctx, p[0], p[1])
+		r, known := rank[scope]
+		if !known {
+			return auth.ScopeOwn
+		}
+		if r < rank[narrowest] {
+			narrowest = scope
+		}
+	}
+	return narrowest
+}
+
+// leaveApprovePerm is the fine key that lets a manager decide leave requests of the reporting line.
+var leaveApprovePerm = [2]string{"team:absence", "approve"}
+
+// leaveDecisionScope is the reach the service enforces on approve/reject: the narrower of
+// hr:write (tenant-wide, admin) and team:absence:approve (manager: team). An unassigned pair
+// resolves to "all" and never widens the other, see narrowestScopeAny.
+func leaveDecisionScope(ctx context.Context) string {
+	return narrowestScopeAny(ctx, [2]string{"hr", "write"}, leaveApprovePerm)
+}
+
+// callerMayDecideLeave reports whether the caller holds team:absence:approve beyond "own", i.e.
+// has a reporting line whose leave requests they review.
+func callerMayDecideLeave(ctx context.Context) bool {
+	key := leaveApprovePerm[0] + ":" + leaveApprovePerm[1]
+	for _, p := range middleware.GetUserPermissions(ctx) {
+		if p == key {
+			return middleware.PermissionScope(ctx, leaveApprovePerm[0], leaveApprovePerm[1]) != auth.ScopeOwn
+		}
+	}
+	return false
+}
+
+// restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
+// to "own". An empty requested id becomes the caller's id (a list without a filter would
+// otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller
+// learns the view is not theirs. Wider scopes pass the requested id through unchanged.
+func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
+	if !ok {
+		return "", false
+	}
+	if ownerID == nil {
+		return requested, true
+	}
+	if requested != "" && !strings.EqualFold(requested, *ownerID) {
+		response.Error(w, http.StatusForbidden, "forbidden")
+		return "", false
+	}
+	return *ownerID, true
+}
+
 // decodeAndValidate decodes the JSON request body into a value of type T and
 // validates it against its `validate` struct tags via the shared validation
-// package. A request WITHOUT a body (io.EOF) is read as an empty object and
-// validated like any other, so required fields still fail with 400 while
-// handlers without required fields stay reachable for the desktop client's plain
-// action buttons, which send no body at all. On any other decode error it
-// writes a 400 with the contract-stable {"error": "invalid request body"} shape;
-// on a validation error it writes a 400 with the structured
+// package. A request WITHOUT a body (io.EOF) is a 400: a handler that takes a
+// body must not run on an all-zero struct (an empty PUT would otherwise clear a
+// role's grants or a user's overrides). Action buttons that legitimately send no
+// body use decodeAndValidateOptional. On any decode error it writes a 400 with
+// the contract-stable {"error": "invalid request body"} shape; on a validation
+// error it writes a 400 with the structured
 // {"error", "code": "validation_failed", "details": [...]} body. In both failure
 // cases it returns (zero, false) and the caller must return immediately. On
 // success it returns (value, true).
@@ -233,8 +343,20 @@ func ownerFilterForScopeAny(w http.ResponseWriter, r *http.Request, pairs ...[2]
 //	    return
 //	}
 func decodeAndValidate[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, false)
+}
+
+// decodeAndValidateOptional is decodeAndValidate for actions whose body is optional: a request
+// WITHOUT a body (io.EOF) is read as an empty object and validated like any other, so required
+// fields still fail with 400. The desktop client sends no body at all for plain action buttons
+// (quote convert, bank match confirmation, inventory "book differences").
+func decodeAndValidateOptional[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	return decodeJSONBody[T](w, r, true)
+}
+
+func decodeJSONBody[T any](w http.ResponseWriter, r *http.Request, emptyOK bool) (T, bool) {
 	var req T
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && (!emptyOK || !errors.Is(err, io.EOF)) {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return req, false
 	}

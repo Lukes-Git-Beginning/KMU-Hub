@@ -199,6 +199,10 @@ func (s *Service) UpdateEmployee(ctx context.Context, id uuid.UUID, input Update
 		return nil, err
 	}
 
+	if input.AddressCountry != nil && len(*input.AddressCountry) != 2 {
+		return nil, ErrInvalidCountry
+	}
+
 	// Check role-based field restrictions
 	if callerRole == "employee" {
 		if hasRestrictedFields(input) {

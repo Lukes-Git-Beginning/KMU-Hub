@@ -594,3 +594,40 @@ func TestResolveTokenPermissions_DB_ForeignTenantOverrideIsIgnored(t *testing.T)
 	assert.Empty(t, got.Denied, "an override of another tenant must not reach this token")
 	assert.Contains(t, got.Permissions, key)
 }
+
+// hr:self is a coarse key (resource "hr", no colon), so the catalogue filter of
+// GetEffectivePermissions drops it. The scopes claim must still carry its 'own':
+// a key missing from the claim reads as "all", and hr:self at "all" opened every
+// colleague's leave balance and time entries to each member.
+func TestResolveTokenPermissions_DB_CoarseKeyKeepsItsOwnScope(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	for _, role := range []string{"member", "manager"} {
+		userID := effPermUser(t, pool, effPermTenant, "eff-coarse-"+role+"@test.local", role)
+
+		got, err := svc.ResolveTokenPermissions(sysCtx, effPermTenant, userID)
+		require.NoError(t, err)
+		assert.Contains(t, got.Permissions, "hr:self", role)
+		assert.Equal(t, auth.ScopeOwn, got.Scopes["hr:self"], role)
+	}
+
+	admin := effPermUser(t, pool, effPermTenant, "eff-coarse-admin@test.local", "admin")
+	got, err := svc.ResolveTokenPermissions(sysCtx, effPermTenant, admin)
+	require.NoError(t, err)
+	_, narrowed := got.Scopes["hr:self"]
+	assert.False(t, narrowed, "admin holds hr:self at all, absent from the claim")
+}
+
+// The member preset carried dialer:agent:manage since migration 000068, which let every
+// agent set a colleague's status and read the supervisor roster. 000344 takes it back.
+func TestResolveTokenPermissions_DB_MemberHoldsNoDialerAgentManage(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	userID := effPermUser(t, pool, effPermTenant, "eff-dialer-member@test.local", "member")
+
+	got, err := svc.ResolveTokenPermissions(sysCtx, effPermTenant, userID)
+	require.NoError(t, err)
+	assert.NotContains(t, got.Permissions, "dialer:agent:manage")
+	assert.Contains(t, got.Permissions, "dialer:calls:write")
+}

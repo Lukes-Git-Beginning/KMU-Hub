@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,7 +16,7 @@ import (
 // ============================================================================
 
 type createTaskRequest struct {
-	ProjectID    string                    `json:"project_id" validate:"required,uuid"`
+	ProjectID    string                    `json:"project_id" validate:"omitempty,uuid"`
 	Title        string                    `json:"title" validate:"required"`
 	Description  *string                   `json:"description,omitempty"`
 	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
@@ -143,7 +144,7 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query()
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	grpcReq := &workv1.ListTasksRequest{
 		TenantId:         listTenantID.String(),
@@ -204,13 +205,18 @@ func (w *WorkRoutes) HandleListTasks(wr http.ResponseWriter, r *http.Request) {
 }
 
 type updateTaskRequest struct {
-	Title        *string                   `json:"title,omitempty" validate:"omitempty,min=1"`
-	Description  *string                   `json:"description,omitempty"`
-	StatusID     *string                   `json:"status_id,omitempty" validate:"omitempty,uuid"`
-	Priority     *string                   `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
-	AssigneeID   *string                   `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
-	StartDate    *string                   `json:"start_date,omitempty"`
-	DueDate      *string                   `json:"due_date,omitempty"`
+	Title       *string `json:"title,omitempty" validate:"omitempty,min=1"`
+	Description *string `json:"description,omitempty"`
+	StatusID    *string `json:"status_id,omitempty" validate:"omitempty,uuid"`
+	Priority    *string `json:"priority,omitempty" validate:"omitempty,oneof=low normal high urgent"`
+	AssigneeID  *string `json:"assignee_id,omitempty" validate:"omitempty,uuid"`
+	StartDate   *string `json:"start_date,omitempty"`
+	// IsClosed completes (true) or reopens (false) via the project's first closed/open status.
+	IsClosed *bool `json:"is_closed,omitempty"`
+	// ProjectID moves a project-less task into the project; a task with a project cannot be moved.
+	ProjectID *string `json:"project_id,omitempty" validate:"omitempty,uuid"`
+	// DueDate is raw so an explicit null (clear) differs from an absent key (keep).
+	DueDate      json.RawMessage           `json:"due_date,omitempty"`
 	CustomFields []workCustomFieldValueReq `json:"custom_fields,omitempty"`
 }
 
@@ -248,6 +254,8 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 	if req.Priority != nil {
 		grpcReq.Priority = req.Priority
 	}
+	grpcReq.IsClosed = req.IsClosed
+	grpcReq.ProjectId = req.ProjectID
 	if req.AssigneeID != nil {
 		grpcReq.AssigneeId = req.AssigneeID
 	}
@@ -259,13 +267,22 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 		}
 		grpcReq.StartDate = t
 	}
-	if req.DueDate != nil {
-		t, parseErr := parseTimestamp(*req.DueDate)
-		if parseErr != nil {
-			response.Error(wr, http.StatusBadRequest, "invalid due_date format")
-			return
+	if len(req.DueDate) > 0 {
+		if string(req.DueDate) == "null" {
+			grpcReq.ClearDueDate = true
+		} else {
+			var due string
+			if json.Unmarshal(req.DueDate, &due) != nil {
+				response.Error(wr, http.StatusBadRequest, "invalid due_date format")
+				return
+			}
+			t, parseErr := parseTimestamp(due)
+			if parseErr != nil {
+				response.Error(wr, http.StatusBadRequest, "invalid due_date format")
+				return
+			}
+			grpcReq.DueDate = t
 		}
-		grpcReq.DueDate = t
 	}
 	for _, cf := range req.CustomFields {
 		grpcReq.CustomFields = append(grpcReq.CustomFields, &workv1.CustomFieldValueInput{
@@ -850,7 +867,7 @@ func (w *WorkRoutes) HandleSearchTasks(wr http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 	projectIDs := q["project_ids"]
 	assigneeIDs := q["assignee_ids"]
 	includeCompleted := q.Get("include_completed") == "true"

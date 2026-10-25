@@ -213,6 +213,13 @@ func (r *stubFuhrparkRepo) UpdateTripLog(_ context.Context, log fuhrpark.TripLog
 
 func (r *stubFuhrparkRepo) DeleteTripLog(_ context.Context, _, _ uuid.UUID) error { return r.err }
 
+func (r *stubFuhrparkRepo) DriverUserName(_ context.Context, _, _ uuid.UUID) (string, error) {
+	if r.err != nil {
+		return "", r.err
+	}
+	return "Stub Driver", nil
+}
+
 func (r *stubFuhrparkRepo) ListTripLogsForExport(_ context.Context, _ fuhrpark.ExportTripLogsParams) ([]fuhrpark.TripLog, error) {
 	return nil, r.err
 }
@@ -253,6 +260,15 @@ func (r *stubFuhrparkRepo) CreateDriverLicense(_ context.Context, lic fuhrpark.D
 	}
 	lic.ID = uuid.New()
 	return lic, nil
+}
+
+// GetDriverLicense answers with a license of a driver nobody else is: a caller narrowed to their own
+// id never matches it.
+func (r *stubFuhrparkRepo) GetDriverLicense(_ context.Context, tenantID, id uuid.UUID) (fuhrpark.DriverLicense, error) {
+	if r.err != nil {
+		return fuhrpark.DriverLicense{}, r.err
+	}
+	return fuhrpark.DriverLicense{ID: id, TenantID: tenantID, DriverID: uuid.New()}, nil
 }
 
 func (r *stubFuhrparkRepo) UpdateDriverLicense(_ context.Context, lic fuhrpark.DriverLicense) (fuhrpark.DriverLicense, error) {
@@ -977,6 +993,42 @@ func TestFuhrparkTripLogHandlers(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
+	t.Run("CreateTripLog rejects a malformed driver_user_id", func(t *testing.T) {
+		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		bad := "not-a-uuid"
+		_, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{VehicleId: vehicleID.String(), DriverUserId: &bad})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+		_, err = s.UpdateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateTripLogRequest{Id: logID.String(), DriverUserId: &bad})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("CreateTripLog and UpdateTripLog return the linked driver", func(t *testing.T) {
+		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		driver := uuid.New().String()
+		created, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{
+			VehicleId: vehicleID.String(), StartLocation: "A", EndLocation: "B", DriverUserId: &driver,
+		})
+		if err != nil {
+			t.Fatalf("CreateTripLog: %v", err)
+		}
+		if created.GetTripLog().DriverUserId == nil || *created.GetTripLog().DriverUserId != driver {
+			t.Fatalf("expected driver_user_id %s on the created entry, got %v", driver, created.GetTripLog().DriverUserId)
+		}
+		if created.GetTripLog().GetDriverName() != "Stub Driver" {
+			t.Fatalf("expected the empty driver_name to be filled from the account, got %q", created.GetTripLog().GetDriverName())
+		}
+
+		unlinked, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{
+			VehicleId: vehicleID.String(), StartLocation: "A", EndLocation: "B", DriverName: "Extern",
+		})
+		if err != nil {
+			t.Fatalf("CreateTripLog (external driver): %v", err)
+		}
+		if unlinked.GetTripLog().DriverUserId != nil {
+			t.Fatalf("expected no driver_user_id for an external driver, got %v", *unlinked.GetTripLog().DriverUserId)
+		}
+	})
+
 	t.Run("CreateTripLog happy path maps the created entry to proto", func(t *testing.T) {
 		s := newFuhrparkTestServer(newStubFuhrparkRepo())
 		resp, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{
@@ -1398,4 +1450,26 @@ func TestFuhrparkGpsHandlers(t *testing.T) {
 		require.Equal(t, "AB-123", resp.Routes[0].VehicleName)
 		require.Len(t, resp.Routes[0].Positions, 1)
 	})
+}
+
+func TestParseDriverUserID(t *testing.T) {
+	id := uuid.New()
+	idStr := id.String()
+	empty, bad := "", "nope"
+
+	got, set, err := parseDriverUserID(nil)
+	if err != nil || set || got != nil {
+		t.Fatalf("unset must keep the link: got=%v set=%v err=%v", got, set, err)
+	}
+	got, set, err = parseDriverUserID(&empty)
+	if err != nil || !set || got != nil {
+		t.Fatalf("empty string must clear the link: got=%v set=%v err=%v", got, set, err)
+	}
+	got, set, err = parseDriverUserID(&idStr)
+	if err != nil || !set || got == nil || *got != id {
+		t.Fatalf("a UUID must replace the link: got=%v set=%v err=%v", got, set, err)
+	}
+	if _, _, err = parseDriverUserID(&bad); err == nil {
+		t.Fatal("a malformed id must be refused")
+	}
 }

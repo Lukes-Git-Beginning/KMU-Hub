@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"slices"
 	"time"
@@ -33,6 +34,7 @@ import (
 type EmailGRPCServer struct {
 	emailv1.UnimplementedEmailServiceServer
 	accountService    *account.Service
+	accounts          emailAccountLookup
 	messageService    *message.Service
 	sendService       *send.Service
 	signatureService  *signature.Service
@@ -71,6 +73,7 @@ func NewEmailGRPCServer(
 ) *EmailGRPCServer {
 	return &EmailGRPCServer{
 		accountService:    accountService,
+		accounts:          accountService,
 		messageService:    messageService,
 		sendService:       sendService,
 		signatureService:  signatureService,
@@ -83,6 +86,114 @@ func NewEmailGRPCServer(
 		labelService:      labelService,
 		templateService:   templateService,
 	}
+}
+
+// emailAccountLookup is the part of account.Service the mailbox owner checks
+// need; tests swap in a stub.
+type emailAccountLookup interface {
+	GetByID(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.EmailAccount, error)
+	ListByUserAndTenant(ctx context.Context, userID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAccount, error)
+}
+
+// ownAccount returns the account when the caller holds it. A mailbox belongs to
+// exactly one user (email_accounts.user_id; there are no shared mailboxes), so
+// every read or write of its folders, messages, attachments, links and sync
+// state is confined to that user, admins included. Admins provision accounts
+// for others through the account routes, which never touch mailbox content.
+// Someone else's account answers NotFound, so an ID does not reveal that it
+// exists.
+func (s *EmailGRPCServer) ownAccount(ctx context.Context, accountID uuid.UUID) (*models.EmailAccount, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	caller, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	acct, err := s.accounts.GetByID(ctx, accountID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	if acct.UserID != caller {
+		return nil, status.Error(codes.NotFound, account.ErrAccountNotFound.Error())
+	}
+	return acct, nil
+}
+
+// ownAccountIDs lists the IDs of the caller's own accounts.
+func (s *EmailGRPCServer) ownAccountIDs(ctx context.Context) ([]uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	caller, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := s.accounts.ListByUserAndTenant(ctx, caller, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	ids := make([]uuid.UUID, 0, len(accounts))
+	for _, a := range accounts {
+		ids = append(ids, a.ID)
+	}
+	return ids, nil
+}
+
+// ownFolder returns the folder when it lies in one of the caller's accounts.
+func (s *EmailGRPCServer) ownFolder(ctx context.Context, folderID uuid.UUID) (*models.EmailFolder, error) {
+	folder, err := s.messageService.GetFolderByID(ctx, folderID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	if _, err := s.ownAccount(ctx, folder.AccountID); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Error(codes.NotFound, message.ErrFolderNotFound.Error())
+		}
+		return nil, err
+	}
+	return folder, nil
+}
+
+// ownMessage returns the message when it lies in one of the caller's accounts.
+func (s *EmailGRPCServer) ownMessage(ctx context.Context, msgID uuid.UUID) (*models.EmailMessage, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	msg, err := s.messageService.GetByID(ctx, msgID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	if _, err := s.ownAccount(ctx, msg.AccountID); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, status.Error(codes.NotFound, message.ErrMessageNotFound.Error())
+		}
+		return nil, err
+	}
+	return msg, nil
+}
+
+// ownSignature returns the signature when the caller wrote it.
+func (s *EmailGRPCServer) ownSignature(ctx context.Context, id uuid.UUID) (*models.EmailSignature, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	caller, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	sig, err := s.signatureService.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	if sig.UserID != caller {
+		return nil, status.Error(codes.NotFound, signature.ErrSignatureNotFound.Error())
+	}
+	return sig, nil
 }
 
 // ============================================================================
@@ -266,6 +377,10 @@ func (s *EmailGRPCServer) SetDefaultEmailAccount(ctx context.Context, req *email
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
 	}
 
+	if _, err := s.ownAccount(ctx, id); err != nil {
+		return nil, err
+	}
+
 	if err := s.accountService.SetDefault(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -312,6 +427,10 @@ func (s *EmailGRPCServer) ListFolders(ctx context.Context, req *emailv1.ListFold
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
 	}
 
+	if _, err := s.ownAccount(ctx, accountID); err != nil {
+		return nil, err
+	}
+
 	folders, err := s.messageService.ListFolders(ctx, accountID)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -331,9 +450,9 @@ func (s *EmailGRPCServer) GetFolder(ctx context.Context, req *emailv1.GetFolderR
 		return nil, status.Error(codes.InvalidArgument, "invalid folder id")
 	}
 
-	folder, err := s.messageService.GetFolderByID(ctx, id)
+	folder, err := s.ownFolder(ctx, id)
 	if err != nil {
-		return nil, mapEmailError(err)
+		return nil, err
 	}
 
 	return &emailv1.GetFolderResponse{Folder: toEmailFolderInfo(folder)}, nil
@@ -343,6 +462,10 @@ func (s *EmailGRPCServer) SyncFolders(ctx context.Context, req *emailv1.SyncFold
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
+	}
+
+	if _, err := s.ownAccount(ctx, accountID); err != nil {
+		return nil, err
 	}
 
 	// Trigger sync and return current folders
@@ -374,6 +497,10 @@ func (s *EmailGRPCServer) ListMessages(ctx context.Context, req *emailv1.ListMes
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid folder_id")
 	}
+	folder, err := s.ownFolder(ctx, folderID)
+	if err != nil {
+		return nil, err
+	}
 
 	page := int(req.Page)
 	if page < 1 {
@@ -404,11 +531,6 @@ func (s *EmailGRPCServer) ListMessages(ctx context.Context, req *emailv1.ListMes
 	var total int
 
 	if req.Search != "" {
-		// Get folder to determine account_id
-		folder, folderErr := s.messageService.GetFolderByID(ctx, folderID)
-		if folderErr != nil {
-			return nil, mapEmailError(folderErr)
-		}
 		messages, total, err = s.messageService.Search(ctx, folder.AccountID, req.Search, opts)
 	} else {
 		messages, total, err = s.messageService.ListByFolder(ctx, folderID, opts)
@@ -466,6 +588,11 @@ func (s *EmailGRPCServer) listMessagesFiltered(ctx context.Context, req *emailv1
 		return nil, status.Error(codes.InvalidArgument, "folder_id, label_id or view=unified required")
 	}
 	f.InboxOnly = f.FolderID == uuid.Nil && f.LabelID == uuid.Nil
+	if f.FolderID != uuid.Nil {
+		if _, err := s.ownFolder(ctx, f.FolderID); err != nil {
+			return nil, err
+		}
+	}
 
 	if f.FolderID == uuid.Nil {
 		tenantID, tErr := middleware.GetTenantID(ctx)
@@ -528,9 +655,9 @@ func (s *EmailGRPCServer) GetMessage(ctx context.Context, req *emailv1.GetMessag
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
 	}
 
-	msg, err := s.messageService.GetByID(ctx, id, tenantID)
+	msg, err := s.ownMessage(ctx, id)
 	if err != nil {
-		return nil, mapEmailError(err)
+		return nil, err
 	}
 
 	protoMsg := toEmailMessageInfo(msg)
@@ -556,6 +683,11 @@ func (s *EmailGRPCServer) GetThreadMessages(ctx context.Context, req *emailv1.Ge
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	own, err := s.ownAccountIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	messages = slices.DeleteFunc(messages, func(m *models.EmailMessage) bool { return !slices.Contains(own, m.AccountID) })
 
 	protoMsgs := make([]*emailv1.EmailMessageInfo, 0, len(messages))
 	for _, m := range messages {
@@ -571,6 +703,10 @@ func (s *EmailGRPCServer) MarkRead(ctx context.Context, req *emailv1.MarkReadReq
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
 	}
 
+	if _, err := s.ownMessage(ctx, id); err != nil {
+		return nil, err
+	}
+
 	if err := s.messageService.MarkRead(ctx, id); err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -582,6 +718,10 @@ func (s *EmailGRPCServer) MarkUnread(ctx context.Context, req *emailv1.MarkUnrea
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
+	}
+
+	if _, err := s.ownMessage(ctx, id); err != nil {
+		return nil, err
 	}
 
 	if err := s.messageService.MarkUnread(ctx, id); err != nil {
@@ -600,6 +740,10 @@ func (s *EmailGRPCServer) ToggleStar(ctx context.Context, req *emailv1.ToggleSta
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
+	}
+
+	if _, err := s.ownMessage(ctx, id); err != nil {
+		return nil, err
 	}
 
 	if err := s.messageService.ToggleStar(ctx, id, tenantID); err != nil {
@@ -626,6 +770,13 @@ func (s *EmailGRPCServer) MoveToFolder(ctx context.Context, req *emailv1.MoveToF
 		return nil, status.Error(codes.InvalidArgument, "invalid target_folder_id")
 	}
 
+	if _, err := s.ownMessage(ctx, msgID); err != nil {
+		return nil, err
+	}
+	if _, err := s.ownFolder(ctx, folderID); err != nil {
+		return nil, err
+	}
+
 	if err := s.messageService.MoveToFolder(ctx, msgID, folderID); err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -637,6 +788,10 @@ func (s *EmailGRPCServer) DeleteMessage(ctx context.Context, req *emailv1.Delete
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid message id")
+	}
+
+	if _, err := s.ownMessage(ctx, id); err != nil {
+		return nil, err
 	}
 
 	if err := s.messageService.Delete(ctx, id); err != nil {
@@ -661,12 +816,50 @@ func (s *EmailGRPCServer) BulkMessageAction(ctx context.Context, req *emailv1.Bu
 		ids = append(ids, id)
 	}
 
+	ids, err = s.ownMessageIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	if req.Action == "move" {
+		if target, pErr := uuid.Parse(req.Target); pErr == nil {
+			if _, err := s.ownFolder(ctx, target); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	affected, err := s.messageService.BulkAction(ctx, tenantID, ids, req.Action, req.Target)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
 
 	return &emailv1.BulkMessageActionResponse{Affected: int32(affected)}, nil
+}
+
+// ownMessageIDs keeps the ids that lie in the caller's accounts. Missing and
+// foreign ids drop out silently, the same way BulkAction already skips an id
+// it cannot find, so the affected count only ever reports the caller's mail.
+// lean: one lookup per id (<= 500); a single account-filtered query when bulk gets hot
+func (s *EmailGRPCServer) ownMessageIDs(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
+	}
+	own, err := s.ownAccountIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	kept := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		msg, err := s.messageService.GetByID(ctx, id, tenantID)
+		if err != nil {
+			continue
+		}
+		if slices.Contains(own, msg.AccountID) {
+			kept = append(kept, id)
+		}
+	}
+	return kept, nil
 }
 
 // ============================================================================
@@ -713,10 +906,36 @@ func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailR
 		input.ContactID = &contactID
 	}
 
+	// Automation sends from the account its workflow names and carries no
+	// user. Every call through the gateway carries one and may only send from
+	// the caller's own mailbox.
+	var acct *models.EmailAccount
+	if middleware.GetUserID(ctx) != "" {
+		acct, err = s.ownAccount(ctx, accountID)
+	} else {
+		acct, err = s.accounts.GetByID(ctx, accountID, tenantID)
+		err = mapEmailError(err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	input.From = senderOf(acct)
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
+
 	msg, err := s.sendService.Send(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.SendEmailResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -743,10 +962,23 @@ func (s *EmailGRPCServer) SaveDraft(ctx context.Context, req *emailv1.SaveDraftR
 		BCC:       toSendAddresses(req.Bcc),
 	}
 
+	acct, err := s.ownAccount(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	input.From = senderOf(acct)
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	input.HasAttachments = len(outgoing) > 0
+
 	msg, err := s.sendService.SaveDraft(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.SaveDraftResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -767,14 +999,19 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	origMsg, err := s.messageService.GetByID(ctx, origID, tenantID)
+	acct, err := s.ownAccount(ctx, accountID)
 	if err != nil {
-		return nil, mapEmailError(err)
+		return nil, err
+	}
+	origMsg, err := s.ownMessage(ctx, origID)
+	if err != nil {
+		return nil, err
 	}
 
 	input := send.ReplyInput{
 		AccountID:   accountID,
 		TenantID:    tenantID,
+		From:        senderOf(acct),
 		OriginalMsg: origMsg,
 		BodyHTML:    req.BodyHtml,
 		BodyText:    req.BodyText,
@@ -782,6 +1019,16 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 			{Name: origMsg.FromName, Email: origMsg.FromEmail},
 		},
 	}
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
 
 	var msg *models.EmailMessage
 	if req.ReplyAll {
@@ -792,6 +1039,7 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.ReplyEmailResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -812,26 +1060,105 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	origMsg, err := s.messageService.GetByID(ctx, origID, tenantID)
+	acct, err := s.ownAccount(ctx, accountID)
 	if err != nil {
-		return nil, mapEmailError(err)
+		return nil, err
+	}
+	origMsg, err := s.ownMessage(ctx, origID)
+	if err != nil {
+		return nil, err
 	}
 
 	input := send.ForwardInput{
 		AccountID:   accountID,
 		TenantID:    tenantID,
+		From:        senderOf(acct),
 		OriginalMsg: origMsg,
 		To:          toSendAddresses(req.To),
 		BodyHTML:    req.BodyHtml,
 		BodyText:    req.BodyText,
 	}
 
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
+
 	msg, err := s.sendService.Forward(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.ForwardEmailResponse{Message: toEmailMessageInfo(msg)}, nil
+}
+
+// senderOf is the From address of mail leaving acct.
+func senderOf(acct *models.EmailAccount) send.EmailAddress {
+	return send.EmailAddress{Name: acct.DisplayName, Email: acct.EmailAddress}
+}
+
+// pendingAttachments resolves the attachment_ids of an outgoing mail to the
+// pre-send uploads of the sending mailbox. An ID that is foreign, already bound
+// or unknown answers NotFound before anything is sent.
+func (s *EmailGRPCServer) pendingAttachments(ctx context.Context, rawIDs []string, accountID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
+	if len(rawIDs) == 0 {
+		return nil, nil
+	}
+	ids := make([]uuid.UUID, 0, len(rawIDs))
+	for _, raw := range rawIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid attachment id")
+		}
+		ids = append(ids, id)
+	}
+	atts, err := s.attachmentService.PendingForSend(ctx, ids, accountID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return atts, nil
+}
+
+// openAttachments streams the stored bytes of atts into dst for the MIME build.
+// The returned func releases the streams and must run once the send is over.
+func (s *EmailGRPCServer) openAttachments(ctx context.Context, atts []*models.EmailAttachment, dst *[]send.AttachmentData) (func(), error) {
+	var opened []io.Closer
+	closeAll := func() {
+		for _, c := range opened {
+			_ = c.Close()
+		}
+	}
+	for _, att := range atts {
+		rc, err := s.attachmentService.Open(ctx, att)
+		if err != nil {
+			closeAll()
+			slog.Error("open outgoing attachment", "attachment_id", att.ID, "error", err)
+			return nil, status.Error(codes.Internal, "attachment unavailable")
+		}
+		opened = append(opened, rc)
+		*dst = append(*dst, send.AttachmentData{
+			Filename:    att.Filename,
+			ContentType: att.ContentType,
+			Data:        rc,
+			Size:        att.SizeBytes,
+		})
+	}
+	return closeAll, nil
+}
+
+// bindAttachments ties the uploads to the stored copy of the mail. The mail is
+// already out (or the draft saved), so a failure is logged, not returned: an
+// error here would invite the caller to send twice.
+func (s *EmailGRPCServer) bindAttachments(ctx context.Context, atts []*models.EmailAttachment, messageID, tenantID uuid.UUID) {
+	if err := s.attachmentService.AttachToMessage(ctx, atts, messageID, tenantID); err != nil {
+		slog.Warn("bind attachments to sent message", "message_id", messageID, "error", err)
+	}
 }
 
 // ============================================================================
@@ -844,9 +1171,10 @@ func (s *EmailGRPCServer) CreateSignature(ctx context.Context, req *emailv1.Crea
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
 
-	userID, err := uuid.Parse(req.UserId)
+	// Signatures are personal: req.UserId is ignored, the caller owns it.
+	userID, err := callerID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 
 	sig, err := s.signatureService.Create(ctx, userID, tenantID, req.Name, req.HtmlContent)
@@ -865,19 +1193,14 @@ func (s *EmailGRPCServer) CreateSignature(ctx context.Context, req *emailv1.Crea
 }
 
 func (s *EmailGRPCServer) GetSignature(ctx context.Context, req *emailv1.GetSignatureRequest) (*emailv1.GetSignatureResponse, error) {
-	tenantID, err := middleware.GetTenantID(ctx)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
-	}
-
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
 	}
 
-	sig, err := s.signatureService.GetByID(ctx, id, tenantID)
+	sig, err := s.ownSignature(ctx, id)
 	if err != nil {
-		return nil, mapEmailError(err)
+		return nil, err
 	}
 
 	return &emailv1.GetSignatureResponse{Signature: toEmailSignatureInfo(sig)}, nil
@@ -889,9 +1212,9 @@ func (s *EmailGRPCServer) ListSignatures(ctx context.Context, req *emailv1.ListS
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
 
-	userID, err := uuid.Parse(req.UserId)
+	userID, err := callerID(ctx)
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 
 	sigs, err := s.signatureService.ListByUser(ctx, userID, tenantID)
@@ -927,6 +1250,10 @@ func (s *EmailGRPCServer) UpdateSignature(ctx context.Context, req *emailv1.Upda
 		htmlContent = *req.HtmlContent
 	}
 
+	if _, err := s.ownSignature(ctx, id); err != nil {
+		return nil, err
+	}
+
 	sig, err := s.signatureService.Update(ctx, id, tenantID, name, htmlContent)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -953,6 +1280,10 @@ func (s *EmailGRPCServer) DeleteSignature(ctx context.Context, req *emailv1.Dele
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
 	}
 
+	if _, err := s.ownSignature(ctx, id); err != nil {
+		return nil, err
+	}
+
 	if err := s.signatureService.Delete(ctx, id, tenantID); err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -969,6 +1300,10 @@ func (s *EmailGRPCServer) SetDefaultSignature(ctx context.Context, req *emailv1.
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature id")
+	}
+
+	if _, err := s.ownSignature(ctx, id); err != nil {
+		return nil, err
 	}
 
 	if err := s.signatureService.SetDefault(ctx, id, tenantID); err != nil {
@@ -998,6 +1333,10 @@ func (s *EmailGRPCServer) GetEmailContactLinks(ctx context.Context, req *emailv1
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
+	if _, err := s.ownMessage(ctx, msgID); err != nil {
+		return nil, err
+	}
+
 	links, err := s.linkRepo.GetByMessageID(ctx, msgID, tenantID)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -1025,6 +1364,10 @@ func (s *EmailGRPCServer) LinkEmailToContact(ctx context.Context, req *emailv1.L
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	if _, err := s.ownMessage(ctx, msgID); err != nil {
+		return nil, err
 	}
 
 	link := &models.EmailContactLink{
@@ -1061,6 +1404,10 @@ func (s *EmailGRPCServer) UnlinkEmailFromContact(ctx context.Context, req *email
 	contactID, err := uuid.Parse(req.ContactId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid contact_id")
+	}
+
+	if _, err := s.ownMessage(ctx, msgID); err != nil {
+		return nil, err
 	}
 
 	if err := s.linkRepo.Delete(ctx, msgID, contactID, tenantID); err != nil {
@@ -1116,6 +1463,10 @@ func (s *EmailGRPCServer) TriggerSync(ctx context.Context, req *emailv1.TriggerS
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
 	}
 
+	if _, err := s.ownAccount(ctx, accountID); err != nil {
+		return nil, err
+	}
+
 	s.syncEngine.TriggerSync(accountID)
 
 	return &emailv1.TriggerSyncResponse{Status: "started"}, nil
@@ -1125,6 +1476,10 @@ func (s *EmailGRPCServer) GetSyncStatus(ctx context.Context, req *emailv1.GetSyn
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
+	}
+
+	if _, err := s.ownAccount(ctx, accountID); err != nil {
+		return nil, err
 	}
 
 	syncStatus := s.syncEngine.GetStatus(accountID)
@@ -1153,6 +1508,10 @@ func (s *EmailGRPCServer) SetReadFlag(ctx context.Context, req *emailv1.SetReadF
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
+	if _, err := s.ownMessage(ctx, id); err != nil {
+		return nil, err
+	}
+
 	if req.IsRead {
 		err = s.messageService.MarkRead(ctx, id)
 	} else {
@@ -1178,6 +1537,10 @@ func (s *EmailGRPCServer) UploadAttachment(ctx context.Context, req *emailv1.Upl
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account_id")
+	}
+
+	if _, err := s.ownAccount(ctx, accountID); err != nil {
+		return nil, err
 	}
 
 	reader := bytes.NewReader(req.Content)
@@ -1214,6 +1577,23 @@ func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *ema
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid attachment id")
+	}
+
+	att, err := s.attachmentService.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	// A pre-send upload has no message yet; the mailbox it was uploaded to decides.
+	if att.MessageID == uuid.Nil {
+		if att.AccountID == uuid.Nil {
+			return nil, status.Error(codes.NotFound, attachment.ErrAttachmentNotFound.Error())
+		}
+		_, err = s.ownAccount(ctx, att.AccountID)
+	} else {
+		_, err = s.ownMessage(ctx, att.MessageID)
+	}
+	if err != nil {
+		return nil, status.Error(codes.NotFound, attachment.ErrAttachmentNotFound.Error())
 	}
 
 	url, err := s.attachmentService.GetDownloadURL(ctx, id, tenantID)
@@ -1522,8 +1902,8 @@ func mapEmailError(err error) error {
 	case errors.Is(err, account.ErrAccountNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, account.ErrInvalidCredentials):
-	// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
-	// the FE treats every 401 as an expired session (refresh + retry + logout).
+		// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
+		// the FE treats every 401 as an expired session (refresh + retry + logout).
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):
 		return status.Error(codes.Unavailable, err.Error())
@@ -1546,8 +1926,8 @@ func mapEmailError(err error) error {
 	case errors.Is(err, send.ErrSendFailed):
 		return status.Error(codes.Internal, err.Error())
 	case errors.Is(err, send.ErrSMTPAuthFailed):
-	// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
-	// the FE treats every 401 as an expired session (refresh + retry + logout).
+		// Third-party credentials rejected: FailedPrecondition (409), not Unauthenticated -
+		// the FE treats every 401 as an expired session (refresh + retry + logout).
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, send.ErrInvalidRecipient):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -1611,7 +1991,6 @@ func mapEmailError(err error) error {
 		return status.Error(codes.Internal, "internal server error")
 	}
 }
-
 
 // ============================================================================
 // Rules (Regeln & Filter)
@@ -1813,6 +2192,10 @@ func (s *EmailGRPCServer) AssignMessageLabels(ctx context.Context, req *emailv1.
 			return nil, status.Error(codes.InvalidArgument, "invalid label id")
 		}
 		labelIDs = append(labelIDs, id)
+	}
+
+	if _, err := s.ownMessage(ctx, messageID); err != nil {
+		return nil, err
 	}
 
 	msg, err := s.labelService.AssignToMessage(ctx, tenantID, messageID, labelIDs)

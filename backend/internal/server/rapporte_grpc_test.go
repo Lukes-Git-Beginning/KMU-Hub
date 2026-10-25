@@ -155,6 +155,20 @@ func (r *stubRapporteRepo) AtomicApproveReport(_ context.Context, tenantID, repo
 	return true, nil
 }
 
+func (r *stubRapporteRepo) AtomicSubmitReport(_ context.Context, tenantID, reportID uuid.UUID) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		return false, r.err
+	}
+	rep, ok := r.reports[reportID]
+	if !ok || rep.TenantID != tenantID || (rep.Status != rapporte.StatusDraft && rep.Status != rapporte.StatusRejected) {
+		return false, nil
+	}
+	rep.Status = rapporte.StatusSubmitted
+	return true, nil
+}
+
 func (r *stubRapporteRepo) AtomicRejectReport(_ context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -504,6 +518,16 @@ func (r *stubRapporteRepo) AddMeasurementPosition(_ context.Context, tenantID, m
 	r.positions[p.ID] = p
 	cp := *p
 	return &cp, nil
+}
+
+func (r *stubRapporteRepo) MeasurementIDOfPosition(_ context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.positions[positionID]
+	if !ok || p.TenantID != tenantID {
+		return uuid.Nil, rapporte.ErrPositionNotFound
+	}
+	return p.MeasurementID, nil
 }
 
 func (r *stubRapporteRepo) DeleteMeasurementPosition(_ context.Context, tenantID, positionID uuid.UUID) error {

@@ -16,6 +16,7 @@ package validation
 import (
 	"errors"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -122,6 +123,27 @@ func validate() *validator.Validate {
 				return true
 			}
 			_, err := time.Parse("2006-01-02", s)
+			return err == nil
+		})
+
+		// clearable_oneof and clearable_phone_dach are the clearable_date idea for
+		// enum and phone fields: an empty string is the deliberate "clear this
+		// column" signal and passes, anything else must satisfy the plain rule.
+		// clearable_oneof takes its vocabulary space-separated, like oneof.
+		mustRegister(v, "clearable_oneof", func(fl validator.FieldLevel) bool {
+			s := fl.Field().String()
+			return s == "" || slices.Contains(strings.Fields(fl.Param()), s)
+		})
+		mustRegister(v, "clearable_phone_dach", func(fl validator.FieldLevel) bool {
+			s := fl.Field().String()
+			if s == "" {
+				return true
+			}
+			country := fl.Param()
+			if country == "" {
+				country = "DE"
+			}
+			_, err := dachfmt.NormalizePhoneE164(s, country)
 			return err == nil
 		})
 

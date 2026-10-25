@@ -274,7 +274,9 @@ message DeleteMessageRequest {
   string user_id = 2;  // Must be author or channel admin/owner
 }
 
-message DeleteMessageResponse {}
+message DeleteMessageResponse {
+  string channel_id = 1;  // Channel of the deleted message, so the caller can notify its subscribers
+}
 
 // ============================================================================
 // Direct Message Messages (Sprint 2)
@@ -481,6 +483,8 @@ message ToggleReactionRequest {
 message ToggleReactionResponse {
   repeated Reaction reactions = 1;
   bool added = 2;
+  // Channel of the reacted-to message (lets the gateway fan out reaction.toggled).
+  string channel_id = 3;
 }
 
 message ListReactionsRequest {

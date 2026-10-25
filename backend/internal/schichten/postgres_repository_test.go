@@ -269,6 +269,21 @@ func TestDeleteAssignment_RemovesRowAndRejectsDoubleDelete(t *testing.T) {
 	}
 }
 
+func TestCreateAssignment_SecondAssignmentOfTheSameEmployeeIsAlreadyAssigned(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
+	now := time.Now().UTC()
+
+	shift := newTestShift(t, repo, ctx, pool, tenantID, "Duplicate Shift", ShiftStatusDraft, now, now.Add(4*time.Hour))
+	employeeID := uuid.New()
+	newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, employeeID, now)
+
+	again := &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shift.ID, EmployeeID: employeeID, AssignedAt: now}
+	if err := repo.CreateAssignment(ctx, again); !errors.Is(err, ErrAlreadyAssigned) {
+		t.Fatalf("expected ErrAlreadyAssigned (409), got %v", err)
+	}
+}
+
 func TestGetAssignment_ReturnsRowOrNotFound(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupSchichtenRepo(t)

@@ -773,9 +773,10 @@ paths:
             default: 1
         - name: page_size
           in: query
+          description: Users per page. Values above 100 (the auth service ceiling) are clamped to 100.
           schema:
             type: integer
-            default: 20
+            default: 100
       responses:
         "200":
           description: Users list
@@ -2001,6 +2002,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: List of contacts
@@ -2460,6 +2462,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: List of companies
@@ -2839,6 +2842,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
         - name: sort_by
           in: query
           schema:
@@ -3092,7 +3096,7 @@ paths:
           schema:
             type: integer
             default: 20
-            maximum: 100
+            maximum: 200
         - name: sort_by
           in: query
           schema:
@@ -3322,7 +3326,12 @@ paths:
             maxLength: 200
         - name: types
           in: query
-          description: Entity types to search (comma-separated). Default searches all.
+          description: >-
+            Entity types to search (comma-separated; a repeated parameter works too).
+            Default searches all. Types the caller may not list (contact, company and
+            activity need contacts/companies/activities:read or crm:contact:read, deal
+            needs deals:read or crm:deal:read) are dropped; if none is left, the answer
+            is an empty result.
           schema:
             type: string
             example: contact,company,deal,activity
@@ -3344,6 +3353,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -4249,7 +4260,12 @@ paths:
 
   /api/v1/files/upload:
     post:
-      summary: Upload a file to a channel
+      summary: Upload a file to a channel, or unattached for a task attachment
+      description: >
+        With `channel_id` the file becomes a chat file of that channel (FileInfo). Without it the
+        file is stored unattached under the caller's tenant and the answer carries its
+        `storage_key`, which `POST /api/v1/tasks/{id}/files` records. Both are charged against
+        the tenant's storage quota.
       tags: [chat-files]
       operationId: uploadFile
       requestBody:
@@ -4258,7 +4274,7 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, channel_id]
+              required: [file]
               properties:
                 file:
                   type: string
@@ -4267,18 +4283,20 @@ paths:
                 channel_id:
                   type: string
                   format: uuid
-                  description: Channel to attach the file to
+                  description: Channel to attach the file to; omit for an unattached upload
                 message_id:
                   type: string
                   format: uuid
-                  description: Optional message to attach the file to
+                  description: Optional message to attach the file to (only with channel_id)
       responses:
         "201":
           description: File uploaded successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/FileInfo"
+                oneOf:
+                  - $ref: "#/components/schemas/FileInfo"
+                  - $ref: "#/components/schemas/UnattachedUpload"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -4313,6 +4331,9 @@ paths:
   /api/v1/files/{id}/download:
     get:
       summary: Get a presigned download URL for a file
+      description: >
+        Accepts a chat file id or a task file id (the id from GET /api/v1/tasks/{id}/files).
+        An id that is no chat file is looked up among the caller's tenant's task files.
       tags: [chat-files]
       operationId: getFileDownloadURL
       parameters:
@@ -5953,7 +5974,11 @@ paths:
               $ref: "#/components/schemas/SetUserProjectPreferenceRequest"
       responses:
         "200":
-          description: Preference saved
+          description: Preference saved; the stored preference, flat like the GET
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProjectPreferenceResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -6128,6 +6153,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: Task list
@@ -6241,7 +6267,16 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            Either the Idempotency-Key request is still in flight, or is_closed
+            asks for a state the task cannot reach (a project-less task, or a
+            project without a closed/open status), or project_id asks for a move
+            the task cannot make (it already has a project, a parent or subtasks,
+            or the target project has no open status).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
@@ -6821,8 +6856,12 @@ paths:
                   format: int64
                 storage_key:
                   type: string
+                  description: >
+                    The storage_key from POST /api/v1/files/upload without channel_id. A key that
+                    is no upload of the caller's tenant is rejected with 400.
                 thumbnail_key:
                   type: string
+                  description: Same rule as storage_key
       responses:
         "201":
           description: File attached
@@ -6835,6 +6874,8 @@ paths:
                     $ref: "#/components/schemas/TaskFileResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -6976,6 +7017,7 @@ paths:
           schema:
             type: integer
             default: 20
+            maximum: 200
       responses:
         "200":
           description: Search results
@@ -8462,7 +8504,7 @@ paths:
 
   /api/v1/calendar/holidays/seed:
     post:
-      summary: Seed holidays for a country and year from Nager.Date API
+      summary: Seed holidays for a country and year from Nager.Date API (requires calendars:admin and settings:tenant:manage)
       tags: [holidays]
       operationId: seedHolidays
       security:
@@ -9134,7 +9176,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
-      summary: Update presence configuration (requires settings:write permission)
+      summary: Update presence configuration (requires settings:write and settings:tenant:manage)
       tags: [presence]
       operationId: updatePresenceConfig
       security:
@@ -9174,6 +9216,8 @@ paths:
   /api/v1/messages/{id}/reactions:
     post:
       summary: Toggle a reaction on a message (add or remove)
+      description: >
+        404 if the message does not exist or sits in a private channel the caller has not joined.
       tags: [reactions]
       operationId: toggleReaction
       security:
@@ -9207,6 +9251,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -9235,6 +9281,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -10917,6 +10965,11 @@ paths:
   /api/v1/finance/credit-notes:
     post:
       summary: Create a credit note
+      description: >
+        The credit note's gross total, added to the credit notes (drafts included) the
+        invoice already carries, may not exceed the invoice's gross total. Otherwise the
+        request is rejected with 400 and a German message naming the amount still
+        creditable. Concurrent requests against one invoice are serialized.
       tags: [credit-notes]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -12476,8 +12529,24 @@ paths:
   /api/v1/finance/dashboard:
     get:
       summary: Get finance dashboard data
+      description: >
+        Revenue, pipeline and the monthly series are computed for the given range (date_to inclusive,
+        never later than today). Stichtag figures (invoice status breakdown, recent invoices, expiring
+        quotes, pending dunnings) ignore it. Without parameters the range is 1 January of the current
+        year until today.
       tags: [finance-dashboard]
       security: [{ bearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          required: false
+          description: First day of the range (YYYY-MM-DD).
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          required: false
+          description: Last day of the range, inclusive (YYYY-MM-DD).
+          schema: { type: string, format: date }
       responses:
         "200":
           description: Dashboard metrics
@@ -12485,6 +12554,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FinanceDashboard"
+        "400":
+          description: date_from or date_to is not a valid date, or date_from is after date_to
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503":
@@ -12630,6 +12701,8 @@ paths:
           schema: { type: string, format: date }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
           description: List of leave requests
@@ -12673,7 +12746,7 @@ paths:
 
   /api/v1/hr/leave/requests/{id}/approve:
     post:
-      summary: Approve a leave request
+      summary: Approve a leave request (hr:write for any employee, or team:absence:approve for the caller's direct reports)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12694,6 +12767,8 @@ paths:
                 $ref: "#/components/schemas/LeaveRequest"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -12701,7 +12776,7 @@ paths:
 
   /api/v1/hr/leave/requests/{id}/reject:
     post:
-      summary: Reject a leave request
+      summary: Reject a leave request (hr:write for any employee, or team:absence:approve for the caller's direct reports)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12722,6 +12797,8 @@ paths:
                 $ref: "#/components/schemas/LeaveRequest"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -12765,7 +12842,7 @@ paths:
 
   /api/v1/hr/leave/balance/{userId}:
     get:
-      summary: Get leave balance for a specific employee (manager view)
+      summary: Get leave balance for a specific employee (manager view; hr:self at scope own only sees itself)
       tags: [hr-leave]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -12779,6 +12856,8 @@ paths:
                 $ref: "#/components/schemas/LeaveBalance"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Missing permission, or the grant is narrowed to own and userId is someone else
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -12971,6 +13050,8 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [active, completed, correction_pending, correction_approved, superseded] } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
           description: Work time entries
@@ -12988,6 +13069,8 @@ paths:
           description: Unknown status value
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Missing permission, or the grant is narrowed to own and employee_id is someone else
         "500":
           description: Failed to serialize the response
         "503":
@@ -13162,15 +13245,21 @@ paths:
   /api/v1/hr/employees:
     get:
       summary: List employees
+      description: >
+        Requires hr:read or team:employee:read. A caller without hr:read gets the team directory
+        projection: each item carries only id, user_id, user_name, user_email, department,
+        position_title, manager_user_id, manager_name and status.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: department, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer } }
         - { name: page_size, in: query, schema: { type: integer } }
+        - { name: limit, in: query, description: "Page size when `page`/`page_size` are absent (1-100); ignored otherwise.", schema: { type: integer } }
+        - { name: offset, in: query, description: "Row offset when `page`/`page_size` are absent; mapped to page = offset/limit + 1.", schema: { type: integer } }
       responses:
         "200":
-          description: Employee list
+          description: Employee list (full profiles with hr:read, directory projection otherwise)
           content:
             application/json:
               schema:
@@ -13183,6 +13272,8 @@ paths:
                   total: { type: integer }
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           description: Failed to serialize the response
         "503":
@@ -13259,6 +13350,7 @@ paths:
   /api/v1/hr/employees/me:
     get:
       summary: Get own employee profile
+      description: Requires hr:read or team:employee:read. The profile is always the caller's own (id from the token).
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       responses:
@@ -13272,6 +13364,8 @@ paths:
                 properties:
                   employee:
                     $ref: "#/components/schemas/EmployeeProfile"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     put:
@@ -13305,13 +13399,17 @@ paths:
   /api/v1/hr/employees/{id}:
     get:
       summary: Get employee by ID
+      description: >
+        Requires hr:read or team:employee:read. A caller without hr:read gets the team directory
+        projection of this one employee (id, user_id, user_name, user_email, department,
+        position_title, manager_user_id, manager_name, status), same as the list.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Employee profile, wrapped as `{employee}`
+          description: Employee profile (full with hr:read, directory projection otherwise), wrapped as `{employee}`
           content:
             application/json:
               schema:
@@ -13324,6 +13422,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update employee (admin/manager fields)
+      description: >
+        Also stores the address and emergency-contact fields. A body that names
+        `status`, or an `address_country` that is not two letters, is answered
+        with 400 and nothing is applied.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -14961,6 +15063,44 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "500":
+          description: Response could not be built
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/automations/executions:
+    get:
+      summary: List execution logs across all automations of the tenant
+      tags: [automations]
+      operationId: listAllAutomationExecutions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [running, completed, failed, skipped, aborted] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: List of executions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AutomationExecution"
+                  total_count: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           description: Response could not be built
         "503":
@@ -18105,6 +18245,27 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/wiki/attachments/{attachmentId}:
+    delete:
+      summary: Delete a wiki attachment by its own ID
+      description: Same effect as the article-scoped route; the article ID is not needed.
+      tags: [wiki-articles]
+      operationId: deleteWikiAttachment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: attachmentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Attachment deleted
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/wiki/search:
     get:
       summary: Full-text search across wiki articles
@@ -18890,6 +19051,8 @@ paths:
                     $ref: '#/components/schemas/SchichtenSwapRequest'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -19803,9 +19966,10 @@ paths:
                 start_km: { type: integer, format: int64 }
                 end_km: { type: integer, format: int64 }
                 is_private: { type: boolean }
-                driver_name: { type: string, description: "Optional" }
+                driver_name: { type: string, description: "Optional; filled with the account's name when driver_user_id is set and this is empty" }
                 business_partner: { type: string }
                 notes: { type: string }
+                driver_user_id: { type: string, format: uuid, description: "Optional link to the driver's user account; must belong to the caller's tenant (400 otherwise)" }
       responses:
         "201":
           description: Trip log created
@@ -20283,6 +20447,7 @@ paths:
                 driver_name: { type: string }
                 business_partner: { type: string }
                 notes: { type: string }
+                driver_user_id: { type: string, description: "Omitted keeps the stored link, an empty string clears it, a user id of the caller's tenant replaces it (400 otherwise)" }
       responses:
         "200":
           description: Trip log updated
@@ -22014,9 +22179,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reviewer_id]
               properties:
-                reviewer_id: { type: string, format: uuid }
+                reviewer_id:
+                  type: string
+                  description: "Ignored. The reviewer is always the authenticated caller."
                 review_note: { type: string }
       responses:
         "200":
@@ -22051,9 +22217,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [reviewer_id]
               properties:
-                reviewer_id: { type: string, format: uuid }
+                reviewer_id:
+                  type: string
+                  description: "Ignored. The reviewer is always the authenticated caller."
                 review_note: { type: string }
       responses:
         "200":
@@ -23058,11 +23225,10 @@ paths:
             minimum: 0
         - name: limit
           in: query
-          description: Rows per page (1-100, default 50). Wins over page_size.
+          description: Rows per page (default 50). Values above 200 are clamped to 200. Wins over page_size.
           schema:
             type: integer
             minimum: 1
-            maximum: 100
         - name: page
           in: query
           schema:
@@ -25939,6 +26105,9 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          # Also when the mailbox was never synced and has no Drafts folder yet.
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "500":
@@ -27407,7 +27576,7 @@ paths:
                 outcome_id: { type: string, format: uuid }
                 notes: { type: string }
                 next_action: { type: string }
-                callback_at: { type: string, format: date-time, description: "RFC3339 timestamp for scheduled callback" }
+                callback_at: { type: string, format: date-time, description: "RFC3339 timestamp for scheduled callback; a zoneless YYYY-MM-DDTHH:MM (datetime-local) is read as Europe/Berlin" }
                 appointment_id: { type: string, format: uuid }
       responses:
         "200":
@@ -27499,7 +27668,7 @@ paths:
       parameters:
         - name: user_id
           in: query
-          description: User UUID; defaults to the authenticated user
+          description: User UUID; defaults to the authenticated user. Only a caller with dialer:agent:manage may name another user, everyone else always gets their own status.
           schema: { type: string, format: uuid }
       responses:
         "200":
@@ -27524,7 +27693,7 @@ paths:
               type: object
               required: [status]
               properties:
-                user_id: { type: string, format: uuid, description: "Defaults to authenticated user" }
+                user_id: { type: string, format: uuid, description: "Defaults to authenticated user. Only a caller with dialer:agent:manage may name another user; everyone else sets their own status." }
                 status:
                   type: integer
                   description: "AgentDialerStatus integer: 0=UNSPECIFIED 1=AVAILABLE 2=ON_CALL 3=WRAP_UP 4=BREAK 5=OFFLINE"
@@ -29982,6 +30151,38 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/berichte/schedules/{id}/run:
+    post:
+      summary: Run a report schedule's report now
+      description: >
+        Requires berichte:reports:write or berichte:schedule:manage. Runs the schedule's
+        definition once with the schedule's own params (trigger "manual", cache bypassed),
+        also when the schedule is inactive. The run result is not returned and the schedule's
+        last-run fields are not touched; delivery to recipients stays with the scheduler.
+        There is no single-schedule lookup in the service, so the schedule is found by paging
+        through the tenant's schedules (at most 2000).
+      tags: [berichte]
+      operationId: runBerichteScheduleNow
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Report was run; the schedule is returned unchanged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  schedule: { $ref: "#/components/schemas/BerichtSchedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/berichte/documents:
     get:
       summary: List report documents
@@ -30730,12 +30931,20 @@ paths:
           in: query
           description: Unrecognized values fall back to unsorted.
           schema: { type: string, enum: [name, size, date, type] }
+        - name: sort_field
+          in: query
+          description: Alias for sort, as the desktop sends it. sort wins when both are present.
+          schema: { type: string, enum: [name, size, date, type] }
         - name: sort_dir
           in: query
           schema: { type: string, enum: [asc, desc] }
         - name: favorites
           in: query
           description: Only the exact string "true" activates the is_favorite filter.
+          schema: { type: string, example: "true" }
+        - name: is_favorite
+          in: query
+          description: Alias for favorites, as the desktop sends it. favorites wins when both are present.
           schema: { type: string, example: "true" }
         - name: page
           in: query
@@ -31399,6 +31608,46 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+    post:
+      summary: Freeze the current state of a document file as a new version
+      description: >-
+        Requires documents:write or documents:version:restore permission. Uploads nothing: the new
+        version is a copy of the file's current content, taken from the file itself. Only
+        version_label is read from the body; a storage key, size or author sent along is ignored
+        (the author is the caller). The file's current_version moves to the new number.
+      tags: [documents]
+      operationId: createDocumentFileVersion
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version_label:
+                  type: string
+                  maxLength: 255
+      responses:
+        "201":
+          description: Version created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { $ref: "#/components/schemas/DocumentFileVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The file is in the trash
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/documents/files/{id}/versions/revert:
     post:
       summary: Revert a document file to a previous version
@@ -31678,6 +31927,39 @@ paths:
                 shared_with_user_id:
                   type: string
                   format: uuid
+      responses:
+        "200":
+          description: Share revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unshared: { type: boolean, example: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          $ref: "#/components/responses/IdempotencyInFlight"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/documents/shares/{id}:
+    delete:
+      summary: Revoke a file or folder share by its ID
+      description: >-
+        Requires documents:write or documents:share:manage. Only the user who created the
+        share or the owner of the shared file/folder may revoke it (403 otherwise); a missing
+        or foreign share is 404.
+      tags: [documents]
+      operationId: unshareDocumentEntityByID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
       responses:
         "200":
           description: Share revoked
@@ -35711,8 +35993,10 @@ paths:
         Requires search:read permission. Fans out to the CRM, Documents, and
         Email services in parallel with a 500ms budget; a slow or failing
         module is reported via its own `error` field instead of failing the
-        whole request. Email search is not yet implemented and always
-        returns an empty result set.
+        whole request. A module the caller may not read is left out of
+        `modules`, and CRM returns only the entity types the caller may list
+        (same keys as GET /api/v1/search). Email search is not yet
+        implemented and always returns an empty result set.
       tags: [search]
       operationId: globalSearch
       security: [{ bearerAuth: [] }]
@@ -37621,7 +37905,7 @@ paths:
 
   /api/v1/video/recordings/{id}/initiator-consent:
     post:
-      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write)
+      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write or meetings:write)
       tags: [recordings]
       operationId: confirmInitiatorConsent
       security:
@@ -37645,12 +37929,20 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          description: >-
+            The recording does not exist or was not started by the calling
+            user (a foreign recording is indistinguishable from a missing one).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "412":
           description: >-
-            Pre-recording consent could not be confirmed: the recording does
-            not exist or is not owned by the calling user.
+            Pre-recording consent could not be confirmed: the service answered
+            without stamping the recording.
           content:
             application/json:
               schema:
@@ -37707,7 +37999,7 @@ paths:
 
   /api/v1/hr/time/team:
     get:
-      summary: Get the current week's time overview for the whole team
+      summary: Get the current week's time overview for the caller's team (whole tenant at scope all, reporting line at scope team)
       tags: [hr-time]
       operationId: getHrTimeTeam
       security: [{ bearerAuth: [] }]
@@ -39658,7 +39950,7 @@ components:
           type: string
         salutation:
           type: string
-          enum: [Herr, Frau]
+          enum: [Herr, Frau, ""]
         mobile:
           type: string
         department:
@@ -39679,10 +39971,10 @@ components:
           type: string
         category:
           type: string
-          enum: [employee, customer, partner]
+          enum: [employee, customer, partner, ""]
         status:
           type: string
-          enum: [active, prospect, inactive]
+          enum: [active, prospect, inactive, ""]
         tag_ids:
           type: array
           items:
@@ -39719,7 +40011,7 @@ components:
           type: string
         salutation:
           type: string
-          enum: [Herr, Frau]
+          enum: [Herr, Frau, ""]
         mobile:
           type: string
         department:
@@ -39740,10 +40032,10 @@ components:
           type: string
         category:
           type: string
-          enum: [employee, customer, partner]
+          enum: [employee, customer, partner, ""]
         status:
           type: string
-          enum: [active, prospect, inactive]
+          enum: [active, prospect, inactive, ""]
         custom_fields:
           type: object
           additionalProperties: true
@@ -40776,6 +41068,21 @@ components:
         total:
           type: integer
 
+    UnattachedUpload:
+      type: object
+      description: A file uploaded without a channel, ready to be attached to a task
+      required: [storage_key, filename, mime_type, file_size]
+      properties:
+        storage_key:
+          type: string
+          description: Object key under the caller's tenant; send it to POST /api/v1/tasks/{id}/files
+        filename:
+          type: string
+        mime_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
     FileInfo:
       type: object
       properties:
@@ -41502,6 +41809,7 @@ components:
         project_id:
           type: string
           format: uuid
+          description: Omit for a standalone task ("Meine Aufgaben"); it then has no project, status or task number.
         title:
           type: string
           maxLength: 500
@@ -41551,7 +41859,10 @@ components:
         project_id:
           type: string
           format: uuid
-          description: Reassign the task to another project (or to none for a standalone task).
+          description: >-
+            Moves a standalone task (no project, no parent, no subtasks) into this project: it gets the
+            project's next task number and first open status. A task that already has a project cannot be
+            moved (409); the same project is a no-op. The caller needs edit rights on the target project.
         priority:
           type: string
           enum: [urgent, high, normal, low]
@@ -41562,8 +41873,16 @@ components:
           type: string
           format: date-time
         due_date:
+          nullable: true
+          description: Send null to remove the due date; omit the key to keep it.
           type: string
           format: date-time
+        is_closed:
+          type: boolean
+          description: >-
+            true completes the task by moving it to the project's first closed status (lowest
+            sort_order), false reopens it into the first open one. Ignored when status_id is set.
+            completed_at is set by the server.
         custom_fields:
           type: array
           items:
@@ -41632,6 +41951,9 @@ components:
         completed_at:
           type: string
           format: date-time
+        is_closed:
+          type: boolean
+          description: Closed flag of the task's project status.
         subtask_count:
           type: integer
         has_blocked_deps:
@@ -43059,6 +43381,10 @@ components:
         added:
           type: boolean
           description: true if reaction was added, false if removed
+        channel_id:
+          type: string
+          format: uuid
+          description: Channel of the message (also pushed to its subscribers as reaction.toggled)
 
     ListReactionsResponse:
       type: object
@@ -45126,6 +45452,21 @@ components:
             Omit to leave the flag untouched; send false to clear it. Not part
             of UpdateSelfProfileInput — an employee must not be able to clear
             it on themselves.
+        emergency_contact_name: { type: string, description: "Omit to keep, send \"\" to clear." }
+        emergency_contact_phone: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_street: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_city: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_postal_code: { type: string, description: "Omit to keep, send \"\" to clear." }
+        address_country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: Two-letter country code. Omit to keep; it cannot be cleared (NOT NULL).
+        status:
+          type: string
+          description: >-
+            Not updatable here. Any value is answered with 400: deactivating an
+            employee is an offboarding (exit date and type are mandatory).
 
     UpdateSelfProfileInput:
       type: object
@@ -50077,6 +50418,11 @@ components:
           description: "Geschaeftspartner (Fahrtenbuch Pflichtangabe)"
         notes:
           type: string
+        driver_user_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: "Linked driver account; null for an external driver"
         created_at:
           type: string
           description: "ISO-8601 string (proto string field, not Timestamp)"
@@ -51789,21 +52135,52 @@ components:
 
     GlobalSearchModuleResult:
       type: object
-      description: Result set for one search backend. Item shape in `results` is module-specific (e.g. CRM SearchResult, document FileSearchResult) — see the search and documents tags for the underlying record shapes.
+      description: Result set for one search backend. Hits are flattened by the gateway into GlobalSearchItem; the raw CRM/Documents proto shapes do not reach the client.
       properties:
         module:
           type: string
           enum: [crm, documents, email]
         results:
           type: array
+          description: Always an array (empty when nothing matched), never null.
           items:
-            type: object
-            additionalProperties: true
+            $ref: "#/components/schemas/GlobalSearchItem"
         total:
           type: integer
         error:
           type: string
           description: Present only if this module's search failed or timed out; other modules still return normally
+
+    GlobalSearchItem:
+      type: object
+      required: [id, title, url]
+      properties:
+        id:
+          type: string
+          description: Entity ID (CRM record or document file)
+        title:
+          type: string
+        description:
+          type: string
+          description: CRM subtitle; omitted for documents
+        url:
+          type: string
+          description: >-
+            Desktop route that opens the hit. CRM contact -> `/kontakte?contact=<id>`,
+            company -> `/kontakte/firmen/<id>`, deal -> `/kontakte/pipeline/<id>`,
+            activity -> `/kontakte/aktivitaeten`; documents -> `/dokumente` (no deep link to a file).
+        entity_type:
+          type: string
+          description: CRM only (contact, company, deal, activity)
+        file_name:
+          type: string
+          description: Documents only
+        mime_type:
+          type: string
+          description: Documents only
+        content_text:
+          type: string
+          description: Documents only; the matching snippet
 
     GlobalSearchResponse:
       type: object

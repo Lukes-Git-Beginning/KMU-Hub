@@ -104,6 +104,11 @@ func (s *Service) UnshareEntity(ctx context.Context, shareID uuid.UUID) error {
 	return nil
 }
 
+// GetByID returns one share of the tenant.
+func (s *Service) GetByID(ctx context.Context, tenantID, shareID uuid.UUID) (*models.DocumentShare, error) {
+	return s.repo.GetByID(ctx, tenantID, shareID)
+}
+
 // ListByEntity returns all shares for a given entity (file or folder).
 func (s *Service) ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error) {
 	return s.repo.ListByEntity(ctx, entityType, entityID)

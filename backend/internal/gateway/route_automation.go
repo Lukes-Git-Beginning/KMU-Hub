@@ -89,6 +89,7 @@ func (ar *AutomationRoutes) RegisterRoutes(r chi.Router, authMiddleware func(htt
 		r.With(automationsToggle).Post("/{id}/disable", ar.HandleDisableAutomation)
 
 		// Execution logs
+		r.With(executionsRead).Get("/executions", ar.HandleListAllExecutions)
 		r.With(executionsRead).Get("/{id}/executions", ar.HandleListExecutions)
 		r.With(executionsRead).Get("/executions/{executionId}", ar.HandleGetExecution)
 
@@ -419,19 +420,31 @@ func (ar *AutomationRoutes) HandleDisableAutomation(w http.ResponseWriter, r *ht
 // ============================================================================
 
 func (ar *AutomationRoutes) HandleListExecutions(w http.ResponseWriter, r *http.Request) {
+	ar.listExecutions(w, r, true)
+}
+
+// HandleListAllExecutions serves the page-level log tab (GET /automations/executions): the
+// same listing as the per-automation route, across every automation of the tenant. Like
+// ListAutomations the RPC is tenant-scoped, not owner-scoped, so no extra visibility rule.
+func (ar *AutomationRoutes) HandleListAllExecutions(w http.ResponseWriter, r *http.Request) {
+	ar.listExecutions(w, r, false)
+}
+
+// listExecutions answers 503 before it validates the {id} path parameter (perAutomation).
+func (ar *AutomationRoutes) listExecutions(w http.ResponseWriter, r *http.Request, perAutomation bool) {
 	client, err := ar.getClient()
 	if err != nil {
 		respondServiceUnavailable(w, ar.ServiceName())
 		return
 	}
 
-	automationID, ok := validateUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	grpcReq := &automationv1.ListExecutionsRequest{
-		AutomationId: &automationID,
+	grpcReq := &automationv1.ListExecutionsRequest{}
+	if perAutomation {
+		automationID, ok := validateUUIDParam(w, r, "id")
+		if !ok {
+			return
+		}
+		grpcReq.AutomationId = &automationID
 	}
 	if statusStr := r.URL.Query().Get("status"); statusStr != "" {
 		s := parseExecutionStatus(statusStr)

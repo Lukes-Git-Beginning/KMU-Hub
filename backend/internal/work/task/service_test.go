@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/work/project"
 )
 
 // --- Mock Repository ---
@@ -27,6 +28,10 @@ type mockRepo struct {
 	projectDeps     []models.TaskDependency
 	userDisplayName string
 	moveTaskErr     error
+	// FirstStatusByClosed: what the lookup returns and which flag it was asked for.
+	firstStatus    uuid.UUID
+	firstStatusErr error
+	lastWantClosed *bool
 }
 
 func newMockRepo() *mockRepo {
@@ -191,6 +196,9 @@ func (m *mockRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *mockRepo) GetFile(_ context.Context, _, _ uuid.UUID) (*models.TaskFile, error) {
+	return nil, nil
+}
 func (m *mockRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }
@@ -223,10 +231,18 @@ func (m *mockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, 
 	return m.statusName, m.statusClosed, nil
 }
 
+func (m *mockRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, closed bool) (uuid.UUID, error) {
+	m.lastWantClosed = &closed
+	return m.firstStatus, m.firstStatusErr
+}
+
 // --- Mock Project Repository ---
 
 type mockProjectRepo struct {
 	members map[string]*models.ProjectMember // key: "projectID:userID"
+	// tenants maps a project to its tenant; GetByID only knows registered ones
+	// (anything else answers nil, nil as before).
+	tenants map[uuid.UUID]uuid.UUID
 }
 
 func newMockProjectRepo() *mockProjectRepo {
@@ -249,7 +265,7 @@ func (m *mockProjectRepo) GetMember(_ context.Context, projectID, userID uuid.UU
 	key := projectID.String() + ":" + userID.String()
 	member, ok := m.members[key]
 	if !ok {
-		return nil, ErrNotProjectMember
+		return nil, project.ErrNotProjectMember
 	}
 	return member, nil
 }
@@ -262,7 +278,10 @@ func (m *mockProjectRepo) IsMember(_ context.Context, projectID, userID uuid.UUI
 
 // Unused methods - satisfy interface
 func (m *mockProjectRepo) Create(_ context.Context, _ *models.Project) error { return nil }
-func (m *mockProjectRepo) GetByID(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*models.Project, error) {
+func (m *mockProjectRepo) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.Project, error) {
+	if owner, ok := m.tenants[id]; ok && owner != tenantID {
+		return nil, project.ErrNotFound
+	}
 	return nil, nil
 }
 func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool, _ bool) ([]models.ProjectWithDetails, error) {
@@ -1021,7 +1040,7 @@ func TestService_CreateFromTemplate(t *testing.T) {
 		},
 	}
 
-	err := svc.CreateFromTemplate(ctx, tenantID, sourceProjectID, targetProjectID, actorID)
+	err := svc.CreateFromTemplate(ctx, tenantID, sourceProjectID, targetProjectID, actorID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -1132,4 +1151,212 @@ func TestService_UpdateDueDate(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// --- Open projects: a non-member works in every project of the tenant ---
+
+func TestService_OpenProjects_NonMemberWorksOnTasks(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, nonMember := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "Open", CreatedBy: nonMember})
+	if err != nil {
+		t.Fatalf("create as non-member in an open project: %v", err)
+	}
+
+	title := "Renamed"
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{Title: &title}, nonMember); err != nil {
+		t.Fatalf("update as non-member: %v", err)
+	}
+	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); err != nil {
+		t.Fatalf("move as non-member: %v", err)
+	}
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); err != nil {
+		t.Fatalf("delete as non-member: %v", err)
+	}
+}
+
+func TestService_OpenProjects_ViewerStaysReadOnly(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, viewer := uuid.New(), uuid.New(), uuid.New()
+	projRepo.addMember(projectID, viewer, models.ProjectRoleViewer)
+
+	if _, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "x", CreatedBy: viewer}); !errors.Is(err, ErrViewerCannotEdit) {
+		t.Fatalf("explicit viewer must not write even in an open project, got %v", err)
+	}
+}
+
+func TestService_OpenProjects_ForeignTenantProjectIsRefused(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	ownTenant, otherTenant, projectID := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: otherTenant}
+
+	_, err := svc.Create(ctx, CreateInput{TenantID: ownTenant, ProjectID: &projectID, Title: "x", CreatedBy: uuid.New()})
+	if !errors.Is(err, project.ErrNotFound) {
+		t.Fatalf("a project of another tenant must stay unreachable, got %v", err)
+	}
+	if len(repo.tasks) != 0 {
+		t.Fatalf("a task was created in a foreign project")
+	}
+}
+
+func TestService_ClosedProjects_NonMemberStillRefused(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo) // open defaults to false
+
+	tenantID, projectID, member, nonMember := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	projRepo.addMember(projectID, member, models.ProjectRoleMember)
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "x", CreatedBy: member})
+	if err != nil {
+		t.Fatalf("member create: %v", err)
+	}
+
+	title := "y"
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{Title: &title}, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("update: want ErrNotProjectMember, got %v", err)
+	}
+	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("move: want ErrNotProjectMember, got %v", err)
+	}
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); !errors.Is(err, ErrNotProjectMember) {
+		t.Errorf("delete: want ErrNotProjectMember, got %v", err)
+	}
+}
+
+func TestService_UpdateClearDueDate(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	svc := NewService(repo, newMockProjectRepo())
+
+	userID := uuid.New()
+	due := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	created, _ := svc.Create(ctx, CreateInput{Title: "t", CreatedBy: userID, DueDate: &due})
+
+	activitiesBefore := len(repo.activities)
+	got, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{ClearDueDate: true}, userID)
+	if err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if got.DueDate != nil {
+		t.Errorf("due date must be cleared, got %v", got.DueDate)
+	}
+	if len(repo.activities) != activitiesBefore+1 || repo.activities[len(repo.activities)-1].Action != models.TaskActionDueDateChanged {
+		t.Error("expected one due_date_changed activity")
+	}
+
+	// Already cleared: no further activity.
+	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{ClearDueDate: true}, userID); err != nil {
+		t.Fatalf("clear twice: %v", err)
+	}
+	if len(repo.activities) != activitiesBefore+1 {
+		t.Error("clearing an absent date must not log an activity")
+	}
+}
+
+// --- Complete / reopen via is_closed ---
+
+func TestService_Update_IsClosedMovesToTheProjectsClosedStatus(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, user := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+	openStatus, closedStatus := uuid.New(), uuid.New()
+	created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, StatusID: &openStatus, Title: "t", CreatedBy: user})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	yes, no := true, false
+	repo.firstStatus, repo.statusClosed = closedStatus, true
+	got, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &yes}, user)
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if repo.lastWantClosed == nil || !*repo.lastWantClosed {
+		t.Fatal("expected a lookup for the first closed status")
+	}
+	if got.StatusID == nil || *got.StatusID != closedStatus || got.CompletedAt == nil {
+		t.Fatalf("task must sit in the closed status with completed_at, got status=%v completed=%v", got.StatusID, got.CompletedAt)
+	}
+
+	// Already closed: no second lookup, nothing moves.
+	got.StatusIsClosed = true
+	repo.lastWantClosed = nil
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &yes}, user); err != nil {
+		t.Fatalf("complete twice: %v", err)
+	}
+	if repo.lastWantClosed != nil {
+		t.Error("a task that already is closed must not trigger a status lookup")
+	}
+
+	// Reopen.
+	reopenStatus := uuid.New()
+	repo.firstStatus, repo.statusClosed = reopenStatus, false
+	got, err = svc.Update(ctx, tenantID, created.ID, UpdateInput{IsClosed: &no}, user)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if got.StatusID == nil || *got.StatusID != reopenStatus || got.CompletedAt != nil {
+		t.Fatalf("task must sit in the open status without completed_at, got status=%v completed=%v", got.StatusID, got.CompletedAt)
+	}
+
+	// An explicit status wins over is_closed.
+	repo.lastWantClosed = nil
+	explicit := uuid.New()
+	if _, err := svc.Update(ctx, tenantID, created.ID, UpdateInput{StatusID: &explicit, IsClosed: &yes}, user); err != nil {
+		t.Fatalf("explicit status: %v", err)
+	}
+	if repo.lastWantClosed != nil {
+		t.Error("status_id must take precedence, no is_closed lookup expected")
+	}
+}
+
+func TestService_Update_IsClosedRefusals(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+	svc.SetOpenProjects(true)
+
+	tenantID, projectID, user := uuid.New(), uuid.New(), uuid.New()
+	projRepo.tenants = map[uuid.UUID]uuid.UUID{projectID: tenantID}
+	yes := true
+
+	// Project without a closed status -> clear error, nothing changes.
+	inProject, _ := svc.Create(ctx, CreateInput{TenantID: tenantID, ProjectID: &projectID, Title: "p", CreatedBy: user})
+	repo.firstStatusErr = ErrNoStatusForState
+	if _, err := svc.Update(ctx, tenantID, inProject.ID, UpdateInput{IsClosed: &yes}, user); !errors.Is(err, ErrNoStatusForState) {
+		t.Fatalf("want ErrNoStatusForState, got %v", err)
+	}
+	if repo.tasks[inProject.ID].CompletedAt != nil {
+		t.Error("a refused completion must not set completed_at")
+	}
+
+	// Project-less task has no status to move to.
+	loose, _ := svc.Create(ctx, CreateInput{Title: "loose", CreatedBy: user})
+	if _, err := svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &yes}, user); !errors.Is(err, ErrTaskWithoutProject) {
+		t.Fatalf("want ErrTaskWithoutProject, got %v", err)
+	}
 }

@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, share *models.DocumentShare) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DocumentShare, error)
 	ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error)
 	ListSharedWithUser(ctx context.Context, userID uuid.UUID, entityType string) ([]*models.DocumentShare, error)
 	GetUserPermission(ctx context.Context, entityType string, entityID uuid.UUID, userID uuid.UUID) (*models.DocumentShare, error)

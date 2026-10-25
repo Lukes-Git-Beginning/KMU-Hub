@@ -41,6 +41,8 @@ type HRSettingsRepository interface {
 type LeaveRequestFilter struct {
 	TenantID      uuid.UUID
 	EmployeeID    *uuid.UUID
+	// ManagerUserID limits the list to employees whose profile names this user as manager.
+	ManagerUserID *uuid.UUID
 	Status        *string
 	StartDateFrom *time.Time
 	StartDateTo   *time.Time

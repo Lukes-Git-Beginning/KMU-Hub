@@ -295,6 +295,8 @@ message ListDamagesRequest {
   optional string status = 3;
   int32 page = 4;
   int32 page_size = 5;
+  // Set by the gateway for a caller whose damage:read scope is 'own': only damages this user reported.
+  optional string reported_by = 6;
 }
 
 message DamageResponse {
@@ -427,6 +429,7 @@ message TripLog {
   string created_at          = 14;
   string updated_at          = 15;
   string business_partner    = 16; // Geschaeftspartner (Fahrtenbuch Pflichtangabe)
+  optional string driver_user_id = 17; // linked user account; unset for an external driver
 }
 message ListTripLogsRequest {
   string vehicle_id = 1;
@@ -449,6 +452,7 @@ message CreateTripLogRequest {
   string driver_name       = 9;
   string notes              = 10;
   string business_partner   = 11;
+  optional string driver_user_id = 12;
 }
 message CreateTripLogResponse { TripLog trip_log = 1; }
 message UpdateTripLogRequest {
@@ -463,6 +467,8 @@ message UpdateTripLogRequest {
   string driver_name       = 9;
   string notes              = 10;
   string business_partner   = 11;
+  // unset keeps the stored link, "" clears it, a user id replaces it
+  optional string driver_user_id = 12;
 }
 message UpdateTripLogResponse { TripLog trip_log = 1; }
 message DeleteTripLogRequest  { string id = 1; }
@@ -602,9 +608,14 @@ message UpdateDriverLicenseRequest {
   string checked_at           = 4;
   string next_check_due_date  = 5;
   string notes                = 6; // optional
+  // Set by the gateway for a caller whose license scope is 'own': a check of another driver is NotFound.
+  string owner_user_id        = 7;
 }
 message UpdateDriverLicenseResponse { DriverLicense license = 1; }
-message DeleteDriverLicenseRequest  { string id = 1; }
+message DeleteDriverLicenseRequest  {
+  string id = 1;
+  string owner_user_id = 2; // see UpdateDriverLicenseRequest
+}
 message DeleteDriverLicenseResponse {}
 
 // ============================================================================
@@ -651,7 +662,12 @@ message UpdateVehicleBookingRequest {
   optional string ends_at    = 3;
   optional string purpose    = 4;
   optional string status     = 5;
+  // Set by the gateway for a caller whose booking scope is 'own': another user's booking is NotFound.
+  string owner_user_id       = 6;
 }
 message VehicleBookingResponse { VehicleBooking booking = 1; }
-message DeleteVehicleBookingRequest  { string id = 1; }
+message DeleteVehicleBookingRequest  {
+  string id = 1;
+  string owner_user_id = 2; // see UpdateVehicleBookingRequest
+}
 message DeleteVehicleBookingResponse {}

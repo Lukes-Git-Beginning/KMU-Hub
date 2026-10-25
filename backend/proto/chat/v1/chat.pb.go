@@ -2011,6 +2011,7 @@ func (x *DeleteMessageRequest) GetUserId() string {
 
 type DeleteMessageResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChannelId     string                 `protobuf:"bytes,1,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"` // Channel of the deleted message, so the caller can notify its subscribers
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2043,6 +2044,13 @@ func (x *DeleteMessageResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteMessageResponse.ProtoReflect.Descriptor instead.
 func (*DeleteMessageResponse) Descriptor() ([]byte, []int) {
 	return file_proto_chat_v1_chat_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *DeleteMessageResponse) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
 }
 
 type GetOrCreateDMRequest struct {
@@ -3815,9 +3823,11 @@ func (x *ToggleReactionRequest) GetEmoji() string {
 }
 
 type ToggleReactionResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Reactions     []*Reaction            `protobuf:"bytes,1,rep,name=reactions,proto3" json:"reactions,omitempty"`
-	Added         bool                   `protobuf:"varint,2,opt,name=added,proto3" json:"added,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Reactions []*Reaction            `protobuf:"bytes,1,rep,name=reactions,proto3" json:"reactions,omitempty"`
+	Added     bool                   `protobuf:"varint,2,opt,name=added,proto3" json:"added,omitempty"`
+	// Channel of the reacted-to message (lets the gateway fan out reaction.toggled).
+	ChannelId     string `protobuf:"bytes,3,opt,name=channel_id,json=channelId,proto3" json:"channel_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3864,6 +3874,13 @@ func (x *ToggleReactionResponse) GetAdded() bool {
 		return x.Added
 	}
 	return false
+}
+
+func (x *ToggleReactionResponse) GetChannelId() string {
+	if x != nil {
+		return x.ChannelId
+	}
+	return ""
 }
 
 type ListReactionsRequest struct {
@@ -4421,8 +4438,10 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\amessage\x18\x01 \x01(\v2\x14.chat.v1.MessageInfoR\amessage\"?\n" +
 	"\x14DeleteMessageRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\"\x17\n" +
-	"\x15DeleteMessageResponse\"S\n" +
+	"\auser_id\x18\x02 \x01(\tR\x06userId\"6\n" +
+	"\x15DeleteMessageResponse\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x01 \x01(\tR\tchannelId\"S\n" +
 	"\x14GetOrCreateDMRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\"\n" +
 	"\rother_user_id\x18\x02 \x01(\tR\votherUserId\"a\n" +
@@ -4584,10 +4603,12 @@ const file_proto_chat_v1_chat_proto_rawDesc = "" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x14\n" +
-	"\x05emoji\x18\x03 \x01(\tR\x05emoji\"_\n" +
+	"\x05emoji\x18\x03 \x01(\tR\x05emoji\"~\n" +
 	"\x16ToggleReactionResponse\x12/\n" +
 	"\treactions\x18\x01 \x03(\v2\x11.chat.v1.ReactionR\treactions\x12\x14\n" +
-	"\x05added\x18\x02 \x01(\bR\x05added\"N\n" +
+	"\x05added\x18\x02 \x01(\bR\x05added\x12\x1d\n" +
+	"\n" +
+	"channel_id\x18\x03 \x01(\tR\tchannelId\"N\n" +
 	"\x14ListReactionsRequest\x12\x1d\n" +
 	"\n" +
 	"message_id\x18\x01 \x01(\tR\tmessageId\x12\x17\n" +

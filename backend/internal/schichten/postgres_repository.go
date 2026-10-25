@@ -187,6 +187,11 @@ func (r *PostgresRepository) CreateAssignment(ctx context.Context, a *ShiftAssig
 		 VALUES ($1, $2, $3, $4, $5, $6)`,
 		a.ID, a.TenantID, a.ShiftID, a.EmployeeID, a.AssignedAt, a.AssignedBy,
 	)
+	// The second assignment of the same employee to the same shift is a 409, not a 500.
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "uq_shift_assignments_tenant" {
+		return ErrAlreadyAssigned
+	}
 	return err
 }
 

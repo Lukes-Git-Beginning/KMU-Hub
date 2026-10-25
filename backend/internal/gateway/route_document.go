@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
@@ -59,8 +60,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// new-subfolder+rename on folders — "new folder" in DokumentePage.tsx:144
 	// is explicitly `canEditAllowed`, not upload. canUpload
 	// (documents:file:upload) only gates registering an uploaded file.
-	// Copy is commented "read-action — always visible" in the FE with no
-	// capability check at all, so it keeps its coarse key only. Version
+	// Copy creates a new file, so it takes the upload key. Version
 	// history is only reachable behind the version:restore menu item
 	// (FileContextMenu.tsx:245), so the LIST route gets that alt key too, not
 	// file:read. documents:template:manage has zero backend wiring
@@ -70,8 +70,13 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// and revoke reuse docShareManage, the same fine key ShareEntity/
 	// UnshareEntity already use for managing a share — there is no separate
 	// catalogue key for those two actions. Tags, entity links, search,
-	// virtual files, WOPI and space initialization have no catalogue subject
-	// at all.
+	// virtual files and WOPI have no catalogue subject of their own; they
+	// follow the file capability they act through (read for lookups, edit for
+	// metadata and the editor token), so a member, who holds only the file:*
+	// keys, reaches them. member's edit key is scope own, but the gateway never
+	// narrowed it on these routes (UpdateFile is the same), so it acts
+	// tenant-wide here as before. Space initialization stays admin-only:
+	// initialize-user takes a user_id from the body and has no desktop caller.
 	var (
 		docRead            = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "read"})
 		docDownload        = middleware.RequirePermissionAny([2]string{"documents", "read"}, [2]string{"documents:file", "download"})
@@ -110,7 +115,8 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(docRead).Get("/{id}", d.HandleGetFile)
 		r.With(docEdit).Put("/{id}", d.HandleUpdateFile)
 		r.With(docDelete).Delete("/{id}", d.HandleDeleteFile)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/copy", d.HandleCopyFile)
+		// A copy is a new file, so it needs the upload capability.
+		r.With(docUpload).Post("/{id}/copy", d.HandleCopyFile)
 		r.With(docEdit).Post("/{id}/move", d.HandleMoveFile)
 		r.With(docDownload).Get("/{id}/download-url", d.HandleGetFileDownloadURL)
 		r.With(docRead).Get("/{id}/activity", d.HandleListFileActivity)
@@ -122,19 +128,20 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.With(docShareLinkCreate).Post("/{id}/share-links", d.HandleCreateShareLink)
 		// Versions
 		r.With(docVersionRestore).Get("/{id}/versions", d.HandleListFileVersions)
+		r.With(docVersionRestore).Post("/{id}/versions", d.HandleCreateFileVersion)
 		r.With(docVersionRestore).Post("/{id}/versions/revert", d.HandleRevertFileVersion)
 		r.With(docDownload).Get("/{id}/versions/{versionId}/download", d.HandleGetFileVersionDownloadURL)
 		// Entity links
-		r.With(middleware.RequirePermission("documents", "read")).Get("/{id}/links", d.HandleListFileEntityLinks)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/{id}/links", d.HandleLinkFileToEntity)
-		r.With(middleware.RequirePermission("documents", "write")).Delete("/{id}/links", d.HandleUnlinkFileFromEntity)
+		r.With(docRead).Get("/{id}/links", d.HandleListFileEntityLinks)
+		r.With(docEdit).Post("/{id}/links", d.HandleLinkFileToEntity)
+		r.With(docEdit).Delete("/{id}/links", d.HandleUnlinkFileFromEntity)
 	})
 
 	// Entity links (standalone, by link ID — the desktop client deletes a link
 	// without knowing which file or entity it points at)
 	r.Route("/api/v1/documents/links", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "write")).Delete("/{id}", d.HandleDeleteEntityLink)
+		r.With(docEdit).Delete("/{id}", d.HandleDeleteEntityLink)
 	})
 
 	// Comments (standalone, by comment ID — mirrors the entity links route above)
@@ -155,6 +162,7 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 		r.Use(authMiddleware)
 		r.With(docShareManage).Post("/", d.HandleShareEntity)
 		r.With(docShareManage).Delete("/", d.HandleUnshareEntity)
+		r.With(docShareManage).Delete("/{id}", d.HandleUnshareByID)
 		r.With(docRead).Get("/entity", d.HandleListShares)
 		r.With(docRead).Get("/shared-with-me", d.HandleListSharedWithMe)
 	})
@@ -162,30 +170,31 @@ func (d *DocumentRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.H
 	// Tags
 	r.Route("/api/v1/documents/tags", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleListTags)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/", d.HandleCreateTag)
+		r.With(docRead).Get("/", d.HandleListTags)
+		r.With(docEdit).Post("/", d.HandleCreateTag)
 		r.With(middleware.RequirePermission("documents", "delete")).Delete("/{id}", d.HandleDeleteTag)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/file", d.HandleTagFile)
-		r.With(middleware.RequirePermission("documents", "write")).Delete("/file", d.HandleUntagFile)
+		r.With(docEdit).Post("/file", d.HandleTagFile)
+		r.With(docEdit).Delete("/file", d.HandleUntagFile)
 	})
 
 	// Search
 	r.Route("/api/v1/documents/search", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleSearchFiles)
+		r.With(docRead).Get("/", d.HandleSearchFiles)
 	})
 
 	// Virtual Files
 	r.Route("/api/v1/documents/virtual", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/", d.HandleListVirtualFiles)
+		r.With(docRead).Get("/", d.HandleListVirtualFiles)
 	})
 
 	// WOPI Token Generation (authenticated, not WOPI protocol)
 	r.Route("/api/v1/documents/wopi", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("documents", "write")).Post("/token", d.HandleGenerateWOPIToken)
-		r.With(middleware.RequirePermission("documents", "read")).Get("/discovery", d.HandleGetWOPIDiscovery)
+		// The token is always issued write-capable, so it needs the edit capability.
+		r.With(docEdit).Post("/token", d.HandleGenerateWOPIToken)
+		r.With(docRead).Get("/discovery", d.HandleGetWOPIDiscovery)
 	})
 }
 
@@ -608,13 +617,16 @@ func (d *DocumentRoutes) HandleListFiles(w http.ResponseWriter, r *http.Request)
 		PerPage:  int32(pageSize),
 	}
 
-	if sortField := r.URL.Query().Get("sort"); sortField != "" {
+	// The desktop sends sort_field and is_favorite; the spec has always documented
+	// sort and favorites. Accept both, the documented name wins.
+	q := r.URL.Query()
+	if sortField := firstNonEmpty(q.Get("sort"), q.Get("sort_field")); sortField != "" {
 		req.SortField = fileSortFieldToProto(sortField)
 	}
-	if sortDir := r.URL.Query().Get("sort_dir"); sortDir != "" {
+	if sortDir := q.Get("sort_dir"); sortDir != "" {
 		req.SortDirection = sortDirToProto(sortDir)
 	}
-	if r.URL.Query().Get("favorites") == "true" {
+	if firstNonEmpty(q.Get("favorites"), q.Get("is_favorite")) == "true" {
 		req.FilterFavorites = true
 		req.IsFavorite = true
 	}
@@ -1081,6 +1093,39 @@ func (d *DocumentRoutes) HandleGetFileVersionDownloadURL(w http.ResponseWriter, 
 	})
 }
 
+// createVersionRequest carries only the label: the new version freezes the
+// file's current content, so storage key, size and author are never taken from
+// the body (the gRPC server reads the file and the JWT instead).
+type createVersionRequest struct {
+	VersionLabel string `json:"version_label" validate:"omitempty,max=255"`
+}
+
+func (d *DocumentRoutes) HandleCreateFileVersion(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	fileID := chi.URLParam(r, "id")
+
+	req, ok := decodeAndValidate[createVersionRequest](w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CreateFileVersion(r.Context(), &documentv1.CreateFileVersionRequest{
+		FileId:       fileID,
+		VersionLabel: req.VersionLabel,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusCreated, map[string]interface{}{"version": resp.Version})
+}
+
 type revertVersionRequest struct {
 	VersionNumber int32 `json:"version_number" validate:"gt=0"`
 }
@@ -1285,6 +1330,30 @@ func (d *DocumentRoutes) HandleUnshareEntity(w http.ResponseWriter, r *http.Requ
 		EntityId:         req.EntityID,
 		SharedWithUserId: req.SharedWithUserID,
 	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]bool{"unshared": true})
+}
+
+// HandleUnshareByID revokes a share by its ID — the path the desktop's
+// ShareDialog calls (document-client.ts `unshare`).
+func (d *DocumentRoutes) HandleUnshareByID(w http.ResponseWriter, r *http.Request) {
+	client, err := d.getDocumentClient()
+	if err != nil {
+		respondServiceUnavailable(w, d.ServiceName())
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid share id")
+		return
+	}
+
+	_, err = client.UnshareEntity(r.Context(), &documentv1.UnshareEntityRequest{ShareId: id})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

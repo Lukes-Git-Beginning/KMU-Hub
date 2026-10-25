@@ -95,14 +95,12 @@ func (s *Service) UpdateTeamInbox(ctx context.Context, inbox *models.TeamInbox, 
 	return s.repo.UpdateTeamInbox(ctx, inbox)
 }
 
-// DeleteTeamInbox deletes a team inbox. Only admin members can delete.
+// DeleteTeamInbox deletes a team inbox. Only admin members (or callers marked
+// with WithManageAll) can delete. The inbox is looked up in the tenant first,
+// so a foreign inbox is NotFound before any role is consulted.
 func (s *Service) DeleteTeamInbox(ctx context.Context, tenantID, id uuid.UUID, userID uuid.UUID) error {
-	role, err := s.repo.GetMemberRole(ctx, id, userID)
-	if err != nil {
+	if err := s.requireTeamAdmin(ctx, tenantID, id, userID); err != nil {
 		return err
-	}
-	if role != "admin" {
-		return ErrNotTeamAdmin
 	}
 
 	return s.repo.DeleteTeamInbox(ctx, tenantID, id)
@@ -240,10 +238,20 @@ func (s *Service) requireTeamAdmin(ctx context.Context, tenantID, teamInboxID, a
 }
 
 // AddMember adds a user as a member of a team inbox. Only admins of the
-// inbox may add members.
+// inbox may add members. A caller who holds only the manage-all permission may
+// add others but not enrol themselves into an inbox they do not belong to.
 func (s *Service) AddMember(ctx context.Context, tenantID, actorID uuid.UUID, member *models.TeamInboxMember) error {
 	if err := s.requireTeamAdmin(ctx, tenantID, member.TeamInboxID, actorID); err != nil {
 		return err
+	}
+	if canManageAll(ctx) && member.UserID == actorID {
+		isMember, err := s.repo.IsMember(ctx, member.TeamInboxID, actorID)
+		if err != nil {
+			return err
+		}
+		if !isMember {
+			return ErrNotTeamAdmin
+		}
 	}
 	if member.Role == "" {
 		member.Role = "member"

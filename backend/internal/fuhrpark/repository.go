@@ -23,8 +23,9 @@ type ListServicesFilter struct {
 
 // ListDamagesFilter holds optional filtering for damage list queries.
 type ListDamagesFilter struct {
-	VehicleID *uuid.UUID
-	Status    *DamageStatus
+	VehicleID  *uuid.UUID
+	Status     *DamageStatus
+	ReportedBy *uuid.UUID
 }
 
 // Repository defines the persistence interface for the fuhrpark module.
@@ -64,6 +65,9 @@ type Repository interface {
 	CreateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error)
 	DeleteTripLog(ctx context.Context, tenantID, id uuid.UUID) error
+	// DriverUserName returns the display name of a user of the tenant, ErrDriverNotFound
+	// for an unknown user or one of another tenant.
+	DriverUserName(ctx context.Context, tenantID, userID uuid.UUID) (string, error)
 	ListTripLogsForExport(ctx context.Context, params ExportTripLogsParams) ([]TripLog, error)
 
 	// Vehicle documents
@@ -73,6 +77,7 @@ type Repository interface {
 
 	// Driver licenses
 	ListDriverLicenses(ctx context.Context, params ListDriverLicensesParams) ([]DriverLicense, int, error)
+	GetDriverLicense(ctx context.Context, tenantID, id uuid.UUID) (DriverLicense, error)
 	CreateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
 	UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error)
 	DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error

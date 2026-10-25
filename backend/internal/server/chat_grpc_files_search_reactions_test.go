@@ -59,6 +59,7 @@ func (stubChatDetector) Detect(_ string) string { return "de" }
 
 type stubReactionRepo struct {
 	byMessage map[uuid.UUID][]reaction.Reaction
+	hidden    bool // every message sits in a private channel the caller has not joined
 }
 
 func newStubReactionRepo() *stubReactionRepo {
@@ -93,6 +94,17 @@ func (r *stubReactionRepo) ReactionExists(_ context.Context, messageID, userID u
 		}
 	}
 	return false, nil
+}
+
+func (r *stubReactionRepo) ReachableMessages(_ context.Context, messageIDs []uuid.UUID, _ uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	result := make(map[uuid.UUID]uuid.UUID, len(messageIDs))
+	for _, id := range messageIDs {
+		if r.hidden {
+			continue
+		}
+		result[id] = uuid.Nil
+	}
+	return result, nil
 }
 
 func (r *stubReactionRepo) ListReactions(_ context.Context, messageID uuid.UUID) ([]reaction.Reaction, error) {
@@ -600,6 +612,16 @@ func TestChatToggleReaction(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
+	t.Run("message in a private channel the caller has not joined maps to NotFound", func(t *testing.T) {
+		f := newChatFilesSearchReactionsFixture()
+		f.reactRepo.hidden = true
+		_, err := f.srv.ToggleReaction(context.Background(), &chatv1.ToggleReactionRequest{
+			MessageId: uuid.NewString(), UserId: uuid.NewString(), Emoji: "👍",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+		require.Empty(t, f.reactRepo.byMessage, "nothing may be written")
+	})
+
 	t.Run("adds then removes on repeat toggle", func(t *testing.T) {
 		f := newChatFilesSearchReactionsFixture()
 		msgID, userID := uuid.New(), uuid.New()
@@ -629,13 +651,19 @@ func TestChatListReactions(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
+	t.Run("invalid user id", func(t *testing.T) {
+		f := newChatFilesSearchReactionsFixture()
+		_, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: uuid.NewString(), UserId: "bad"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
 	t.Run("success", func(t *testing.T) {
 		f := newChatFilesSearchReactionsFixture()
 		msgID, userA, userB := uuid.New(), uuid.New(), uuid.New()
 		require.NoError(t, f.reactRepo.AddReaction(context.Background(), msgID, userA, "👍"))
 		require.NoError(t, f.reactRepo.AddReaction(context.Background(), msgID, userB, "🎉"))
 
-		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String()})
+		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String(), UserId: userA.String()})
 		require.NoError(t, err)
 		require.Len(t, resp.Reactions, 2)
 	})
@@ -648,7 +676,7 @@ func TestChatListReactions(t *testing.T) {
 		f := newChatFilesSearchReactionsFixture()
 		msgID := uuid.New()
 
-		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String()})
+		resp, err := f.srv.ListReactions(context.Background(), &chatv1.ListReactionsRequest{MessageId: msgID.String(), UserId: uuid.NewString()})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Reactions, "Reactions should be an empty slice, not nil, so it serializes to [] rather than null")
 		require.Empty(t, resp.Reactions)

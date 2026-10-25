@@ -387,6 +387,11 @@ func (r *PostgresRepository) ListDamages(ctx context.Context, tenantID uuid.UUID
 		args = append(args, *filter.Status)
 		argNum++
 	}
+	if filter.ReportedBy != nil {
+		conditions = append(conditions, fmt.Sprintf("reported_by = $%d", argNum))
+		args = append(args, *filter.ReportedBy)
+		argNum++
+	}
 
 	whereClause := "WHERE " + strings.Join(conditions, " AND ")
 
@@ -657,7 +662,7 @@ func (r *PostgresRepository) ListTripLogs(ctx context.Context, params ListTripLo
 	if params.VehicleID != zeroID {
 		rows, queryErr := r.pool.Query(ctx, `
 			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-			       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+			       start_km, end_km, km, is_private, driver_name, business_partner, notes, driver_user_id, created_at, updated_at
 			FROM trip_logs
 			WHERE tenant_id=$1 AND vehicle_id=$2
 			ORDER BY date DESC, created_at DESC
@@ -676,7 +681,7 @@ func (r *PostgresRepository) ListTripLogs(ctx context.Context, params ListTripLo
 	} else {
 		rows, queryErr := r.pool.Query(ctx, `
 			SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-			       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+			       start_km, end_km, km, is_private, driver_name, business_partner, notes, driver_user_id, created_at, updated_at
 			FROM trip_logs
 			WHERE tenant_id=$1
 			ORDER BY date DESC, created_at DESC
@@ -706,11 +711,12 @@ func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (Tr
 	log.UpdatedAt = now
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO trip_logs (id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		                       start_km, end_km, is_private, driver_name, business_partner, notes, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+		                       start_km, end_km, is_private, driver_name, business_partner, notes,
+		                       driver_user_id, created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		log.ID, log.TenantID, log.VehicleID, log.Date, log.StartLocation, log.EndLocation,
 		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName, log.BusinessPartner,
-		log.Notes, log.CreatedAt, log.UpdatedAt)
+		log.Notes, log.DriverUserID, log.CreatedAt, log.UpdatedAt)
 	if err != nil {
 		return TripLog{}, err
 	}
@@ -718,13 +724,13 @@ func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (Tr
 	var created TripLog
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		        start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+		        start_km, end_km, km, is_private, driver_name, business_partner, notes, driver_user_id, created_at, updated_at
 		 FROM trip_logs WHERE id=$1`,
 		log.ID).Scan(
 		&created.ID, &created.TenantID, &created.VehicleID, &created.Date,
 		&created.StartLocation, &created.EndLocation, &created.Purpose,
 		&created.StartKm, &created.EndKm, &created.Km,
-		&created.IsPrivate, &created.DriverName, &created.BusinessPartner, &created.Notes,
+		&created.IsPrivate, &created.DriverName, &created.BusinessPartner, &created.Notes, &created.DriverUserID,
 		&created.CreatedAt, &created.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TripLog{}, ErrTripLogNotFound
@@ -740,11 +746,12 @@ func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (Tr
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE trip_logs SET
 			date=$3, start_location=$4, end_location=$5, purpose=$6,
-			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, business_partner=$11, notes=$12, updated_at=$13
+			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, business_partner=$11, notes=$12, updated_at=$13,
+			driver_user_id = CASE WHEN $14 THEN $15::uuid ELSE driver_user_id END
 		WHERE id=$1 AND tenant_id=$2`,
 		log.ID, log.TenantID, log.Date, log.StartLocation, log.EndLocation,
 		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName,
-		log.BusinessPartner, log.Notes, log.UpdatedAt)
+		log.BusinessPartner, log.Notes, log.UpdatedAt, log.DriverUserIDSet, log.DriverUserID)
 	if err != nil {
 		return TripLog{}, err
 	}
@@ -754,13 +761,13 @@ func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (Tr
 	var updated TripLog
 	err = r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		        start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+		        start_km, end_km, km, is_private, driver_name, business_partner, notes, driver_user_id, created_at, updated_at
 		 FROM trip_logs WHERE id=$1 AND tenant_id=$2`,
 		log.ID, log.TenantID).Scan(
 		&updated.ID, &updated.TenantID, &updated.VehicleID, &updated.Date,
 		&updated.StartLocation, &updated.EndLocation, &updated.Purpose,
 		&updated.StartKm, &updated.EndKm, &updated.Km,
-		&updated.IsPrivate, &updated.DriverName, &updated.BusinessPartner, &updated.Notes,
+		&updated.IsPrivate, &updated.DriverName, &updated.BusinessPartner, &updated.Notes, &updated.DriverUserID,
 		&updated.CreatedAt, &updated.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return TripLog{}, ErrTripLogNotFound
@@ -778,6 +785,23 @@ func (r *PostgresRepository) DeleteTripLog(ctx context.Context, tenantID, id uui
 		return ErrTripLogNotFound
 	}
 	return nil
+}
+
+// DriverUserName resolves a driver account inside the tenant. The FK on
+// trip_logs.driver_user_id does not know tenants, so this is the guard that keeps
+// another tenant's user out of a logbook.
+func (r *PostgresRepository) DriverUserName(ctx context.Context, tenantID, userID uuid.UUID) (string, error) {
+	var first, last string
+	err := r.pool.QueryRow(ctx,
+		`SELECT first_name, last_name FROM users WHERE id=$1 AND tenant_id=$2`,
+		userID, tenantID).Scan(&first, &last)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrDriverNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("look up driver user: %w", err)
+	}
+	return strings.TrimSpace(first + " " + last), nil
 }
 
 // ============================================================================
@@ -945,6 +969,20 @@ func (r *PostgresRepository) UpdateDriverLicense(ctx context.Context, lic Driver
 		&updated.ID, &updated.TenantID, &updated.DriverID, &updated.LicenseClasses, &updated.ExpiryDate,
 		&updated.CheckedAt, &updated.NextCheckDueDate, &updated.Notes, &updated.CreatedAt, &updated.UpdatedAt)
 	return updated, err
+}
+
+func (r *PostgresRepository) GetDriverLicense(ctx context.Context, tenantID, id uuid.UUID) (DriverLicense, error) {
+	var l DriverLicense
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, tenant_id, driver_id, license_classes, expiry_date, checked_at, next_check_due_date, notes, created_at, updated_at
+		FROM driver_licenses WHERE id=$1 AND tenant_id=$2`,
+		id, tenantID).Scan(
+		&l.ID, &l.TenantID, &l.DriverID, &l.LicenseClasses, &l.ExpiryDate,
+		&l.CheckedAt, &l.NextCheckDueDate, &l.Notes, &l.CreatedAt, &l.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DriverLicense{}, ErrDriverLicenseNotFound
+	}
+	return l, err
 }
 
 func (r *PostgresRepository) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
@@ -1187,7 +1225,7 @@ func scanTripLogs(rows pgx.Rows) ([]TripLog, error) {
 			&l.ID, &l.TenantID, &l.VehicleID, &l.Date,
 			&l.StartLocation, &l.EndLocation, &l.Purpose,
 			&l.StartKm, &l.EndKm, &l.Km,
-			&l.IsPrivate, &l.DriverName, &l.BusinessPartner, &l.Notes,
+			&l.IsPrivate, &l.DriverName, &l.BusinessPartner, &l.Notes, &l.DriverUserID,
 			&l.CreatedAt, &l.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan trip log row: %w", err)
@@ -1211,7 +1249,7 @@ const exportTripLogsCap = 5000
 func (r *PostgresRepository) ListTripLogsForExport(ctx context.Context, params ExportTripLogsParams) ([]TripLog, error) {
 	query := `
 		SELECT id, tenant_id, vehicle_id, date, start_location, end_location, purpose,
-		       start_km, end_km, km, is_private, driver_name, business_partner, notes, created_at, updated_at
+		       start_km, end_km, km, is_private, driver_name, business_partner, notes, driver_user_id, created_at, updated_at
 		FROM trip_logs
 		WHERE tenant_id=$1`
 	args := []any{params.TenantID}

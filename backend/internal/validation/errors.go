@@ -64,13 +64,13 @@ func describe(f FieldError) string {
 		return "must be greater than or equal to " + f.Param
 	case "lte":
 		return "must be less than or equal to " + f.Param
-	case "oneof":
+	case "oneof", "clearable_oneof":
 		return "must be one of [" + f.Param + "]"
 	case "iban":
 		return "must be a valid IBAN"
 	case "bic":
 		return "must be a valid BIC"
-	case "phone_dach":
+	case "phone_dach", "clearable_phone_dach":
 		return "must be a valid phone number"
 	case "plz_dach":
 		return "must be a valid postal code"

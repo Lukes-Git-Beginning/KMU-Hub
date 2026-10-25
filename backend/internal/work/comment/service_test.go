@@ -136,6 +136,9 @@ func (m *mockTaskRepo) ListTasksForEntity(_ context.Context, _ string, _ uuid.UU
 }
 func (m *mockTaskRepo) AttachFile(_ context.Context, _ *models.TaskFile) error { return nil }
 func (m *mockTaskRepo) RemoveFile(_ context.Context, _, _ uuid.UUID) error     { return nil }
+func (m *mockTaskRepo) GetFile(_ context.Context, _, _ uuid.UUID) (*models.TaskFile, error) {
+	return nil, nil
+}
 func (m *mockTaskRepo) ListFiles(_ context.Context, _ uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }
@@ -156,6 +159,9 @@ func (m *mockTaskRepo) ListDependenciesByProject(_ context.Context, _ uuid.UUID)
 }
 func (m *mockTaskRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return "", false, nil
+}
+func (m *mockTaskRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, _ bool) (uuid.UUID, error) {
+	return uuid.Nil, nil
 }
 func (m *mockTaskRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil

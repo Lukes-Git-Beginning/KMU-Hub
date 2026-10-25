@@ -3,10 +3,8 @@ package gateway
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -87,22 +85,31 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 		})
 
 		// Agent status
+		// The own status belongs to the agent's workflow (the workspace loads and sets it), so
+		// calls:write opens GET and PUT; the handlers pin the target to the caller unless the
+		// caller holds agent:manage. The campaign roster is the supervisor view and stays manage.
+		ownStatus := middleware.RequirePermissionAny([2]string{"dialer:agent", "manage"}, [2]string{"dialer:calls", "write"})
 		r.Route("/agent-status", func(r chi.Router) {
-			r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/", dr.HandleGetAgentStatus)
-			r.With(middleware.RequirePermission("dialer:agent", "manage")).Put("/", dr.HandleSetAgentStatus)
+			r.With(ownStatus).Get("/", dr.HandleGetAgentStatus)
+			r.With(ownStatus).Put("/", dr.HandleSetAgentStatus)
 			r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/campaign/{campaignId}", dr.HandleGetCampaignAgents)
 		})
 
-		// Outcomes
+		// Outcomes. Reading the list is part of an agent's own workflow (the workspace loads
+		// it to close a call), so calls:write opens the GET; creating, editing and deleting
+		// outcomes stays outcomes:manage.
+		outcomesRead := middleware.RequirePermissionAny([2]string{"dialer:outcomes", "manage"}, [2]string{"dialer:calls", "write"})
 		r.Route("/outcomes", func(r chi.Router) {
-			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Get("/", dr.HandleListCallOutcomes)
+			r.With(outcomesRead).Get("/", dr.HandleListCallOutcomes)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Post("/", dr.HandleCreateCallOutcome)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Put("/{id}", dr.HandleUpdateCallOutcome)
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Delete("/{id}", dr.HandleDeleteCallOutcome)
 		})
 
-		// Agent dashboard
-		r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/dashboard/agent", dr.HandleGetAgentDashboard)
+		// Agent dashboard: the workspace's own stats page (/dialer/dashboard, nav key calls:read),
+		// so calls:write opens it like the own status; HandleGetAgentDashboard pins agent_id to
+		// the caller unless they hold agent:manage.
+		r.With(ownStatus).Get("/dashboard/agent", dr.HandleGetAgentDashboard)
 
 		// Supervisor overview (tenant-wide aggregate)
 		r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/supervisor", dr.HandleGetSupervisorOverview)
@@ -214,7 +221,7 @@ func (dr *DialerRoutes) HandleListCampaigns(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -247,7 +254,7 @@ func (dr *DialerRoutes) HandleCreateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleGetCampaign(w http.ResponseWriter, r *http.Request) {
@@ -268,7 +275,7 @@ func (dr *DialerRoutes) HandleGetCampaign(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Request) {
@@ -308,7 +315,7 @@ func (dr *DialerRoutes) HandleUpdateCampaign(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleStartCampaign(w http.ResponseWriter, r *http.Request) {
@@ -334,7 +341,7 @@ func (dr *DialerRoutes) HandleStartCampaign(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandlePauseCampaign(w http.ResponseWriter, r *http.Request) {
@@ -360,7 +367,7 @@ func (dr *DialerRoutes) HandlePauseCampaign(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleArchiveCampaign(w http.ResponseWriter, r *http.Request) {
@@ -424,7 +431,7 @@ func (dr *DialerRoutes) HandleAddContactsToCampaign(w http.ResponseWriter, r *ht
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleListCampaignContacts(w http.ResponseWriter, r *http.Request) {
@@ -460,7 +467,7 @@ func (dr *DialerRoutes) HandleListCampaignContacts(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Request) {
@@ -475,10 +482,7 @@ func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	agentID := r.URL.Query().Get("agent_id")
-	if agentID == "" {
-		agentID = middleware.GetUserID(r.Context())
-	}
+	agentID := agentStatusTarget(r, r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
@@ -493,7 +497,7 @@ func (dr *DialerRoutes) HandleGetNextContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSkipContact(w http.ResponseWriter, r *http.Request) {
@@ -559,19 +563,20 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
-
 	req, ok := decodeAndValidate[initiateDialerCallRequest](w, r)
 	if !ok {
 		return
 	}
 
+	agentID := agentStatusTarget(r, req.AgentID)
+	if agentID == "" {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
 	grpcReq := &dialerv1.InitiateDialerCallRequest{
 		CampaignContactId: req.CampaignContactID,
-		AgentId:           req.AgentID,
-	}
-	if grpcReq.AgentId == "" {
-		grpcReq.AgentId = userID
+		AgentId:           agentID,
 	}
 	if req.CallSessionID != nil {
 		grpcReq.CallSessionId = req.CallSessionID
@@ -583,7 +588,7 @@ func (dr *DialerRoutes) HandleInitiateDialerCall(w http.ResponseWriter, r *http.
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -617,12 +622,13 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		grpcReq.AppointmentId = req.AppointmentID
 	}
 	if req.CallbackAt != nil {
-		t, err := time.Parse(time.RFC3339, *req.CallbackAt)
+		// The desktop sends a datetime-local value ("2026-10-26T10:00"), not RFC3339.
+		ts, err := parseTimestamp(*req.CallbackAt)
 		if err != nil {
-			response.Error(w, http.StatusBadRequest, "invalid callback_at format, expected RFC3339")
+			response.Error(w, http.StatusBadRequest, "invalid callback_at format, expected RFC3339 or YYYY-MM-DDTHH:MM")
 			return
 		}
-		grpcReq.CallbackAt = timestamppb.New(t)
+		grpcReq.CallbackAt = ts
 	}
 
 	resp, err := client.LogCallOutcome(r.Context(), grpcReq)
@@ -631,7 +637,7 @@ func (dr *DialerRoutes) HandleLogCallOutcome(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSaveCallNotes(w http.ResponseWriter, r *http.Request) {
@@ -703,6 +709,16 @@ func (dr *DialerRoutes) HandleCompleteWrapUp(w http.ResponseWriter, r *http.Requ
 // Agent Status Handlers
 // ============================================================================
 
+// agentStatusTarget resolves which agent a request acts for or reads about (status, next contact,
+// call start, dashboard). Only agent:manage may name another user; everyone else, calls:write
+// agents included, always gets themselves, whatever user_id / agent_id says.
+func agentStatusTarget(r *http.Request, requested string) string {
+	if requested != "" && callerHasPermission(r, "dialer:agent:manage") {
+		return requested
+	}
+	return middleware.GetUserID(r.Context())
+}
+
 func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Request) {
 	client, err := dr.getDialerClient()
 	if err != nil {
@@ -710,10 +726,7 @@ func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID := r.URL.Query().Get("user_id")
-	if userID == "" {
-		userID = middleware.GetUserID(r.Context())
-	}
+	userID := agentStatusTarget(r, r.URL.Query().Get("user_id"))
 	if userID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
@@ -727,7 +740,7 @@ func (dr *DialerRoutes) HandleGetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Request) {
@@ -737,19 +750,14 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userID := middleware.GetUserID(r.Context())
-
 	req, ok := decodeAndValidate[setAgentStatusRequest](w, r)
 	if !ok {
 		return
 	}
 
 	grpcReq := &dialerv1.SetAgentStatusRequest{
-		UserId: req.UserID,
+		UserId: agentStatusTarget(r, req.UserID),
 		Status: dialerv1.AgentDialerStatus(req.Status),
-	}
-	if grpcReq.UserId == "" {
-		grpcReq.UserId = userID
 	}
 	if req.CampaignID != nil {
 		grpcReq.CampaignId = req.CampaignID
@@ -761,7 +769,7 @@ func (dr *DialerRoutes) HandleSetAgentStatus(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetCampaignAgents(w http.ResponseWriter, r *http.Request) {
@@ -784,7 +792,7 @@ func (dr *DialerRoutes) HandleGetCampaignAgents(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================
@@ -812,7 +820,7 @@ func (dr *DialerRoutes) HandleListCallOutcomes(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleCreateCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -840,7 +848,7 @@ func (dr *DialerRoutes) HandleCreateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp)
+	response.ProtoFull(w, http.StatusCreated, resp)
 }
 
 func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -891,7 +899,7 @@ func (dr *DialerRoutes) HandleUpdateCallOutcome(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleDeleteCallOutcome(w http.ResponseWriter, r *http.Request) {
@@ -941,7 +949,7 @@ func (dr *DialerRoutes) HandleGetCampaignDashboard(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.Request) {
@@ -951,10 +959,7 @@ func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	agentID := r.URL.Query().Get("agent_id")
-	if agentID == "" {
-		agentID = middleware.GetUserID(r.Context())
-	}
+	agentID := agentStatusTarget(r, r.URL.Query().Get("agent_id"))
 	if agentID == "" {
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
@@ -968,7 +973,7 @@ func (dr *DialerRoutes) HandleGetAgentDashboard(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 // ============================================================================

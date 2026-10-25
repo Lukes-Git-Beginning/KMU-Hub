@@ -194,6 +194,9 @@ func (stubWorkTaskRepo) ListTasksForEntity(context.Context, string, uuid.UUID) (
 func (stubWorkTaskRepo) AttachFile(context.Context, *models.TaskFile) error     { return nil }
 func (stubWorkTaskRepo) RemoveFile(context.Context, uuid.UUID, uuid.UUID) error { return nil }
 
+func (stubWorkTaskRepo) GetFile(context.Context, uuid.UUID, uuid.UUID) (*models.TaskFile, error) {
+	return nil, nil
+}
 func (stubWorkTaskRepo) ListFiles(context.Context, uuid.UUID) ([]models.TaskFile, error) {
 	return nil, nil
 }
@@ -220,6 +223,10 @@ func (stubWorkTaskRepo) ListDependenciesByProject(context.Context, uuid.UUID) ([
 
 func (stubWorkTaskRepo) GetStatusByID(context.Context, uuid.UUID) (string, bool, error) {
 	return "", false, nil
+}
+
+func (stubWorkTaskRepo) FirstStatusByClosed(context.Context, uuid.UUID, uuid.UUID, bool) (uuid.UUID, error) {
+	return uuid.Nil, nil
 }
 
 func (stubWorkTaskRepo) GetUserDisplayName(context.Context, uuid.UUID) (string, error) {

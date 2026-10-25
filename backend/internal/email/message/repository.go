@@ -44,6 +44,10 @@ type Repository interface {
 	DeleteByFolder(ctx context.Context, folderID uuid.UUID) error
 	GetHighestUID(ctx context.Context, folderID uuid.UUID) (uint32, error)
 	GetByMessageIDHeader(ctx context.Context, messageIDHeader string) (*models.EmailMessage, error)
+	// ClaimLocalCopy gives the app's own local copy (negative UID) with the given
+	// Message-ID header in a folder the real IMAP UID. It reports whether a copy
+	// was claimed.
+	ClaimLocalCopy(ctx context.Context, folderID uuid.UUID, messageIDHeader string, uid int64) (bool, error)
 	FindThreadByReferences(ctx context.Context, accountID uuid.UUID, references []string, inReplyTo string) (uuid.UUID, error)
 	CountUnreadByFolder(ctx context.Context, folderID uuid.UUID) (int, error)
 	FindBySubjectAndParticipants(ctx context.Context, accountID uuid.UUID, normalizedSubject string, fromEmail string, since, until interface{}) (*models.EmailMessage, error)

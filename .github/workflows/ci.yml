@@ -218,6 +218,11 @@ jobs:
       RATE_LIMIT_RPS: 1000
       # The e2e helpers sign up throwaway users; production keeps it off.
       AUTH_SELF_REGISTRATION_ENABLED: "true"
+      # The gateway only mounts these module routes when their flag is on
+      # (default off). Production sets them per customer in .env.production.
+      COSMI_MODULE_INVENTAR_ENABLED: "true"
+      COSMI_MODULE_EINKAUF_ENABLED: "true"
+      COSMI_MODULE_SCHICHTEN_ENABLED: "true"
 
     steps:
       - name: Checkout
@@ -269,6 +274,9 @@ jobs:
           go build -o bin/dialer ./cmd/dialer
           go build -o bin/biz ./cmd/biz
           go build -o bin/notification ./cmd/notification
+          go build -o bin/inventar ./cmd/inventar
+          go build -o bin/einkauf ./cmd/einkauf
+          go build -o bin/schichten ./cmd/schichten
 
       - name: Start auth service
         working-directory: backend
@@ -409,6 +417,28 @@ jobs:
             sleep 1
           done
 
+      - name: Start inventar, einkauf and schichten services
+        # Branchen modules with the most dropped-field fixes so far; their
+        # gateway routes need the COSMI_MODULE_* flags set in the job env.
+        working-directory: backend
+        run: |
+          for svc in inventar:9110 einkauf:9111 schichten:9115; do
+            name="${svc%%:*}"; port="${svc##*:}"
+            ./bin/$name > /tmp/$name.log 2>&1 &
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:$port/health > /dev/null 2>&1; then
+                echo "$name service healthy"
+                break
+              fi
+              if [ "$i" = "30" ]; then
+                echo "$name service failed to start"
+                cat /tmp/$name.log
+                exit 1
+              fi
+              sleep 1
+            done
+          done
+
       - name: Start gateway service
         working-directory: backend
         run: |
@@ -449,6 +479,10 @@ jobs:
           cat /tmp/biz.log || true
           echo "=== Notification Service Logs ==="
           cat /tmp/notification.log || true
+          for name in inventar einkauf schichten; do
+            echo "=== $name Service Logs ==="
+            cat /tmp/$name.log || true
+          done
           echo "=== Gateway Service Logs ==="
           cat /tmp/gateway.log || true
 

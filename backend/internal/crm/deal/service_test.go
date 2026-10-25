@@ -968,16 +968,35 @@ func TestService_List_DefaultPagination(t *testing.T) {
 	assert.Equal(t, 25, total)
 }
 
-func TestService_List_PageSizeExceedsMax(t *testing.T) {
+func TestService_List_PageSizeUpToTwoHundred(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	deals, _, err := svc.List(context.Background(), ListInput{
-		PageSize: 200,
-	})
+	stageID := uuid.New()
+	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+	for i := 0; i < 150; i++ {
+		id := uuid.New()
+		repo.deals[id] = &models.Deal{
+			ID:        id,
+			Name:      "Deal",
+			StageID:   stageID,
+			Currency:  "EUR",
+			Value:     decimal.NewFromFloat(1000),
+			CreatedBy: uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+	}
 
+	deals, total, err := svc.List(context.Background(), ListInput{PageSize: 200})
 	require.NoError(t, err)
-	assert.Empty(t, deals)
+	assert.Len(t, deals, 150)
+	assert.Equal(t, 150, total)
+
+	// Above the ceiling the page falls back to the default of 20.
+	deals, _, err = svc.List(context.Background(), ListInput{PageSize: 201})
+	require.NoError(t, err)
+	assert.Len(t, deals, 20)
 }
 
 // ============================================================================

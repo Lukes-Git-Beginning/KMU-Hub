@@ -141,6 +141,10 @@ func (r *stubEmailMessageRepo) GetByMessageIDHeader(_ context.Context, _ string)
 	return nil, message.ErrMessageNotFound
 }
 
+func (r *stubEmailMessageRepo) ClaimLocalCopy(_ context.Context, _ uuid.UUID, _ string, _ int64) (bool, error) {
+	return false, nil
+}
+
 func (r *stubEmailMessageRepo) FindThreadByReferences(_ context.Context, _ uuid.UUID, _ []string, _ string) (uuid.UUID, error) {
 	return uuid.Nil, message.ErrThreadNotFound
 }
@@ -203,10 +207,23 @@ func (r *stubAttachmentRepo) GetMinIOKeyByID(_ context.Context, id, tenantID uui
 	return a.MinIOKey, nil
 }
 
+func (r *stubAttachmentRepo) AttachToMessage(_ context.Context, ids []uuid.UUID, messageID, tenantID uuid.UUID) error {
+	for _, id := range ids {
+		if a, ok := r.attachments[id]; ok && a.TenantID == tenantID && a.MessageID == uuid.Nil {
+			a.MessageID = messageID
+		}
+	}
+	return nil
+}
+
 type stubObjectStore struct{}
 
 func (stubObjectStore) Upload(_ context.Context, _ uuid.UUID, _ uint32, filename string, _ io.Reader, _ int64, _ string) (string, error) {
 	return "minio/" + filename, nil
+}
+
+func (stubObjectStore) Download(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("stub-bytes")), nil
 }
 
 func (stubObjectStore) GetPresignedURL(_ context.Context, minioKey string, _ time.Duration) (string, error) {
@@ -375,12 +392,15 @@ type testEmailMessagesFixture struct {
 	accounts   *stubSendAccountProvider
 	attRepo    *stubAttachmentRepo
 	linkRepo   *stubLinkRepo
+	mailbox    *stubMailboxAccounts
 }
 
 // newEmailMessagesFixture wires an EmailGRPCServer for the message/send/
 // attachment/contact-linking RPCs. accountService, signatureService, syncEngine,
 // contactService, companyService, ruleService, labelService and templateService
-// are all nil because no RPC under test reaches them.
+// are all nil because no RPC under test reaches them. The mailbox owner checks
+// run against stubMailboxAccounts: every account belongs to testMailboxOwner,
+// so a test acts through mailboxCtx unless it pins the foreign case.
 func newEmailMessagesFixture() *testEmailMessagesFixture {
 	msgRepo := newStubEmailMessageRepo()
 	folderRepo := newStubFolderRepo()
@@ -393,8 +413,17 @@ func newEmailMessagesFixture() *testEmailMessagesFixture {
 	attSvc := attachment.NewService(attRepo, stubObjectStore{})
 
 	srv := NewEmailGRPCServer(nil, msgSvc, sendSvc, nil, attSvc, nil, linkRepo, nil, nil, nil, nil, nil)
+	mailbox := &stubMailboxAccounts{foreign: map[uuid.UUID]bool{}, list: func() []uuid.UUID {
+		ids := []uuid.UUID{}
+		for _, m := range msgRepo.messages {
+			ids = append(ids, m.AccountID)
+		}
+		return ids
+	}}
+	srv.accounts = mailbox
 
 	return &testEmailMessagesFixture{
+		mailbox:    mailbox,
 		srv:        srv,
 		msgRepo:    msgRepo,
 		folderRepo: folderRepo,
@@ -434,9 +463,10 @@ func TestListMessages_InvalidFolderID(t *testing.T) {
 func TestListMessages_ByFolder(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID, folderID := uuid.New(), uuid.New()
+	f.folderRepo.folders[folderID] = &models.EmailFolder{ID: folderID, AccountID: uuid.New(), Name: "INBOX", IMAPName: "INBOX"}
 	seedEmailMessage(f.msgRepo, tenantID, uuid.New(), folderID)
 
-	resp, err := f.srv.ListMessages(context.Background(), &emailv1.ListMessagesRequest{FolderId: folderID.String()})
+	resp, err := f.srv.ListMessages(mailboxCtx(tenantID), &emailv1.ListMessagesRequest{FolderId: folderID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Messages, 1)
 	require.EqualValues(t, 1, resp.Total)
@@ -444,7 +474,9 @@ func TestListMessages_ByFolder(t *testing.T) {
 
 func TestListMessages_Empty(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.ListMessages(context.Background(), &emailv1.ListMessagesRequest{FolderId: uuid.NewString()})
+	folderID := uuid.New()
+	f.folderRepo.folders[folderID] = &models.EmailFolder{ID: folderID, AccountID: uuid.New(), Name: "INBOX", IMAPName: "INBOX"}
+	resp, err := f.srv.ListMessages(mailboxCtx(uuid.New()), &emailv1.ListMessagesRequest{FolderId: folderID.String()})
 	requireGRPCOK(t, err)
 	require.NotNil(t, resp.Messages, "wire shape must be [] not null for an empty list")
 	require.Empty(t, resp.Messages)
@@ -457,7 +489,7 @@ func TestListMessages_SearchUsesFolderAccount(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, accountID, folderID)
 	m.Subject = "Invoice 2026-08"
 
-	resp, err := f.srv.ListMessages(context.Background(), &emailv1.ListMessagesRequest{FolderId: folderID.String(), Search: "Invoice"})
+	resp, err := f.srv.ListMessages(mailboxCtx(tenantID), &emailv1.ListMessagesRequest{FolderId: folderID.String(), Search: "Invoice"})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Messages, 1)
 }
@@ -470,7 +502,7 @@ func TestListMessages_SearchFolderNotFound(t *testing.T) {
 
 func TestGetMessage_InvalidID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetMessage(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetMessageRequest{Id: "not-a-uuid"})
+	_, err := f.srv.GetMessage(mailboxCtx(uuid.New()), &emailv1.GetMessageRequest{Id: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -482,7 +514,7 @@ func TestGetMessage_MissingTenant(t *testing.T) {
 
 func TestGetMessage_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetMessage(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetMessageRequest{Id: uuid.NewString()})
+	_, err := f.srv.GetMessage(mailboxCtx(uuid.New()), &emailv1.GetMessageRequest{Id: uuid.NewString()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -493,7 +525,7 @@ func TestGetMessage(t *testing.T) {
 	att := &models.EmailAttachment{ID: uuid.New(), TenantID: tenantID, MessageID: m.ID, Filename: "a.txt", ContentType: "text/plain", SizeBytes: 3}
 	f.attRepo.attachments[att.ID] = att
 
-	resp, err := f.srv.GetMessage(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetMessageRequest{Id: m.ID.String()})
+	resp, err := f.srv.GetMessage(mailboxCtx(tenantID), &emailv1.GetMessageRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, m.Subject, resp.Message.Subject)
 	require.Len(t, resp.Message.Attachments, 1)
@@ -512,7 +544,7 @@ func TestGetThreadMessages(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.ThreadID = &threadID
 
-	resp, err := f.srv.GetThreadMessages(context.Background(), &emailv1.GetThreadMessagesRequest{ThreadId: threadID.String()})
+	resp, err := f.srv.GetThreadMessages(mailboxCtx(tenantID), &emailv1.GetThreadMessagesRequest{ThreadId: threadID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Messages, 1)
 }
@@ -525,7 +557,7 @@ func TestMarkRead_InvalidID(t *testing.T) {
 
 func TestMarkRead_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.MarkRead(context.Background(), &emailv1.MarkReadRequest{Id: uuid.NewString()})
+	_, err := f.srv.MarkRead(mailboxCtx(uuid.New()), &emailv1.MarkReadRequest{Id: uuid.NewString()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -535,7 +567,7 @@ func TestMarkRead(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.IsRead = false
 
-	_, err := f.srv.MarkRead(context.Background(), &emailv1.MarkReadRequest{Id: m.ID.String()})
+	_, err := f.srv.MarkRead(mailboxCtx(tenantID), &emailv1.MarkReadRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.True(t, f.msgRepo.messages[m.ID].IsRead)
 }
@@ -552,14 +584,14 @@ func TestMarkUnread(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.IsRead = true
 
-	_, err := f.srv.MarkUnread(context.Background(), &emailv1.MarkUnreadRequest{Id: m.ID.String()})
+	_, err := f.srv.MarkUnread(mailboxCtx(tenantID), &emailv1.MarkUnreadRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.False(t, f.msgRepo.messages[m.ID].IsRead)
 }
 
 func TestToggleStar_InvalidID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ToggleStar(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ToggleStarRequest{Id: "not-a-uuid"})
+	_, err := f.srv.ToggleStar(mailboxCtx(uuid.New()), &emailv1.ToggleStarRequest{Id: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -575,11 +607,11 @@ func TestToggleStar(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.IsStarred = false
 
-	resp, err := f.srv.ToggleStar(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ToggleStarRequest{Id: m.ID.String()})
+	resp, err := f.srv.ToggleStar(mailboxCtx(tenantID), &emailv1.ToggleStarRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.True(t, resp.IsStarred)
 
-	resp, err = f.srv.ToggleStar(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ToggleStarRequest{Id: m.ID.String()})
+	resp, err = f.srv.ToggleStar(mailboxCtx(tenantID), &emailv1.ToggleStarRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.False(t, resp.IsStarred)
 }
@@ -598,7 +630,7 @@ func TestMoveToFolder_InvalidTargetFolderID(t *testing.T) {
 
 func TestMoveToFolder_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.MoveToFolder(context.Background(), &emailv1.MoveToFolderRequest{MessageId: uuid.NewString(), TargetFolderId: uuid.NewString()})
+	_, err := f.srv.MoveToFolder(mailboxCtx(uuid.New()), &emailv1.MoveToFolderRequest{MessageId: uuid.NewString(), TargetFolderId: uuid.NewString()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -607,8 +639,9 @@ func TestMoveToFolder(t *testing.T) {
 	tenantID := uuid.New()
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	targetFolder := uuid.New()
+	f.folderRepo.folders[targetFolder] = &models.EmailFolder{ID: targetFolder, AccountID: m.AccountID, Name: "Archive", IMAPName: "Archive"}
 
-	_, err := f.srv.MoveToFolder(context.Background(), &emailv1.MoveToFolderRequest{
+	_, err := f.srv.MoveToFolder(mailboxCtx(tenantID), &emailv1.MoveToFolderRequest{
 		MessageId:      m.ID.String(),
 		TargetFolderId: targetFolder.String(),
 	})
@@ -624,7 +657,7 @@ func TestDeleteMessage_InvalidID(t *testing.T) {
 
 func TestDeleteMessage_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.DeleteMessage(context.Background(), &emailv1.DeleteMessageRequest{Id: uuid.NewString()})
+	_, err := f.srv.DeleteMessage(mailboxCtx(uuid.New()), &emailv1.DeleteMessageRequest{Id: uuid.NewString()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -633,7 +666,7 @@ func TestDeleteMessage(t *testing.T) {
 	tenantID := uuid.New()
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 
-	_, err := f.srv.DeleteMessage(context.Background(), &emailv1.DeleteMessageRequest{Id: m.ID.String()})
+	_, err := f.srv.DeleteMessage(mailboxCtx(tenantID), &emailv1.DeleteMessageRequest{Id: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.NotContains(t, f.msgRepo.messages, m.ID)
 }
@@ -646,7 +679,7 @@ func TestBulkMessageAction_MissingTenant(t *testing.T) {
 
 func TestBulkMessageAction_InvalidID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.BulkMessageAction(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.BulkMessageActionRequest{
+	_, err := f.srv.BulkMessageAction(mailboxCtx(uuid.New()), &emailv1.BulkMessageActionRequest{
 		Ids:    []string{"not-a-uuid"},
 		Action: "read",
 	})
@@ -658,7 +691,7 @@ func TestBulkMessageAction_UnknownAction(t *testing.T) {
 	tenantID := uuid.New()
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 
-	_, err := f.srv.BulkMessageAction(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.BulkMessageActionRequest{
+	_, err := f.srv.BulkMessageAction(mailboxCtx(tenantID), &emailv1.BulkMessageActionRequest{
 		Ids:    []string{m.ID.String()},
 		Action: "not-a-real-action",
 	})
@@ -670,7 +703,7 @@ func TestBulkMessageAction_MoveRequiresTarget(t *testing.T) {
 	tenantID := uuid.New()
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 
-	_, err := f.srv.BulkMessageAction(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.BulkMessageActionRequest{
+	_, err := f.srv.BulkMessageAction(mailboxCtx(tenantID), &emailv1.BulkMessageActionRequest{
 		Ids:    []string{m.ID.String()},
 		Action: "move",
 	})
@@ -688,7 +721,7 @@ func TestBulkMessageAction_PartialFailureSkipsMissing(t *testing.T) {
 	m2 := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	missing := uuid.New() // syntactically valid, never seeded
 
-	resp, err := f.srv.BulkMessageAction(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.BulkMessageActionRequest{
+	resp, err := f.srv.BulkMessageAction(mailboxCtx(tenantID), &emailv1.BulkMessageActionRequest{
 		Ids:    []string{m1.ID.String(), m2.ID.String(), missing.String()},
 		Action: "read",
 	})
@@ -706,7 +739,7 @@ func TestSetReadFlag_InvalidID(t *testing.T) {
 
 func TestSetReadFlag_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.SetReadFlag(context.Background(), &emailv1.SetReadFlagRequest{MessageId: uuid.NewString(), IsRead: true})
+	_, err := f.srv.SetReadFlag(mailboxCtx(uuid.New()), &emailv1.SetReadFlagRequest{MessageId: uuid.NewString(), IsRead: true})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -716,7 +749,7 @@ func TestSetReadFlag_MarksRead(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.IsRead = false
 
-	_, err := f.srv.SetReadFlag(context.Background(), &emailv1.SetReadFlagRequest{MessageId: m.ID.String(), IsRead: true})
+	_, err := f.srv.SetReadFlag(mailboxCtx(tenantID), &emailv1.SetReadFlagRequest{MessageId: m.ID.String(), IsRead: true})
 	requireGRPCOK(t, err)
 	require.True(t, f.msgRepo.messages[m.ID].IsRead)
 }
@@ -727,7 +760,7 @@ func TestSetReadFlag_MarksUnread(t *testing.T) {
 	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	m.IsRead = true
 
-	_, err := f.srv.SetReadFlag(context.Background(), &emailv1.SetReadFlagRequest{MessageId: m.ID.String(), IsRead: false})
+	_, err := f.srv.SetReadFlag(mailboxCtx(tenantID), &emailv1.SetReadFlagRequest{MessageId: m.ID.String(), IsRead: false})
 	requireGRPCOK(t, err)
 	require.False(t, f.msgRepo.messages[m.ID].IsRead)
 }
@@ -744,14 +777,14 @@ func TestSendEmail_MissingTenant(t *testing.T) {
 
 func TestSendEmail_InvalidAccountID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.SendEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SendEmailRequest{AccountId: "not-a-uuid"})
+	_, err := f.srv.SendEmail(mailboxCtx(uuid.New()), &emailv1.SendEmailRequest{AccountId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestSendEmail_InvalidContactID(t *testing.T) {
 	f := newEmailMessagesFixture()
 	badContact := "not-a-uuid"
-	_, err := f.srv.SendEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SendEmailRequest{
+	_, err := f.srv.SendEmail(mailboxCtx(uuid.New()), &emailv1.SendEmailRequest{
 		AccountId: uuid.NewString(),
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
 		ContactId: &badContact,
@@ -761,20 +794,28 @@ func TestSendEmail_InvalidContactID(t *testing.T) {
 
 func TestSendEmail_AccountNotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.SendEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SendEmailRequest{
+	_, err := f.srv.SendEmail(mailboxCtx(uuid.New()), &emailv1.SendEmailRequest{
 		AccountId: uuid.NewString(),
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
 	})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
+// withFolder gives an account a folder of the given type and returns its ID.
+func (f *testEmailMessagesFixture) withFolder(accountID uuid.UUID, folderType string) uuid.UUID {
+	id := uuid.New()
+	f.folderRepo.folders[id] = &models.EmailFolder{ID: id, AccountID: accountID, Name: folderType, IMAPName: folderType, FolderType: folderType}
+	return id
+}
+
 func TestSendEmail(t *testing.T) {
 	f := newEmailMessagesFixture()
 	host, port := startFakeSMTPServer(t)
 	tenantID, accountID := uuid.New(), uuid.New()
+	sentFolder := f.withFolder(accountID, models.FolderTypeSent)
 	f.accounts.creds[accountID] = &send.Credentials{SMTPHost: host, SMTPPort: port, Username: "user", Password: "pass"}
 
-	resp, err := f.srv.SendEmail(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.SendEmailRequest{
+	resp, err := f.srv.SendEmail(mailboxCtx(tenantID), &emailv1.SendEmailRequest{
 		AccountId: accountID.String(),
 		To:        []*emailv1.EmailAddress{{Name: "Bob", Email: "bob@example.com"}},
 		Subject:   "Hello",
@@ -789,6 +830,7 @@ func TestSendEmail(t *testing.T) {
 	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
 	require.NoError(t, getErr, "the sent message must be findable via a tenant-scoped lookup")
 	require.Equal(t, tenantID, stored.TenantID)
+	require.Equal(t, sentFolder, stored.FolderID, "the sent message belongs in the Sent folder")
 }
 
 func TestSaveDraft_MissingTenant(t *testing.T) {
@@ -799,15 +841,16 @@ func TestSaveDraft_MissingTenant(t *testing.T) {
 
 func TestSaveDraft_InvalidAccountID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.SaveDraftRequest{AccountId: "not-a-uuid"})
+	_, err := f.srv.SaveDraft(mailboxCtx(uuid.New()), &emailv1.SaveDraftRequest{AccountId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestSaveDraft(t *testing.T) {
 	f := newEmailMessagesFixture()
-	tenantID := uuid.New()
-	resp, err := f.srv.SaveDraft(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.SaveDraftRequest{
-		AccountId: uuid.NewString(),
+	tenantID, accountID := uuid.New(), uuid.New()
+	draftsFolder := f.withFolder(accountID, models.FolderTypeDrafts)
+	resp, err := f.srv.SaveDraft(mailboxCtx(tenantID), &emailv1.SaveDraftRequest{
+		AccountId: accountID.String(),
 		Subject:   "Draft",
 		To:        []*emailv1.EmailAddress{{Email: "to@example.com"}},
 	})
@@ -820,6 +863,7 @@ func TestSaveDraft(t *testing.T) {
 	stored, getErr := f.msgRepo.GetByID(context.Background(), msgID, tenantID)
 	require.NoError(t, getErr, "the draft must be findable via a tenant-scoped lookup")
 	require.Equal(t, tenantID, stored.TenantID)
+	require.Equal(t, draftsFolder, stored.FolderID, "the draft belongs in the Drafts folder")
 }
 
 func TestReplyEmail_MissingTenant(t *testing.T) {
@@ -830,13 +874,13 @@ func TestReplyEmail_MissingTenant(t *testing.T) {
 
 func TestReplyEmail_InvalidAccountID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ReplyEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ReplyEmailRequest{AccountId: "not-a-uuid"})
+	_, err := f.srv.ReplyEmail(mailboxCtx(uuid.New()), &emailv1.ReplyEmailRequest{AccountId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestReplyEmail_InvalidOriginalMessageID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ReplyEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ReplyEmailRequest{
+	_, err := f.srv.ReplyEmail(mailboxCtx(uuid.New()), &emailv1.ReplyEmailRequest{
 		AccountId:         uuid.NewString(),
 		OriginalMessageId: "not-a-uuid",
 	})
@@ -845,7 +889,7 @@ func TestReplyEmail_InvalidOriginalMessageID(t *testing.T) {
 
 func TestReplyEmail_OriginalMessageNotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ReplyEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ReplyEmailRequest{
+	_, err := f.srv.ReplyEmail(mailboxCtx(uuid.New()), &emailv1.ReplyEmailRequest{
 		AccountId:         uuid.NewString(),
 		OriginalMessageId: uuid.NewString(),
 	})
@@ -861,7 +905,7 @@ func TestReplyEmail(t *testing.T) {
 	orig.FromEmail = "orig@example.com"
 	orig.Subject = "Original subject"
 
-	resp, err := f.srv.ReplyEmail(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ReplyEmailRequest{
+	resp, err := f.srv.ReplyEmail(mailboxCtx(tenantID), &emailv1.ReplyEmailRequest{
 		AccountId:         accountID.String(),
 		OriginalMessageId: orig.ID.String(),
 		BodyText:          "reply body",
@@ -879,7 +923,7 @@ func TestReplyEmail_ReplyAll(t *testing.T) {
 	orig.FromEmail = "orig@example.com"
 	orig.ToAddresses = []models.EmailAddress{{Email: "orig@example.com"}, {Email: "other@example.com"}}
 
-	resp, err := f.srv.ReplyEmail(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ReplyEmailRequest{
+	resp, err := f.srv.ReplyEmail(mailboxCtx(tenantID), &emailv1.ReplyEmailRequest{
 		AccountId:         accountID.String(),
 		OriginalMessageId: orig.ID.String(),
 		BodyText:          "reply all body",
@@ -897,13 +941,13 @@ func TestForwardEmail_MissingTenant(t *testing.T) {
 
 func TestForwardEmail_InvalidAccountID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ForwardEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ForwardEmailRequest{AccountId: "not-a-uuid"})
+	_, err := f.srv.ForwardEmail(mailboxCtx(uuid.New()), &emailv1.ForwardEmailRequest{AccountId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestForwardEmail_InvalidOriginalMessageID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ForwardEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ForwardEmailRequest{
+	_, err := f.srv.ForwardEmail(mailboxCtx(uuid.New()), &emailv1.ForwardEmailRequest{
 		AccountId:         uuid.NewString(),
 		OriginalMessageId: "not-a-uuid",
 	})
@@ -912,7 +956,7 @@ func TestForwardEmail_InvalidOriginalMessageID(t *testing.T) {
 
 func TestForwardEmail_OriginalMessageNotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.ForwardEmail(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.ForwardEmailRequest{
+	_, err := f.srv.ForwardEmail(mailboxCtx(uuid.New()), &emailv1.ForwardEmailRequest{
 		AccountId:         uuid.NewString(),
 		OriginalMessageId: uuid.NewString(),
 	})
@@ -927,7 +971,7 @@ func TestForwardEmail(t *testing.T) {
 	orig := seedEmailMessage(f.msgRepo, tenantID, accountID, uuid.New())
 	orig.Subject = "Original"
 
-	resp, err := f.srv.ForwardEmail(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ForwardEmailRequest{
+	resp, err := f.srv.ForwardEmail(mailboxCtx(tenantID), &emailv1.ForwardEmailRequest{
 		AccountId:         accountID.String(),
 		OriginalMessageId: orig.ID.String(),
 		To:                []*emailv1.EmailAddress{{Email: "fwd@example.com"}},
@@ -949,13 +993,13 @@ func TestUploadAttachment_MissingTenant(t *testing.T) {
 
 func TestUploadAttachment_InvalidAccountID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.UploadAttachment(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.UploadAttachmentRequest{AccountId: "not-a-uuid"})
+	_, err := f.srv.UploadAttachment(mailboxCtx(uuid.New()), &emailv1.UploadAttachmentRequest{AccountId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestUploadAttachment(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.UploadAttachment(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.UploadAttachmentRequest{
+	resp, err := f.srv.UploadAttachment(mailboxCtx(uuid.New()), &emailv1.UploadAttachmentRequest{
 		AccountId:   uuid.NewString(),
 		Filename:    "invoice.pdf",
 		ContentType: "application/pdf",
@@ -975,13 +1019,13 @@ func TestGetAttachmentDownloadURL_MissingTenant(t *testing.T) {
 
 func TestGetAttachmentDownloadURL_InvalidID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetAttachmentDownloadURLRequest{Id: "not-a-uuid"})
+	_, err := f.srv.GetAttachmentDownloadURL(mailboxCtx(uuid.New()), &emailv1.GetAttachmentDownloadURLRequest{Id: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestGetAttachmentDownloadURL_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetAttachmentDownloadURLRequest{Id: uuid.NewString()})
+	_, err := f.srv.GetAttachmentDownloadURL(mailboxCtx(uuid.New()), &emailv1.GetAttachmentDownloadURLRequest{Id: uuid.NewString()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -995,7 +1039,7 @@ func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *tes
 	att := &models.EmailAttachment{
 		ID:          uuid.New(),
 		TenantID:    tenantID,
-		MessageID:   uuid.New(), // a real message, not the pre-send uuid.Nil bucket
+		MessageID:   seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New()).ID, // a real message, not the pre-send uuid.Nil bucket
 		Filename:    "contract.pdf",
 		ContentType: "application/pdf",
 		SizeBytes:   1234,
@@ -1003,7 +1047,7 @@ func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *tes
 	}
 	f.attRepo.attachments[att.ID] = att
 
-	resp, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
+	resp, err := f.srv.GetAttachmentDownloadURL(mailboxCtx(tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
 	requireGRPCOK(t, err)
 	require.NotEmpty(t, resp.DownloadUrl, "the presigned URL itself is looked up correctly, by attachment ID")
 	require.Equal(t, "contract.pdf", resp.Filename)
@@ -1011,23 +1055,42 @@ func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *tes
 	require.EqualValues(t, 1234, resp.SizeBytes)
 }
 
-func TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment(t *testing.T) {
+func TestGetAttachmentDownloadURL_PreSendAttachmentFollowsItsMailbox(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID := uuid.New()
-	att := &models.EmailAttachment{
-		ID:          uuid.New(),
-		TenantID:    tenantID,
-		MessageID:   uuid.Nil, // matches UploadAttachment's pre-send convention
-		Filename:    "contract.pdf",
-		ContentType: "application/pdf",
-		SizeBytes:   1234,
-		MinIOKey:    "minio/contract.pdf",
+	newPreSend := func(accountID uuid.UUID) *models.EmailAttachment {
+		att := &models.EmailAttachment{
+			ID:          uuid.New(),
+			TenantID:    tenantID,
+			MessageID:   uuid.Nil, // matches UploadAttachment's pre-send convention
+			AccountID:   accountID,
+			Filename:    "contract.pdf",
+			ContentType: "application/pdf",
+			SizeBytes:   1234,
+			MinIOKey:    "minio/contract.pdf",
+		}
+		f.attRepo.attachments[att.ID] = att
+		return att
 	}
-	f.attRepo.attachments[att.ID] = att
+	download := func(att *models.EmailAttachment) (*emailv1.GetAttachmentDownloadURLResponse, error) {
+		return f.srv.GetAttachmentDownloadURL(mailboxCtx(tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
+	}
 
-	resp, err := f.srv.GetAttachmentDownloadURL(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
+	// A pre-send upload hangs off no message: the mailbox it was uploaded to decides.
+	resp, err := download(newPreSend(uuid.New()))
 	requireGRPCOK(t, err)
 	require.Equal(t, "contract.pdf", resp.Filename)
+	require.Equal(t, "application/pdf", resp.ContentType)
+	require.EqualValues(t, 1234, resp.SizeBytes)
+
+	foreign := uuid.New()
+	f.mailbox.foreign[foreign] = true
+	_, err = download(newPreSend(foreign))
+	requireGRPCCode(t, err, codes.NotFound)
+
+	// Neither message nor mailbox: nothing proves who owns it.
+	_, err = download(newPreSend(uuid.Nil))
+	requireGRPCCode(t, err, codes.NotFound)
 }
 
 // ---------------------------------------------------------------------------
@@ -1042,24 +1105,27 @@ func TestGetEmailContactLinks_MissingTenant(t *testing.T) {
 
 func TestGetEmailContactLinks_InvalidMessageID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetEmailContactLinks(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetEmailContactLinksRequest{MessageId: "not-a-uuid"})
+	_, err := f.srv.GetEmailContactLinks(mailboxCtx(uuid.New()), &emailv1.GetEmailContactLinksRequest{MessageId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestGetEmailContactLinks(t *testing.T) {
 	f := newEmailMessagesFixture()
-	tenantID, msgID, contactID := uuid.New(), uuid.New(), uuid.New()
+	tenantID, contactID := uuid.New(), uuid.New()
+	msgID := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New()).ID
 	link := &models.EmailContactLink{ID: uuid.New(), TenantID: tenantID, MessageID: msgID, ContactID: contactID, LinkType: models.LinkTypeManual, CreatedAt: time.Now()}
 	f.linkRepo.links[link.ID] = link
 
-	resp, err := f.srv.GetEmailContactLinks(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetEmailContactLinksRequest{MessageId: msgID.String()})
+	resp, err := f.srv.GetEmailContactLinks(mailboxCtx(tenantID), &emailv1.GetEmailContactLinksRequest{MessageId: msgID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Links, 1)
 }
 
 func TestGetEmailContactLinks_Empty(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.GetEmailContactLinks(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetEmailContactLinksRequest{MessageId: uuid.NewString()})
+	tenantID := uuid.New()
+	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
+	resp, err := f.srv.GetEmailContactLinks(mailboxCtx(tenantID), &emailv1.GetEmailContactLinksRequest{MessageId: m.ID.String()})
 	requireGRPCOK(t, err)
 	require.NotNil(t, resp.Links, "wire shape must be [] not null for an empty list")
 	require.Empty(t, resp.Links)
@@ -1073,21 +1139,22 @@ func TestLinkEmailToContact_MissingTenant(t *testing.T) {
 
 func TestLinkEmailToContact_InvalidMessageID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.LinkEmailToContact(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.LinkEmailToContactRequest{MessageId: "not-a-uuid", ContactId: uuid.NewString()})
+	_, err := f.srv.LinkEmailToContact(mailboxCtx(uuid.New()), &emailv1.LinkEmailToContactRequest{MessageId: "not-a-uuid", ContactId: uuid.NewString()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestLinkEmailToContact_InvalidContactID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.LinkEmailToContact(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.LinkEmailToContactRequest{MessageId: uuid.NewString(), ContactId: "not-a-uuid"})
+	_, err := f.srv.LinkEmailToContact(mailboxCtx(uuid.New()), &emailv1.LinkEmailToContactRequest{MessageId: uuid.NewString(), ContactId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestLinkEmailToContact(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID := uuid.New()
-	resp, err := f.srv.LinkEmailToContact(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.LinkEmailToContactRequest{
-		MessageId: uuid.NewString(),
+	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
+	resp, err := f.srv.LinkEmailToContact(mailboxCtx(tenantID), &emailv1.LinkEmailToContactRequest{
+		MessageId: m.ID.String(),
 		ContactId: uuid.NewString(),
 	})
 	requireGRPCOK(t, err)
@@ -1102,20 +1169,22 @@ func TestUnlinkEmailFromContact_MissingTenant(t *testing.T) {
 
 func TestUnlinkEmailFromContact_InvalidMessageID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.UnlinkEmailFromContact(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.UnlinkEmailFromContactRequest{MessageId: "not-a-uuid", ContactId: uuid.NewString()})
+	_, err := f.srv.UnlinkEmailFromContact(mailboxCtx(uuid.New()), &emailv1.UnlinkEmailFromContactRequest{MessageId: "not-a-uuid", ContactId: uuid.NewString()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestUnlinkEmailFromContact_InvalidContactID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.UnlinkEmailFromContact(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.UnlinkEmailFromContactRequest{MessageId: uuid.NewString(), ContactId: "not-a-uuid"})
+	_, err := f.srv.UnlinkEmailFromContact(mailboxCtx(uuid.New()), &emailv1.UnlinkEmailFromContactRequest{MessageId: uuid.NewString(), ContactId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestUnlinkEmailFromContact_NotFound(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.UnlinkEmailFromContact(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.UnlinkEmailFromContactRequest{
-		MessageId: uuid.NewString(),
+	tenantID := uuid.New()
+	m := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
+	_, err := f.srv.UnlinkEmailFromContact(mailboxCtx(tenantID), &emailv1.UnlinkEmailFromContactRequest{
+		MessageId: m.ID.String(),
 		ContactId: uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.Internal) // stub error isn't a mapEmailError sentinel; falls through to the default branch
@@ -1123,11 +1192,12 @@ func TestUnlinkEmailFromContact_NotFound(t *testing.T) {
 
 func TestUnlinkEmailFromContact(t *testing.T) {
 	f := newEmailMessagesFixture()
-	tenantID, msgID, contactID := uuid.New(), uuid.New(), uuid.New()
+	tenantID, contactID := uuid.New(), uuid.New()
+	msgID := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New()).ID
 	link := &models.EmailContactLink{ID: uuid.New(), TenantID: tenantID, MessageID: msgID, ContactID: contactID, LinkType: models.LinkTypeManual, CreatedAt: time.Now()}
 	f.linkRepo.links[link.ID] = link
 
-	_, err := f.srv.UnlinkEmailFromContact(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.UnlinkEmailFromContactRequest{
+	_, err := f.srv.UnlinkEmailFromContact(mailboxCtx(tenantID), &emailv1.UnlinkEmailFromContactRequest{
 		MessageId: msgID.String(),
 		ContactId: contactID.String(),
 	})
@@ -1143,7 +1213,7 @@ func TestGetContactEmails_MissingTenant(t *testing.T) {
 
 func TestGetContactEmails_InvalidContactID(t *testing.T) {
 	f := newEmailMessagesFixture()
-	_, err := f.srv.GetContactEmails(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetContactEmailsRequest{ContactId: "not-a-uuid"})
+	_, err := f.srv.GetContactEmails(mailboxCtx(uuid.New()), &emailv1.GetContactEmailsRequest{ContactId: "not-a-uuid"})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
@@ -1153,7 +1223,7 @@ func TestGetContactEmails(t *testing.T) {
 	msg := seedEmailMessage(f.msgRepo, tenantID, uuid.New(), uuid.New())
 	f.linkRepo.contactMessages[contactID] = []*models.EmailMessage{msg}
 
-	resp, err := f.srv.GetContactEmails(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.GetContactEmailsRequest{ContactId: contactID.String()})
+	resp, err := f.srv.GetContactEmails(mailboxCtx(tenantID), &emailv1.GetContactEmailsRequest{ContactId: contactID.String()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Messages, 1)
 	require.EqualValues(t, 1, resp.Total)
@@ -1161,7 +1231,7 @@ func TestGetContactEmails(t *testing.T) {
 
 func TestGetContactEmails_Empty(t *testing.T) {
 	f := newEmailMessagesFixture()
-	resp, err := f.srv.GetContactEmails(ctxWithActorAndTenant(uuid.New(), uuid.New()), &emailv1.GetContactEmailsRequest{ContactId: uuid.NewString()})
+	resp, err := f.srv.GetContactEmails(mailboxCtx(uuid.New()), &emailv1.GetContactEmailsRequest{ContactId: uuid.NewString()})
 	requireGRPCOK(t, err)
 	require.NotNil(t, resp.Messages, "wire shape must be [] not null for an empty list")
 	require.Empty(t, resp.Messages)

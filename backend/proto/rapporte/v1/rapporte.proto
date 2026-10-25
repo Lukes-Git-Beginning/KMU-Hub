@@ -205,6 +205,9 @@ message CreateReportRequest {
 message GetReportRequest {
   string tenant_id = 1;
   string report_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message UpdateReportRequest {
@@ -221,11 +224,17 @@ message UpdateReportRequest {
   optional string work_end = 11;
   optional int32 break_minutes = 12;
   optional string project_name = 13;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 14;
 }
 
 message DeleteReportRequest {
   string tenant_id = 1;
   string report_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message DeleteReportResponse {}
@@ -255,6 +264,9 @@ message ListReportsResponse {
 message SubmitReportRequest {
   string tenant_id = 1;
   string report_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message ApproveReportRequest {
@@ -285,6 +297,9 @@ message AddLineRequest {
   int32 position = 7;
   string category = 8;
   string article = 9;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 10;
 }
 
 message UpdateLineRequest {
@@ -297,11 +312,17 @@ message UpdateLineRequest {
   optional int32 position = 7;
   optional string category = 8;
   optional string article = 9;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 10;
 }
 
 message DeleteLineRequest {
   string tenant_id = 1;
   string line_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message DeleteLineResponse {}
@@ -313,6 +334,9 @@ message LineResponse {
 message ListLinesRequest {
   string tenant_id = 1;
   string report_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message ListLinesResponse {
@@ -332,12 +356,18 @@ message UploadAttachmentRequest {
   int64 size_bytes = 6;
   string object_key = 7; // pre-computed by caller, stored as-is
   string uploaded_by = 8;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 9;
 }
 
 message ListAttachmentsRequest {
   string tenant_id = 1;
   string report_id = 2;
   optional string line_id = 3;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 4;
 }
 
 message ListAttachmentsResponse {
@@ -351,6 +381,9 @@ message AttachmentResponse {
 message DeleteAttachmentRequest {
   string tenant_id = 1;
   string attachment_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message DeleteAttachmentResponse {}
@@ -384,6 +417,9 @@ message ListPendingApprovalsRequest {
 message ExportPDFRequest {
   string tenant_id = 1;
   string report_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message ExportPDFResponse {
@@ -401,6 +437,9 @@ message SaveReportSignatureRequest {
   string report_id = 2;
   string signature_data = 3; // data:image/png;base64,... or data:image/svg+xml;base64,...
   string signed_by = 4;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 5;
 }
 
 // ============================================================================
@@ -450,6 +489,9 @@ message CreateMeasurementRequest {
   string measured_at = 6;
   string notes = 7;
   string idempotency_key = 8;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 9;
 }
 
 message CreateMeasurementResponse {
@@ -485,6 +527,9 @@ message UpdateMeasurementRequest {
   string measured_by = 5;
   string measured_at = 6;
   string notes = 7;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 8;
 }
 
 message UpdateMeasurementResponse {
@@ -494,6 +539,9 @@ message UpdateMeasurementResponse {
 message DeleteMeasurementRequest {
   string tenant_id = 1;
   string measurement_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message DeleteMeasurementResponse {
@@ -508,6 +556,9 @@ message AddMeasurementPositionRequest {
   string unit = 5;
   double quantity = 6;
   double unit_price = 7;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 8;
 }
 
 message AddMeasurementPositionResponse {
@@ -517,6 +568,9 @@ message AddMeasurementPositionResponse {
 message DeleteMeasurementPositionRequest {
   string tenant_id = 1;
   string position_id = 2;
+  // Set by the gateway when the caller may only touch reports they authored; the
+  // service resolves "the caller" from x-user-id, never from the request body.
+  bool restrict_to_author = 3;
 }
 
 message DeleteMeasurementPositionResponse {

@@ -31,12 +31,9 @@ type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-// Create persists a credit note and its lines. It does not validate cn's
-// amount against the original invoice's open balance — a credit note larger
-// than the invoice it credits is accepted (see
-// TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance). Answered: this is
-// current behavior, not a bug filed here — an over-credit is a business
-// decision (partial vs. full storno) the caller is trusted to make.
+// Create persists a credit note and its lines in its own transaction. It does not
+// check the amount against the original invoice — Service.Create does that under a
+// lock on the invoice row and then calls CreateInTx.
 func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -44,7 +41,29 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	_, err = tx.Exec(ctx,
+	if err := r.CreateInTx(ctx, tx, cn); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// SumGrossByInvoiceInTx sums the gross totals of all credit notes against an invoice.
+func (r *PostgresRepository) SumGrossByInvoiceInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
+	var sum string
+	err := tx.QueryRow(ctx,
+		`SELECT COALESCE(SUM(gross_total), 0)::text FROM finance_credit_notes
+		WHERE tenant_id = $1 AND original_invoice_id = $2`,
+		tenantID, invoiceID,
+	).Scan(&sum)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("sum credit notes of invoice: %w", err)
+	}
+	return decimal.NewFromString(sum)
+}
+
+// CreateInTx persists a credit note and its lines within the caller's transaction.
+func (r *PostgresRepository) CreateInTx(ctx context.Context, tx pgx.Tx, cn *models.CreditNote) error {
+	_, err := tx.Exec(ctx,
 		`INSERT INTO finance_credit_notes (
 			id, tenant_id, credit_note_number, status,
 			original_invoice_id,
@@ -74,11 +93,7 @@ func (r *PostgresRepository) Create(ctx context.Context, cn *models.CreditNote) 
 		return fmt.Errorf("insert finance_credit_notes: %w", err)
 	}
 
-	if err := r.insertCreditNoteLines(ctx, tx, cn); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return r.insertCreditNoteLines(ctx, tx, cn)
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.CreditNote, error) {

@@ -1081,11 +1081,14 @@ func (x *CreateReportRequest) GetProjectName() string {
 }
 
 type GetReportRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetReportRequest) Reset() {
@@ -1132,23 +1135,33 @@ func (x *GetReportRequest) GetReportId() string {
 	return ""
 }
 
+func (x *GetReportRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type UpdateReportRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Lat           *float64               `protobuf:"fixed64,5,opt,name=lat,proto3,oneof" json:"lat,omitempty"`
-	Lon           *float64               `protobuf:"fixed64,6,opt,name=lon,proto3,oneof" json:"lon,omitempty"`
-	ReportDate    *string                `protobuf:"bytes,7,opt,name=report_date,json=reportDate,proto3,oneof" json:"report_date,omitempty"`
-	Weather       *string                `protobuf:"bytes,8,opt,name=weather,proto3,oneof" json:"weather,omitempty"`
-	Temperature   *float64               `protobuf:"fixed64,9,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
-	WorkStart     *string                `protobuf:"bytes,10,opt,name=work_start,json=workStart,proto3,oneof" json:"work_start,omitempty"`
-	WorkEnd       *string                `protobuf:"bytes,11,opt,name=work_end,json=workEnd,proto3,oneof" json:"work_end,omitempty"`
-	BreakMinutes  *int32                 `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3,oneof" json:"break_minutes,omitempty"`
-	ProjectName   *string                `protobuf:"bytes,13,opt,name=project_name,json=projectName,proto3,oneof" json:"project_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TenantId     string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId     string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Title        *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description  *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Lat          *float64               `protobuf:"fixed64,5,opt,name=lat,proto3,oneof" json:"lat,omitempty"`
+	Lon          *float64               `protobuf:"fixed64,6,opt,name=lon,proto3,oneof" json:"lon,omitempty"`
+	ReportDate   *string                `protobuf:"bytes,7,opt,name=report_date,json=reportDate,proto3,oneof" json:"report_date,omitempty"`
+	Weather      *string                `protobuf:"bytes,8,opt,name=weather,proto3,oneof" json:"weather,omitempty"`
+	Temperature  *float64               `protobuf:"fixed64,9,opt,name=temperature,proto3,oneof" json:"temperature,omitempty"`
+	WorkStart    *string                `protobuf:"bytes,10,opt,name=work_start,json=workStart,proto3,oneof" json:"work_start,omitempty"`
+	WorkEnd      *string                `protobuf:"bytes,11,opt,name=work_end,json=workEnd,proto3,oneof" json:"work_end,omitempty"`
+	BreakMinutes *int32                 `protobuf:"varint,12,opt,name=break_minutes,json=breakMinutes,proto3,oneof" json:"break_minutes,omitempty"`
+	ProjectName  *string                `protobuf:"bytes,13,opt,name=project_name,json=projectName,proto3,oneof" json:"project_name,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,14,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateReportRequest) Reset() {
@@ -1272,12 +1285,22 @@ func (x *UpdateReportRequest) GetProjectName() string {
 	return ""
 }
 
+func (x *UpdateReportRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type DeleteReportRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteReportRequest) Reset() {
@@ -1322,6 +1345,13 @@ func (x *DeleteReportRequest) GetReportId() string {
 		return x.ReportId
 	}
 	return ""
+}
+
+func (x *DeleteReportRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type DeleteReportResponse struct {
@@ -1541,11 +1571,14 @@ func (x *ListReportsResponse) GetTotal() int32 {
 }
 
 type SubmitReportRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SubmitReportRequest) Reset() {
@@ -1590,6 +1623,13 @@ func (x *SubmitReportRequest) GetReportId() string {
 		return x.ReportId
 	}
 	return ""
+}
+
+func (x *SubmitReportRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type ApproveReportRequest struct {
@@ -1729,18 +1769,21 @@ func (x *RejectReportRequest) GetReviewNote() string {
 }
 
 type AddLineRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	Quantity      float64                `protobuf:"fixed64,4,opt,name=quantity,proto3" json:"quantity,omitempty"`
-	Unit          string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
-	Notes         string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
-	Position      int32                  `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
-	Category      string                 `protobuf:"bytes,8,opt,name=category,proto3" json:"category,omitempty"`
-	Article       string                 `protobuf:"bytes,9,opt,name=article,proto3" json:"article,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TenantId    string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId    string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Description string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Quantity    float64                `protobuf:"fixed64,4,opt,name=quantity,proto3" json:"quantity,omitempty"`
+	Unit        string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
+	Notes       string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"`
+	Position    int32                  `protobuf:"varint,7,opt,name=position,proto3" json:"position,omitempty"`
+	Category    string                 `protobuf:"bytes,8,opt,name=category,proto3" json:"category,omitempty"`
+	Article     string                 `protobuf:"bytes,9,opt,name=article,proto3" json:"article,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,10,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AddLineRequest) Reset() {
@@ -1836,19 +1879,29 @@ func (x *AddLineRequest) GetArticle() string {
 	return ""
 }
 
+func (x *AddLineRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type UpdateLineRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	LineId        string                 `protobuf:"bytes,2,opt,name=line_id,json=lineId,proto3" json:"line_id,omitempty"`
-	Description   *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Quantity      *float64               `protobuf:"fixed64,4,opt,name=quantity,proto3,oneof" json:"quantity,omitempty"`
-	Unit          *string                `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
-	Notes         *string                `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
-	Position      *int32                 `protobuf:"varint,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
-	Category      *string                `protobuf:"bytes,8,opt,name=category,proto3,oneof" json:"category,omitempty"`
-	Article       *string                `protobuf:"bytes,9,opt,name=article,proto3,oneof" json:"article,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TenantId    string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	LineId      string                 `protobuf:"bytes,2,opt,name=line_id,json=lineId,proto3" json:"line_id,omitempty"`
+	Description *string                `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Quantity    *float64               `protobuf:"fixed64,4,opt,name=quantity,proto3,oneof" json:"quantity,omitempty"`
+	Unit        *string                `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	Notes       *string                `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	Position    *int32                 `protobuf:"varint,7,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	Category    *string                `protobuf:"bytes,8,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	Article     *string                `protobuf:"bytes,9,opt,name=article,proto3,oneof" json:"article,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,10,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateLineRequest) Reset() {
@@ -1944,12 +1997,22 @@ func (x *UpdateLineRequest) GetArticle() string {
 	return ""
 }
 
+func (x *UpdateLineRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type DeleteLineRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	LineId        string                 `protobuf:"bytes,2,opt,name=line_id,json=lineId,proto3" json:"line_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	LineId   string                 `protobuf:"bytes,2,opt,name=line_id,json=lineId,proto3" json:"line_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteLineRequest) Reset() {
@@ -1994,6 +2057,13 @@ func (x *DeleteLineRequest) GetLineId() string {
 		return x.LineId
 	}
 	return ""
+}
+
+func (x *DeleteLineRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type DeleteLineResponse struct {
@@ -2077,11 +2147,14 @@ func (x *LineResponse) GetLine() *ReportLine {
 }
 
 type ListLinesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListLinesRequest) Reset() {
@@ -2126,6 +2199,13 @@ func (x *ListLinesRequest) GetReportId() string {
 		return x.ReportId
 	}
 	return ""
+}
+
+func (x *ListLinesRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type ListLinesResponse struct {
@@ -2173,17 +2253,20 @@ func (x *ListLinesResponse) GetLines() []*ReportLine {
 }
 
 type UploadAttachmentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	LineId        *string                `protobuf:"bytes,3,opt,name=line_id,json=lineId,proto3,oneof" json:"line_id,omitempty"`
-	Filename      string                 `protobuf:"bytes,4,opt,name=filename,proto3" json:"filename,omitempty"`
-	ContentType   string                 `protobuf:"bytes,5,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	SizeBytes     int64                  `protobuf:"varint,6,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	ObjectKey     string                 `protobuf:"bytes,7,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"` // pre-computed by caller, stored as-is
-	UploadedBy    string                 `protobuf:"bytes,8,opt,name=uploaded_by,json=uploadedBy,proto3" json:"uploaded_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TenantId    string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId    string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	LineId      *string                `protobuf:"bytes,3,opt,name=line_id,json=lineId,proto3,oneof" json:"line_id,omitempty"`
+	Filename    string                 `protobuf:"bytes,4,opt,name=filename,proto3" json:"filename,omitempty"`
+	ContentType string                 `protobuf:"bytes,5,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	SizeBytes   int64                  `protobuf:"varint,6,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
+	ObjectKey   string                 `protobuf:"bytes,7,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"` // pre-computed by caller, stored as-is
+	UploadedBy  string                 `protobuf:"bytes,8,opt,name=uploaded_by,json=uploadedBy,proto3" json:"uploaded_by,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,9,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UploadAttachmentRequest) Reset() {
@@ -2272,13 +2355,23 @@ func (x *UploadAttachmentRequest) GetUploadedBy() string {
 	return ""
 }
 
+func (x *UploadAttachmentRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type ListAttachmentsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	LineId        *string                `protobuf:"bytes,3,opt,name=line_id,json=lineId,proto3,oneof" json:"line_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	LineId   *string                `protobuf:"bytes,3,opt,name=line_id,json=lineId,proto3,oneof" json:"line_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,4,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListAttachmentsRequest) Reset() {
@@ -2330,6 +2423,13 @@ func (x *ListAttachmentsRequest) GetLineId() string {
 		return *x.LineId
 	}
 	return ""
+}
+
+func (x *ListAttachmentsRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type ListAttachmentsResponse struct {
@@ -2421,11 +2521,14 @@ func (x *AttachmentResponse) GetAttachment() *ReportAttachment {
 }
 
 type DeleteAttachmentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	AttachmentId  string                 `protobuf:"bytes,2,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TenantId     string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	AttachmentId string                 `protobuf:"bytes,2,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteAttachmentRequest) Reset() {
@@ -2470,6 +2573,13 @@ func (x *DeleteAttachmentRequest) GetAttachmentId() string {
 		return x.AttachmentId
 	}
 	return ""
+}
+
+func (x *DeleteAttachmentRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type DeleteAttachmentResponse struct {
@@ -2700,11 +2810,14 @@ func (x *ListPendingApprovalsRequest) GetAuthorId() string {
 }
 
 type ExportPDFRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ExportPDFRequest) Reset() {
@@ -2749,6 +2862,13 @@ func (x *ExportPDFRequest) GetReportId() string {
 		return x.ReportId
 	}
 	return ""
+}
+
+func (x *ExportPDFRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type ExportPDFResponse struct {
@@ -2817,8 +2937,11 @@ type SaveReportSignatureRequest struct {
 	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
 	SignatureData string                 `protobuf:"bytes,3,opt,name=signature_data,json=signatureData,proto3" json:"signature_data,omitempty"` // data:image/png;base64,... or data:image/svg+xml;base64,...
 	SignedBy      string                 `protobuf:"bytes,4,opt,name=signed_by,json=signedBy,proto3" json:"signed_by,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,5,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SaveReportSignatureRequest) Reset() {
@@ -2877,6 +3000,13 @@ func (x *SaveReportSignatureRequest) GetSignedBy() string {
 		return x.SignedBy
 	}
 	return ""
+}
+
+func (x *SaveReportSignatureRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type AddWorkerRequest struct {
@@ -3201,8 +3331,11 @@ type CreateMeasurementRequest struct {
 	MeasuredAt     string                 `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3" json:"measured_at,omitempty"`
 	Notes          string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
 	IdempotencyKey string                 `protobuf:"bytes,8,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,9,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateMeasurementRequest) Reset() {
@@ -3289,6 +3422,13 @@ func (x *CreateMeasurementRequest) GetIdempotencyKey() string {
 		return x.IdempotencyKey
 	}
 	return ""
+}
+
+func (x *CreateMeasurementRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type CreateMeasurementResponse struct {
@@ -3560,8 +3700,11 @@ type UpdateMeasurementRequest struct {
 	MeasuredBy    string                 `protobuf:"bytes,5,opt,name=measured_by,json=measuredBy,proto3" json:"measured_by,omitempty"`
 	MeasuredAt    string                 `protobuf:"bytes,6,opt,name=measured_at,json=measuredAt,proto3" json:"measured_at,omitempty"`
 	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,8,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateMeasurementRequest) Reset() {
@@ -3643,6 +3786,13 @@ func (x *UpdateMeasurementRequest) GetNotes() string {
 	return ""
 }
 
+func (x *UpdateMeasurementRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type UpdateMeasurementResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Measurement   *Measurement           `protobuf:"bytes,1,opt,name=measurement,proto3" json:"measurement,omitempty"`
@@ -3691,8 +3841,11 @@ type DeleteMeasurementRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	MeasurementId string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteMeasurementRequest) Reset() {
@@ -3737,6 +3890,13 @@ func (x *DeleteMeasurementRequest) GetMeasurementId() string {
 		return x.MeasurementId
 	}
 	return ""
+}
+
+func (x *DeleteMeasurementRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type DeleteMeasurementResponse struct {
@@ -3792,8 +3952,11 @@ type AddMeasurementPositionRequest struct {
 	Unit           string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
 	Quantity       float64                `protobuf:"fixed64,6,opt,name=quantity,proto3" json:"quantity,omitempty"`
 	UnitPrice      float64                `protobuf:"fixed64,7,opt,name=unit_price,json=unitPrice,proto3" json:"unit_price,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,8,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *AddMeasurementPositionRequest) Reset() {
@@ -3875,6 +4038,13 @@ func (x *AddMeasurementPositionRequest) GetUnitPrice() float64 {
 	return 0
 }
 
+func (x *AddMeasurementPositionRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
+}
+
 type AddMeasurementPositionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Position      *MeasurementPosition   `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
@@ -3920,11 +4090,14 @@ func (x *AddMeasurementPositionResponse) GetPosition() *MeasurementPosition {
 }
 
 type DeleteMeasurementPositionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	PositionId    string                 `protobuf:"bytes,2,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TenantId   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	PositionId string                 `protobuf:"bytes,2,opt,name=position_id,json=positionId,proto3" json:"position_id,omitempty"`
+	// Set by the gateway when the caller may only touch reports they authored; the
+	// service resolves "the caller" from x-user-id, never from the request body.
+	RestrictToAuthor bool `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteMeasurementPositionRequest) Reset() {
@@ -3969,6 +4142,13 @@ func (x *DeleteMeasurementPositionRequest) GetPositionId() string {
 		return x.PositionId
 	}
 	return ""
+}
+
+func (x *DeleteMeasurementPositionRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type DeleteMeasurementPositionResponse struct {
@@ -4742,10 +4922,11 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x04_latB\x06\n" +
 	"\x04_lonB\x0e\n" +
 	"\f_temperatureB\x10\n" +
-	"\x0e_break_minutes\"L\n" +
+	"\x0e_break_minutes\"z\n" +
 	"\x10GetReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"\xd6\x04\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"\x84\x05\n" +
 	"\x13UpdateReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x19\n" +
@@ -4763,7 +4944,8 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\bwork_end\x18\v \x01(\tH\bR\aworkEnd\x88\x01\x01\x12(\n" +
 	"\rbreak_minutes\x18\f \x01(\x05H\tR\fbreakMinutes\x88\x01\x01\x12&\n" +
 	"\fproject_name\x18\r \x01(\tH\n" +
-	"R\vprojectName\x88\x01\x01B\b\n" +
+	"R\vprojectName\x88\x01\x01\x12,\n" +
+	"\x12restrict_to_author\x18\x0e \x01(\bR\x10restrictToAuthorB\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\x06\n" +
 	"\x04_latB\x06\n" +
@@ -4775,10 +4957,11 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\v_work_startB\v\n" +
 	"\t_work_endB\x10\n" +
 	"\x0e_break_minutesB\x0f\n" +
-	"\r_project_name\"O\n" +
+	"\r_project_name\"}\n" +
 	"\x13DeleteReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"\x16\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"\x16\n" +
 	"\x14DeleteReportResponse\"A\n" +
 	"\x0eReportResponse\x12/\n" +
 	"\x06report\x18\x01 \x01(\v2\x17.rapporte.v1.WorkReportR\x06report\"\xd2\x01\n" +
@@ -4794,10 +4977,11 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"_author_id\"^\n" +
 	"\x13ListReportsResponse\x121\n" +
 	"\areports\x18\x01 \x03(\v2\x17.rapporte.v1.WorkReportR\areports\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"O\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"}\n" +
 	"\x13SubmitReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"\x92\x01\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"\x92\x01\n" +
 	"\x14ApproveReportRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x1f\n" +
@@ -4811,7 +4995,7 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\vreviewer_id\x18\x03 \x01(\tR\n" +
 	"reviewerId\x12\x1f\n" +
 	"\vreview_note\x18\x04 \x01(\tR\n" +
-	"reviewNote\"\x84\x02\n" +
+	"reviewNote\"\xb2\x02\n" +
 	"\x0eAddLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12 \n" +
@@ -4821,7 +5005,9 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\x1a\n" +
 	"\bposition\x18\a \x01(\x05R\bposition\x12\x1a\n" +
 	"\bcategory\x18\b \x01(\tR\bcategory\x12\x18\n" +
-	"\aarticle\x18\t \x01(\tR\aarticle\"\xfc\x02\n" +
+	"\aarticle\x18\t \x01(\tR\aarticle\x12,\n" +
+	"\x12restrict_to_author\x18\n" +
+	" \x01(\bR\x10restrictToAuthor\"\xaa\x03\n" +
 	"\x11UpdateLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aline_id\x18\x02 \x01(\tR\x06lineId\x12%\n" +
@@ -4831,7 +5017,9 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x05notes\x18\x06 \x01(\tH\x03R\x05notes\x88\x01\x01\x12\x1f\n" +
 	"\bposition\x18\a \x01(\x05H\x04R\bposition\x88\x01\x01\x12\x1f\n" +
 	"\bcategory\x18\b \x01(\tH\x05R\bcategory\x88\x01\x01\x12\x1d\n" +
-	"\aarticle\x18\t \x01(\tH\x06R\aarticle\x88\x01\x01B\x0e\n" +
+	"\aarticle\x18\t \x01(\tH\x06R\aarticle\x88\x01\x01\x12,\n" +
+	"\x12restrict_to_author\x18\n" +
+	" \x01(\bR\x10restrictToAuthorB\x0e\n" +
 	"\f_descriptionB\v\n" +
 	"\t_quantityB\a\n" +
 	"\x05_unitB\b\n" +
@@ -4839,18 +5027,20 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\t_positionB\v\n" +
 	"\t_categoryB\n" +
 	"\n" +
-	"\b_article\"I\n" +
+	"\b_article\"w\n" +
 	"\x11DeleteLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\aline_id\x18\x02 \x01(\tR\x06lineId\"\x14\n" +
+	"\aline_id\x18\x02 \x01(\tR\x06lineId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"\x14\n" +
 	"\x12DeleteLineResponse\";\n" +
 	"\fLineResponse\x12+\n" +
-	"\x04line\x18\x01 \x01(\v2\x17.rapporte.v1.ReportLineR\x04line\"L\n" +
+	"\x04line\x18\x01 \x01(\v2\x17.rapporte.v1.ReportLineR\x04line\"z\n" +
 	"\x10ListLinesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"B\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"B\n" +
 	"\x11ListLinesResponse\x12-\n" +
-	"\x05lines\x18\x01 \x03(\v2\x17.rapporte.v1.ReportLineR\x05lines\"\x9b\x02\n" +
+	"\x05lines\x18\x01 \x03(\v2\x17.rapporte.v1.ReportLineR\x05lines\"\xc9\x02\n" +
 	"\x17UploadAttachmentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x1c\n" +
@@ -4862,13 +5052,15 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\n" +
 	"object_key\x18\a \x01(\tR\tobjectKey\x12\x1f\n" +
 	"\vuploaded_by\x18\b \x01(\tR\n" +
-	"uploadedByB\n" +
+	"uploadedBy\x12,\n" +
+	"\x12restrict_to_author\x18\t \x01(\bR\x10restrictToAuthorB\n" +
 	"\n" +
-	"\b_line_id\"|\n" +
+	"\b_line_id\"\xaa\x01\n" +
 	"\x16ListAttachmentsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x1c\n" +
-	"\aline_id\x18\x03 \x01(\tH\x00R\x06lineId\x88\x01\x01B\n" +
+	"\aline_id\x18\x03 \x01(\tH\x00R\x06lineId\x88\x01\x01\x12,\n" +
+	"\x12restrict_to_author\x18\x04 \x01(\bR\x10restrictToAuthorB\n" +
 	"\n" +
 	"\b_line_id\"Z\n" +
 	"\x17ListAttachmentsResponse\x12?\n" +
@@ -4876,10 +5068,11 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x12AttachmentResponse\x12=\n" +
 	"\n" +
 	"attachment\x18\x01 \x01(\v2\x1d.rapporte.v1.ReportAttachmentR\n" +
-	"attachment\"[\n" +
+	"attachment\"\x89\x01\n" +
 	"\x17DeleteAttachmentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
-	"\rattachment_id\x18\x02 \x01(\tR\fattachmentId\"\x1a\n" +
+	"\rattachment_id\x18\x02 \x01(\tR\fattachmentId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"\x1a\n" +
 	"\x18DeleteAttachmentResponse\"4\n" +
 	"\x15GetReportStatsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"\xd2\x01\n" +
@@ -4896,19 +5089,21 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12 \n" +
 	"\tauthor_id\x18\x04 \x01(\tH\x00R\bauthorId\x88\x01\x01B\f\n" +
 	"\n" +
-	"_author_id\"L\n" +
+	"_author_id\"z\n" +
 	"\x10ExportPDFRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\treport_id\x18\x02 \x01(\tR\breportId\"l\n" +
+	"\treport_id\x18\x02 \x01(\tR\breportId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"l\n" +
 	"\x11ExportPDFResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\x12!\n" +
 	"\fcontent_type\x18\x02 \x01(\tR\vcontentType\x12\x1a\n" +
-	"\bfilename\x18\x03 \x01(\tR\bfilename\"\x9a\x01\n" +
+	"\bfilename\x18\x03 \x01(\tR\bfilename\"\xc8\x01\n" +
 	"\x1aSaveReportSignatureRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12%\n" +
 	"\x0esignature_data\x18\x03 \x01(\tR\rsignatureData\x12\x1b\n" +
-	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy\"\x8a\x01\n" +
+	"\tsigned_by\x18\x04 \x01(\tR\bsignedBy\x12,\n" +
+	"\x12restrict_to_author\x18\x05 \x01(\bR\x10restrictToAuthor\"\x8a\x01\n" +
 	"\x10AddWorkerRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x12\n" +
@@ -4926,7 +5121,7 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\"D\n" +
 	"\x13ListWorkersResponse\x12-\n" +
-	"\aworkers\x18\x01 \x03(\v2\x13.rapporte.v1.WorkerR\aworkers\"\x87\x02\n" +
+	"\aworkers\x18\x01 \x03(\v2\x13.rapporte.v1.WorkerR\aworkers\"\xb5\x02\n" +
 	"\x18CreateMeasurementRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x14\n" +
@@ -4937,7 +5132,8 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\vmeasured_at\x18\x06 \x01(\tR\n" +
 	"measuredAt\x12\x14\n" +
 	"\x05notes\x18\a \x01(\tR\x05notes\x12'\n" +
-	"\x0fidempotency_key\x18\b \x01(\tR\x0eidempotencyKey\"W\n" +
+	"\x0fidempotency_key\x18\b \x01(\tR\x0eidempotencyKey\x12,\n" +
+	"\x12restrict_to_author\x18\t \x01(\bR\x10restrictToAuthor\"W\n" +
 	"\x19CreateMeasurementResponse\x12:\n" +
 	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"[\n" +
 	"\x15GetMeasurementRequest\x12\x1b\n" +
@@ -4952,7 +5148,7 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"n\n" +
 	"\x18ListMeasurementsResponse\x12<\n" +
 	"\fmeasurements\x18\x01 \x03(\v2\x18.rapporte.v1.MeasurementR\fmeasurements\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xe8\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\x96\x02\n" +
 	"\x18UpdateMeasurementRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
 	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12\x14\n" +
@@ -4962,14 +5158,16 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"measuredBy\x12\x1f\n" +
 	"\vmeasured_at\x18\x06 \x01(\tR\n" +
 	"measuredAt\x12\x14\n" +
-	"\x05notes\x18\a \x01(\tR\x05notes\"W\n" +
+	"\x05notes\x18\a \x01(\tR\x05notes\x12,\n" +
+	"\x12restrict_to_author\x18\b \x01(\bR\x10restrictToAuthor\"W\n" +
 	"\x19UpdateMeasurementResponse\x12:\n" +
-	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"^\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"\x8c\x01\n" +
 	"\x18DeleteMeasurementRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
-	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\"5\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"5\n" +
 	"\x19DeleteMeasurementResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xfd\x01\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xab\x02\n" +
 	"\x1dAddMeasurementPositionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
 	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12'\n" +
@@ -4978,13 +5176,15 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x1a\n" +
 	"\bquantity\x18\x06 \x01(\x01R\bquantity\x12\x1d\n" +
 	"\n" +
-	"unit_price\x18\a \x01(\x01R\tunitPrice\"^\n" +
+	"unit_price\x18\a \x01(\x01R\tunitPrice\x12,\n" +
+	"\x12restrict_to_author\x18\b \x01(\bR\x10restrictToAuthor\"^\n" +
 	"\x1eAddMeasurementPositionResponse\x12<\n" +
-	"\bposition\x18\x01 \x01(\v2 .rapporte.v1.MeasurementPositionR\bposition\"`\n" +
+	"\bposition\x18\x01 \x01(\v2 .rapporte.v1.MeasurementPositionR\bposition\"\x8e\x01\n" +
 	" DeleteMeasurementPositionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vposition_id\x18\x02 \x01(\tR\n" +
-	"positionId\"=\n" +
+	"positionId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"=\n" +
 	"!DeleteMeasurementPositionResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\"\xdd\x01\n" +
 	"\x15CreateTemplateRequest\x12\x1b\n" +

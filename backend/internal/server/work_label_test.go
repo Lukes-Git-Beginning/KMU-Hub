@@ -251,6 +251,8 @@ func (m *labelMockRepo) GetTaskLabelIDs(_ context.Context, _, taskID string) ([]
 
 type workTaskMockRepo struct {
 	tasks            map[uuid.UUID]*models.TaskWithRelations
+	firstStatus      uuid.UUID // answer of FirstStatusByClosed
+	firstStatusErr   error
 	lastListFilter   task.TaskFilters
 	dependencies     []models.TaskDependency
 	entityLinks      map[uuid.UUID]models.TaskEntityLink
@@ -403,6 +405,16 @@ func (r *workTaskMockRepo) RemoveFile(_ context.Context, _, id uuid.UUID) error 
 	delete(r.files, id)
 	return nil
 }
+func (r *workTaskMockRepo) GetFile(_ context.Context, _, id uuid.UUID) (*models.TaskFile, error) {
+	if r.forceErr != nil {
+		return nil, r.forceErr
+	}
+	f, ok := r.files[id]
+	if !ok {
+		return nil, task.ErrFileNotFound
+	}
+	return &f, nil
+}
 func (r *workTaskMockRepo) ListFiles(_ context.Context, taskID uuid.UUID) ([]models.TaskFile, error) {
 	if r.forceErr != nil {
 		return nil, r.forceErr
@@ -480,6 +492,10 @@ func (r *workTaskMockRepo) ListDependenciesByProject(_ context.Context, _ uuid.U
 }
 func (r *workTaskMockRepo) GetStatusByID(_ context.Context, _ uuid.UUID) (string, bool, error) {
 	return "Open", false, nil
+}
+
+func (r *workTaskMockRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, _ bool) (uuid.UUID, error) {
+	return r.firstStatus, r.firstStatusErr
 }
 
 func (r *workTaskMockRepo) GetUserDisplayName(_ context.Context, _ uuid.UUID) (string, error) {

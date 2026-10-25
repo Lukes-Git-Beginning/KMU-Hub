@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,6 +58,10 @@ func NewWorkGRPCServer(
 	labelService *label.Service,
 	customFieldService *customfield.Service,
 ) *WorkGRPCServer {
+	// Same switch as the project calls: seeing a project and working in it must agree.
+	if taskService != nil {
+		taskService.SetOpenProjects(projectsOpenToTenant)
+	}
 	return &WorkGRPCServer{
 		projectService:     projectService,
 		statusService:      statusService,
@@ -416,6 +421,12 @@ func (s *WorkGRPCServer) SaveProjectAsTemplate(ctx context.Context, req *workv1.
 		return nil, mapWorkError(err)
 	}
 
+	// SaveAsTemplate only writes the project row; the template carries nothing
+	// to instantiate unless the statuses and tasks go with it.
+	if err := s.copyProjectContent(ctx, tenantID, projectID, tmpl.ID, createdBy); err != nil {
+		return nil, err
+	}
+
 	return &workv1.SaveProjectAsTemplateResponse{
 		Template: projectToProto(tmpl, 0, 0, ""),
 	}, nil
@@ -442,9 +453,72 @@ func (s *WorkGRPCServer) CreateProjectFromTemplate(ctx context.Context, req *wor
 		return nil, mapWorkError(err)
 	}
 
+	if err := s.copyProjectContent(ctx, tenantID, templateID, p.ID, createdBy); err != nil {
+		return nil, err
+	}
+
 	return &workv1.CreateProjectFromTemplateResponse{
 		Project: projectToProto(p, 0, 0, ""),
 	}, nil
+}
+
+// copyProjectContent copies the statuses and then the tasks (with parents and
+// dependencies) of one project into another that was just created. The task
+// service takes the status translation from here because a status belongs to
+// exactly one project: the copied statuses are matched to the source ones by name
+// (unique per project, case-insensitive).
+// lean: kein gemeinsamer Transaktionsrahmen über Projekt-, Status- und Task-Service;
+// bei einem Fehler wird das neue Projekt wieder gelöscht, statt es halb gefüllt stehen
+// zu lassen. Echte Transaktion, wenn der Work-Server eine Unit-of-Work bekommt.
+func (s *WorkGRPCServer) copyProjectContent(ctx context.Context, tenantID, sourceID, targetID, actorID uuid.UUID) error {
+	if err := s.statusService.CopyForProject(ctx, sourceID, targetID); err != nil {
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+
+	statusMap, err := s.statusMapByName(ctx, sourceID, targetID)
+	if err != nil {
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+
+	if err := s.taskService.CreateFromTemplate(ctx, tenantID, sourceID, targetID, actorID, statusMap); err != nil {
+		slog.Error("copy project tasks failed", "source_project_id", sourceID, "target_project_id", targetID, "error", err)
+		s.discardProject(ctx, tenantID, targetID, actorID)
+		return mapWorkError(err)
+	}
+	return nil
+}
+
+func (s *WorkGRPCServer) statusMapByName(ctx context.Context, sourceID, targetID uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	targetStatuses, err := s.statusService.ListByProject(ctx, targetID)
+	if err != nil {
+		return nil, err
+	}
+	byName := make(map[string]uuid.UUID, len(targetStatuses))
+	for _, st := range targetStatuses {
+		byName[strings.ToLower(st.Name)] = st.ID
+	}
+
+	sourceStatuses, err := s.statusService.ListByProject(ctx, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	statusMap := make(map[uuid.UUID]uuid.UUID, len(sourceStatuses))
+	for _, st := range sourceStatuses {
+		if id, ok := byName[strings.ToLower(st.Name)]; ok {
+			statusMap[st.ID] = id
+		}
+	}
+	return statusMap, nil
+}
+
+// discardProject removes a project whose content copy failed. A failure here is
+// logged only: the caller already returns the original error.
+func (s *WorkGRPCServer) discardProject(ctx context.Context, tenantID, projectID, actorID uuid.UUID) {
+	if err := s.projectService.Delete(ctx, projectID, tenantID, actorID, projectsOpenToTenant); err != nil {
+		slog.Error("discard half-copied project failed", "project_id", projectID, "error", err)
+	}
 }
 
 // ============================================================================
@@ -863,6 +937,15 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 	if req.DueDate != nil {
 		t := req.DueDate.AsTime()
 		input.DueDate = &t
+	}
+	input.ClearDueDate = req.ClearDueDate
+	input.IsClosed = req.IsClosed
+	if req.ProjectId != nil {
+		projectID, parseErr := uuid.Parse(*req.ProjectId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid project_id")
+		}
+		input.ProjectID = &projectID
 	}
 
 	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
@@ -1317,6 +1400,11 @@ func (s *WorkGRPCServer) ListTaskActivities(ctx context.Context, req *workv1.Lis
 // ============================================================================
 
 func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.AttachFileToTaskRequest) (*workv1.AttachFileToTaskResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
 	taskID, err := uuid.Parse(req.TaskId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid task_id")
@@ -1325,6 +1413,11 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 	uploadedBy, err := uuid.Parse(req.UploadedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid uploaded_by")
+	}
+
+	actorID, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	f := &models.TaskFile{
@@ -1341,7 +1434,7 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 		f.ThumbnailKey = req.ThumbnailKey
 	}
 
-	if err := s.taskRepo.AttachFile(ctx, f); err != nil {
+	if err := s.taskService.AttachFile(ctx, tenantID, actorID, f); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1361,11 +1454,35 @@ func (s *WorkGRPCServer) RemoveTaskFile(ctx context.Context, req *workv1.RemoveT
 		return nil, status.Error(codes.InvalidArgument, "invalid file id")
 	}
 
-	if err := s.taskRepo.RemoveFile(ctx, tenantID, id); err != nil {
+	actorID, err := actorIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.taskService.RemoveFile(ctx, tenantID, actorID, id); err != nil {
 		return nil, mapWorkError(err)
 	}
 
 	return &workv1.RemoveTaskFileResponse{}, nil
+}
+
+func (s *WorkGRPCServer) GetTaskFileDownloadURL(ctx context.Context, req *workv1.GetTaskFileDownloadURLRequest) (*workv1.GetTaskFileDownloadURLResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	id, err := uuid.Parse(req.Id)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid file id")
+	}
+
+	url, err := s.taskService.GetFileDownloadURL(ctx, tenantID, id)
+	if err != nil {
+		return nil, mapWorkError(err)
+	}
+
+	return &workv1.GetTaskFileDownloadURLResponse{Url: url}, nil
 }
 
 func (s *WorkGRPCServer) ListTaskFiles(ctx context.Context, req *workv1.ListTaskFilesRequest) (*workv1.ListTaskFilesResponse, error) {
@@ -1677,6 +1794,7 @@ func taskToProto(t *models.TaskWithRelations) *workv1.TaskProto {
 		UpdatedAt:      timestamppb.New(t.UpdatedAt),
 		SubtaskCount:   int32(t.SubtaskCount),
 		HasBlockedDeps: t.HasBlockedDeps,
+		IsClosed:       t.StatusIsClosed,
 	}
 	if t.ProjectID != nil {
 		s := t.ProjectID.String()
@@ -2579,10 +2697,18 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, task.ErrViewerCannotEdit):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrTaskWithoutProject), errors.Is(err, task.ErrCannotMoveToProject):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, task.ErrCustomFieldNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, task.ErrParentInDiffProject):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, task.ErrForeignStorageKey):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, task.ErrFileNotFound):
+		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, task.ErrFileStoreUnavailable):
+		return status.Error(codes.Unavailable, err.Error())
 	// Comment errors
 	case errors.Is(err, comment.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())

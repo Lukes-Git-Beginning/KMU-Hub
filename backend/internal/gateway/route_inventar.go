@@ -438,6 +438,16 @@ func (ir *InventarRoutes) HandleDeleteItem(w http.ResponseWriter, r *http.Reques
 // Stock Operation Handlers
 // ============================================================================
 
+// callerIDPtr is the audit actor of a stock write: always the authenticated user. The body's
+// performed_by / booked_by / acknowledged_by are accepted for wire compatibility but ignored, so
+// nobody can enter a colleague as the cause of a movement.
+func callerIDPtr(r *http.Request) *string {
+	if id := middleware.GetUserID(r.Context()); id != "" {
+		return &id
+	}
+	return nil
+}
+
 func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -464,7 +474,7 @@ func (ir *InventarRoutes) HandleAdjustStock(w http.ResponseWriter, r *http.Reque
 		TenantId:    tenantID.String(),
 		ItemId:      id,
 		Delta:       req.Delta,
-		PerformedBy: req.PerformedBy,
+		PerformedBy: callerIDPtr(r),
 		Reason:      req.Reason,
 	}
 
@@ -498,7 +508,7 @@ func (ir *InventarRoutes) HandleTransferStock(w http.ResponseWriter, r *http.Req
 		FromItemId:  req.FromItemID,
 		ToItemId:    req.ToItemID,
 		Quantity:    req.Quantity,
-		PerformedBy: req.PerformedBy,
+		PerformedBy: callerIDPtr(r),
 		Reason:      req.Reason,
 	}
 
@@ -601,7 +611,7 @@ func (ir *InventarRoutes) HandleRecordMovement(w http.ResponseWriter, r *http.Re
 		ItemId:       id,
 		MovementType: req.MovementType,
 		Quantity:     req.Quantity,
-		PerformedBy:  req.PerformedBy,
+		PerformedBy:  callerIDPtr(r),
 		Reason:       req.Reason,
 	}
 
@@ -730,19 +740,14 @@ func (ir *InventarRoutes) HandleAcknowledgeWarning(w http.ResponseWriter, r *htt
 		return
 	}
 
-	req, ok := decodeAndValidate[acknowledgeWarningRequest](w, r)
+	_, ok = decodeAndValidate[acknowledgeWarningRequest](w, r)
 	if !ok {
 		return
 	}
-	if req.AcknowledgedBy == "" {
-		// Fall back to the authenticated user
-		req.AcknowledgedBy = middleware.GetUserID(r.Context())
-	}
-
 	resp, err := client.AcknowledgeWarning(r.Context(), &inventarv1.AcknowledgeWarningRequest{
 		TenantId:       tenantID.String(),
 		WarningId:      id,
-		AcknowledgedBy: req.AcknowledgedBy,
+		AcknowledgedBy: middleware.GetUserID(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1254,7 +1259,7 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 		return
 	}
 
-	req, ok := decodeAndValidate[bookInventurDifferencesRequest](w, r)
+	_, ok = decodeAndValidateOptional[bookInventurDifferencesRequest](w, r)
 	if !ok {
 		return
 	}
@@ -1262,7 +1267,7 @@ func (ir *InventarRoutes) HandleBookInventurDifferences(w http.ResponseWriter, r
 	resp, err := client.BookInventurDifferences(r.Context(), &inventarv1.BookInventurDifferencesRequest{
 		TenantId:  tenantID.String(),
 		SessionId: id,
-		BookedBy:  req.BookedBy,
+		BookedBy:  callerIDPtr(r),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1523,22 +1528,15 @@ func (ir *InventarRoutes) HandleBookPickingList(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	req, ok := decodeAndValidate[bookPickingListRequest](w, r)
+	_, ok = decodeAndValidate[bookPickingListRequest](w, r)
 	if !ok {
 		return
-	}
-
-	bookedBy := req.BookedBy
-	if bookedBy == nil {
-		if userID := middleware.GetUserID(r.Context()); userID != "" {
-			bookedBy = &userID
-		}
 	}
 
 	resp, err := client.BookPickingList(r.Context(), &inventarv1.BookPickingListRequest{
 		TenantId:      tenantID.String(),
 		PickingListId: id,
-		BookedBy:      bookedBy,
+		BookedBy:      callerIDPtr(r),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

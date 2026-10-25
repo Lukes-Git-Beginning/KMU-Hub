@@ -3,6 +3,7 @@ package gateway
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -821,6 +822,19 @@ func (sr *SchichtenRoutes) HandleCreateSwapRequest(w http.ResponseWriter, r *htt
 	idempotencyKey := r.Header.Get("Idempotency-Key")
 	if idempotencyKey == "" {
 		response.Error(w, http.StatusBadRequest, "Idempotency-Key header is required")
+		return
+	}
+
+	// A grant scoped to "own" may only file a swap for the caller's own
+	// assignment; only a wider grant (manager) files on behalf of someone else.
+	// Refusing beats overwriting: a silently rewritten requester would pair the
+	// caller's id with a colleague's assignment_id.
+	ownerID, ok := ownerFilterForScope(w, r, "schichten:swap", "create")
+	if !ok {
+		return
+	}
+	if ownerID != nil && !strings.EqualFold(req.RequestedByEmployeeID, *ownerID) {
+		response.Error(w, http.StatusForbidden, "requested_by_employee_id must be the caller")
 		return
 	}
 

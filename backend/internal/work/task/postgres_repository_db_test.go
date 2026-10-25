@@ -703,3 +703,59 @@ func TestSetCustomFieldValues_RejectsForeignAndUnknownDefinitions(t *testing.T) 
 		t.Fatalf("got %v, want exactly {%q: \"ok\"}", values, ownFieldName)
 	}
 }
+
+// TestListAndSearch_PageSizeUpToTwoHundred proves the repository serves the 200-row pages the
+// desktop asks for (150 tasks, page_size 200 -> 150 back) and still falls back to the default of
+// 20 above that ceiling.
+func TestListAndSearch_PageSizeUpToTwoHundred(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Task PageSize Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	userOwn := seedWorkUser(t, pool, tenantOwn)
+	defer testutil.CleanupRow(t, pool, "users", userOwn)
+
+	token := "PageSizeTok" + uuid.New().String()[:8]
+	const seeded = 150
+	for i := 0; i < seeded; i++ {
+		id := testutil.SeedRow(t, pool, "tasks", map[string]any{
+			"tenant_id":   tenantOwn,
+			"title":       fmt.Sprintf("%s task %03d", token, i),
+			"task_number": taskNumber(),
+			"created_by":  userOwn,
+		})
+		defer testutil.CleanupRow(t, pool, "tasks", id)
+	}
+
+	repo := NewPostgresRepository(pool)
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	results, total, err := repo.List(ctxOwn, tenantOwn, TaskFilters{Search: token, Page: 1, PageSize: 200})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(results) != seeded || total != seeded {
+		t.Fatalf("List page_size=200: got %d rows, total %d, want %d/%d", len(results), total, seeded, seeded)
+	}
+	results, _, err = repo.List(ctxOwn, tenantOwn, TaskFilters{Search: token, Page: 1, PageSize: 201})
+	if err != nil {
+		t.Fatalf("List (201): %v", err)
+	}
+	if len(results) != 20 {
+		t.Fatalf("List page_size=201: got %d rows, want the default 20", len(results))
+	}
+
+	found, foundTotal, err := repo.Search(ctxOwn, tenantOwn, token, TaskSearchFilters{Page: 1, PageSize: 200})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(found) != seeded || foundTotal != seeded {
+		t.Fatalf("Search page_size=200: got %d rows, total %d, want %d/%d", len(found), foundTotal, seeded, seeded)
+	}
+}

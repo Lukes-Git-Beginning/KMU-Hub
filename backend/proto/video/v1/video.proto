@@ -23,6 +23,16 @@ service VideoService {
   rpc ListRecordings(ListRecordingsRequest) returns (ListRecordingsResponse);
   rpc DeleteRecording(DeleteRecordingRequest) returns (google.protobuf.Empty);
   rpc GetRecordingDownloadURL(GetRecordingDownloadURLRequest) returns (GetRecordingDownloadURLResponse);
+  // Initiator pre-recording consent (R2-P0.4 / Migration 000107): the initiator
+  // confirms the pre-dialog after StartRecording created the row.
+  rpc ConfirmInitiatorConsent(ConfirmInitiatorConsentRequest) returns (ConfirmInitiatorConsentResponse);
+  // Recording tagging (S1.7 / Welle 1.B): consent snapshot, metadata, per-meeting list, status, cleanup.
+  rpc GetRecordingConsents(GetRecordingConsentsRequest) returns (GetRecordingConsentsResponse);
+  rpc TagRecordingWithConsents(TagRecordingWithConsentsRequest) returns (google.protobuf.Empty);
+  rpc UpdateRecordingMetadata(UpdateRecordingMetadataRequest) returns (Recording);
+  rpc ListRecordingsByMeeting(ListRecordingsByMeetingRequest) returns (ListRecordingsByMeetingResponse);
+  rpc GetRecordingStatus(GetRecordingStatusRequest) returns (Recording);
+  rpc CleanupExpiredRecording(CleanupExpiredRecordingRequest) returns (google.protobuf.Empty);
 
   // Meeting Management
   rpc CreateMeeting(CreateMeetingRequest) returns (Meeting);
@@ -385,6 +395,72 @@ message GetRecordingDownloadURLRequest {
 message GetRecordingDownloadURLResponse {
   string url = 1;
   google.protobuf.Timestamp expires_at = 2;
+}
+
+// ConfirmInitiatorConsentRequest stamps pre_recording_consent_at on a recording
+// row. user_id must match started_by; the gateway fills it from the JWT.
+message ConfirmInitiatorConsentRequest {
+  string recording_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+}
+
+message ConfirmInitiatorConsentResponse {
+  bool stamped = 1;
+}
+
+// GetRecordingConsentsRequest asks for the consent rows of a recording.
+message GetRecordingConsentsRequest {
+  string recording_id = 1;
+}
+
+message GetRecordingConsentsResponse {
+  string recording_id = 1;
+  repeated RecordingConsent consents = 2;
+  bool all_consented = 3;
+}
+
+// ConsentSnapshotEntry is one participant in a recording's consent snapshot.
+message ConsentSnapshotEntry {
+  string user_id = 1;
+  string display_name = 2;
+  string joined_at = 3;
+}
+
+// TagRecordingWithConsentsRequest overwrites the consent_snapshot on a recording.
+message TagRecordingWithConsentsRequest {
+  string recording_id = 1;
+  repeated ConsentSnapshotEntry snapshot = 2;
+}
+
+// UpdateRecordingMetadataRequest updates mutable fields; unset fields stay unchanged.
+message UpdateRecordingMetadataRequest {
+  string recording_id = 1;
+  optional string file_url = 2;
+  optional int64 file_size_bytes = 3;
+  optional int32 duration_seconds = 4;
+  optional string status = 5;
+}
+
+message ListRecordingsByMeetingRequest {
+  string meeting_id = 1;
+  string tenant_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListRecordingsByMeetingResponse {
+  repeated Recording recordings = 1;
+  int32 total = 2;
+}
+
+message GetRecordingStatusRequest {
+  string recording_id = 1;
+}
+
+// CleanupExpiredRecordingRequest deletes a single recording past its retention period.
+message CleanupExpiredRecordingRequest {
+  string recording_id = 1;
 }
 
 // ============================================================================

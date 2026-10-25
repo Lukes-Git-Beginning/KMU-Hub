@@ -190,3 +190,19 @@ func TestPermissionForwarding_NoKeyNoHeader(t *testing.T) {
 		t.Fatalf("unexpected x-user-perms header: %v", got)
 	}
 }
+
+// recordings:admin decides the delete-any-recording waiver inside the video
+// service, so it must cross the hop; unrelated keys must not.
+func TestPermissionForwarding_RecordingsAdminCrossesTheHop(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserPermsKey,
+		[]string{"recordings:write", PermRecordingsAdmin})
+
+	var outgoingCtx context.Context
+	if err := TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx)); err != nil {
+		t.Fatalf("outbound: %v", err)
+	}
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	if got := md.Get(gRPCPermsHeader); len(got) != 1 || got[0] != PermRecordingsAdmin {
+		t.Fatalf("x-user-perms = %v; want only %q", got, PermRecordingsAdmin)
+	}
+}

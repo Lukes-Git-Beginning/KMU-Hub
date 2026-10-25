@@ -210,7 +210,13 @@ func (s *Service) GetRoleUnion(ctx context.Context, userID uuid.UUID) (*Effectiv
 	if err != nil {
 		return nil, err
 	}
+	return roleUnion(grants), nil
+}
 
+// roleUnion folds (role × grant) rows into the roles held and, per key, the
+// widest scope (see GetRoleUnion). It does not filter keys: GetRoleUnion feeds it
+// catalogue keys only, the token scopes claim feeds it every grant.
+func roleUnion(grants []EffectiveGrantRow) *EffectivePermissions {
 	result := &EffectivePermissions{
 		Roles:        []EffectiveRole{},
 		Capabilities: []EffectiveCapability{},
@@ -261,7 +267,7 @@ func (s *Service) GetRoleUnion(ctx context.Context, userID uuid.UUID) (*Effectiv
 	slices.SortFunc(result.Roles, func(a, b EffectiveRole) int {
 		return strings.Compare(a.Name, b.Name)
 	})
-	return result, nil
+	return result
 }
 
 // The scopes claim of the access token is built from a role union in

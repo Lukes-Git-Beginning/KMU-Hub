@@ -529,11 +529,12 @@ func (s *ChatGRPCServer) DeleteMessage(ctx context.Context, req *chatv1.DeleteMe
 		return nil, status.Error(codes.InvalidArgument, "invalid user id")
 	}
 
-	if err := s.messageService.Delete(ctx, id, tenantID, userID); err != nil {
+	channelID, err := s.messageService.Delete(ctx, id, tenantID, userID)
+	if err != nil {
 		return nil, mapChatError(err)
 	}
 
-	return &chatv1.DeleteMessageResponse{}, nil
+	return &chatv1.DeleteMessageResponse{ChannelId: channelID.String()}, nil
 }
 
 // ============================================================================
@@ -909,6 +910,7 @@ func (s *ChatGRPCServer) ToggleReaction(ctx context.Context, req *chatv1.ToggleR
 	return &chatv1.ToggleReactionResponse{
 		Reactions: reactions,
 		Added:     result.Added,
+		ChannelId: result.ChannelID.String(),
 	}, nil
 }
 
@@ -918,7 +920,12 @@ func (s *ChatGRPCServer) ListReactions(ctx context.Context, req *chatv1.ListReac
 		return nil, status.Error(codes.InvalidArgument, "invalid message_id")
 	}
 
-	rxList, err := s.reactionService.ListReactions(ctx, messageID)
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	rxList, err := s.reactionService.ListReactions(ctx, messageID, userID)
 	if err != nil {
 		return nil, mapChatError(err)
 	}
@@ -1326,6 +1333,8 @@ func mapChatError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Reaction errors
+	case errors.Is(err, reaction.ErrMessageNotFound):
+		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, reaction.ErrEmojiRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, reaction.ErrEmojiTooLong):

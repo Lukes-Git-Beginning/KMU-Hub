@@ -1,25 +1,56 @@
 package gateway
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
+	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
+
+// chatBroadcaster is the slice of the WebSocket hub ChatRoutes needs to push
+// REST message writes to the other channel subscribers. The desktop sends,
+// edits and deletes over REST and learns about everyone else's writes only
+// through these events. Interface for the same reason as recordingBroadcaster.
+type chatBroadcaster interface {
+	BroadcastMessageCreated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
+	BroadcastMessageUpdated(ctx context.Context, channelID string, message *chatv1.MessageInfo)
+	BroadcastMessageDeleted(ctx context.Context, channelID, messageID string)
+	BroadcastReactionToggled(ctx context.Context, channelID string, reactionData map[string]interface{})
+}
 
 // ChatRoutes handles HTTP routes for the chat backend service.
 type ChatRoutes struct {
 	registry *ServiceRegistry
+	wsHub    chatBroadcaster // optional; set via SetWSHub after hub construction
 }
 
 // NewChatRoutes creates a new ChatRoutes with the given service registry.
 func NewChatRoutes(registry *ServiceRegistry) *ChatRoutes {
 	return &ChatRoutes{registry: registry}
+}
+
+// SetWSHub injects the WebSocket hub. A nil hub is safe: message writes still
+// succeed, other clients only see them on their next refetch.
+func (ch *ChatRoutes) SetWSHub(hub chatBroadcaster) {
+	ch.wsHub = hub
+}
+
+// broadcast runs fn against the hub off the request path, so a slow WebSocket
+// peer never delays the writer's response. No-op without a hub.
+func (ch *ChatRoutes) broadcast(r *http.Request, fn func(ctx context.Context, hub chatBroadcaster)) {
+	if ch.wsHub == nil {
+		return
+	}
+	go fn(context.WithoutCancel(r.Context()), ch.wsHub)
 }
 
 // ServiceName returns the backend service name.
@@ -488,6 +519,11 @@ func (ch *ChatRoutes) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if msg := resp.GetMessage(); msg != nil {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageCreated(ctx, channelID, msg)
+		})
+	}
 	response.JSON(w, http.StatusCreated, resp)
 }
 
@@ -562,6 +598,11 @@ func (ch *ChatRoutes) HandleUpdateMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	if msg := resp.GetMessage(); msg != nil {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageUpdated(ctx, msg.GetChannelId(), msg)
+		})
+	}
 	response.JSON(w, http.StatusOK, resp)
 }
 
@@ -579,13 +620,19 @@ func (ch *ChatRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err = client.DeleteMessage(r.Context(), &chatv1.DeleteMessageRequest{
+	resp, err := client.DeleteMessage(r.Context(), &chatv1.DeleteMessageRequest{
 		Id:     messageID,
 		UserId: userID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
+	}
+
+	if channelID := resp.GetChannelId(); channelID != "" {
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastMessageDeleted(ctx, channelID, messageID)
+		})
 	}
 
 	response.JSON(w, http.StatusOK, map[string]string{"status": "message deleted"})
@@ -802,12 +849,38 @@ func (ch *ChatRoutes) HandleGetFileDownloadURL(w http.ResponseWriter, r *http.Re
 		FileId: fileID,
 		UserId: userID,
 	})
+	if status.Code(err) == codes.NotFound {
+		// The desktop downloads task attachments through this route too; an id
+		// that is no chat file may be a task file of the caller's tenant.
+		if url, ok := ch.taskFileDownloadURL(w, r, fileID); ok {
+			response.JSON(w, http.StatusOK, map[string]string{"url": url})
+		}
+		return
+	}
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// taskFileDownloadURL asks the work service for a task file's download URL. On
+// failure it has already written the error response (404 when the id is no
+// task file either) and returns false.
+func (ch *ChatRoutes) taskFileDownloadURL(w http.ResponseWriter, r *http.Request, fileID string) (string, bool) {
+	conn, err := ch.registry.GetConnection("work")
+	if err != nil {
+		respondServiceUnavailable(w, "work")
+		return "", false
+	}
+	resp, err := workv1.NewWorkServiceClient(conn).GetTaskFileDownloadURL(r.Context(),
+		&workv1.GetTaskFileDownloadURLRequest{Id: fileID})
+	if err != nil {
+		respondGRPCError(w, err)
+		return "", false
+	}
+	return resp.GetUrl(), true
 }
 
 func (ch *ChatRoutes) HandleGetFileThumbnailURL(w http.ResponseWriter, r *http.Request) {
@@ -933,6 +1006,18 @@ func (ch *ChatRoutes) HandleToggleReaction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if channelID := resp.GetChannelId(); channelID != "" {
+		payload := map[string]interface{}{
+			"message_id": messageID,
+			"channel_id": channelID,
+			"user_id":    userID,
+			"emoji":      req.Emoji,
+			"added":      resp.GetAdded(),
+		}
+		ch.broadcast(r, func(ctx context.Context, hub chatBroadcaster) {
+			hub.BroadcastReactionToggled(ctx, channelID, payload)
+		})
+	}
 	response.JSON(w, http.StatusOK, resp)
 }
 

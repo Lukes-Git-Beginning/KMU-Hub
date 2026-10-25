@@ -56,6 +56,20 @@ func (m *MockRepository) Create(ctx context.Context, cn *models.CreditNote) erro
 	return nil
 }
 
+func (m *MockRepository) CreateInTx(ctx context.Context, _ pgx.Tx, cn *models.CreditNote) error {
+	return m.Create(ctx, cn)
+}
+
+func (m *MockRepository) SumGrossByInvoiceInTx(_ context.Context, _ pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
+	sum := decimal.Zero
+	for _, cn := range m.creditNotes {
+		if cn.TenantID == tenantID && cn.OriginalInvoiceID == invoiceID {
+			sum = sum.Add(cn.GrossTotal)
+		}
+	}
+	return sum, nil
+}
+
 func (m *MockRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.CreditNote, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
@@ -158,6 +172,14 @@ func (m *MockInvoiceReader) GetByID(ctx context.Context, tenantID, id uuid.UUID)
 	return inv, nil
 }
 
+func (m *MockInvoiceReader) LockForCreditInTx(ctx context.Context, _ pgx.Tx, tenantID, id uuid.UUID) (string, decimal.Decimal, error) {
+	inv, err := m.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return "", decimal.Zero, err
+	}
+	return inv.Status, inv.GrossTotal, nil
+}
+
 func (m *MockInvoiceReader) AddInvoice(inv *models.Invoice) {
 	m.invoices[inv.ID] = inv
 }
@@ -201,6 +223,7 @@ func newTestInvoice(tenantID uuid.UUID, status string) *models.Invoice {
 		CustomerAddress: "Teststrasse 1, 80331 Muenchen",
 		CustomerEmail:   "test@example.com",
 		CustomerUStIDNr: "DE123456789",
+		GrossTotal:      decimal.NewFromInt(1000), // roomy: the over-credit tests set their own
 	}
 }
 

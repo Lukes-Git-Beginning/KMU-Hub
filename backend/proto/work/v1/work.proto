@@ -65,6 +65,7 @@ service WorkService {
   rpc AttachFileToTask(AttachFileToTaskRequest) returns (AttachFileToTaskResponse);
   rpc RemoveTaskFile(RemoveTaskFileRequest) returns (RemoveTaskFileResponse);
   rpc ListTaskFiles(ListTaskFilesRequest) returns (ListTaskFilesResponse);
+  rpc GetTaskFileDownloadURL(GetTaskFileDownloadURLRequest) returns (GetTaskFileDownloadURLResponse);
 
   // Custom Fields
   rpc SetTaskCustomFieldValues(SetTaskCustomFieldValuesRequest) returns (SetTaskCustomFieldValuesResponse);
@@ -174,6 +175,7 @@ message TaskProto {
   map<string, string> custom_fields = 23;
   repeated string label_ids = 24;
   optional google.protobuf.Timestamp start_date = 25;
+  bool is_closed = 26;  // closed flag of the task's project status
 }
 
 message TaskDependencyProto {
@@ -492,6 +494,14 @@ message UpdateTaskRequest {
   repeated CustomFieldValueInput custom_fields = 9;
   repeated string label_ids = 10;
   optional google.protobuf.Timestamp start_date = 11;
+  // true removes the due date (due_date is then ignored); absent due_date keeps it.
+  bool clear_due_date = 12;
+  // true moves the task to the project's first closed status, false to its first open one;
+  // ignored when status_id is set.
+  optional bool is_closed = 13;
+  // moves a project-less task into this project (task number and first open status are assigned);
+  // rejected for a task that already belongs to a different project.
+  optional string project_id = 14;
 }
 
 message UpdateTaskResponse {
@@ -681,6 +691,14 @@ message ListTaskFilesRequest {
 
 message ListTaskFilesResponse {
   repeated TaskFileProto files = 1;
+}
+
+message GetTaskFileDownloadURLRequest {
+  string id = 1;
+}
+
+message GetTaskFileDownloadURLResponse {
+  string url = 1;
 }
 
 // ============================================================================

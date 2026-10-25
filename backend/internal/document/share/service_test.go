@@ -13,12 +13,13 @@ import (
 
 // MockRepository implements Repository for testing.
 type MockRepository struct {
-	CreateFn            func(ctx context.Context, share *models.DocumentShare) error
-	DeleteFn            func(ctx context.Context, id uuid.UUID) error
-	ListByEntityFn      func(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error)
+	CreateFn             func(ctx context.Context, share *models.DocumentShare) error
+	DeleteFn             func(ctx context.Context, id uuid.UUID) error
+	GetByIDFn            func(ctx context.Context, tenantID, id uuid.UUID) (*models.DocumentShare, error)
+	ListByEntityFn       func(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error)
 	ListSharedWithUserFn func(ctx context.Context, userID uuid.UUID, entityType string) ([]*models.DocumentShare, error)
-	GetUserPermissionFn func(ctx context.Context, entityType string, entityID uuid.UUID, userID uuid.UUID) (*models.DocumentShare, error)
-	HasAccessFn         func(ctx context.Context, entityType string, entityID uuid.UUID, userID uuid.UUID) (bool, string, error)
+	GetUserPermissionFn  func(ctx context.Context, entityType string, entityID uuid.UUID, userID uuid.UUID) (*models.DocumentShare, error)
+	HasAccessFn          func(ctx context.Context, entityType string, entityID uuid.UUID, userID uuid.UUID) (bool, string, error)
 }
 
 func (m *MockRepository) Create(ctx context.Context, share *models.DocumentShare) error {
@@ -27,6 +28,10 @@ func (m *MockRepository) Create(ctx context.Context, share *models.DocumentShare
 
 func (m *MockRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.DeleteFn(ctx, id)
+}
+
+func (m *MockRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.DocumentShare, error) {
+	return m.GetByIDFn(ctx, tenantID, id)
 }
 
 func (m *MockRepository) ListByEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]*models.DocumentShare, error) {

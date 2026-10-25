@@ -97,38 +97,9 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 		return nil, ErrChannelArchived
 	}
 
-	// Validate file size
-	if input.FileSize > s.maxSizeBytes {
-		return nil, ErrFileTooLarge
-	}
-
-	// Validate MIME type
-	if !allowedMimeTypes[strings.ToLower(input.MimeType)] {
-		return nil, ErrInvalidMimeType
-	}
-
-	tenantID, tenantErr := middleware.GetTenantID(ctx)
-	if tenantErr != nil {
-		return nil, fmt.Errorf("upload file: %w", tenantErr)
-	}
-
-	// Check quota. A tenant that has never uploaded a file has no row yet —
-	// it gets the code default rather than an error, since IncrementUsedBytes
-	// creates the row on first write below.
-	quota, err := s.repo.GetStorageQuota(ctx, tenantID)
+	tenantID, err := s.admit(ctx, input)
 	if err != nil {
-		if !errors.Is(err, ErrQuotaNotFound) {
-			return nil, err
-		}
-		quota = &models.StorageQuota{TenantID: tenantID, MaxBytes: DefaultMaxQuotaBytes}
-	}
-	if quota.UsedBytes+input.FileSize > quota.MaxBytes {
-		return nil, ErrQuotaExceeded
-	}
-
-	// Scan file for viruses
-	if scanErr := s.scanner.Scan(ctx, input.Reader, input.Filename); scanErr != nil {
-		return nil, ErrScanFailed
+		return nil, err
 	}
 
 	// Generate storage key
@@ -204,6 +175,43 @@ func (s *Service) Upload(ctx context.Context, input UploadInput) (*models.ChatFi
 		UploaderFirstName: firstName,
 		UploaderLastName:  lastName,
 	}, nil
+}
+
+// admit runs the checks every upload passes regardless of where it lands —
+// size, MIME type, the tenant's quota and the virus scan — and returns the
+// caller's tenant.
+func (s *Service) admit(ctx context.Context, input UploadInput) (uuid.UUID, error) {
+	if input.FileSize > s.maxSizeBytes {
+		return uuid.Nil, ErrFileTooLarge
+	}
+
+	if !allowedMimeTypes[strings.ToLower(input.MimeType)] {
+		return uuid.Nil, ErrInvalidMimeType
+	}
+
+	tenantID, tenantErr := middleware.GetTenantID(ctx)
+	if tenantErr != nil {
+		return uuid.Nil, fmt.Errorf("upload file: %w", tenantErr)
+	}
+
+	// Check quota. A tenant that has never uploaded a file has no row yet —
+	// it gets the code default rather than an error, since IncrementUsedBytes
+	// creates the row on first write.
+	quota, err := s.repo.GetStorageQuota(ctx, tenantID)
+	if err != nil {
+		if !errors.Is(err, ErrQuotaNotFound) {
+			return uuid.Nil, err
+		}
+		quota = &models.StorageQuota{TenantID: tenantID, MaxBytes: DefaultMaxQuotaBytes}
+	}
+	if quota.UsedBytes+input.FileSize > quota.MaxBytes {
+		return uuid.Nil, ErrQuotaExceeded
+	}
+
+	if scanErr := s.scanner.Scan(ctx, input.Reader, input.Filename); scanErr != nil {
+		return uuid.Nil, ErrScanFailed
+	}
+	return tenantID, nil
 }
 
 // generateThumbnail downloads the file from storage and generates a thumbnail

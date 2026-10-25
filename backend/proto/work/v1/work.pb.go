@@ -382,6 +382,7 @@ type TaskProto struct {
 	CustomFields   map[string]string      `protobuf:"bytes,23,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	LabelIds       []string               `protobuf:"bytes,24,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
 	StartDate      *timestamppb.Timestamp `protobuf:"bytes,25,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	IsClosed       bool                   `protobuf:"varint,26,opt,name=is_closed,json=isClosed,proto3" json:"is_closed,omitempty"` // closed flag of the task's project status
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -589,6 +590,13 @@ func (x *TaskProto) GetStartDate() *timestamppb.Timestamp {
 		return x.StartDate
 	}
 	return nil
+}
+
+func (x *TaskProto) GetIsClosed() bool {
+	if x != nil {
+		return x.IsClosed
+	}
+	return false
 }
 
 type TaskDependencyProto struct {
@@ -3452,18 +3460,26 @@ func (x *ListTasksResponse) GetTotal() int32 {
 }
 
 type UpdateTaskRequest struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Id            string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Title         *string                  `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                  `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	StatusId      *string                  `protobuf:"bytes,4,opt,name=status_id,json=statusId,proto3,oneof" json:"status_id,omitempty"`
-	Priority      *string                  `protobuf:"bytes,5,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
-	AssigneeId    *string                  `protobuf:"bytes,6,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
-	DueDate       *timestamppb.Timestamp   `protobuf:"bytes,7,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
-	UpdatedBy     string                   `protobuf:"bytes,8,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
-	CustomFields  []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
-	LabelIds      []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
-	StartDate     *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	state        protoimpl.MessageState   `protogen:"open.v1"`
+	Id           string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Title        *string                  `protobuf:"bytes,2,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description  *string                  `protobuf:"bytes,3,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	StatusId     *string                  `protobuf:"bytes,4,opt,name=status_id,json=statusId,proto3,oneof" json:"status_id,omitempty"`
+	Priority     *string                  `protobuf:"bytes,5,opt,name=priority,proto3,oneof" json:"priority,omitempty"`
+	AssigneeId   *string                  `protobuf:"bytes,6,opt,name=assignee_id,json=assigneeId,proto3,oneof" json:"assignee_id,omitempty"`
+	DueDate      *timestamppb.Timestamp   `protobuf:"bytes,7,opt,name=due_date,json=dueDate,proto3,oneof" json:"due_date,omitempty"`
+	UpdatedBy    string                   `protobuf:"bytes,8,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	CustomFields []*CustomFieldValueInput `protobuf:"bytes,9,rep,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	LabelIds     []string                 `protobuf:"bytes,10,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	StartDate    *timestamppb.Timestamp   `protobuf:"bytes,11,opt,name=start_date,json=startDate,proto3,oneof" json:"start_date,omitempty"`
+	// true removes the due date (due_date is then ignored); absent due_date keeps it.
+	ClearDueDate bool `protobuf:"varint,12,opt,name=clear_due_date,json=clearDueDate,proto3" json:"clear_due_date,omitempty"`
+	// true moves the task to the project's first closed status, false to its first open one;
+	// ignored when status_id is set.
+	IsClosed *bool `protobuf:"varint,13,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
+	// moves a project-less task into this project (task number and first open status are assigned);
+	// rejected for a task that already belongs to a different project.
+	ProjectId     *string `protobuf:"bytes,14,opt,name=project_id,json=projectId,proto3,oneof" json:"project_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3573,6 +3589,27 @@ func (x *UpdateTaskRequest) GetStartDate() *timestamppb.Timestamp {
 		return x.StartDate
 	}
 	return nil
+}
+
+func (x *UpdateTaskRequest) GetClearDueDate() bool {
+	if x != nil {
+		return x.ClearDueDate
+	}
+	return false
+}
+
+func (x *UpdateTaskRequest) GetIsClosed() bool {
+	if x != nil && x.IsClosed != nil {
+		return *x.IsClosed
+	}
+	return false
+}
+
+func (x *UpdateTaskRequest) GetProjectId() string {
+	if x != nil && x.ProjectId != nil {
+		return *x.ProjectId
+	}
+	return ""
 }
 
 type UpdateTaskResponse struct {
@@ -5411,6 +5448,94 @@ func (x *ListTaskFilesResponse) GetFiles() []*TaskFileProto {
 	return nil
 }
 
+type GetTaskFileDownloadURLRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskFileDownloadURLRequest) Reset() {
+	*x = GetTaskFileDownloadURLRequest{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskFileDownloadURLRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskFileDownloadURLRequest) ProtoMessage() {}
+
+func (x *GetTaskFileDownloadURLRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskFileDownloadURLRequest.ProtoReflect.Descriptor instead.
+func (*GetTaskFileDownloadURLRequest) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *GetTaskFileDownloadURLRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetTaskFileDownloadURLResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTaskFileDownloadURLResponse) Reset() {
+	*x = GetTaskFileDownloadURLResponse{}
+	mi := &file_proto_work_v1_work_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTaskFileDownloadURLResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTaskFileDownloadURLResponse) ProtoMessage() {}
+
+func (x *GetTaskFileDownloadURLResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_work_v1_work_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTaskFileDownloadURLResponse.ProtoReflect.Descriptor instead.
+func (*GetTaskFileDownloadURLResponse) Descriptor() ([]byte, []int) {
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *GetTaskFileDownloadURLResponse) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
 type SetTaskCustomFieldValuesRequest struct {
 	state         protoimpl.MessageState   `protogen:"open.v1"`
 	TaskId        string                   `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
@@ -5421,7 +5546,7 @@ type SetTaskCustomFieldValuesRequest struct {
 
 func (x *SetTaskCustomFieldValuesRequest) Reset() {
 	*x = SetTaskCustomFieldValuesRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[89]
+	mi := &file_proto_work_v1_work_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5433,7 +5558,7 @@ func (x *SetTaskCustomFieldValuesRequest) String() string {
 func (*SetTaskCustomFieldValuesRequest) ProtoMessage() {}
 
 func (x *SetTaskCustomFieldValuesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[89]
+	mi := &file_proto_work_v1_work_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5446,7 +5571,7 @@ func (x *SetTaskCustomFieldValuesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskCustomFieldValuesRequest.ProtoReflect.Descriptor instead.
 func (*SetTaskCustomFieldValuesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{89}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *SetTaskCustomFieldValuesRequest) GetTaskId() string {
@@ -5472,7 +5597,7 @@ type SetTaskCustomFieldValuesResponse struct {
 
 func (x *SetTaskCustomFieldValuesResponse) Reset() {
 	*x = SetTaskCustomFieldValuesResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[90]
+	mi := &file_proto_work_v1_work_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5484,7 +5609,7 @@ func (x *SetTaskCustomFieldValuesResponse) String() string {
 func (*SetTaskCustomFieldValuesResponse) ProtoMessage() {}
 
 func (x *SetTaskCustomFieldValuesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[90]
+	mi := &file_proto_work_v1_work_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5497,7 +5622,7 @@ func (x *SetTaskCustomFieldValuesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskCustomFieldValuesResponse.ProtoReflect.Descriptor instead.
 func (*SetTaskCustomFieldValuesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{90}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *SetTaskCustomFieldValuesResponse) GetCustomFields() map[string]string {
@@ -5516,7 +5641,7 @@ type GetTaskCustomFieldValuesRequest struct {
 
 func (x *GetTaskCustomFieldValuesRequest) Reset() {
 	*x = GetTaskCustomFieldValuesRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[91]
+	mi := &file_proto_work_v1_work_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5528,7 +5653,7 @@ func (x *GetTaskCustomFieldValuesRequest) String() string {
 func (*GetTaskCustomFieldValuesRequest) ProtoMessage() {}
 
 func (x *GetTaskCustomFieldValuesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[91]
+	mi := &file_proto_work_v1_work_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5541,7 +5666,7 @@ func (x *GetTaskCustomFieldValuesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskCustomFieldValuesRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskCustomFieldValuesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{91}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *GetTaskCustomFieldValuesRequest) GetTaskId() string {
@@ -5560,7 +5685,7 @@ type GetTaskCustomFieldValuesResponse struct {
 
 func (x *GetTaskCustomFieldValuesResponse) Reset() {
 	*x = GetTaskCustomFieldValuesResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[92]
+	mi := &file_proto_work_v1_work_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5572,7 +5697,7 @@ func (x *GetTaskCustomFieldValuesResponse) String() string {
 func (*GetTaskCustomFieldValuesResponse) ProtoMessage() {}
 
 func (x *GetTaskCustomFieldValuesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[92]
+	mi := &file_proto_work_v1_work_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5585,7 +5710,7 @@ func (x *GetTaskCustomFieldValuesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskCustomFieldValuesResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskCustomFieldValuesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{92}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *GetTaskCustomFieldValuesResponse) GetCustomFields() map[string]string {
@@ -5605,7 +5730,7 @@ type GetUserProjectPreferenceRequest struct {
 
 func (x *GetUserProjectPreferenceRequest) Reset() {
 	*x = GetUserProjectPreferenceRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[93]
+	mi := &file_proto_work_v1_work_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5617,7 +5742,7 @@ func (x *GetUserProjectPreferenceRequest) String() string {
 func (*GetUserProjectPreferenceRequest) ProtoMessage() {}
 
 func (x *GetUserProjectPreferenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[93]
+	mi := &file_proto_work_v1_work_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5630,7 +5755,7 @@ func (x *GetUserProjectPreferenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserProjectPreferenceRequest.ProtoReflect.Descriptor instead.
 func (*GetUserProjectPreferenceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{93}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *GetUserProjectPreferenceRequest) GetUserId() string {
@@ -5656,7 +5781,7 @@ type GetUserProjectPreferenceResponse struct {
 
 func (x *GetUserProjectPreferenceResponse) Reset() {
 	*x = GetUserProjectPreferenceResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[94]
+	mi := &file_proto_work_v1_work_proto_msgTypes[96]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5668,7 +5793,7 @@ func (x *GetUserProjectPreferenceResponse) String() string {
 func (*GetUserProjectPreferenceResponse) ProtoMessage() {}
 
 func (x *GetUserProjectPreferenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[94]
+	mi := &file_proto_work_v1_work_proto_msgTypes[96]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5681,7 +5806,7 @@ func (x *GetUserProjectPreferenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserProjectPreferenceResponse.ProtoReflect.Descriptor instead.
 func (*GetUserProjectPreferenceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{94}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{96}
 }
 
 func (x *GetUserProjectPreferenceResponse) GetPreference() *UserProjectPreferenceProto {
@@ -5705,7 +5830,7 @@ type SetUserProjectPreferenceRequest struct {
 
 func (x *SetUserProjectPreferenceRequest) Reset() {
 	*x = SetUserProjectPreferenceRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[95]
+	mi := &file_proto_work_v1_work_proto_msgTypes[97]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5717,7 +5842,7 @@ func (x *SetUserProjectPreferenceRequest) String() string {
 func (*SetUserProjectPreferenceRequest) ProtoMessage() {}
 
 func (x *SetUserProjectPreferenceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[95]
+	mi := &file_proto_work_v1_work_proto_msgTypes[97]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5730,7 +5855,7 @@ func (x *SetUserProjectPreferenceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetUserProjectPreferenceRequest.ProtoReflect.Descriptor instead.
 func (*SetUserProjectPreferenceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{95}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{97}
 }
 
 func (x *SetUserProjectPreferenceRequest) GetUserId() string {
@@ -5784,7 +5909,7 @@ type SetUserProjectPreferenceResponse struct {
 
 func (x *SetUserProjectPreferenceResponse) Reset() {
 	*x = SetUserProjectPreferenceResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[96]
+	mi := &file_proto_work_v1_work_proto_msgTypes[98]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5796,7 +5921,7 @@ func (x *SetUserProjectPreferenceResponse) String() string {
 func (*SetUserProjectPreferenceResponse) ProtoMessage() {}
 
 func (x *SetUserProjectPreferenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[96]
+	mi := &file_proto_work_v1_work_proto_msgTypes[98]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5809,7 +5934,7 @@ func (x *SetUserProjectPreferenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetUserProjectPreferenceResponse.ProtoReflect.Descriptor instead.
 func (*SetUserProjectPreferenceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{96}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{98}
 }
 
 func (x *SetUserProjectPreferenceResponse) GetPreference() *UserProjectPreferenceProto {
@@ -5837,7 +5962,7 @@ type SearchTasksRequest struct {
 
 func (x *SearchTasksRequest) Reset() {
 	*x = SearchTasksRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[97]
+	mi := &file_proto_work_v1_work_proto_msgTypes[99]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5849,7 +5974,7 @@ func (x *SearchTasksRequest) String() string {
 func (*SearchTasksRequest) ProtoMessage() {}
 
 func (x *SearchTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[97]
+	mi := &file_proto_work_v1_work_proto_msgTypes[99]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5862,7 +5987,7 @@ func (x *SearchTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTasksRequest.ProtoReflect.Descriptor instead.
 func (*SearchTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{97}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{99}
 }
 
 func (x *SearchTasksRequest) GetQuery() string {
@@ -5945,7 +6070,7 @@ type SearchTasksResponse struct {
 
 func (x *SearchTasksResponse) Reset() {
 	*x = SearchTasksResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[98]
+	mi := &file_proto_work_v1_work_proto_msgTypes[100]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5957,7 +6082,7 @@ func (x *SearchTasksResponse) String() string {
 func (*SearchTasksResponse) ProtoMessage() {}
 
 func (x *SearchTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[98]
+	mi := &file_proto_work_v1_work_proto_msgTypes[100]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5970,7 +6095,7 @@ func (x *SearchTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchTasksResponse.ProtoReflect.Descriptor instead.
 func (*SearchTasksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{98}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{100}
 }
 
 func (x *SearchTasksResponse) GetTasks() []*TaskProto {
@@ -6006,7 +6131,7 @@ type TimeEntryProto struct {
 
 func (x *TimeEntryProto) Reset() {
 	*x = TimeEntryProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[99]
+	mi := &file_proto_work_v1_work_proto_msgTypes[101]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6018,7 +6143,7 @@ func (x *TimeEntryProto) String() string {
 func (*TimeEntryProto) ProtoMessage() {}
 
 func (x *TimeEntryProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[99]
+	mi := &file_proto_work_v1_work_proto_msgTypes[101]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6031,7 +6156,7 @@ func (x *TimeEntryProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeEntryProto.ProtoReflect.Descriptor instead.
 func (*TimeEntryProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{99}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{101}
 }
 
 func (x *TimeEntryProto) GetId() string {
@@ -6124,7 +6249,7 @@ type ActiveTimerProto struct {
 
 func (x *ActiveTimerProto) Reset() {
 	*x = ActiveTimerProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[100]
+	mi := &file_proto_work_v1_work_proto_msgTypes[102]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6136,7 +6261,7 @@ func (x *ActiveTimerProto) String() string {
 func (*ActiveTimerProto) ProtoMessage() {}
 
 func (x *ActiveTimerProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[100]
+	mi := &file_proto_work_v1_work_proto_msgTypes[102]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6149,7 +6274,7 @@ func (x *ActiveTimerProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActiveTimerProto.ProtoReflect.Descriptor instead.
 func (*ActiveTimerProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{100}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{102}
 }
 
 func (x *ActiveTimerProto) GetId() string {
@@ -6198,7 +6323,7 @@ type TimeSummaryProto struct {
 
 func (x *TimeSummaryProto) Reset() {
 	*x = TimeSummaryProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[101]
+	mi := &file_proto_work_v1_work_proto_msgTypes[103]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6210,7 +6335,7 @@ func (x *TimeSummaryProto) String() string {
 func (*TimeSummaryProto) ProtoMessage() {}
 
 func (x *TimeSummaryProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[101]
+	mi := &file_proto_work_v1_work_proto_msgTypes[103]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6223,7 +6348,7 @@ func (x *TimeSummaryProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimeSummaryProto.ProtoReflect.Descriptor instead.
 func (*TimeSummaryProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{101}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{103}
 }
 
 func (x *TimeSummaryProto) GetTaskId() string {
@@ -6257,7 +6382,7 @@ type StartTimerRequest struct {
 
 func (x *StartTimerRequest) Reset() {
 	*x = StartTimerRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[102]
+	mi := &file_proto_work_v1_work_proto_msgTypes[104]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6269,7 +6394,7 @@ func (x *StartTimerRequest) String() string {
 func (*StartTimerRequest) ProtoMessage() {}
 
 func (x *StartTimerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[102]
+	mi := &file_proto_work_v1_work_proto_msgTypes[104]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6282,7 +6407,7 @@ func (x *StartTimerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTimerRequest.ProtoReflect.Descriptor instead.
 func (*StartTimerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{102}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{104}
 }
 
 func (x *StartTimerRequest) GetTaskId() string {
@@ -6309,7 +6434,7 @@ type StartTimerResponse struct {
 
 func (x *StartTimerResponse) Reset() {
 	*x = StartTimerResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[103]
+	mi := &file_proto_work_v1_work_proto_msgTypes[105]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6321,7 +6446,7 @@ func (x *StartTimerResponse) String() string {
 func (*StartTimerResponse) ProtoMessage() {}
 
 func (x *StartTimerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[103]
+	mi := &file_proto_work_v1_work_proto_msgTypes[105]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6334,7 +6459,7 @@ func (x *StartTimerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTimerResponse.ProtoReflect.Descriptor instead.
 func (*StartTimerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{103}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{105}
 }
 
 func (x *StartTimerResponse) GetEntry() *TimeEntryProto {
@@ -6360,7 +6485,7 @@ type StopTimerRequest struct {
 
 func (x *StopTimerRequest) Reset() {
 	*x = StopTimerRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[104]
+	mi := &file_proto_work_v1_work_proto_msgTypes[106]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6372,7 +6497,7 @@ func (x *StopTimerRequest) String() string {
 func (*StopTimerRequest) ProtoMessage() {}
 
 func (x *StopTimerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[104]
+	mi := &file_proto_work_v1_work_proto_msgTypes[106]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6385,7 +6510,7 @@ func (x *StopTimerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopTimerRequest.ProtoReflect.Descriptor instead.
 func (*StopTimerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{104}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{106}
 }
 
 func (x *StopTimerRequest) GetUserId() string {
@@ -6404,7 +6529,7 @@ type StopTimerResponse struct {
 
 func (x *StopTimerResponse) Reset() {
 	*x = StopTimerResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[105]
+	mi := &file_proto_work_v1_work_proto_msgTypes[107]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6416,7 +6541,7 @@ func (x *StopTimerResponse) String() string {
 func (*StopTimerResponse) ProtoMessage() {}
 
 func (x *StopTimerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[105]
+	mi := &file_proto_work_v1_work_proto_msgTypes[107]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6429,7 +6554,7 @@ func (x *StopTimerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopTimerResponse.ProtoReflect.Descriptor instead.
 func (*StopTimerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{105}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{107}
 }
 
 func (x *StopTimerResponse) GetEntry() *TimeEntryProto {
@@ -6448,7 +6573,7 @@ type GetActiveTimerRequest struct {
 
 func (x *GetActiveTimerRequest) Reset() {
 	*x = GetActiveTimerRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[106]
+	mi := &file_proto_work_v1_work_proto_msgTypes[108]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6460,7 +6585,7 @@ func (x *GetActiveTimerRequest) String() string {
 func (*GetActiveTimerRequest) ProtoMessage() {}
 
 func (x *GetActiveTimerRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[106]
+	mi := &file_proto_work_v1_work_proto_msgTypes[108]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6473,7 +6598,7 @@ func (x *GetActiveTimerRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActiveTimerRequest.ProtoReflect.Descriptor instead.
 func (*GetActiveTimerRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{106}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{108}
 }
 
 func (x *GetActiveTimerRequest) GetUserId() string {
@@ -6492,7 +6617,7 @@ type GetActiveTimerResponse struct {
 
 func (x *GetActiveTimerResponse) Reset() {
 	*x = GetActiveTimerResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[107]
+	mi := &file_proto_work_v1_work_proto_msgTypes[109]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6504,7 +6629,7 @@ func (x *GetActiveTimerResponse) String() string {
 func (*GetActiveTimerResponse) ProtoMessage() {}
 
 func (x *GetActiveTimerResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[107]
+	mi := &file_proto_work_v1_work_proto_msgTypes[109]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6517,7 +6642,7 @@ func (x *GetActiveTimerResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetActiveTimerResponse.ProtoReflect.Descriptor instead.
 func (*GetActiveTimerResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{107}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{109}
 }
 
 func (x *GetActiveTimerResponse) GetTimer() *ActiveTimerProto {
@@ -6540,7 +6665,7 @@ type AddManualTimeEntryRequest struct {
 
 func (x *AddManualTimeEntryRequest) Reset() {
 	*x = AddManualTimeEntryRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[108]
+	mi := &file_proto_work_v1_work_proto_msgTypes[110]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6552,7 +6677,7 @@ func (x *AddManualTimeEntryRequest) String() string {
 func (*AddManualTimeEntryRequest) ProtoMessage() {}
 
 func (x *AddManualTimeEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[108]
+	mi := &file_proto_work_v1_work_proto_msgTypes[110]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6565,7 +6690,7 @@ func (x *AddManualTimeEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddManualTimeEntryRequest.ProtoReflect.Descriptor instead.
 func (*AddManualTimeEntryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{108}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{110}
 }
 
 func (x *AddManualTimeEntryRequest) GetTaskId() string {
@@ -6612,7 +6737,7 @@ type AddManualTimeEntryResponse struct {
 
 func (x *AddManualTimeEntryResponse) Reset() {
 	*x = AddManualTimeEntryResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[109]
+	mi := &file_proto_work_v1_work_proto_msgTypes[111]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6624,7 +6749,7 @@ func (x *AddManualTimeEntryResponse) String() string {
 func (*AddManualTimeEntryResponse) ProtoMessage() {}
 
 func (x *AddManualTimeEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[109]
+	mi := &file_proto_work_v1_work_proto_msgTypes[111]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6637,7 +6762,7 @@ func (x *AddManualTimeEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddManualTimeEntryResponse.ProtoReflect.Descriptor instead.
 func (*AddManualTimeEntryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{109}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{111}
 }
 
 func (x *AddManualTimeEntryResponse) GetEntry() *TimeEntryProto {
@@ -6660,7 +6785,7 @@ type UpdateTimeEntryRequest struct {
 
 func (x *UpdateTimeEntryRequest) Reset() {
 	*x = UpdateTimeEntryRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[110]
+	mi := &file_proto_work_v1_work_proto_msgTypes[112]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6672,7 +6797,7 @@ func (x *UpdateTimeEntryRequest) String() string {
 func (*UpdateTimeEntryRequest) ProtoMessage() {}
 
 func (x *UpdateTimeEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[110]
+	mi := &file_proto_work_v1_work_proto_msgTypes[112]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6685,7 +6810,7 @@ func (x *UpdateTimeEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTimeEntryRequest.ProtoReflect.Descriptor instead.
 func (*UpdateTimeEntryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{110}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{112}
 }
 
 func (x *UpdateTimeEntryRequest) GetId() string {
@@ -6732,7 +6857,7 @@ type UpdateTimeEntryResponse struct {
 
 func (x *UpdateTimeEntryResponse) Reset() {
 	*x = UpdateTimeEntryResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[111]
+	mi := &file_proto_work_v1_work_proto_msgTypes[113]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6744,7 +6869,7 @@ func (x *UpdateTimeEntryResponse) String() string {
 func (*UpdateTimeEntryResponse) ProtoMessage() {}
 
 func (x *UpdateTimeEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[111]
+	mi := &file_proto_work_v1_work_proto_msgTypes[113]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6757,7 +6882,7 @@ func (x *UpdateTimeEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateTimeEntryResponse.ProtoReflect.Descriptor instead.
 func (*UpdateTimeEntryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{111}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{113}
 }
 
 func (x *UpdateTimeEntryResponse) GetEntry() *TimeEntryProto {
@@ -6777,7 +6902,7 @@ type DeleteTimeEntryRequest struct {
 
 func (x *DeleteTimeEntryRequest) Reset() {
 	*x = DeleteTimeEntryRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[112]
+	mi := &file_proto_work_v1_work_proto_msgTypes[114]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6789,7 +6914,7 @@ func (x *DeleteTimeEntryRequest) String() string {
 func (*DeleteTimeEntryRequest) ProtoMessage() {}
 
 func (x *DeleteTimeEntryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[112]
+	mi := &file_proto_work_v1_work_proto_msgTypes[114]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6802,7 +6927,7 @@ func (x *DeleteTimeEntryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeEntryRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTimeEntryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{112}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{114}
 }
 
 func (x *DeleteTimeEntryRequest) GetId() string {
@@ -6827,7 +6952,7 @@ type DeleteTimeEntryResponse struct {
 
 func (x *DeleteTimeEntryResponse) Reset() {
 	*x = DeleteTimeEntryResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[113]
+	mi := &file_proto_work_v1_work_proto_msgTypes[115]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6839,7 +6964,7 @@ func (x *DeleteTimeEntryResponse) String() string {
 func (*DeleteTimeEntryResponse) ProtoMessage() {}
 
 func (x *DeleteTimeEntryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[113]
+	mi := &file_proto_work_v1_work_proto_msgTypes[115]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6852,7 +6977,7 @@ func (x *DeleteTimeEntryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTimeEntryResponse.ProtoReflect.Descriptor instead.
 func (*DeleteTimeEntryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{113}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{115}
 }
 
 type ListTimeEntriesRequest struct {
@@ -6866,7 +6991,7 @@ type ListTimeEntriesRequest struct {
 
 func (x *ListTimeEntriesRequest) Reset() {
 	*x = ListTimeEntriesRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[114]
+	mi := &file_proto_work_v1_work_proto_msgTypes[116]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6878,7 +7003,7 @@ func (x *ListTimeEntriesRequest) String() string {
 func (*ListTimeEntriesRequest) ProtoMessage() {}
 
 func (x *ListTimeEntriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[114]
+	mi := &file_proto_work_v1_work_proto_msgTypes[116]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6891,7 +7016,7 @@ func (x *ListTimeEntriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeEntriesRequest.ProtoReflect.Descriptor instead.
 func (*ListTimeEntriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{114}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{116}
 }
 
 func (x *ListTimeEntriesRequest) GetTaskId() string {
@@ -6925,7 +7050,7 @@ type ListTimeEntriesResponse struct {
 
 func (x *ListTimeEntriesResponse) Reset() {
 	*x = ListTimeEntriesResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[115]
+	mi := &file_proto_work_v1_work_proto_msgTypes[117]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6937,7 +7062,7 @@ func (x *ListTimeEntriesResponse) String() string {
 func (*ListTimeEntriesResponse) ProtoMessage() {}
 
 func (x *ListTimeEntriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[115]
+	mi := &file_proto_work_v1_work_proto_msgTypes[117]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6950,7 +7075,7 @@ func (x *ListTimeEntriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTimeEntriesResponse.ProtoReflect.Descriptor instead.
 func (*ListTimeEntriesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{115}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{117}
 }
 
 func (x *ListTimeEntriesResponse) GetEntries() []*TimeEntryProto {
@@ -6985,7 +7110,7 @@ type BillableTimeEntryProto struct {
 
 func (x *BillableTimeEntryProto) Reset() {
 	*x = BillableTimeEntryProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[116]
+	mi := &file_proto_work_v1_work_proto_msgTypes[118]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6997,7 +7122,7 @@ func (x *BillableTimeEntryProto) String() string {
 func (*BillableTimeEntryProto) ProtoMessage() {}
 
 func (x *BillableTimeEntryProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[116]
+	mi := &file_proto_work_v1_work_proto_msgTypes[118]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7010,7 +7135,7 @@ func (x *BillableTimeEntryProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BillableTimeEntryProto.ProtoReflect.Descriptor instead.
 func (*BillableTimeEntryProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{116}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{118}
 }
 
 func (x *BillableTimeEntryProto) GetId() string {
@@ -7070,7 +7195,7 @@ type ListBillableTimeEntriesRequest struct {
 
 func (x *ListBillableTimeEntriesRequest) Reset() {
 	*x = ListBillableTimeEntriesRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[117]
+	mi := &file_proto_work_v1_work_proto_msgTypes[119]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7082,7 +7207,7 @@ func (x *ListBillableTimeEntriesRequest) String() string {
 func (*ListBillableTimeEntriesRequest) ProtoMessage() {}
 
 func (x *ListBillableTimeEntriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[117]
+	mi := &file_proto_work_v1_work_proto_msgTypes[119]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7095,7 +7220,7 @@ func (x *ListBillableTimeEntriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillableTimeEntriesRequest.ProtoReflect.Descriptor instead.
 func (*ListBillableTimeEntriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{117}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{119}
 }
 
 type ListBillableTimeEntriesResponse struct {
@@ -7107,7 +7232,7 @@ type ListBillableTimeEntriesResponse struct {
 
 func (x *ListBillableTimeEntriesResponse) Reset() {
 	*x = ListBillableTimeEntriesResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[118]
+	mi := &file_proto_work_v1_work_proto_msgTypes[120]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7119,7 +7244,7 @@ func (x *ListBillableTimeEntriesResponse) String() string {
 func (*ListBillableTimeEntriesResponse) ProtoMessage() {}
 
 func (x *ListBillableTimeEntriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[118]
+	mi := &file_proto_work_v1_work_proto_msgTypes[120]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7132,7 +7257,7 @@ func (x *ListBillableTimeEntriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBillableTimeEntriesResponse.ProtoReflect.Descriptor instead.
 func (*ListBillableTimeEntriesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{118}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{120}
 }
 
 func (x *ListBillableTimeEntriesResponse) GetEntries() []*BillableTimeEntryProto {
@@ -7160,7 +7285,7 @@ type ProjectTimeEntryProto struct {
 
 func (x *ProjectTimeEntryProto) Reset() {
 	*x = ProjectTimeEntryProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[119]
+	mi := &file_proto_work_v1_work_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7172,7 +7297,7 @@ func (x *ProjectTimeEntryProto) String() string {
 func (*ProjectTimeEntryProto) ProtoMessage() {}
 
 func (x *ProjectTimeEntryProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[119]
+	mi := &file_proto_work_v1_work_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7185,7 +7310,7 @@ func (x *ProjectTimeEntryProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectTimeEntryProto.ProtoReflect.Descriptor instead.
 func (*ProjectTimeEntryProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{119}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *ProjectTimeEntryProto) GetId() string {
@@ -7239,7 +7364,7 @@ type ListProjectTimeEntriesRequest struct {
 
 func (x *ListProjectTimeEntriesRequest) Reset() {
 	*x = ListProjectTimeEntriesRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[120]
+	mi := &file_proto_work_v1_work_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7251,7 +7376,7 @@ func (x *ListProjectTimeEntriesRequest) String() string {
 func (*ListProjectTimeEntriesRequest) ProtoMessage() {}
 
 func (x *ListProjectTimeEntriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[120]
+	mi := &file_proto_work_v1_work_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7264,7 +7389,7 @@ func (x *ListProjectTimeEntriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectTimeEntriesRequest.ProtoReflect.Descriptor instead.
 func (*ListProjectTimeEntriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{120}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *ListProjectTimeEntriesRequest) GetProjectId() string {
@@ -7283,7 +7408,7 @@ type ListProjectTimeEntriesResponse struct {
 
 func (x *ListProjectTimeEntriesResponse) Reset() {
 	*x = ListProjectTimeEntriesResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[121]
+	mi := &file_proto_work_v1_work_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7295,7 +7420,7 @@ func (x *ListProjectTimeEntriesResponse) String() string {
 func (*ListProjectTimeEntriesResponse) ProtoMessage() {}
 
 func (x *ListProjectTimeEntriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[121]
+	mi := &file_proto_work_v1_work_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7308,7 +7433,7 @@ func (x *ListProjectTimeEntriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectTimeEntriesResponse.ProtoReflect.Descriptor instead.
 func (*ListProjectTimeEntriesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{121}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *ListProjectTimeEntriesResponse) GetEntries() []*ProjectTimeEntryProto {
@@ -7329,7 +7454,7 @@ type UtilizationPointProto struct {
 
 func (x *UtilizationPointProto) Reset() {
 	*x = UtilizationPointProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	mi := &file_proto_work_v1_work_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7341,7 +7466,7 @@ func (x *UtilizationPointProto) String() string {
 func (*UtilizationPointProto) ProtoMessage() {}
 
 func (x *UtilizationPointProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[122]
+	mi := &file_proto_work_v1_work_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7354,7 +7479,7 @@ func (x *UtilizationPointProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UtilizationPointProto.ProtoReflect.Descriptor instead.
 func (*UtilizationPointProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{122}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *UtilizationPointProto) GetLabel() string {
@@ -7388,7 +7513,7 @@ type ProjectMemberUtilizationProto struct {
 
 func (x *ProjectMemberUtilizationProto) Reset() {
 	*x = ProjectMemberUtilizationProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	mi := &file_proto_work_v1_work_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7400,7 +7525,7 @@ func (x *ProjectMemberUtilizationProto) String() string {
 func (*ProjectMemberUtilizationProto) ProtoMessage() {}
 
 func (x *ProjectMemberUtilizationProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[123]
+	mi := &file_proto_work_v1_work_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7413,7 +7538,7 @@ func (x *ProjectMemberUtilizationProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProjectMemberUtilizationProto.ProtoReflect.Descriptor instead.
 func (*ProjectMemberUtilizationProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{123}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *ProjectMemberUtilizationProto) GetUserId() string {
@@ -7467,7 +7592,7 @@ type ListProjectTeamUtilizationRequest struct {
 
 func (x *ListProjectTeamUtilizationRequest) Reset() {
 	*x = ListProjectTeamUtilizationRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	mi := &file_proto_work_v1_work_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7479,7 +7604,7 @@ func (x *ListProjectTeamUtilizationRequest) String() string {
 func (*ListProjectTeamUtilizationRequest) ProtoMessage() {}
 
 func (x *ListProjectTeamUtilizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[124]
+	mi := &file_proto_work_v1_work_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7492,7 +7617,7 @@ func (x *ListProjectTeamUtilizationRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListProjectTeamUtilizationRequest.ProtoReflect.Descriptor instead.
 func (*ListProjectTeamUtilizationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{124}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *ListProjectTeamUtilizationRequest) GetProjectId() string {
@@ -7511,7 +7636,7 @@ type ListProjectTeamUtilizationResponse struct {
 
 func (x *ListProjectTeamUtilizationResponse) Reset() {
 	*x = ListProjectTeamUtilizationResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	mi := &file_proto_work_v1_work_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7523,7 +7648,7 @@ func (x *ListProjectTeamUtilizationResponse) String() string {
 func (*ListProjectTeamUtilizationResponse) ProtoMessage() {}
 
 func (x *ListProjectTeamUtilizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[125]
+	mi := &file_proto_work_v1_work_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7536,7 +7661,7 @@ func (x *ListProjectTeamUtilizationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListProjectTeamUtilizationResponse.ProtoReflect.Descriptor instead.
 func (*ListProjectTeamUtilizationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{125}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *ListProjectTeamUtilizationResponse) GetTeam() []*ProjectMemberUtilizationProto {
@@ -7555,7 +7680,7 @@ type GetTaskTimeSummaryRequest struct {
 
 func (x *GetTaskTimeSummaryRequest) Reset() {
 	*x = GetTaskTimeSummaryRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[126]
+	mi := &file_proto_work_v1_work_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7567,7 +7692,7 @@ func (x *GetTaskTimeSummaryRequest) String() string {
 func (*GetTaskTimeSummaryRequest) ProtoMessage() {}
 
 func (x *GetTaskTimeSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[126]
+	mi := &file_proto_work_v1_work_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7580,7 +7705,7 @@ func (x *GetTaskTimeSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskTimeSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetTaskTimeSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{126}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *GetTaskTimeSummaryRequest) GetTaskId() string {
@@ -7599,7 +7724,7 @@ type GetTaskTimeSummaryResponse struct {
 
 func (x *GetTaskTimeSummaryResponse) Reset() {
 	*x = GetTaskTimeSummaryResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[127]
+	mi := &file_proto_work_v1_work_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7611,7 +7736,7 @@ func (x *GetTaskTimeSummaryResponse) String() string {
 func (*GetTaskTimeSummaryResponse) ProtoMessage() {}
 
 func (x *GetTaskTimeSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[127]
+	mi := &file_proto_work_v1_work_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7624,7 +7749,7 @@ func (x *GetTaskTimeSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTaskTimeSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetTaskTimeSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{127}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *GetTaskTimeSummaryResponse) GetSummary() *TimeSummaryProto {
@@ -7645,7 +7770,7 @@ type LabelProto struct {
 
 func (x *LabelProto) Reset() {
 	*x = LabelProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[128]
+	mi := &file_proto_work_v1_work_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7657,7 +7782,7 @@ func (x *LabelProto) String() string {
 func (*LabelProto) ProtoMessage() {}
 
 func (x *LabelProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[128]
+	mi := &file_proto_work_v1_work_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7670,7 +7795,7 @@ func (x *LabelProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelProto.ProtoReflect.Descriptor instead.
 func (*LabelProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{128}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *LabelProto) GetId() string {
@@ -7704,7 +7829,7 @@ type CreateLabelRequest struct {
 
 func (x *CreateLabelRequest) Reset() {
 	*x = CreateLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[129]
+	mi := &file_proto_work_v1_work_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7716,7 +7841,7 @@ func (x *CreateLabelRequest) String() string {
 func (*CreateLabelRequest) ProtoMessage() {}
 
 func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[129]
+	mi := &file_proto_work_v1_work_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7729,7 +7854,7 @@ func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelRequest.ProtoReflect.Descriptor instead.
 func (*CreateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{129}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *CreateLabelRequest) GetName() string {
@@ -7755,7 +7880,7 @@ type CreateLabelResponse struct {
 
 func (x *CreateLabelResponse) Reset() {
 	*x = CreateLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[130]
+	mi := &file_proto_work_v1_work_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7767,7 +7892,7 @@ func (x *CreateLabelResponse) String() string {
 func (*CreateLabelResponse) ProtoMessage() {}
 
 func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[130]
+	mi := &file_proto_work_v1_work_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7780,7 +7905,7 @@ func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelResponse.ProtoReflect.Descriptor instead.
 func (*CreateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{130}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *CreateLabelResponse) GetLabel() *LabelProto {
@@ -7799,7 +7924,7 @@ type GetLabelRequest struct {
 
 func (x *GetLabelRequest) Reset() {
 	*x = GetLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[131]
+	mi := &file_proto_work_v1_work_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7811,7 +7936,7 @@ func (x *GetLabelRequest) String() string {
 func (*GetLabelRequest) ProtoMessage() {}
 
 func (x *GetLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[131]
+	mi := &file_proto_work_v1_work_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7824,7 +7949,7 @@ func (x *GetLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelRequest.ProtoReflect.Descriptor instead.
 func (*GetLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{131}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *GetLabelRequest) GetId() string {
@@ -7843,7 +7968,7 @@ type GetLabelResponse struct {
 
 func (x *GetLabelResponse) Reset() {
 	*x = GetLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[132]
+	mi := &file_proto_work_v1_work_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7855,7 +7980,7 @@ func (x *GetLabelResponse) String() string {
 func (*GetLabelResponse) ProtoMessage() {}
 
 func (x *GetLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[132]
+	mi := &file_proto_work_v1_work_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7868,7 +7993,7 @@ func (x *GetLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelResponse.ProtoReflect.Descriptor instead.
 func (*GetLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{132}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *GetLabelResponse) GetLabel() *LabelProto {
@@ -7886,7 +8011,7 @@ type ListLabelsRequest struct {
 
 func (x *ListLabelsRequest) Reset() {
 	*x = ListLabelsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[133]
+	mi := &file_proto_work_v1_work_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7898,7 +8023,7 @@ func (x *ListLabelsRequest) String() string {
 func (*ListLabelsRequest) ProtoMessage() {}
 
 func (x *ListLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[133]
+	mi := &file_proto_work_v1_work_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7911,7 +8036,7 @@ func (x *ListLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLabelsRequest.ProtoReflect.Descriptor instead.
 func (*ListLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{133}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{135}
 }
 
 type ListLabelsResponse struct {
@@ -7923,7 +8048,7 @@ type ListLabelsResponse struct {
 
 func (x *ListLabelsResponse) Reset() {
 	*x = ListLabelsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[134]
+	mi := &file_proto_work_v1_work_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7935,7 +8060,7 @@ func (x *ListLabelsResponse) String() string {
 func (*ListLabelsResponse) ProtoMessage() {}
 
 func (x *ListLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[134]
+	mi := &file_proto_work_v1_work_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7948,7 +8073,7 @@ func (x *ListLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLabelsResponse.ProtoReflect.Descriptor instead.
 func (*ListLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{134}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *ListLabelsResponse) GetLabels() []*LabelProto {
@@ -7969,7 +8094,7 @@ type UpdateLabelRequest struct {
 
 func (x *UpdateLabelRequest) Reset() {
 	*x = UpdateLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[135]
+	mi := &file_proto_work_v1_work_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7981,7 +8106,7 @@ func (x *UpdateLabelRequest) String() string {
 func (*UpdateLabelRequest) ProtoMessage() {}
 
 func (x *UpdateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[135]
+	mi := &file_proto_work_v1_work_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7994,7 +8119,7 @@ func (x *UpdateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLabelRequest.ProtoReflect.Descriptor instead.
 func (*UpdateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{135}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *UpdateLabelRequest) GetId() string {
@@ -8027,7 +8152,7 @@ type UpdateLabelResponse struct {
 
 func (x *UpdateLabelResponse) Reset() {
 	*x = UpdateLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[136]
+	mi := &file_proto_work_v1_work_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8039,7 +8164,7 @@ func (x *UpdateLabelResponse) String() string {
 func (*UpdateLabelResponse) ProtoMessage() {}
 
 func (x *UpdateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[136]
+	mi := &file_proto_work_v1_work_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8052,7 +8177,7 @@ func (x *UpdateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateLabelResponse.ProtoReflect.Descriptor instead.
 func (*UpdateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{136}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *UpdateLabelResponse) GetLabel() *LabelProto {
@@ -8071,7 +8196,7 @@ type DeleteLabelRequest struct {
 
 func (x *DeleteLabelRequest) Reset() {
 	*x = DeleteLabelRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[137]
+	mi := &file_proto_work_v1_work_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8083,7 +8208,7 @@ func (x *DeleteLabelRequest) String() string {
 func (*DeleteLabelRequest) ProtoMessage() {}
 
 func (x *DeleteLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[137]
+	mi := &file_proto_work_v1_work_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8096,7 +8221,7 @@ func (x *DeleteLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLabelRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLabelRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{137}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *DeleteLabelRequest) GetId() string {
@@ -8114,7 +8239,7 @@ type DeleteLabelResponse struct {
 
 func (x *DeleteLabelResponse) Reset() {
 	*x = DeleteLabelResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[138]
+	mi := &file_proto_work_v1_work_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8126,7 +8251,7 @@ func (x *DeleteLabelResponse) String() string {
 func (*DeleteLabelResponse) ProtoMessage() {}
 
 func (x *DeleteLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[138]
+	mi := &file_proto_work_v1_work_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8139,7 +8264,7 @@ func (x *DeleteLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLabelResponse.ProtoReflect.Descriptor instead.
 func (*DeleteLabelResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{138}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{140}
 }
 
 type SetTaskLabelsRequest struct {
@@ -8152,7 +8277,7 @@ type SetTaskLabelsRequest struct {
 
 func (x *SetTaskLabelsRequest) Reset() {
 	*x = SetTaskLabelsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[139]
+	mi := &file_proto_work_v1_work_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8164,7 +8289,7 @@ func (x *SetTaskLabelsRequest) String() string {
 func (*SetTaskLabelsRequest) ProtoMessage() {}
 
 func (x *SetTaskLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[139]
+	mi := &file_proto_work_v1_work_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8177,7 +8302,7 @@ func (x *SetTaskLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskLabelsRequest.ProtoReflect.Descriptor instead.
 func (*SetTaskLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{139}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *SetTaskLabelsRequest) GetTaskId() string {
@@ -8202,7 +8327,7 @@ type SetTaskLabelsResponse struct {
 
 func (x *SetTaskLabelsResponse) Reset() {
 	*x = SetTaskLabelsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[140]
+	mi := &file_proto_work_v1_work_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8214,7 +8339,7 @@ func (x *SetTaskLabelsResponse) String() string {
 func (*SetTaskLabelsResponse) ProtoMessage() {}
 
 func (x *SetTaskLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[140]
+	mi := &file_proto_work_v1_work_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8227,7 +8352,7 @@ func (x *SetTaskLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetTaskLabelsResponse.ProtoReflect.Descriptor instead.
 func (*SetTaskLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{140}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{142}
 }
 
 type CustomFieldDefinitionProto struct {
@@ -8243,7 +8368,7 @@ type CustomFieldDefinitionProto struct {
 
 func (x *CustomFieldDefinitionProto) Reset() {
 	*x = CustomFieldDefinitionProto{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[141]
+	mi := &file_proto_work_v1_work_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8255,7 +8380,7 @@ func (x *CustomFieldDefinitionProto) String() string {
 func (*CustomFieldDefinitionProto) ProtoMessage() {}
 
 func (x *CustomFieldDefinitionProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[141]
+	mi := &file_proto_work_v1_work_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8268,7 +8393,7 @@ func (x *CustomFieldDefinitionProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CustomFieldDefinitionProto.ProtoReflect.Descriptor instead.
 func (*CustomFieldDefinitionProto) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{141}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *CustomFieldDefinitionProto) GetId() string {
@@ -8318,7 +8443,7 @@ type CreateCustomFieldDefinitionRequest struct {
 
 func (x *CreateCustomFieldDefinitionRequest) Reset() {
 	*x = CreateCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[142]
+	mi := &file_proto_work_v1_work_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8330,7 +8455,7 @@ func (x *CreateCustomFieldDefinitionRequest) String() string {
 func (*CreateCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *CreateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[142]
+	mi := &file_proto_work_v1_work_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8343,7 +8468,7 @@ func (x *CreateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use CreateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*CreateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{142}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *CreateCustomFieldDefinitionRequest) GetName() string {
@@ -8383,7 +8508,7 @@ type CreateCustomFieldDefinitionResponse struct {
 
 func (x *CreateCustomFieldDefinitionResponse) Reset() {
 	*x = CreateCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[143]
+	mi := &file_proto_work_v1_work_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8395,7 +8520,7 @@ func (x *CreateCustomFieldDefinitionResponse) String() string {
 func (*CreateCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *CreateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[143]
+	mi := &file_proto_work_v1_work_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8408,7 +8533,7 @@ func (x *CreateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use CreateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*CreateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{143}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *CreateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8427,7 +8552,7 @@ type GetCustomFieldDefinitionRequest struct {
 
 func (x *GetCustomFieldDefinitionRequest) Reset() {
 	*x = GetCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[144]
+	mi := &file_proto_work_v1_work_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8439,7 +8564,7 @@ func (x *GetCustomFieldDefinitionRequest) String() string {
 func (*GetCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *GetCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[144]
+	mi := &file_proto_work_v1_work_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8452,7 +8577,7 @@ func (x *GetCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*GetCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{144}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *GetCustomFieldDefinitionRequest) GetId() string {
@@ -8471,7 +8596,7 @@ type GetCustomFieldDefinitionResponse struct {
 
 func (x *GetCustomFieldDefinitionResponse) Reset() {
 	*x = GetCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[145]
+	mi := &file_proto_work_v1_work_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8483,7 +8608,7 @@ func (x *GetCustomFieldDefinitionResponse) String() string {
 func (*GetCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *GetCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[145]
+	mi := &file_proto_work_v1_work_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8496,7 +8621,7 @@ func (x *GetCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*GetCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{145}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *GetCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8514,7 +8639,7 @@ type ListCustomFieldDefinitionsRequest struct {
 
 func (x *ListCustomFieldDefinitionsRequest) Reset() {
 	*x = ListCustomFieldDefinitionsRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[146]
+	mi := &file_proto_work_v1_work_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8526,7 +8651,7 @@ func (x *ListCustomFieldDefinitionsRequest) String() string {
 func (*ListCustomFieldDefinitionsRequest) ProtoMessage() {}
 
 func (x *ListCustomFieldDefinitionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[146]
+	mi := &file_proto_work_v1_work_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8539,7 +8664,7 @@ func (x *ListCustomFieldDefinitionsRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ListCustomFieldDefinitionsRequest.ProtoReflect.Descriptor instead.
 func (*ListCustomFieldDefinitionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{146}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{148}
 }
 
 type ListCustomFieldDefinitionsResponse struct {
@@ -8551,7 +8676,7 @@ type ListCustomFieldDefinitionsResponse struct {
 
 func (x *ListCustomFieldDefinitionsResponse) Reset() {
 	*x = ListCustomFieldDefinitionsResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[147]
+	mi := &file_proto_work_v1_work_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8563,7 +8688,7 @@ func (x *ListCustomFieldDefinitionsResponse) String() string {
 func (*ListCustomFieldDefinitionsResponse) ProtoMessage() {}
 
 func (x *ListCustomFieldDefinitionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[147]
+	mi := &file_proto_work_v1_work_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8576,7 +8701,7 @@ func (x *ListCustomFieldDefinitionsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListCustomFieldDefinitionsResponse.ProtoReflect.Descriptor instead.
 func (*ListCustomFieldDefinitionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{147}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *ListCustomFieldDefinitionsResponse) GetDefinitions() []*CustomFieldDefinitionProto {
@@ -8599,7 +8724,7 @@ type UpdateCustomFieldDefinitionRequest struct {
 
 func (x *UpdateCustomFieldDefinitionRequest) Reset() {
 	*x = UpdateCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[148]
+	mi := &file_proto_work_v1_work_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8611,7 +8736,7 @@ func (x *UpdateCustomFieldDefinitionRequest) String() string {
 func (*UpdateCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *UpdateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[148]
+	mi := &file_proto_work_v1_work_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8624,7 +8749,7 @@ func (x *UpdateCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use UpdateCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{148}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *UpdateCustomFieldDefinitionRequest) GetId() string {
@@ -8671,7 +8796,7 @@ type UpdateCustomFieldDefinitionResponse struct {
 
 func (x *UpdateCustomFieldDefinitionResponse) Reset() {
 	*x = UpdateCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[149]
+	mi := &file_proto_work_v1_work_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8683,7 +8808,7 @@ func (x *UpdateCustomFieldDefinitionResponse) String() string {
 func (*UpdateCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *UpdateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[149]
+	mi := &file_proto_work_v1_work_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8696,7 +8821,7 @@ func (x *UpdateCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{149}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *UpdateCustomFieldDefinitionResponse) GetDefinition() *CustomFieldDefinitionProto {
@@ -8715,7 +8840,7 @@ type DeleteCustomFieldDefinitionRequest struct {
 
 func (x *DeleteCustomFieldDefinitionRequest) Reset() {
 	*x = DeleteCustomFieldDefinitionRequest{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[150]
+	mi := &file_proto_work_v1_work_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8727,7 +8852,7 @@ func (x *DeleteCustomFieldDefinitionRequest) String() string {
 func (*DeleteCustomFieldDefinitionRequest) ProtoMessage() {}
 
 func (x *DeleteCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[150]
+	mi := &file_proto_work_v1_work_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8740,7 +8865,7 @@ func (x *DeleteCustomFieldDefinitionRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use DeleteCustomFieldDefinitionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCustomFieldDefinitionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{150}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *DeleteCustomFieldDefinitionRequest) GetId() string {
@@ -8758,7 +8883,7 @@ type DeleteCustomFieldDefinitionResponse struct {
 
 func (x *DeleteCustomFieldDefinitionResponse) Reset() {
 	*x = DeleteCustomFieldDefinitionResponse{}
-	mi := &file_proto_work_v1_work_proto_msgTypes[151]
+	mi := &file_proto_work_v1_work_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -8770,7 +8895,7 @@ func (x *DeleteCustomFieldDefinitionResponse) String() string {
 func (*DeleteCustomFieldDefinitionResponse) ProtoMessage() {}
 
 func (x *DeleteCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_work_v1_work_proto_msgTypes[151]
+	mi := &file_proto_work_v1_work_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -8783,7 +8908,7 @@ func (x *DeleteCustomFieldDefinitionResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use DeleteCustomFieldDefinitionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteCustomFieldDefinitionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{151}
+	return file_proto_work_v1_work_proto_rawDescGZIP(), []int{153}
 }
 
 var File_proto_work_v1_work_proto protoreflect.FileDescriptor
@@ -8840,7 +8965,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tis_closed\x18\a \x01(\bR\bisClosed\x129\n" +
 	"\n" +
 	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\b\n" +
-	"\x06_color\"\x8c\n" +
+	"\x06_color\"\xa9\n" +
 	"\n" +
 	"\tTaskProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
@@ -8879,7 +9004,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\rcustom_fields\x18\x17 \x03(\v2$.work.v1.TaskProto.CustomFieldsEntryR\fcustomFields\x12\x1b\n" +
 	"\tlabel_ids\x18\x18 \x03(\tR\blabelIds\x12>\n" +
 	"\n" +
-	"start_date\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampH\vR\tstartDate\x88\x01\x01\x1a?\n" +
+	"start_date\x18\x19 \x01(\v2\x1a.google.protobuf.TimestampH\vR\tstartDate\x88\x01\x01\x12\x1b\n" +
+	"\tis_closed\x18\x1a \x01(\bR\bisClosed\x1a?\n" +
 	"\x11CustomFieldsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\r\n" +
@@ -9166,7 +9292,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0f_parent_task_id\"S\n" +
 	"\x11ListTasksResponse\x12(\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xac\x04\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb5\x05\n" +
 	"\x11UpdateTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
@@ -9182,7 +9308,11 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tlabel_ids\x18\n" +
 	" \x03(\tR\blabelIds\x12>\n" +
 	"\n" +
-	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01B\b\n" +
+	"start_date\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x06R\tstartDate\x88\x01\x01\x12$\n" +
+	"\x0eclear_due_date\x18\f \x01(\bR\fclearDueDate\x12 \n" +
+	"\tis_closed\x18\r \x01(\bH\aR\bisClosed\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"project_id\x18\x0e \x01(\tH\bR\tprojectId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\f\n" +
 	"\n" +
@@ -9190,7 +9320,10 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\t_priorityB\x0e\n" +
 	"\f_assignee_idB\v\n" +
 	"\t_due_dateB\r\n" +
-	"\v_start_date\"<\n" +
+	"\v_start_dateB\f\n" +
+	"\n" +
+	"_is_closedB\r\n" +
+	"\v_project_id\"<\n" +
 	"\x12UpdateTaskResponse\x12&\n" +
 	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"#\n" +
 	"\x11DeleteTaskRequest\x12\x0e\n" +
@@ -9303,7 +9436,11 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x14ListTaskFilesRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"E\n" +
 	"\x15ListTaskFilesResponse\x12,\n" +
-	"\x05files\x18\x01 \x03(\v2\x16.work.v1.TaskFileProtoR\x05files\"r\n" +
+	"\x05files\x18\x01 \x03(\v2\x16.work.v1.TaskFileProtoR\x05files\"/\n" +
+	"\x1dGetTaskFileDownloadURLRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
+	"\x1eGetTaskFileDownloadURLResponse\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\"r\n" +
 	"\x1fSetTaskCustomFieldValuesRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x126\n" +
 	"\x06values\x18\x02 \x03(\v2\x1e.work.v1.CustomFieldValueInputR\x06values\"\xc5\x01\n" +
@@ -9559,7 +9696,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"definition\"4\n" +
 	"\"DeleteCustomFieldDefinitionRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"%\n" +
-	"#DeleteCustomFieldDefinitionResponse2\x95/\n" +
+	"#DeleteCustomFieldDefinitionResponse2\x800\n" +
 	"\vWorkService\x12N\n" +
 	"\rCreateProject\x12\x1d.work.v1.CreateProjectRequest\x1a\x1e.work.v1.CreateProjectResponse\x12E\n" +
 	"\n" +
@@ -9603,7 +9740,8 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x12ListTaskActivities\x12\".work.v1.ListTaskActivitiesRequest\x1a#.work.v1.ListTaskActivitiesResponse\x12W\n" +
 	"\x10AttachFileToTask\x12 .work.v1.AttachFileToTaskRequest\x1a!.work.v1.AttachFileToTaskResponse\x12Q\n" +
 	"\x0eRemoveTaskFile\x12\x1e.work.v1.RemoveTaskFileRequest\x1a\x1f.work.v1.RemoveTaskFileResponse\x12N\n" +
-	"\rListTaskFiles\x12\x1d.work.v1.ListTaskFilesRequest\x1a\x1e.work.v1.ListTaskFilesResponse\x12o\n" +
+	"\rListTaskFiles\x12\x1d.work.v1.ListTaskFilesRequest\x1a\x1e.work.v1.ListTaskFilesResponse\x12i\n" +
+	"\x16GetTaskFileDownloadURL\x12&.work.v1.GetTaskFileDownloadURLRequest\x1a'.work.v1.GetTaskFileDownloadURLResponse\x12o\n" +
 	"\x18SetTaskCustomFieldValues\x12(.work.v1.SetTaskCustomFieldValuesRequest\x1a).work.v1.SetTaskCustomFieldValuesResponse\x12o\n" +
 	"\x18GetTaskCustomFieldValues\x12(.work.v1.GetTaskCustomFieldValuesRequest\x1a).work.v1.GetTaskCustomFieldValuesResponse\x12o\n" +
 	"\x18GetUserProjectPreference\x12(.work.v1.GetUserProjectPreferenceRequest\x1a).work.v1.GetUserProjectPreferenceResponse\x12o\n" +
@@ -9646,7 +9784,7 @@ func file_proto_work_v1_work_proto_rawDescGZIP() []byte {
 	return file_proto_work_v1_work_proto_rawDescData
 }
 
-var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 155)
+var file_proto_work_v1_work_proto_msgTypes = make([]protoimpl.MessageInfo, 157)
 var file_proto_work_v1_work_proto_goTypes = []any{
 	(*ProjectProto)(nil),                        // 0: work.v1.ProjectProto
 	(*ProjectMemberProto)(nil),                  // 1: work.v1.ProjectMemberProto
@@ -9737,92 +9875,94 @@ var file_proto_work_v1_work_proto_goTypes = []any{
 	(*RemoveTaskFileResponse)(nil),              // 86: work.v1.RemoveTaskFileResponse
 	(*ListTaskFilesRequest)(nil),                // 87: work.v1.ListTaskFilesRequest
 	(*ListTaskFilesResponse)(nil),               // 88: work.v1.ListTaskFilesResponse
-	(*SetTaskCustomFieldValuesRequest)(nil),     // 89: work.v1.SetTaskCustomFieldValuesRequest
-	(*SetTaskCustomFieldValuesResponse)(nil),    // 90: work.v1.SetTaskCustomFieldValuesResponse
-	(*GetTaskCustomFieldValuesRequest)(nil),     // 91: work.v1.GetTaskCustomFieldValuesRequest
-	(*GetTaskCustomFieldValuesResponse)(nil),    // 92: work.v1.GetTaskCustomFieldValuesResponse
-	(*GetUserProjectPreferenceRequest)(nil),     // 93: work.v1.GetUserProjectPreferenceRequest
-	(*GetUserProjectPreferenceResponse)(nil),    // 94: work.v1.GetUserProjectPreferenceResponse
-	(*SetUserProjectPreferenceRequest)(nil),     // 95: work.v1.SetUserProjectPreferenceRequest
-	(*SetUserProjectPreferenceResponse)(nil),    // 96: work.v1.SetUserProjectPreferenceResponse
-	(*SearchTasksRequest)(nil),                  // 97: work.v1.SearchTasksRequest
-	(*SearchTasksResponse)(nil),                 // 98: work.v1.SearchTasksResponse
-	(*TimeEntryProto)(nil),                      // 99: work.v1.TimeEntryProto
-	(*ActiveTimerProto)(nil),                    // 100: work.v1.ActiveTimerProto
-	(*TimeSummaryProto)(nil),                    // 101: work.v1.TimeSummaryProto
-	(*StartTimerRequest)(nil),                   // 102: work.v1.StartTimerRequest
-	(*StartTimerResponse)(nil),                  // 103: work.v1.StartTimerResponse
-	(*StopTimerRequest)(nil),                    // 104: work.v1.StopTimerRequest
-	(*StopTimerResponse)(nil),                   // 105: work.v1.StopTimerResponse
-	(*GetActiveTimerRequest)(nil),               // 106: work.v1.GetActiveTimerRequest
-	(*GetActiveTimerResponse)(nil),              // 107: work.v1.GetActiveTimerResponse
-	(*AddManualTimeEntryRequest)(nil),           // 108: work.v1.AddManualTimeEntryRequest
-	(*AddManualTimeEntryResponse)(nil),          // 109: work.v1.AddManualTimeEntryResponse
-	(*UpdateTimeEntryRequest)(nil),              // 110: work.v1.UpdateTimeEntryRequest
-	(*UpdateTimeEntryResponse)(nil),             // 111: work.v1.UpdateTimeEntryResponse
-	(*DeleteTimeEntryRequest)(nil),              // 112: work.v1.DeleteTimeEntryRequest
-	(*DeleteTimeEntryResponse)(nil),             // 113: work.v1.DeleteTimeEntryResponse
-	(*ListTimeEntriesRequest)(nil),              // 114: work.v1.ListTimeEntriesRequest
-	(*ListTimeEntriesResponse)(nil),             // 115: work.v1.ListTimeEntriesResponse
-	(*BillableTimeEntryProto)(nil),              // 116: work.v1.BillableTimeEntryProto
-	(*ListBillableTimeEntriesRequest)(nil),      // 117: work.v1.ListBillableTimeEntriesRequest
-	(*ListBillableTimeEntriesResponse)(nil),     // 118: work.v1.ListBillableTimeEntriesResponse
-	(*ProjectTimeEntryProto)(nil),               // 119: work.v1.ProjectTimeEntryProto
-	(*ListProjectTimeEntriesRequest)(nil),       // 120: work.v1.ListProjectTimeEntriesRequest
-	(*ListProjectTimeEntriesResponse)(nil),      // 121: work.v1.ListProjectTimeEntriesResponse
-	(*UtilizationPointProto)(nil),               // 122: work.v1.UtilizationPointProto
-	(*ProjectMemberUtilizationProto)(nil),       // 123: work.v1.ProjectMemberUtilizationProto
-	(*ListProjectTeamUtilizationRequest)(nil),   // 124: work.v1.ListProjectTeamUtilizationRequest
-	(*ListProjectTeamUtilizationResponse)(nil),  // 125: work.v1.ListProjectTeamUtilizationResponse
-	(*GetTaskTimeSummaryRequest)(nil),           // 126: work.v1.GetTaskTimeSummaryRequest
-	(*GetTaskTimeSummaryResponse)(nil),          // 127: work.v1.GetTaskTimeSummaryResponse
-	(*LabelProto)(nil),                          // 128: work.v1.LabelProto
-	(*CreateLabelRequest)(nil),                  // 129: work.v1.CreateLabelRequest
-	(*CreateLabelResponse)(nil),                 // 130: work.v1.CreateLabelResponse
-	(*GetLabelRequest)(nil),                     // 131: work.v1.GetLabelRequest
-	(*GetLabelResponse)(nil),                    // 132: work.v1.GetLabelResponse
-	(*ListLabelsRequest)(nil),                   // 133: work.v1.ListLabelsRequest
-	(*ListLabelsResponse)(nil),                  // 134: work.v1.ListLabelsResponse
-	(*UpdateLabelRequest)(nil),                  // 135: work.v1.UpdateLabelRequest
-	(*UpdateLabelResponse)(nil),                 // 136: work.v1.UpdateLabelResponse
-	(*DeleteLabelRequest)(nil),                  // 137: work.v1.DeleteLabelRequest
-	(*DeleteLabelResponse)(nil),                 // 138: work.v1.DeleteLabelResponse
-	(*SetTaskLabelsRequest)(nil),                // 139: work.v1.SetTaskLabelsRequest
-	(*SetTaskLabelsResponse)(nil),               // 140: work.v1.SetTaskLabelsResponse
-	(*CustomFieldDefinitionProto)(nil),          // 141: work.v1.CustomFieldDefinitionProto
-	(*CreateCustomFieldDefinitionRequest)(nil),  // 142: work.v1.CreateCustomFieldDefinitionRequest
-	(*CreateCustomFieldDefinitionResponse)(nil), // 143: work.v1.CreateCustomFieldDefinitionResponse
-	(*GetCustomFieldDefinitionRequest)(nil),     // 144: work.v1.GetCustomFieldDefinitionRequest
-	(*GetCustomFieldDefinitionResponse)(nil),    // 145: work.v1.GetCustomFieldDefinitionResponse
-	(*ListCustomFieldDefinitionsRequest)(nil),   // 146: work.v1.ListCustomFieldDefinitionsRequest
-	(*ListCustomFieldDefinitionsResponse)(nil),  // 147: work.v1.ListCustomFieldDefinitionsResponse
-	(*UpdateCustomFieldDefinitionRequest)(nil),  // 148: work.v1.UpdateCustomFieldDefinitionRequest
-	(*UpdateCustomFieldDefinitionResponse)(nil), // 149: work.v1.UpdateCustomFieldDefinitionResponse
-	(*DeleteCustomFieldDefinitionRequest)(nil),  // 150: work.v1.DeleteCustomFieldDefinitionRequest
-	(*DeleteCustomFieldDefinitionResponse)(nil), // 151: work.v1.DeleteCustomFieldDefinitionResponse
-	nil,                           // 152: work.v1.TaskProto.CustomFieldsEntry
-	nil,                           // 153: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	nil,                           // 154: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	(*timestamppb.Timestamp)(nil), // 155: google.protobuf.Timestamp
+	(*GetTaskFileDownloadURLRequest)(nil),       // 89: work.v1.GetTaskFileDownloadURLRequest
+	(*GetTaskFileDownloadURLResponse)(nil),      // 90: work.v1.GetTaskFileDownloadURLResponse
+	(*SetTaskCustomFieldValuesRequest)(nil),     // 91: work.v1.SetTaskCustomFieldValuesRequest
+	(*SetTaskCustomFieldValuesResponse)(nil),    // 92: work.v1.SetTaskCustomFieldValuesResponse
+	(*GetTaskCustomFieldValuesRequest)(nil),     // 93: work.v1.GetTaskCustomFieldValuesRequest
+	(*GetTaskCustomFieldValuesResponse)(nil),    // 94: work.v1.GetTaskCustomFieldValuesResponse
+	(*GetUserProjectPreferenceRequest)(nil),     // 95: work.v1.GetUserProjectPreferenceRequest
+	(*GetUserProjectPreferenceResponse)(nil),    // 96: work.v1.GetUserProjectPreferenceResponse
+	(*SetUserProjectPreferenceRequest)(nil),     // 97: work.v1.SetUserProjectPreferenceRequest
+	(*SetUserProjectPreferenceResponse)(nil),    // 98: work.v1.SetUserProjectPreferenceResponse
+	(*SearchTasksRequest)(nil),                  // 99: work.v1.SearchTasksRequest
+	(*SearchTasksResponse)(nil),                 // 100: work.v1.SearchTasksResponse
+	(*TimeEntryProto)(nil),                      // 101: work.v1.TimeEntryProto
+	(*ActiveTimerProto)(nil),                    // 102: work.v1.ActiveTimerProto
+	(*TimeSummaryProto)(nil),                    // 103: work.v1.TimeSummaryProto
+	(*StartTimerRequest)(nil),                   // 104: work.v1.StartTimerRequest
+	(*StartTimerResponse)(nil),                  // 105: work.v1.StartTimerResponse
+	(*StopTimerRequest)(nil),                    // 106: work.v1.StopTimerRequest
+	(*StopTimerResponse)(nil),                   // 107: work.v1.StopTimerResponse
+	(*GetActiveTimerRequest)(nil),               // 108: work.v1.GetActiveTimerRequest
+	(*GetActiveTimerResponse)(nil),              // 109: work.v1.GetActiveTimerResponse
+	(*AddManualTimeEntryRequest)(nil),           // 110: work.v1.AddManualTimeEntryRequest
+	(*AddManualTimeEntryResponse)(nil),          // 111: work.v1.AddManualTimeEntryResponse
+	(*UpdateTimeEntryRequest)(nil),              // 112: work.v1.UpdateTimeEntryRequest
+	(*UpdateTimeEntryResponse)(nil),             // 113: work.v1.UpdateTimeEntryResponse
+	(*DeleteTimeEntryRequest)(nil),              // 114: work.v1.DeleteTimeEntryRequest
+	(*DeleteTimeEntryResponse)(nil),             // 115: work.v1.DeleteTimeEntryResponse
+	(*ListTimeEntriesRequest)(nil),              // 116: work.v1.ListTimeEntriesRequest
+	(*ListTimeEntriesResponse)(nil),             // 117: work.v1.ListTimeEntriesResponse
+	(*BillableTimeEntryProto)(nil),              // 118: work.v1.BillableTimeEntryProto
+	(*ListBillableTimeEntriesRequest)(nil),      // 119: work.v1.ListBillableTimeEntriesRequest
+	(*ListBillableTimeEntriesResponse)(nil),     // 120: work.v1.ListBillableTimeEntriesResponse
+	(*ProjectTimeEntryProto)(nil),               // 121: work.v1.ProjectTimeEntryProto
+	(*ListProjectTimeEntriesRequest)(nil),       // 122: work.v1.ListProjectTimeEntriesRequest
+	(*ListProjectTimeEntriesResponse)(nil),      // 123: work.v1.ListProjectTimeEntriesResponse
+	(*UtilizationPointProto)(nil),               // 124: work.v1.UtilizationPointProto
+	(*ProjectMemberUtilizationProto)(nil),       // 125: work.v1.ProjectMemberUtilizationProto
+	(*ListProjectTeamUtilizationRequest)(nil),   // 126: work.v1.ListProjectTeamUtilizationRequest
+	(*ListProjectTeamUtilizationResponse)(nil),  // 127: work.v1.ListProjectTeamUtilizationResponse
+	(*GetTaskTimeSummaryRequest)(nil),           // 128: work.v1.GetTaskTimeSummaryRequest
+	(*GetTaskTimeSummaryResponse)(nil),          // 129: work.v1.GetTaskTimeSummaryResponse
+	(*LabelProto)(nil),                          // 130: work.v1.LabelProto
+	(*CreateLabelRequest)(nil),                  // 131: work.v1.CreateLabelRequest
+	(*CreateLabelResponse)(nil),                 // 132: work.v1.CreateLabelResponse
+	(*GetLabelRequest)(nil),                     // 133: work.v1.GetLabelRequest
+	(*GetLabelResponse)(nil),                    // 134: work.v1.GetLabelResponse
+	(*ListLabelsRequest)(nil),                   // 135: work.v1.ListLabelsRequest
+	(*ListLabelsResponse)(nil),                  // 136: work.v1.ListLabelsResponse
+	(*UpdateLabelRequest)(nil),                  // 137: work.v1.UpdateLabelRequest
+	(*UpdateLabelResponse)(nil),                 // 138: work.v1.UpdateLabelResponse
+	(*DeleteLabelRequest)(nil),                  // 139: work.v1.DeleteLabelRequest
+	(*DeleteLabelResponse)(nil),                 // 140: work.v1.DeleteLabelResponse
+	(*SetTaskLabelsRequest)(nil),                // 141: work.v1.SetTaskLabelsRequest
+	(*SetTaskLabelsResponse)(nil),               // 142: work.v1.SetTaskLabelsResponse
+	(*CustomFieldDefinitionProto)(nil),          // 143: work.v1.CustomFieldDefinitionProto
+	(*CreateCustomFieldDefinitionRequest)(nil),  // 144: work.v1.CreateCustomFieldDefinitionRequest
+	(*CreateCustomFieldDefinitionResponse)(nil), // 145: work.v1.CreateCustomFieldDefinitionResponse
+	(*GetCustomFieldDefinitionRequest)(nil),     // 146: work.v1.GetCustomFieldDefinitionRequest
+	(*GetCustomFieldDefinitionResponse)(nil),    // 147: work.v1.GetCustomFieldDefinitionResponse
+	(*ListCustomFieldDefinitionsRequest)(nil),   // 148: work.v1.ListCustomFieldDefinitionsRequest
+	(*ListCustomFieldDefinitionsResponse)(nil),  // 149: work.v1.ListCustomFieldDefinitionsResponse
+	(*UpdateCustomFieldDefinitionRequest)(nil),  // 150: work.v1.UpdateCustomFieldDefinitionRequest
+	(*UpdateCustomFieldDefinitionResponse)(nil), // 151: work.v1.UpdateCustomFieldDefinitionResponse
+	(*DeleteCustomFieldDefinitionRequest)(nil),  // 152: work.v1.DeleteCustomFieldDefinitionRequest
+	(*DeleteCustomFieldDefinitionResponse)(nil), // 153: work.v1.DeleteCustomFieldDefinitionResponse
+	nil,                           // 154: work.v1.TaskProto.CustomFieldsEntry
+	nil,                           // 155: work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	nil,                           // 156: work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	(*timestamppb.Timestamp)(nil), // 157: google.protobuf.Timestamp
 }
 var file_proto_work_v1_work_proto_depIdxs = []int32{
-	155, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
-	155, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
-	155, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
-	155, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
-	152, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
-	155, // 10: work.v1.TaskProto.start_date:type_name -> google.protobuf.Timestamp
-	155, // 11: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 12: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 13: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 14: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 15: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 16: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 0: work.v1.ProjectProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 1: work.v1.ProjectProto.updated_at:type_name -> google.protobuf.Timestamp
+	157, // 2: work.v1.ProjectProto.archived_at:type_name -> google.protobuf.Timestamp
+	157, // 3: work.v1.ProjectMemberProto.added_at:type_name -> google.protobuf.Timestamp
+	157, // 4: work.v1.ProjectStatusProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 5: work.v1.TaskProto.due_date:type_name -> google.protobuf.Timestamp
+	157, // 6: work.v1.TaskProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 7: work.v1.TaskProto.updated_at:type_name -> google.protobuf.Timestamp
+	157, // 8: work.v1.TaskProto.completed_at:type_name -> google.protobuf.Timestamp
+	154, // 9: work.v1.TaskProto.custom_fields:type_name -> work.v1.TaskProto.CustomFieldsEntry
+	157, // 10: work.v1.TaskProto.start_date:type_name -> google.protobuf.Timestamp
+	157, // 11: work.v1.TaskDependencyProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 12: work.v1.TaskCommentProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 13: work.v1.TaskCommentProto.updated_at:type_name -> google.protobuf.Timestamp
+	157, // 14: work.v1.TaskEntityLinkProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 15: work.v1.TaskActivityProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 16: work.v1.TaskFileProto.created_at:type_name -> google.protobuf.Timestamp
 	0,   // 17: work.v1.CreateProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 18: work.v1.GetProjectResponse.project:type_name -> work.v1.ProjectProto
 	0,   // 19: work.v1.ListProjectsResponse.projects:type_name -> work.v1.ProjectProto
@@ -9837,17 +9977,17 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	2,   // 28: work.v1.UpdateProjectStatusResponse.status:type_name -> work.v1.ProjectStatusProto
 	2,   // 29: work.v1.ReorderProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
 	2,   // 30: work.v1.ListProjectStatusesResponse.statuses:type_name -> work.v1.ProjectStatusProto
-	155, // 31: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	157, // 31: work.v1.CreateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 32: work.v1.CreateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
-	155, // 33: work.v1.CreateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
+	157, // 33: work.v1.CreateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
 	3,   // 34: work.v1.CreateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 35: work.v1.GetTaskResponse.task:type_name -> work.v1.TaskProto
-	155, // 36: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	155, // 37: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	157, // 36: work.v1.ListTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	157, // 37: work.v1.ListTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 38: work.v1.ListTasksResponse.tasks:type_name -> work.v1.TaskProto
-	155, // 39: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
+	157, // 39: work.v1.UpdateTaskRequest.due_date:type_name -> google.protobuf.Timestamp
 	10,  // 40: work.v1.UpdateTaskRequest.custom_fields:type_name -> work.v1.CustomFieldValueInput
-	155, // 41: work.v1.UpdateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
+	157, // 41: work.v1.UpdateTaskRequest.start_date:type_name -> google.protobuf.Timestamp
 	3,   // 42: work.v1.UpdateTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 43: work.v1.MoveTaskResponse.task:type_name -> work.v1.TaskProto
 	3,   // 44: work.v1.ListSubtasksResponse.tasks:type_name -> work.v1.TaskProto
@@ -9863,41 +10003,41 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	8,   // 54: work.v1.AttachFileToTaskResponse.file:type_name -> work.v1.TaskFileProto
 	8,   // 55: work.v1.ListTaskFilesResponse.files:type_name -> work.v1.TaskFileProto
 	10,  // 56: work.v1.SetTaskCustomFieldValuesRequest.values:type_name -> work.v1.CustomFieldValueInput
-	153, // 57: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
-	154, // 58: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	155, // 57: work.v1.SetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntry
+	156, // 58: work.v1.GetTaskCustomFieldValuesResponse.custom_fields:type_name -> work.v1.GetTaskCustomFieldValuesResponse.CustomFieldsEntry
 	9,   // 59: work.v1.GetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
 	9,   // 60: work.v1.SetUserProjectPreferenceResponse.preference:type_name -> work.v1.UserProjectPreferenceProto
-	155, // 61: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
-	155, // 62: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
+	157, // 61: work.v1.SearchTasksRequest.due_date_from:type_name -> google.protobuf.Timestamp
+	157, // 62: work.v1.SearchTasksRequest.due_date_to:type_name -> google.protobuf.Timestamp
 	3,   // 63: work.v1.SearchTasksResponse.tasks:type_name -> work.v1.TaskProto
-	155, // 64: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
-	155, // 65: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
-	155, // 66: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
-	155, // 67: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
-	155, // 68: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 69: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
-	99,  // 70: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
-	99,  // 71: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
-	100, // 72: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
-	155, // 73: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 74: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
-	155, // 75: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
-	99,  // 76: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
-	99,  // 77: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
-	116, // 78: work.v1.ListBillableTimeEntriesResponse.entries:type_name -> work.v1.BillableTimeEntryProto
-	119, // 79: work.v1.ListProjectTimeEntriesResponse.entries:type_name -> work.v1.ProjectTimeEntryProto
-	122, // 80: work.v1.ProjectMemberUtilizationProto.weekly_data:type_name -> work.v1.UtilizationPointProto
-	122, // 81: work.v1.ProjectMemberUtilizationProto.monthly_data:type_name -> work.v1.UtilizationPointProto
-	123, // 82: work.v1.ListProjectTeamUtilizationResponse.team:type_name -> work.v1.ProjectMemberUtilizationProto
-	101, // 83: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
-	128, // 84: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
-	128, // 85: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
-	128, // 86: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
-	128, // 87: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
-	141, // 88: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 89: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 90: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
-	141, // 91: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	157, // 64: work.v1.TimeEntryProto.started_at:type_name -> google.protobuf.Timestamp
+	157, // 65: work.v1.TimeEntryProto.ended_at:type_name -> google.protobuf.Timestamp
+	157, // 66: work.v1.TimeEntryProto.created_at:type_name -> google.protobuf.Timestamp
+	157, // 67: work.v1.TimeEntryProto.updated_at:type_name -> google.protobuf.Timestamp
+	157, // 68: work.v1.ActiveTimerProto.started_at:type_name -> google.protobuf.Timestamp
+	101, // 69: work.v1.StartTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	101, // 70: work.v1.StartTimerResponse.stopped_entry:type_name -> work.v1.TimeEntryProto
+	101, // 71: work.v1.StopTimerResponse.entry:type_name -> work.v1.TimeEntryProto
+	102, // 72: work.v1.GetActiveTimerResponse.timer:type_name -> work.v1.ActiveTimerProto
+	157, // 73: work.v1.AddManualTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	101, // 74: work.v1.AddManualTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	157, // 75: work.v1.UpdateTimeEntryRequest.started_at:type_name -> google.protobuf.Timestamp
+	101, // 76: work.v1.UpdateTimeEntryResponse.entry:type_name -> work.v1.TimeEntryProto
+	101, // 77: work.v1.ListTimeEntriesResponse.entries:type_name -> work.v1.TimeEntryProto
+	118, // 78: work.v1.ListBillableTimeEntriesResponse.entries:type_name -> work.v1.BillableTimeEntryProto
+	121, // 79: work.v1.ListProjectTimeEntriesResponse.entries:type_name -> work.v1.ProjectTimeEntryProto
+	124, // 80: work.v1.ProjectMemberUtilizationProto.weekly_data:type_name -> work.v1.UtilizationPointProto
+	124, // 81: work.v1.ProjectMemberUtilizationProto.monthly_data:type_name -> work.v1.UtilizationPointProto
+	125, // 82: work.v1.ListProjectTeamUtilizationResponse.team:type_name -> work.v1.ProjectMemberUtilizationProto
+	103, // 83: work.v1.GetTaskTimeSummaryResponse.summary:type_name -> work.v1.TimeSummaryProto
+	130, // 84: work.v1.CreateLabelResponse.label:type_name -> work.v1.LabelProto
+	130, // 85: work.v1.GetLabelResponse.label:type_name -> work.v1.LabelProto
+	130, // 86: work.v1.ListLabelsResponse.labels:type_name -> work.v1.LabelProto
+	130, // 87: work.v1.UpdateLabelResponse.label:type_name -> work.v1.LabelProto
+	143, // 88: work.v1.CreateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	143, // 89: work.v1.GetCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
+	143, // 90: work.v1.ListCustomFieldDefinitionsResponse.definitions:type_name -> work.v1.CustomFieldDefinitionProto
+	143, // 91: work.v1.UpdateCustomFieldDefinitionResponse.definition:type_name -> work.v1.CustomFieldDefinitionProto
 	11,  // 92: work.v1.WorkService.CreateProject:input_type -> work.v1.CreateProjectRequest
 	13,  // 93: work.v1.WorkService.GetProject:input_type -> work.v1.GetProjectRequest
 	15,  // 94: work.v1.WorkService.ListProjects:input_type -> work.v1.ListProjectsRequest
@@ -9937,101 +10077,103 @@ var file_proto_work_v1_work_proto_depIdxs = []int32{
 	83,  // 128: work.v1.WorkService.AttachFileToTask:input_type -> work.v1.AttachFileToTaskRequest
 	85,  // 129: work.v1.WorkService.RemoveTaskFile:input_type -> work.v1.RemoveTaskFileRequest
 	87,  // 130: work.v1.WorkService.ListTaskFiles:input_type -> work.v1.ListTaskFilesRequest
-	89,  // 131: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
-	91,  // 132: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
-	93,  // 133: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
-	95,  // 134: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
-	97,  // 135: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
-	102, // 136: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
-	104, // 137: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
-	106, // 138: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
-	108, // 139: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
-	110, // 140: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
-	112, // 141: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
-	114, // 142: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
-	126, // 143: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
-	117, // 144: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
-	120, // 145: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
-	124, // 146: work.v1.WorkService.ListProjectTeamUtilization:input_type -> work.v1.ListProjectTeamUtilizationRequest
-	129, // 147: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
-	131, // 148: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
-	133, // 149: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
-	135, // 150: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
-	137, // 151: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
-	139, // 152: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
-	142, // 153: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
-	144, // 154: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
-	146, // 155: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
-	148, // 156: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
-	150, // 157: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
-	12,  // 158: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
-	14,  // 159: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
-	16,  // 160: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
-	18,  // 161: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
-	20,  // 162: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
-	22,  // 163: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
-	24,  // 164: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
-	26,  // 165: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
-	28,  // 166: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
-	30,  // 167: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
-	32,  // 168: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
-	34,  // 169: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
-	36,  // 170: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
-	38,  // 171: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
-	40,  // 172: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
-	42,  // 173: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
-	44,  // 174: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
-	46,  // 175: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
-	48,  // 176: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
-	50,  // 177: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
-	52,  // 178: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
-	54,  // 179: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
-	56,  // 180: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
-	58,  // 181: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
-	60,  // 182: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
-	62,  // 183: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
-	64,  // 184: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
-	66,  // 185: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
-	68,  // 186: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
-	70,  // 187: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
-	72,  // 188: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
-	74,  // 189: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
-	76,  // 190: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
-	78,  // 191: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
-	80,  // 192: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
-	82,  // 193: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
-	84,  // 194: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
-	86,  // 195: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
-	88,  // 196: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
-	90,  // 197: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
-	92,  // 198: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
-	94,  // 199: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
-	96,  // 200: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
-	98,  // 201: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
-	103, // 202: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
-	105, // 203: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
-	107, // 204: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
-	109, // 205: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
-	111, // 206: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
-	113, // 207: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
-	115, // 208: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
-	127, // 209: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
-	118, // 210: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
-	121, // 211: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
-	125, // 212: work.v1.WorkService.ListProjectTeamUtilization:output_type -> work.v1.ListProjectTeamUtilizationResponse
-	130, // 213: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
-	132, // 214: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
-	134, // 215: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
-	136, // 216: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
-	138, // 217: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
-	140, // 218: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
-	143, // 219: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
-	145, // 220: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
-	147, // 221: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
-	149, // 222: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
-	151, // 223: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
-	158, // [158:224] is the sub-list for method output_type
-	92,  // [92:158] is the sub-list for method input_type
+	89,  // 131: work.v1.WorkService.GetTaskFileDownloadURL:input_type -> work.v1.GetTaskFileDownloadURLRequest
+	91,  // 132: work.v1.WorkService.SetTaskCustomFieldValues:input_type -> work.v1.SetTaskCustomFieldValuesRequest
+	93,  // 133: work.v1.WorkService.GetTaskCustomFieldValues:input_type -> work.v1.GetTaskCustomFieldValuesRequest
+	95,  // 134: work.v1.WorkService.GetUserProjectPreference:input_type -> work.v1.GetUserProjectPreferenceRequest
+	97,  // 135: work.v1.WorkService.SetUserProjectPreference:input_type -> work.v1.SetUserProjectPreferenceRequest
+	99,  // 136: work.v1.WorkService.SearchTasks:input_type -> work.v1.SearchTasksRequest
+	104, // 137: work.v1.WorkService.StartTimer:input_type -> work.v1.StartTimerRequest
+	106, // 138: work.v1.WorkService.StopTimer:input_type -> work.v1.StopTimerRequest
+	108, // 139: work.v1.WorkService.GetActiveTimer:input_type -> work.v1.GetActiveTimerRequest
+	110, // 140: work.v1.WorkService.AddManualTimeEntry:input_type -> work.v1.AddManualTimeEntryRequest
+	112, // 141: work.v1.WorkService.UpdateTimeEntry:input_type -> work.v1.UpdateTimeEntryRequest
+	114, // 142: work.v1.WorkService.DeleteTimeEntry:input_type -> work.v1.DeleteTimeEntryRequest
+	116, // 143: work.v1.WorkService.ListTimeEntries:input_type -> work.v1.ListTimeEntriesRequest
+	128, // 144: work.v1.WorkService.GetTaskTimeSummary:input_type -> work.v1.GetTaskTimeSummaryRequest
+	119, // 145: work.v1.WorkService.ListBillableTimeEntries:input_type -> work.v1.ListBillableTimeEntriesRequest
+	122, // 146: work.v1.WorkService.ListProjectTimeEntries:input_type -> work.v1.ListProjectTimeEntriesRequest
+	126, // 147: work.v1.WorkService.ListProjectTeamUtilization:input_type -> work.v1.ListProjectTeamUtilizationRequest
+	131, // 148: work.v1.WorkService.CreateLabel:input_type -> work.v1.CreateLabelRequest
+	133, // 149: work.v1.WorkService.GetLabel:input_type -> work.v1.GetLabelRequest
+	135, // 150: work.v1.WorkService.ListLabels:input_type -> work.v1.ListLabelsRequest
+	137, // 151: work.v1.WorkService.UpdateLabel:input_type -> work.v1.UpdateLabelRequest
+	139, // 152: work.v1.WorkService.DeleteLabel:input_type -> work.v1.DeleteLabelRequest
+	141, // 153: work.v1.WorkService.SetTaskLabels:input_type -> work.v1.SetTaskLabelsRequest
+	144, // 154: work.v1.WorkService.CreateCustomFieldDefinition:input_type -> work.v1.CreateCustomFieldDefinitionRequest
+	146, // 155: work.v1.WorkService.GetCustomFieldDefinition:input_type -> work.v1.GetCustomFieldDefinitionRequest
+	148, // 156: work.v1.WorkService.ListCustomFieldDefinitions:input_type -> work.v1.ListCustomFieldDefinitionsRequest
+	150, // 157: work.v1.WorkService.UpdateCustomFieldDefinition:input_type -> work.v1.UpdateCustomFieldDefinitionRequest
+	152, // 158: work.v1.WorkService.DeleteCustomFieldDefinition:input_type -> work.v1.DeleteCustomFieldDefinitionRequest
+	12,  // 159: work.v1.WorkService.CreateProject:output_type -> work.v1.CreateProjectResponse
+	14,  // 160: work.v1.WorkService.GetProject:output_type -> work.v1.GetProjectResponse
+	16,  // 161: work.v1.WorkService.ListProjects:output_type -> work.v1.ListProjectsResponse
+	18,  // 162: work.v1.WorkService.UpdateProject:output_type -> work.v1.UpdateProjectResponse
+	20,  // 163: work.v1.WorkService.ArchiveProject:output_type -> work.v1.ArchiveProjectResponse
+	22,  // 164: work.v1.WorkService.DeleteProject:output_type -> work.v1.DeleteProjectResponse
+	24,  // 165: work.v1.WorkService.AddProjectMember:output_type -> work.v1.AddProjectMemberResponse
+	26,  // 166: work.v1.WorkService.RemoveProjectMember:output_type -> work.v1.RemoveProjectMemberResponse
+	28,  // 167: work.v1.WorkService.ListProjectMembers:output_type -> work.v1.ListProjectMembersResponse
+	30,  // 168: work.v1.WorkService.UpdateProjectMemberRole:output_type -> work.v1.UpdateProjectMemberRoleResponse
+	32,  // 169: work.v1.WorkService.SaveProjectAsTemplate:output_type -> work.v1.SaveProjectAsTemplateResponse
+	34,  // 170: work.v1.WorkService.CreateProjectFromTemplate:output_type -> work.v1.CreateProjectFromTemplateResponse
+	36,  // 171: work.v1.WorkService.CreateProjectStatus:output_type -> work.v1.CreateProjectStatusResponse
+	38,  // 172: work.v1.WorkService.UpdateProjectStatus:output_type -> work.v1.UpdateProjectStatusResponse
+	40,  // 173: work.v1.WorkService.DeleteProjectStatus:output_type -> work.v1.DeleteProjectStatusResponse
+	42,  // 174: work.v1.WorkService.ReorderProjectStatuses:output_type -> work.v1.ReorderProjectStatusesResponse
+	44,  // 175: work.v1.WorkService.ListProjectStatuses:output_type -> work.v1.ListProjectStatusesResponse
+	46,  // 176: work.v1.WorkService.CreateTask:output_type -> work.v1.CreateTaskResponse
+	48,  // 177: work.v1.WorkService.GetTask:output_type -> work.v1.GetTaskResponse
+	50,  // 178: work.v1.WorkService.ListTasks:output_type -> work.v1.ListTasksResponse
+	52,  // 179: work.v1.WorkService.UpdateTask:output_type -> work.v1.UpdateTaskResponse
+	54,  // 180: work.v1.WorkService.DeleteTask:output_type -> work.v1.DeleteTaskResponse
+	56,  // 181: work.v1.WorkService.MoveTask:output_type -> work.v1.MoveTaskResponse
+	58,  // 182: work.v1.WorkService.ListSubtasks:output_type -> work.v1.ListSubtasksResponse
+	60,  // 183: work.v1.WorkService.CreateTaskDependency:output_type -> work.v1.CreateTaskDependencyResponse
+	62,  // 184: work.v1.WorkService.DeleteTaskDependency:output_type -> work.v1.DeleteTaskDependencyResponse
+	64,  // 185: work.v1.WorkService.ListTaskDependencies:output_type -> work.v1.ListTaskDependenciesResponse
+	66,  // 186: work.v1.WorkService.CreateTaskComment:output_type -> work.v1.CreateTaskCommentResponse
+	68,  // 187: work.v1.WorkService.UpdateTaskComment:output_type -> work.v1.UpdateTaskCommentResponse
+	70,  // 188: work.v1.WorkService.DeleteTaskComment:output_type -> work.v1.DeleteTaskCommentResponse
+	72,  // 189: work.v1.WorkService.ListTaskComments:output_type -> work.v1.ListTaskCommentsResponse
+	74,  // 190: work.v1.WorkService.LinkEntityToTask:output_type -> work.v1.LinkEntityToTaskResponse
+	76,  // 191: work.v1.WorkService.UnlinkEntityFromTask:output_type -> work.v1.UnlinkEntityFromTaskResponse
+	78,  // 192: work.v1.WorkService.ListTaskEntityLinks:output_type -> work.v1.ListTaskEntityLinksResponse
+	80,  // 193: work.v1.WorkService.ListEntityTasks:output_type -> work.v1.ListEntityTasksResponse
+	82,  // 194: work.v1.WorkService.ListTaskActivities:output_type -> work.v1.ListTaskActivitiesResponse
+	84,  // 195: work.v1.WorkService.AttachFileToTask:output_type -> work.v1.AttachFileToTaskResponse
+	86,  // 196: work.v1.WorkService.RemoveTaskFile:output_type -> work.v1.RemoveTaskFileResponse
+	88,  // 197: work.v1.WorkService.ListTaskFiles:output_type -> work.v1.ListTaskFilesResponse
+	90,  // 198: work.v1.WorkService.GetTaskFileDownloadURL:output_type -> work.v1.GetTaskFileDownloadURLResponse
+	92,  // 199: work.v1.WorkService.SetTaskCustomFieldValues:output_type -> work.v1.SetTaskCustomFieldValuesResponse
+	94,  // 200: work.v1.WorkService.GetTaskCustomFieldValues:output_type -> work.v1.GetTaskCustomFieldValuesResponse
+	96,  // 201: work.v1.WorkService.GetUserProjectPreference:output_type -> work.v1.GetUserProjectPreferenceResponse
+	98,  // 202: work.v1.WorkService.SetUserProjectPreference:output_type -> work.v1.SetUserProjectPreferenceResponse
+	100, // 203: work.v1.WorkService.SearchTasks:output_type -> work.v1.SearchTasksResponse
+	105, // 204: work.v1.WorkService.StartTimer:output_type -> work.v1.StartTimerResponse
+	107, // 205: work.v1.WorkService.StopTimer:output_type -> work.v1.StopTimerResponse
+	109, // 206: work.v1.WorkService.GetActiveTimer:output_type -> work.v1.GetActiveTimerResponse
+	111, // 207: work.v1.WorkService.AddManualTimeEntry:output_type -> work.v1.AddManualTimeEntryResponse
+	113, // 208: work.v1.WorkService.UpdateTimeEntry:output_type -> work.v1.UpdateTimeEntryResponse
+	115, // 209: work.v1.WorkService.DeleteTimeEntry:output_type -> work.v1.DeleteTimeEntryResponse
+	117, // 210: work.v1.WorkService.ListTimeEntries:output_type -> work.v1.ListTimeEntriesResponse
+	129, // 211: work.v1.WorkService.GetTaskTimeSummary:output_type -> work.v1.GetTaskTimeSummaryResponse
+	120, // 212: work.v1.WorkService.ListBillableTimeEntries:output_type -> work.v1.ListBillableTimeEntriesResponse
+	123, // 213: work.v1.WorkService.ListProjectTimeEntries:output_type -> work.v1.ListProjectTimeEntriesResponse
+	127, // 214: work.v1.WorkService.ListProjectTeamUtilization:output_type -> work.v1.ListProjectTeamUtilizationResponse
+	132, // 215: work.v1.WorkService.CreateLabel:output_type -> work.v1.CreateLabelResponse
+	134, // 216: work.v1.WorkService.GetLabel:output_type -> work.v1.GetLabelResponse
+	136, // 217: work.v1.WorkService.ListLabels:output_type -> work.v1.ListLabelsResponse
+	138, // 218: work.v1.WorkService.UpdateLabel:output_type -> work.v1.UpdateLabelResponse
+	140, // 219: work.v1.WorkService.DeleteLabel:output_type -> work.v1.DeleteLabelResponse
+	142, // 220: work.v1.WorkService.SetTaskLabels:output_type -> work.v1.SetTaskLabelsResponse
+	145, // 221: work.v1.WorkService.CreateCustomFieldDefinition:output_type -> work.v1.CreateCustomFieldDefinitionResponse
+	147, // 222: work.v1.WorkService.GetCustomFieldDefinition:output_type -> work.v1.GetCustomFieldDefinitionResponse
+	149, // 223: work.v1.WorkService.ListCustomFieldDefinitions:output_type -> work.v1.ListCustomFieldDefinitionsResponse
+	151, // 224: work.v1.WorkService.UpdateCustomFieldDefinition:output_type -> work.v1.UpdateCustomFieldDefinitionResponse
+	153, // 225: work.v1.WorkService.DeleteCustomFieldDefinition:output_type -> work.v1.DeleteCustomFieldDefinitionResponse
+	159, // [159:226] is the sub-list for method output_type
+	92,  // [92:159] is the sub-list for method input_type
 	92,  // [92:92] is the sub-list for extension type_name
 	92,  // [92:92] is the sub-list for extension extendee
 	0,   // [0:92] is the sub-list for field type_name
@@ -10058,20 +10200,20 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[51].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[65].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[83].OneofWrappers = []any{}
-	file_proto_work_v1_work_proto_msgTypes[95].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[97].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[99].OneofWrappers = []any{}
-	file_proto_work_v1_work_proto_msgTypes[103].OneofWrappers = []any{}
-	file_proto_work_v1_work_proto_msgTypes[107].OneofWrappers = []any{}
-	file_proto_work_v1_work_proto_msgTypes[108].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[101].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[105].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[109].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[110].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[112].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_work_v1_work_proto_rawDesc), len(file_proto_work_v1_work_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   155,
+			NumMessages:   157,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

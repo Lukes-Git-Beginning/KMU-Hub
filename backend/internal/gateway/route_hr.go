@@ -72,19 +72,32 @@ func (h *HRRoutes) getHRClient() (hrv1.HRServiceClient, error) {
 
 // RegisterRoutes registers all HR HTTP routes.
 func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler) http.Handler) {
+	// Self-service routes accept hr:self beside the coarse hr:read/hr:write. Employees (member,
+	// manager) hold only hr:self at scope "own"; every handler below takes the identity from the
+	// token, never from the request. Additive, not replacing: permissions are baked into the
+	// access token at login, so a still-valid token with the coarse key must keep working.
+	var (
+		selfRead  = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"hr", "self"})
+		selfWrite = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"hr", "self"})
+		// A manager decides for the reporting line through team:absence:approve (scope team);
+		// hr:write keeps deciding for the whole tenant. Additive for the same token reason.
+		leaveDecide = middleware.RequirePermissionAny([2]string{"hr", "write"}, leaveApprovePerm)
+	)
+
 	// Leave management
 	r.Route("/api/v1/hr/leave", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests", h.HandleCreateLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/requests", h.HandleListLeaveRequests)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/requests/{id}", h.HandleGetLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/approve", h.HandleApproveLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetLeaveBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/types", h.HandleListLeaveTypes)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/sick", h.HandleRecordSickLeave)
+		r.With(selfWrite).Post("/requests", h.HandleCreateLeaveRequest)
+		r.With(selfRead).Get("/requests", h.HandleListLeaveRequests)
+		r.With(selfRead).Get("/requests/{id}", h.HandleGetLeaveRequest)
+		r.With(leaveDecide).Post("/requests/{id}/approve", h.HandleApproveLeaveRequest)
+		r.With(leaveDecide).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
+		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
+		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
+		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
+		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
+		// Books the caller's own sick leave (user id from the token, no path id): self-service.
+		r.With(selfWrite).Post("/sick", h.HandleRecordSickLeave)
 	})
 
 	// Time tracking (Zeiterfassung). Additive guards on the supervisory routes:
@@ -93,9 +106,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// access token at login and never re-read per request, so swapping a key
 	// outright would 403 every user holding a still-valid token.
 	//
-	// Personal daily use (clock in/out, own entries, own week) stays on the
-	// coarse key by design — the catalogue deliberately carries no capability
-	// for it. `zeiterfassung:export:run` has no endpoint yet.
+	// Personal daily use (clock in/out, own entries, own week) takes hr:self
+	// beside the coarse key — the catalogue deliberately carries no capability
+	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries honours
+	// an employee_id query; hr:self at scope own is pinned to the caller there
+	// (restrictToOwnEmployee).
 	var (
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
@@ -104,24 +119,24 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 
 	r.Route("/api/v1/hr/time", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/clock-in", h.HandleClockIn)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/clock-out", h.HandleClockOut)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/break/start", h.HandleBreakStart)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/break/end", h.HandleBreakEnd)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/active", h.HandleGetActiveShift)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/status", h.HandleGetWorkTimeStatus)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/entries", h.HandleListWorkTimeEntries)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/entries", h.HandleCreateManualEntry)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/daily", h.HandleDailySummary)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/summary/weekly", h.HandleWeeklySummary)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/corrections", h.HandleSubmitCorrection)
+		r.With(selfWrite).Post("/clock-in", h.HandleClockIn)
+		r.With(selfWrite).Post("/clock-out", h.HandleClockOut)
+		r.With(selfWrite).Post("/break/start", h.HandleBreakStart)
+		r.With(selfWrite).Post("/break/end", h.HandleBreakEnd)
+		r.With(selfRead).Get("/active", h.HandleGetActiveShift)
+		r.With(selfRead).Get("/status", h.HandleGetWorkTimeStatus)
+		r.With(selfRead).Get("/entries", h.HandleListWorkTimeEntries)
+		r.With(selfWrite).Post("/entries", h.HandleCreateManualEntry)
+		r.With(selfRead).Get("/summary/daily", h.HandleDailySummary)
+		r.With(selfRead).Get("/summary/weekly", h.HandleWeeklySummary)
+		r.With(selfWrite).Post("/corrections", h.HandleSubmitCorrection)
 		r.With(zeitCorrApprove).Post("/corrections/{id}/approve", h.HandleApproveCorrection)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/balance", h.HandleGetTimeBalance)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/analytics", h.HandleGetTimeAnalytics)
+		r.With(selfRead).Get("/balance", h.HandleGetTimeBalance)
+		r.With(selfRead).Get("/analytics", h.HandleGetTimeAnalytics)
 		r.With(zeitTeamView).Get("/team", h.HandleGetTeamTime)
 		// Week approvals
-		r.With(middleware.RequirePermission("hr", "read")).Get("/weeks/status", h.HandleGetMyWeekStatus)
-		r.With(middleware.RequirePermission("hr", "write")).Post("/weeks/submit", h.HandleSubmitWeek)
+		r.With(selfRead).Get("/weeks/status", h.HandleGetMyWeekStatus)
+		r.With(selfWrite).Post("/weeks/submit", h.HandleSubmitWeek)
 		r.With(zeitWeekApprove).Post("/weeks/approve", h.HandleApproveWeek)
 		r.With(zeitWeekApprove).Post("/weeks/reject", h.HandleRejectWeek)
 		r.With(zeitWeekApprove).Post("/weeks/reopen", h.HandleReopenWeek)
@@ -158,14 +173,20 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		[2]string{"hr", "read"}, [2]string{"team:documents", "view"},
 	)
 
+	// The team directory (pickers, team page, org chart) for everyone holding team:employee:read
+	// (member scope all, manager scope team, migration 000256); hr:read is admin-only (000129).
+	// Without hr:read the list answers with the directory projection, see HandleListEmployees.
+	directoryRead := middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"team:employee", "read"})
+
 	// Employee profiles
 	r.Route("/api/v1/hr/employees", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/", h.HandleListEmployees)
+		r.With(directoryRead).Get("/", h.HandleListEmployees)
 		r.With(middleware.RequirePermission("hr", "admin")).Post("/", h.HandleCreateEmployee)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/me", h.HandleGetSelfProfile)
-		r.With(middleware.RequirePermission("hr", "write")).Put("/me", h.HandleUpdateSelfProfile)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}", h.HandleGetEmployee)
+		// The caller's own full profile; the handler reads the id from the token only.
+		r.With(directoryRead).Get("/me", h.HandleGetSelfProfile)
+		r.With(selfWrite).Put("/me", h.HandleUpdateSelfProfile)
+		r.With(directoryRead).Get("/{id}", h.HandleGetEmployee)
 		r.With(middleware.RequirePermission("hr", "admin")).Put("/{id}", h.HandleUpdateEmployee)
 		// team:employee:offboard is in the catalogue since 000256 and assigned
 		// to admin and hr_admin, so no seed migration is needed here.
@@ -300,7 +321,7 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
 	// A leave request's employee_id is the user id of whoever filed it. The self-service view asks
 	// with user_id; employee_id is the same filter under its HR name.
@@ -310,12 +331,20 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 	}
 	// A grant narrowed to "own" overrides whatever the client asked for, otherwise the narrowing
 	// is a suggestion and the self-service list shows every request of the tenant.
-	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
 	if !ok {
 		return
 	}
+	// A manager narrowed to "own" by hr:self still sees the reporting line's requests, which is
+	// what the approval tab asks for (no employee filter). Their own requests stay reachable
+	// by asking for their own id.
+	reportingLine := false
 	if ownerID != nil {
-		employeeID = *ownerID
+		if callerMayDecideLeave(r.Context()) && !strings.EqualFold(employeeID, *ownerID) {
+			reportingLine = true
+		} else {
+			employeeID = *ownerID
+		}
 	}
 
 	grpcReq := &hrv1.ListLeaveRequestsReq{
@@ -326,6 +355,8 @@ func (h *HRRoutes) HandleListLeaveRequests(w http.ResponseWriter, r *http.Reques
 		EndDate:    r.URL.Query().Get("end_date"),
 		Page:       int32(page),
 		PerPage:    int32(pageSize),
+
+		ReportingLineOnly: reportingLine,
 	}
 
 	resp, err := client.ListLeaveRequests(r.Context(), grpcReq)
@@ -354,7 +385,7 @@ func (h *HRRoutes) HandleGetLeaveRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ownerID, ok := ownerFilterForScope(w, r, "hr", "read")
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
 	if !ok {
 		return
 	}
@@ -397,6 +428,7 @@ func (h *HRRoutes) HandleApproveLeaveRequest(w http.ResponseWriter, r *http.Requ
 		Id:         id,
 		ApproverId: approverID,
 		Comment:    req.Comment,
+		Scope:      leaveDecisionScope(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -429,6 +461,7 @@ func (h *HRRoutes) HandleRejectLeaveRequest(w http.ResponseWriter, r *http.Reque
 		Id:         id,
 		ApproverId: approverID,
 		Comment:    req.Comment,
+		Scope:      leaveDecisionScope(r.Context()),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -498,7 +531,10 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	employeeID := chi.URLParam(r, "userId")
+	employeeID, ok := restrictToOwnEmployee(w, r, chi.URLParam(r, "userId"))
+	if !ok {
+		return
+	}
 
 	resp, err := client.GetEmployeeLeaveBalance(r.Context(), &hrv1.GetEmployeeLeaveBalanceReq{
 		TenantId:   tenantID,
@@ -827,11 +863,16 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
+
+	employeeID, ok := restrictToOwnEmployee(w, r, r.URL.Query().Get("employee_id"))
+	if !ok {
+		return
+	}
 
 	grpcReq := &hrv1.ListWorkTimeEntriesReq{
 		TenantId:   tenantID,
-		EmployeeId: r.URL.Query().Get("employee_id"),
+		EmployeeId: employeeID,
 		StartDate:  r.URL.Query().Get("start_date"),
 		EndDate:    r.URL.Query().Get("end_date"),
 		Status:     r.URL.Query().Get("status"),
@@ -1042,7 +1083,7 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
 	resp, err := client.ListEmployees(r.Context(), &hrv1.ListEmployeesReq{
 		TenantId:   tenantID,
@@ -1052,6 +1093,15 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		respondGRPCError(w, err)
+		return
+	}
+
+	// Reached through team:employee:read alone: only the directory fields leave the gateway.
+	if !callerHasPermission(r, "hr:read") {
+		response.JSON(w, http.StatusOK, map[string]interface{}{
+			"employees": employeeDirectory(resp.Employees),
+			"total":     resp.Total,
+		})
 		return
 	}
 
@@ -1066,6 +1116,47 @@ func (h *HRRoutes) HandleListEmployees(w http.ResponseWriter, r *http.Request) {
 		"employees": employeesJSON,
 		"total":     resp.Total,
 	})
+}
+
+// employeeDirectoryEntry is the team directory's wire shape: what the people pickers, the team
+// page and the org chart read, and nothing else. Contract, leave days, start date, address,
+// emergency contact, exit details and is_minor stay behind hr:read. An explicit type rather
+// than a cleared proto, so a new profile field never leaks by default. omitempty matches the
+// protojson encoding of the full shape.
+type employeeDirectoryEntry struct {
+	ID            string `json:"id,omitempty"`
+	UserID        string `json:"user_id,omitempty"`
+	UserName      string `json:"user_name,omitempty"`
+	UserEmail     string `json:"user_email,omitempty"`
+	Department    string `json:"department,omitempty"`
+	PositionTitle string `json:"position_title,omitempty"`
+	ManagerUserID string `json:"manager_user_id,omitempty"`
+	ManagerName   string `json:"manager_name,omitempty"`
+	Status        string `json:"status,omitempty"`
+}
+
+func directoryEntryOf(p *hrv1.EmployeeProfile) employeeDirectoryEntry {
+	return employeeDirectoryEntry{
+		ID:            p.GetId(),
+		UserID:        p.GetUserId(),
+		UserName:      p.GetUserName(),
+		UserEmail:     p.GetUserEmail(),
+		Department:    p.GetDepartment(),
+		PositionTitle: p.GetPositionTitle(),
+		ManagerUserID: p.GetManagerUserId(),
+		ManagerName:   p.GetManagerName(),
+		Status:        p.GetStatus(),
+	}
+}
+
+// lean: tenant-wide directory even at manager scope team — a people picker needs every
+// colleague and these fields are not confidential in a KMU; narrow when a tenant asks for it.
+func employeeDirectory(profiles []*hrv1.EmployeeProfile) []employeeDirectoryEntry {
+	out := make([]employeeDirectoryEntry, 0, len(profiles))
+	for _, p := range profiles {
+		out = append(out, directoryEntryOf(p))
+	}
+	return out
 }
 
 func (h *HRRoutes) HandleGetSelfProfile(w http.ResponseWriter, r *http.Request) {
@@ -1105,6 +1196,13 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reached through team:employee:read alone: the colleague's profile window gets the same
+	// directory fields as the list, nothing of contract, address or exit details.
+	if !callerHasPermission(r, "hr:read") {
+		response.JSON(w, http.StatusOK, map[string]interface{}{"employee": directoryEntryOf(resp.Employee)})
+		return
+	}
+
 	response.ProtoWrapped(w, http.StatusOK, "employee", resp.Employee)
 }
 
@@ -1119,6 +1217,17 @@ type updateEmployeeHTTPReq struct {
 	// Pointer so an omitted field leaves the flag untouched instead of
 	// clearing it — the other fields here use their zero value for that.
 	IsMinor *bool `json:"is_minor"`
+	// Pointers for the same reason: omitted keeps the stored value, "" clears it.
+	EmergencyContactName  *string `json:"emergency_contact_name"`
+	EmergencyContactPhone *string `json:"emergency_contact_phone" validate:"omitempty,phone_dach"`
+	AddressStreet         *string `json:"address_street"`
+	AddressCity           *string `json:"address_city"`
+	AddressPostalCode     *string `json:"address_postal_code"     validate:"omitempty,plz_dach"`
+	AddressCountry        *string `json:"address_country"         validate:"omitempty,len=2"`
+	// Status is not an update field: the deactivate/reactivate buttons send it,
+	// but leaving means offboarding (exit date and type are mandatory). Declared
+	// only so it can be refused with a clear message instead of a false 200.
+	Status *string `json:"status"`
 }
 
 func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) {
@@ -1135,16 +1244,27 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if req.Status != nil {
+		response.Error(w, http.StatusBadRequest, "status kann hier nicht geändert werden: Deaktivieren läuft über das Offboarding")
+		return
+	}
+
 	grpcReq := &hrv1.UpdateEmployeeReq{
-		UserId:          id,
-		Department:      req.Department,
-		PositionTitle:   req.PositionTitle,
-		ContractType:    contractTypeHTTPToProto(req.ContractType),
-		WorkDaysPerWeek: req.WorkDaysPerWeek,
-		AnnualLeaveDays: req.AnnualLeaveDays,
-		ManagerUserId:   req.ManagerUserID,
-		StartDate:       req.StartDate,
-		IsMinor:         req.IsMinor,
+		UserId:                id,
+		Department:            req.Department,
+		PositionTitle:         req.PositionTitle,
+		ContractType:          contractTypeHTTPToProto(req.ContractType),
+		WorkDaysPerWeek:       req.WorkDaysPerWeek,
+		AnnualLeaveDays:       req.AnnualLeaveDays,
+		ManagerUserId:         req.ManagerUserID,
+		StartDate:             req.StartDate,
+		IsMinor:               req.IsMinor,
+		EmergencyContactName:  req.EmergencyContactName,
+		EmergencyContactPhone: req.EmergencyContactPhone,
+		AddressStreet:         req.AddressStreet,
+		AddressCity:           req.AddressCity,
+		AddressPostalCode:     req.AddressPostalCode,
+		AddressCountry:        req.AddressCountry,
 	}
 
 	resp, err := client.UpdateEmployee(r.Context(), grpcReq)
@@ -1598,7 +1718,17 @@ func (h *HRRoutes) HandleUpdateHRSettings(w http.ResponseWriter, r *http.Request
 		merged.MaxDailyHours = cur.GetMaxDailyHours()
 		merged.BreakAfterHours = cur.GetBreakAfterHours()
 	case status.Code(err) == codes.NotFound:
-		// First save of this tenant: nothing stored to keep.
+		// First save of this tenant: nothing stored to keep, so start from the column
+		// defaults instead of zeros.
+		// lean: mirrors the defaults of migrations 000046 and 000213; read them from the
+		// HR service once a third place needs them.
+		merged.AuThresholdDays = 3
+		merged.ShowAbsenceReason = true
+		merged.DefaultAnnualLeaveDays = 20
+		merged.Timezone = "Europe/Berlin"
+		merged.WorkHoursPerDay = 8
+		merged.MaxDailyHours = 10
+		merged.BreakAfterHours = 6
 	default:
 		respondGRPCError(w, err)
 		return
@@ -1886,9 +2016,12 @@ func (h *HRRoutes) HandleGetTeamTime(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The service lists the whole tenant only for scope "all"; a manager holding
+	// zeiterfassung:team:view at scope team sees their reporting line (Beschäftigtendaten).
 	resp, err := client.GetTeamTime(r.Context(), &hrv1.GetTeamTimeReq{
 		TenantId:  tenantID,
 		WeekStart: r.URL.Query().Get("week_start"),
+		Scope:     narrowestScopeAny(r.Context(), [2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"}),
 	})
 	if err != nil {
 		respondGRPCError(w, err)

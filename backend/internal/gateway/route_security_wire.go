@@ -15,8 +15,9 @@ import (
 	securityv1 "github.com/kmuhub/kmuhub/proto/security/v1"
 )
 
-// auditPageSizeMax caps one audit page; the log page asks for 25 rows.
-const auditPageSizeMax = 100
+// auditPageSizeMax caps one audit page: the log page asks for 25 rows, the roles tab for 200. The
+// audit service caps at 1000, so the gateway ceiling is the tighter one.
+const auditPageSizeMax = 200
 
 type auditEntryWire struct {
 	ID           string          `json:"id"`
@@ -104,7 +105,8 @@ func auditPageFromQuery(r *http.Request) (offset, limit int32) {
 	q := r.URL.Query()
 	page, pageSize := parsePagination(r, 1, 50)
 	offset, limit = int32((page-1)*pageSize), int32(pageSize)
-	if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 && v <= auditPageSizeMax {
+	if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 {
+		v = min(v, auditPageSizeMax) // clamp, not fall back to the default: limit=500 asks for "as many as allowed"
 		limit = int32(v)
 		if q.Get("offset") == "" {
 			offset = int32((page - 1) * v)

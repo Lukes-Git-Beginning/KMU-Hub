@@ -15,6 +15,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// maxPageSize is the largest page a task list may ask for; the desktop requests up to 200 rows at once.
+const maxPageSize = 200
+
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
 	pool *pgxpool.Pool
@@ -55,7 +58,7 @@ const getByIDQuery = `
 SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
        t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
        t.created_by, t.created_at, t.updated_at, t.completed_at,
-       ps.name AS status_name, ps.color AS status_color,
+       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
        u.first_name || ' ' || u.last_name AS assignee_name,
        p.project_key,
        (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -74,7 +77,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id, tenantID uuid.UUID
 		&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 		&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 		&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-		&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+		&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 		&tw.SubtaskCount, &tw.HasBlockedDeps,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -187,7 +190,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		page = 1
 	}
 	pageSize := filters.PageSize
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 || pageSize > maxPageSize {
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
@@ -196,7 +199,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -226,7 +229,7 @@ func (r *PostgresRepository) List(ctx context.Context, tenantID uuid.UUID, filte
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+			&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,
 		); scanErr != nil {
 			return nil, 0, scanErr
@@ -240,11 +243,13 @@ func (r *PostgresRepository) Update(ctx context.Context, task *models.Task) erro
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE tasks SET title = $1, description = $2, status_id = $3, priority = $4,
 		  assignee_id = $5, parent_task_id = $6, depth = $7, sort_order = $8,
-		  start_date = $9, due_date = $10, updated_at = $11, completed_at = $12
+		  start_date = $9, due_date = $10, updated_at = $11, completed_at = $12,
+		  project_id = $15, task_number = $16
 		 WHERE id = $13 AND tenant_id = $14`,
 		task.Title, task.Description, task.StatusID, task.Priority,
 		task.AssigneeID, task.ParentTaskID, task.Depth, task.SortOrder,
 		task.StartDate, task.DueDate, task.UpdatedAt, task.CompletedAt, task.ID, task.TenantID,
+		task.ProjectID, task.TaskNumber,
 	)
 	if err != nil {
 		return err
@@ -295,7 +300,7 @@ func (r *PostgresRepository) GetSubtasks(ctx context.Context, parentID uuid.UUID
 		SELECT st.id, st.project_id, st.task_number, st.title, st.description, st.status_id, st.priority,
 		       st.assignee_id, st.parent_task_id, st.depth, st.sort_order, st.start_date, st.due_date,
 		       st.created_by, st.created_at, st.updated_at, st.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = st.id) AS subtask_count,
@@ -520,7 +525,7 @@ func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType 
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -542,14 +547,39 @@ func (r *PostgresRepository) ListTasksForEntity(ctx context.Context, entityType 
 }
 
 func (r *PostgresRepository) AttachFile(ctx context.Context, file *models.TaskFile) error {
-	_, err := r.pool.Exec(ctx,
+	// The tenant comes from the caller, not from the task's project: a
+	// standalone task has none, and the project join left tenant_id NULL.
+	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO task_files (id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at, tenant_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
-		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
+		 SELECT $1, t.id, $3, $4, $5, $6, $7, $8, $9, t.tenant_id
+		 FROM tasks t WHERE t.id = $2 AND t.tenant_id = $10`,
 		file.ID, file.TaskID, file.Filename, file.MimeType, file.FileSize,
-		file.StorageKey, file.ThumbnailKey, file.UploadedBy, file.CreatedAt,
+		file.StorageKey, file.ThumbnailKey, file.UploadedBy, file.CreatedAt, file.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostgresRepository) GetFile(ctx context.Context, tenantID, id uuid.UUID) (*models.TaskFile, error) {
+	var f models.TaskFile
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, task_id, filename, mime_type, file_size, storage_key, thumbnail_key, uploaded_by, created_at
+		 FROM task_files WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	).Scan(&f.ID, &f.TenantID, &f.TaskID, &f.Filename, &f.MimeType, &f.FileSize,
+		&f.StorageKey, &f.ThumbnailKey, &f.UploadedBy, &f.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrFileNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &f, nil
 }
 
 func (r *PostgresRepository) RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error {
@@ -699,7 +729,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 		page = 1
 	}
 	pageSize := filters.PageSize
-	if pageSize < 1 || pageSize > 100 {
+	if pageSize < 1 || pageSize > maxPageSize {
 		pageSize = 20
 	}
 	offset := (page - 1) * pageSize
@@ -708,7 +738,7 @@ func (r *PostgresRepository) Search(ctx context.Context, tenantID uuid.UUID, que
 		SELECT t.id, t.project_id, t.task_number, t.title, t.description, t.status_id, t.priority,
 		       t.assignee_id, t.parent_task_id, t.depth, t.sort_order, t.start_date, t.due_date,
 		       t.created_by, t.created_at, t.updated_at, t.completed_at,
-		       ps.name AS status_name, ps.color AS status_color,
+		       ps.name AS status_name, ps.color AS status_color, COALESCE(ps.is_closed, false) AS status_is_closed,
 		       u.first_name || ' ' || u.last_name AS assignee_name,
 		       p.project_key,
 		       (SELECT COUNT(*) FROM tasks WHERE parent_task_id = t.id) AS subtask_count,
@@ -802,6 +832,19 @@ func (r *PostgresRepository) GetStatusByID(ctx context.Context, statusID uuid.UU
 	return name, isClosed, err
 }
 
+func (r *PostgresRepository) FirstStatusByClosed(ctx context.Context, tenantID, projectID uuid.UUID, closed bool) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT id FROM project_statuses
+		 WHERE project_id = $1 AND tenant_id = $2 AND is_closed = $3
+		 ORDER BY sort_order ASC LIMIT 1`, projectID, tenantID, closed,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNoStatusForState
+	}
+	return id, err
+}
+
 // GetUserDisplayName returns the "first last" display name for a user, or an
 // empty string if the user is not found. Used to denormalize actor metadata
 // onto emitted notification events; resolution failures must not block emits.
@@ -826,7 +869,7 @@ func scanTasksWithRelations(rows pgx.Rows) ([]models.TaskWithRelations, error) {
 			&tw.StatusID, &tw.Priority, &tw.AssigneeID, &tw.ParentTaskID,
 			&tw.Depth, &tw.SortOrder, &tw.StartDate, &tw.DueDate, &tw.CreatedBy,
 			&tw.CreatedAt, &tw.UpdatedAt, &tw.CompletedAt,
-			&tw.StatusName, &tw.StatusColor, &tw.AssigneeName, &tw.ProjectKey,
+			&tw.StatusName, &tw.StatusColor, &tw.StatusIsClosed, &tw.AssigneeName, &tw.ProjectKey,
 			&tw.SubtaskCount, &tw.HasBlockedDeps,
 		); scanErr != nil {
 			return nil, scanErr

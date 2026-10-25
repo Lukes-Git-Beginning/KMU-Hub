@@ -122,8 +122,11 @@ type CreateInput struct {
 	InvoiceDate      time.Time
 	DeliveryDate     *time.Time
 	PaymentTermsDays int
-	Notes            string
-	SourceQuoteID    *uuid.UUID
+	// PaymentTerms is free text without a number ("Sofort fällig"); it replaces the
+	// generated "N Tage netto" label, the due date still follows PaymentTermsDays.
+	PaymentTerms  string
+	Notes         string
+	SourceQuoteID *uuid.UUID
 	// ContactID links this invoice to a CRM contact for Contact-360 view.
 	ContactID *uuid.UUID
 	// RecurringID marks this invoice as emitted by a recurring schedule
@@ -206,7 +209,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 	}
 	dueDate := invoiceDate.AddDate(0, 0, paymentTermsDays)
 
-	paymentTerms := fmt.Sprintf("%d Tage netto", paymentTermsDays)
+	paymentTerms := input.PaymentTerms
+	if paymentTerms == "" {
+		paymentTerms = fmt.Sprintf("%d Tage netto", paymentTermsDays)
+	}
 
 	now := time.Now()
 	inv := &models.Invoice{
@@ -392,7 +398,11 @@ type UpdateInput struct {
 	InvoiceDate      *time.Time
 	DeliveryDate     *time.Time
 	PaymentTermsDays *int
-	// DueDate sets the due date explicitly; PaymentTermsDays wins when both are set.
+	// PaymentTerms is free text without a number ("Sofort fällig"); it only sets the
+	// label and leaves the due date alone.
+	PaymentTerms *string
+	// DueDate sets the due date explicitly and wins over PaymentTermsDays; the
+	// terms label is still taken over.
 	DueDate  *time.Time
 	Currency *string // ISO 4217; nil or empty = no change
 	Notes    *string
@@ -453,11 +463,16 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	if input.DueDate != nil {
 		inv.DueDate = *input.DueDate
 	}
-	// Recalculate due date if payment terms or invoice date changed
+	// Terms recalculate the due date unless the caller named one explicitly.
 	if input.PaymentTermsDays != nil {
 		days := *input.PaymentTermsDays
-		inv.DueDate = inv.InvoiceDate.AddDate(0, 0, days)
+		if input.DueDate == nil {
+			inv.DueDate = inv.InvoiceDate.AddDate(0, 0, days)
+		}
 		inv.PaymentTerms = fmt.Sprintf("%d Tage netto", days)
+	}
+	if input.PaymentTerms != nil && *input.PaymentTerms != "" {
+		inv.PaymentTerms = *input.PaymentTerms
 	}
 
 	// Recalculate tax if line items or tax mode changed

@@ -890,6 +890,9 @@ message ListOpenItemsResponse {
 
 message GetFinanceDashboardRequest {
   string tenant_id = 1;
+  // Inclusive reporting range, YYYY-MM-DD. Both unset: January 1st of the current year until now.
+  optional string date_from = 2;
+  optional string date_to = 3;
 }
 
 message GetFinanceDashboardResponse {

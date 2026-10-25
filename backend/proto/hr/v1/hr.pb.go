@@ -2204,16 +2204,19 @@ func (x *GetLeaveRequestResp) GetLeaveRequest() *LeaveRequest {
 }
 
 type ListLeaveRequestsReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	EmployeeId    string                 `protobuf:"bytes,2,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"` // Optional: filter by employee
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                           // Optional: filter by status
-	StartDate     string                 `protobuf:"bytes,4,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`    // Optional: filter by date range
-	EndDate       string                 `protobuf:"bytes,5,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
-	Page          int32                  `protobuf:"varint,6,opt,name=page,proto3" json:"page,omitempty"`
-	PerPage       int32                  `protobuf:"varint,7,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TenantId   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	EmployeeId string                 `protobuf:"bytes,2,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"` // Optional: filter by employee
+	Status     string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                           // Optional: filter by status
+	StartDate  string                 `protobuf:"bytes,4,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`    // Optional: filter by date range
+	EndDate    string                 `protobuf:"bytes,5,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`
+	Page       int32                  `protobuf:"varint,6,opt,name=page,proto3" json:"page,omitempty"`
+	PerPage    int32                  `protobuf:"varint,7,opt,name=per_page,json=perPage,proto3" json:"per_page,omitempty"`
+	// Restricts the list to the caller's direct reports (hr_employee_profiles.manager_user_id).
+	// The caller comes from the call context, never from this message.
+	ReportingLineOnly bool `protobuf:"varint,8,opt,name=reporting_line_only,json=reportingLineOnly,proto3" json:"reporting_line_only,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *ListLeaveRequestsReq) Reset() {
@@ -2295,6 +2298,13 @@ func (x *ListLeaveRequestsReq) GetPerPage() int32 {
 	return 0
 }
 
+func (x *ListLeaveRequestsReq) GetReportingLineOnly() bool {
+	if x != nil {
+		return x.ReportingLineOnly
+	}
+	return false
+}
+
 type ListLeaveRequestsResp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LeaveRequests []*LeaveRequest        `protobuf:"bytes,1,rep,name=leave_requests,json=leaveRequests,proto3" json:"leave_requests,omitempty"`
@@ -2364,11 +2374,14 @@ func (x *ListLeaveRequestsResp) GetPerPage() int32 {
 }
 
 type ApproveLeaveRequestReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ApproverId    string                 `protobuf:"bytes,3,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"`
-	Comment       string                 `protobuf:"bytes,4,opt,name=comment,proto3" json:"comment,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ApproverId string                 `protobuf:"bytes,3,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"`
+	Comment    string                 `protobuf:"bytes,4,opt,name=comment,proto3" json:"comment,omitempty"`
+	// How far the approver's grant reaches. "all" decides for any employee; ANY other value,
+	// including empty, restricts the decision to the approver's direct reports (fail-closed).
+	Scope         string `protobuf:"bytes,5,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2431,6 +2444,13 @@ func (x *ApproveLeaveRequestReq) GetComment() string {
 	return ""
 }
 
+func (x *ApproveLeaveRequestReq) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
 type ApproveLeaveRequestResp struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LeaveRequest  *LeaveRequest          `protobuf:"bytes,1,opt,name=leave_request,json=leaveRequest,proto3" json:"leave_request,omitempty"`
@@ -2476,11 +2496,14 @@ func (x *ApproveLeaveRequestResp) GetLeaveRequest() *LeaveRequest {
 }
 
 type RejectLeaveRequestReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ApproverId    string                 `protobuf:"bytes,3,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"`
-	Comment       string                 `protobuf:"bytes,4,opt,name=comment,proto3" json:"comment,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ApproverId string                 `protobuf:"bytes,3,opt,name=approver_id,json=approverId,proto3" json:"approver_id,omitempty"`
+	Comment    string                 `protobuf:"bytes,4,opt,name=comment,proto3" json:"comment,omitempty"`
+	// How far the approver's grant reaches. "all" decides for any employee; ANY other value,
+	// including empty, restricts the decision to the approver's direct reports (fail-closed).
+	Scope         string `protobuf:"bytes,5,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2539,6 +2562,13 @@ func (x *RejectLeaveRequestReq) GetApproverId() string {
 func (x *RejectLeaveRequestReq) GetComment() string {
 	if x != nil {
 		return x.Comment
+	}
+	return ""
+}
+
+func (x *RejectLeaveRequestReq) GetScope() string {
+	if x != nil {
+		return x.Scope
 	}
 	return ""
 }
@@ -4633,9 +4663,17 @@ type UpdateEmployeeReq struct {
 	// optional, because a plain bool cannot tell "set to false" apart from
 	// "not part of this update" — every other field here uses its zero value
 	// for the latter.
-	IsMinor       *bool `protobuf:"varint,10,opt,name=is_minor,json=isMinor,proto3,oneof" json:"is_minor,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	IsMinor *bool `protobuf:"varint,10,opt,name=is_minor,json=isMinor,proto3,oneof" json:"is_minor,omitempty"`
+	// optional for the same reason: absent keeps the stored value, an empty
+	// string clears it (address_country cannot be cleared, it is NOT NULL).
+	EmergencyContactName  *string `protobuf:"bytes,11,opt,name=emergency_contact_name,json=emergencyContactName,proto3,oneof" json:"emergency_contact_name,omitempty"`
+	EmergencyContactPhone *string `protobuf:"bytes,12,opt,name=emergency_contact_phone,json=emergencyContactPhone,proto3,oneof" json:"emergency_contact_phone,omitempty"`
+	AddressStreet         *string `protobuf:"bytes,13,opt,name=address_street,json=addressStreet,proto3,oneof" json:"address_street,omitempty"`
+	AddressCity           *string `protobuf:"bytes,14,opt,name=address_city,json=addressCity,proto3,oneof" json:"address_city,omitempty"`
+	AddressPostalCode     *string `protobuf:"bytes,15,opt,name=address_postal_code,json=addressPostalCode,proto3,oneof" json:"address_postal_code,omitempty"`
+	AddressCountry        *string `protobuf:"bytes,16,opt,name=address_country,json=addressCountry,proto3,oneof" json:"address_country,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *UpdateEmployeeReq) Reset() {
@@ -4736,6 +4774,48 @@ func (x *UpdateEmployeeReq) GetIsMinor() bool {
 		return *x.IsMinor
 	}
 	return false
+}
+
+func (x *UpdateEmployeeReq) GetEmergencyContactName() string {
+	if x != nil && x.EmergencyContactName != nil {
+		return *x.EmergencyContactName
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetEmergencyContactPhone() string {
+	if x != nil && x.EmergencyContactPhone != nil {
+		return *x.EmergencyContactPhone
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressStreet() string {
+	if x != nil && x.AddressStreet != nil {
+		return *x.AddressStreet
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressCity() string {
+	if x != nil && x.AddressCity != nil {
+		return *x.AddressCity
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressPostalCode() string {
+	if x != nil && x.AddressPostalCode != nil {
+		return *x.AddressPostalCode
+	}
+	return ""
+}
+
+func (x *UpdateEmployeeReq) GetAddressCountry() string {
+	if x != nil && x.AddressCountry != nil {
+		return *x.AddressCountry
+	}
+	return ""
 }
 
 type UpdateEmployeeResp struct {
@@ -7881,9 +7961,13 @@ func (x *TeamTimeEntry) GetWeekStatus() string {
 }
 
 type GetTeamTimeReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	WeekStart     string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	WeekStart string                 `protobuf:"bytes,2,opt,name=week_start,json=weekStart,proto3" json:"week_start,omitempty"` // YYYY-MM-DD
+	// How far the caller's grant reaches. "all" lists every employee of the tenant; ANY other
+	// value, including empty, lists only the caller's reporting line (fail-closed). The caller
+	// comes from the call context, never from this message.
+	Scope         string `protobuf:"bytes,3,opt,name=scope,proto3" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7928,6 +8012,13 @@ func (x *GetTeamTimeReq) GetTenantId() string {
 func (x *GetTeamTimeReq) GetWeekStart() string {
 	if x != nil {
 		return x.WeekStart
+	}
+	return ""
+}
+
+func (x *GetTeamTimeReq) GetScope() string {
+	if x != nil {
+		return x.Scope
 	}
 	return ""
 }
@@ -9678,7 +9769,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"O\n" +
 	"\x13GetLeaveRequestResp\x128\n" +
-	"\rleave_request\x18\x01 \x01(\v2\x13.hr.v1.LeaveRequestR\fleaveRequest\"\xd5\x01\n" +
+	"\rleave_request\x18\x01 \x01(\v2\x13.hr.v1.LeaveRequestR\fleaveRequest\"\x85\x02\n" +
 	"\x14ListLeaveRequestsReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vemployee_id\x18\x02 \x01(\tR\n" +
@@ -9688,26 +9779,29 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"start_date\x18\x04 \x01(\tR\tstartDate\x12\x19\n" +
 	"\bend_date\x18\x05 \x01(\tR\aendDate\x12\x12\n" +
 	"\x04page\x18\x06 \x01(\x05R\x04page\x12\x19\n" +
-	"\bper_page\x18\a \x01(\x05R\aperPage\"\x98\x01\n" +
+	"\bper_page\x18\a \x01(\x05R\aperPage\x12.\n" +
+	"\x13reporting_line_only\x18\b \x01(\bR\x11reportingLineOnly\"\x98\x01\n" +
 	"\x15ListLeaveRequestsResp\x12:\n" +
 	"\x0eleave_requests\x18\x01 \x03(\v2\x13.hr.v1.LeaveRequestR\rleaveRequests\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x19\n" +
-	"\bper_page\x18\x04 \x01(\x05R\aperPage\"\x80\x01\n" +
+	"\bper_page\x18\x04 \x01(\x05R\aperPage\"\x96\x01\n" +
 	"\x16ApproveLeaveRequestReq\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vapprover_id\x18\x03 \x01(\tR\n" +
 	"approverId\x12\x18\n" +
-	"\acomment\x18\x04 \x01(\tR\acomment\"S\n" +
+	"\acomment\x18\x04 \x01(\tR\acomment\x12\x14\n" +
+	"\x05scope\x18\x05 \x01(\tR\x05scope\"S\n" +
 	"\x17ApproveLeaveRequestResp\x128\n" +
-	"\rleave_request\x18\x01 \x01(\v2\x13.hr.v1.LeaveRequestR\fleaveRequest\"\x7f\n" +
+	"\rleave_request\x18\x01 \x01(\v2\x13.hr.v1.LeaveRequestR\fleaveRequest\"\x95\x01\n" +
 	"\x15RejectLeaveRequestReq\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vapprover_id\x18\x03 \x01(\tR\n" +
 	"approverId\x12\x18\n" +
-	"\acomment\x18\x04 \x01(\tR\acomment\"R\n" +
+	"\acomment\x18\x04 \x01(\tR\acomment\x12\x14\n" +
+	"\x05scope\x18\x05 \x01(\tR\x05scope\"R\n" +
 	"\x16RejectLeaveRequestResp\x128\n" +
 	"\rleave_request\x18\x01 \x01(\v2\x13.hr.v1.LeaveRequestR\fleaveRequest\"]\n" +
 	"\x15CancelLeaveRequestReq\x12\x0e\n" +
@@ -9856,7 +9950,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"E\n" +
 	"\x0fGetEmployeeResp\x122\n" +
-	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\x97\x03\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xcd\x06\n" +
 	"\x11UpdateEmployeeReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1e\n" +
@@ -9871,8 +9965,20 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"start_date\x18\t \x01(\tR\tstartDate\x12\x1e\n" +
 	"\bis_minor\x18\n" +
-	" \x01(\bH\x00R\aisMinor\x88\x01\x01B\v\n" +
-	"\t_is_minor\"H\n" +
+	" \x01(\bH\x00R\aisMinor\x88\x01\x01\x129\n" +
+	"\x16emergency_contact_name\x18\v \x01(\tH\x01R\x14emergencyContactName\x88\x01\x01\x12;\n" +
+	"\x17emergency_contact_phone\x18\f \x01(\tH\x02R\x15emergencyContactPhone\x88\x01\x01\x12*\n" +
+	"\x0eaddress_street\x18\r \x01(\tH\x03R\raddressStreet\x88\x01\x01\x12&\n" +
+	"\faddress_city\x18\x0e \x01(\tH\x04R\vaddressCity\x88\x01\x01\x123\n" +
+	"\x13address_postal_code\x18\x0f \x01(\tH\x05R\x11addressPostalCode\x88\x01\x01\x12,\n" +
+	"\x0faddress_country\x18\x10 \x01(\tH\x06R\x0eaddressCountry\x88\x01\x01B\v\n" +
+	"\t_is_minorB\x19\n" +
+	"\x17_emergency_contact_nameB\x1a\n" +
+	"\x18_emergency_contact_phoneB\x11\n" +
+	"\x0f_address_streetB\x0f\n" +
+	"\r_address_cityB\x16\n" +
+	"\x14_address_postal_codeB\x12\n" +
+	"\x10_address_country\"H\n" +
 	"\x12UpdateEmployeeResp\x122\n" +
 	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xf4\x01\n" +
 	"\x13OffboardEmployeeReq\x12\x1f\n" +
@@ -10129,11 +10235,12 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\n" +
 	"clocked_in\x18\a \x01(\bR\tclockedIn\x12\x1f\n" +
 	"\vweek_status\x18\b \x01(\tR\n" +
-	"weekStatus\"L\n" +
+	"weekStatus\"b\n" +
 	"\x0eGetTeamTimeReq\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"week_start\x18\x02 \x01(\tR\tweekStart\";\n" +
+	"week_start\x18\x02 \x01(\tR\tweekStart\x12\x14\n" +
+	"\x05scope\x18\x03 \x01(\tR\x05scope\";\n" +
 	"\x0fGetTeamTimeResp\x12(\n" +
 	"\x04team\x18\x01 \x03(\v2\x14.hr.v1.TeamTimeEntryR\x04team\"\xd1\x03\n" +
 	"\fWeekApproval\x12\x0e\n" +

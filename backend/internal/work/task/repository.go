@@ -47,7 +47,10 @@ type Repository interface {
 	ListTasksForEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error)
 
 	// Files
+	// AttachFile inserts under file.TenantID and returns ErrNotFound when the
+	// task does not exist in that tenant.
 	AttachFile(ctx context.Context, file *models.TaskFile) error
+	GetFile(ctx context.Context, tenantID, id uuid.UUID) (*models.TaskFile, error)
 	RemoveFile(ctx context.Context, tenantID, id uuid.UUID) error
 	ListFiles(ctx context.Context, taskID uuid.UUID) ([]models.TaskFile, error)
 
@@ -64,6 +67,9 @@ type Repository interface {
 
 	// Status check
 	GetStatusByID(ctx context.Context, statusID uuid.UUID) (statusName string, isClosed bool, err error)
+	// FirstStatusByClosed returns the project's status with the smallest sort_order
+	// whose is_closed equals closed, scoped to the tenant. ErrNoStatusForState if none.
+	FirstStatusByClosed(ctx context.Context, tenantID, projectID uuid.UUID, closed bool) (uuid.UUID, error)
 
 	// User display name lookup (for denormalizing actor metadata onto events)
 	GetUserDisplayName(ctx context.Context, userID uuid.UUID) (string, error)

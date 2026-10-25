@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"github.com/kmuhub/kmuhub/internal/email/label"
+	"github.com/kmuhub/kmuhub/internal/email/message"
 	"github.com/kmuhub/kmuhub/internal/email/rule"
 	"github.com/kmuhub/kmuhub/internal/email/signature"
 	"github.com/kmuhub/kmuhub/internal/email/template"
@@ -399,6 +400,7 @@ type testEmailSigRuleLabelTplFixture struct {
 	labelRepo    *stubLabelRepo
 	templateRepo *stubTemplateRepo
 	messages     *stubLabelMessageReader
+	msgRepo      *stubEmailMessageRepo
 }
 
 // newEmailSigRuleLabelTplFixture wires an EmailGRPCServer for the signature/
@@ -417,11 +419,16 @@ func newEmailSigRuleLabelTplFixture() *testEmailSigRuleLabelTplFixture {
 	labelSvc := label.NewService(labelRepo, messages)
 	tplSvc := template.NewService(templateRepo)
 
-	srv := NewEmailGRPCServer(nil, nil, nil, sigSvc, nil, nil, nil, nil, nil, ruleSvc, labelSvc, tplSvc)
+	// AssignMessageLabels runs the mailbox owner check, which reads the
+	// message through messageService; every account is testMailboxOwner's.
+	msgRepo := newStubEmailMessageRepo()
+	msgSvc := message.NewService(msgRepo, newStubFolderRepo())
+	srv := NewEmailGRPCServer(nil, msgSvc, nil, sigSvc, nil, nil, nil, nil, nil, ruleSvc, labelSvc, tplSvc)
+	srv.accounts = &stubMailboxAccounts{foreign: map[uuid.UUID]bool{}}
 
 	return &testEmailSigRuleLabelTplFixture{
 		srv: srv, sigRepo: sigRepo, ruleRepo: ruleRepo, labelRepo: labelRepo,
-		templateRepo: templateRepo, messages: messages,
+		templateRepo: templateRepo, messages: messages, msgRepo: msgRepo,
 	}
 }
 
@@ -433,18 +440,22 @@ func TestCreateSignature_FirstSignatureBecomesDefault(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
 	tenantID, userID := uuid.New(), uuid.New()
 
-	resp, err := f.srv.CreateSignature(ctxWithTenant(tenantID), &emailv1.CreateSignatureRequest{
-		UserId: userID.String(), Name: "Standard", HtmlContent: "<p>Gruss</p>",
+	resp, err := f.srv.CreateSignature(ctxWithActorAndTenant(userID, tenantID), &emailv1.CreateSignatureRequest{
+		UserId: uuid.NewString(), Name: "Standard", HtmlContent: "<p>Gruss</p>",
 	})
 	requireGRPCOK(t, err)
 	require.True(t, resp.Signature.IsDefault, "first signature for a user must become the default")
 	require.Equal(t, "Standard", resp.Signature.Name)
+	require.Len(t, f.sigRepo.sigs, 1)
+	for _, sig := range f.sigRepo.sigs {
+		require.Equal(t, userID, sig.UserID, "a signature belongs to the caller, whatever user_id says")
+	}
 }
 
-func TestCreateSignature_InvalidUserID(t *testing.T) {
+func TestCreateSignature_NoCaller(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.CreateSignature(ctxWithTenant(uuid.New()), &emailv1.CreateSignatureRequest{UserId: "not-a-uuid"})
-	requireGRPCCode(t, err, codes.InvalidArgument)
+	_, err := f.srv.CreateSignature(ctxWithTenant(uuid.New()), &emailv1.CreateSignatureRequest{Name: "x"})
+	requireGRPCCode(t, err, codes.Unauthenticated)
 }
 
 func TestGetSignature(t *testing.T) {
@@ -452,7 +463,7 @@ func TestGetSignature(t *testing.T) {
 	tenantID, userID := uuid.New(), uuid.New()
 	sig := seedSignature(f.sigRepo, tenantID, userID, "Standard", true)
 
-	resp, err := f.srv.GetSignature(ctxWithTenant(tenantID), &emailv1.GetSignatureRequest{Id: sig.ID.String()})
+	resp, err := f.srv.GetSignature(ctxWithActorAndTenant(userID, tenantID), &emailv1.GetSignatureRequest{Id: sig.ID.String()})
 	requireGRPCOK(t, err)
 	require.Equal(t, sig.ID.String(), resp.Signature.Id)
 }
@@ -465,7 +476,7 @@ func TestGetSignature_InvalidID(t *testing.T) {
 
 func TestGetSignature_NotFound(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.GetSignature(ctxWithTenant(uuid.New()), &emailv1.GetSignatureRequest{Id: uuid.New().String()})
+	_, err := f.srv.GetSignature(mailboxCtx(uuid.New()), &emailv1.GetSignatureRequest{Id: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -475,21 +486,37 @@ func TestListSignatures(t *testing.T) {
 	seedSignature(f.sigRepo, tenantID, userID, "A", true)
 	seedSignature(f.sigRepo, tenantID, userID, "B", false)
 
-	resp, err := f.srv.ListSignatures(ctxWithTenant(tenantID), &emailv1.ListSignaturesRequest{UserId: userID.String()})
+	resp, err := f.srv.ListSignatures(ctxWithActorAndTenant(userID, tenantID), &emailv1.ListSignaturesRequest{UserId: uuid.NewString()})
 	requireGRPCOK(t, err)
 	require.Len(t, resp.Signatures, 2)
 
-	// Wire-shape: a user with no signatures gets [] back, not null.
-	empty, err := f.srv.ListSignatures(ctxWithTenant(tenantID), &emailv1.ListSignaturesRequest{UserId: uuid.New().String()})
+	// Wire-shape: a user with no signatures gets [] back, not null. Naming
+	// the other user in user_id does not reach their signatures.
+	empty, err := f.srv.ListSignatures(ctxWithActorAndTenant(uuid.New(), tenantID), &emailv1.ListSignaturesRequest{UserId: userID.String()})
 	requireGRPCOK(t, err)
 	require.NotNil(t, empty.Signatures)
 	require.Empty(t, empty.Signatures)
 }
 
-func TestListSignatures_InvalidUserID(t *testing.T) {
+// TestSignature_ForeignIsNotFound: a signature is personal, someone else's
+// answers NotFound on every by-ID RPC, like one that does not exist.
+func TestSignature_ForeignIsNotFound(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.ListSignatures(ctxWithTenant(uuid.New()), &emailv1.ListSignaturesRequest{UserId: "nope"})
-	requireGRPCCode(t, err, codes.InvalidArgument)
+	tenantID := uuid.New()
+	theirs := seedSignature(f.sigRepo, tenantID, uuid.New(), "Fremd", false)
+	ctx := ctxWithActorAndTenant(uuid.New(), tenantID)
+	id := theirs.ID.String()
+	name := "gekapert"
+
+	_, err := f.srv.GetSignature(ctx, &emailv1.GetSignatureRequest{Id: id})
+	requireGRPCCode(t, err, codes.NotFound)
+	_, err = f.srv.UpdateSignature(ctx, &emailv1.UpdateSignatureRequest{Id: id, Name: &name})
+	requireGRPCCode(t, err, codes.NotFound)
+	_, err = f.srv.SetDefaultSignature(ctx, &emailv1.SetDefaultSignatureRequest{Id: id})
+	requireGRPCCode(t, err, codes.NotFound)
+	_, err = f.srv.DeleteSignature(ctx, &emailv1.DeleteSignatureRequest{Id: id})
+	requireGRPCCode(t, err, codes.NotFound)
+	require.Equal(t, "Fremd", f.sigRepo.sigs[theirs.ID].Name)
 }
 
 func TestUpdateSignature(t *testing.T) {
@@ -498,7 +525,7 @@ func TestUpdateSignature(t *testing.T) {
 	sig := seedSignature(f.sigRepo, tenantID, userID, "Alt", false)
 	newName := "Neu"
 
-	resp, err := f.srv.UpdateSignature(ctxWithTenant(tenantID), &emailv1.UpdateSignatureRequest{
+	resp, err := f.srv.UpdateSignature(ctxWithActorAndTenant(userID, tenantID), &emailv1.UpdateSignatureRequest{
 		Id: sig.ID.String(), Name: &newName,
 	})
 	requireGRPCOK(t, err)
@@ -516,7 +543,7 @@ func TestDeleteSignature(t *testing.T) {
 	tenantID, userID := uuid.New(), uuid.New()
 	sig := seedSignature(f.sigRepo, tenantID, userID, "Weg", false)
 
-	_, err := f.srv.DeleteSignature(ctxWithTenant(tenantID), &emailv1.DeleteSignatureRequest{Id: sig.ID.String()})
+	_, err := f.srv.DeleteSignature(ctxWithActorAndTenant(userID, tenantID), &emailv1.DeleteSignatureRequest{Id: sig.ID.String()})
 	requireGRPCOK(t, err)
 	_, stillThere := f.sigRepo.sigs[sig.ID]
 	require.False(t, stillThere)
@@ -534,7 +561,7 @@ func TestSetDefaultSignature(t *testing.T) {
 	first := seedSignature(f.sigRepo, tenantID, userID, "A", true)
 	second := seedSignature(f.sigRepo, tenantID, userID, "B", false)
 
-	resp, err := f.srv.SetDefaultSignature(ctxWithTenant(tenantID), &emailv1.SetDefaultSignatureRequest{
+	resp, err := f.srv.SetDefaultSignature(ctxWithActorAndTenant(userID, tenantID), &emailv1.SetDefaultSignatureRequest{
 		Id: second.ID.String(), UserId: userID.String(),
 	})
 	requireGRPCOK(t, err)
@@ -544,7 +571,7 @@ func TestSetDefaultSignature(t *testing.T) {
 
 func TestSetDefaultSignature_NotFound(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
-	_, err := f.srv.SetDefaultSignature(ctxWithTenant(uuid.New()), &emailv1.SetDefaultSignatureRequest{
+	_, err := f.srv.SetDefaultSignature(mailboxCtx(uuid.New()), &emailv1.SetDefaultSignatureRequest{
 		Id: uuid.New().String(), UserId: uuid.New().String(),
 	})
 	requireGRPCCode(t, err, codes.NotFound)
@@ -747,8 +774,9 @@ func TestAssignMessageLabels(t *testing.T) {
 	l1 := seedLabel(f.labelRepo, tenantID, "A", "#6B7280")
 	l2 := seedLabel(f.labelRepo, tenantID, "B", "#FF0000")
 	msg := seedLabelableMessage(f.messages, tenantID)
+	f.msgRepo.messages[msg.ID] = &models.EmailMessage{ID: msg.ID, TenantID: tenantID, AccountID: uuid.New()}
 
-	resp, err := f.srv.AssignMessageLabels(ctxWithTenant(tenantID), &emailv1.AssignMessageLabelsRequest{
+	resp, err := f.srv.AssignMessageLabels(mailboxCtx(tenantID), &emailv1.AssignMessageLabelsRequest{
 		MessageId: msg.ID.String(), LabelIds: []string{l1.ID.String(), l2.ID.String()},
 	})
 	requireGRPCOK(t, err)
@@ -760,8 +788,9 @@ func TestAssignMessageLabels_InvalidLabelID(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
 	tenantID := uuid.New()
 	msg := seedLabelableMessage(f.messages, tenantID)
+	f.msgRepo.messages[msg.ID] = &models.EmailMessage{ID: msg.ID, TenantID: tenantID, AccountID: uuid.New()}
 
-	_, err := f.srv.AssignMessageLabels(ctxWithTenant(tenantID), &emailv1.AssignMessageLabelsRequest{
+	_, err := f.srv.AssignMessageLabels(mailboxCtx(tenantID), &emailv1.AssignMessageLabelsRequest{
 		MessageId: msg.ID.String(), LabelIds: []string{"not-a-uuid"},
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)

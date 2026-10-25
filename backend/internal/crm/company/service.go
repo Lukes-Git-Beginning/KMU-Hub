@@ -12,6 +12,9 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
+// maxPageSize is the largest page a list call may ask for; the desktop requests up to 200 rows at once.
+const maxPageSize = 200
+
 // Service handles company business logic
 type Service struct {
 	repo Repository
@@ -184,7 +187,7 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]*models.CompanyW
 	if input.Page < 1 {
 		input.Page = 1
 	}
-	if input.PageSize < 1 || input.PageSize > 100 {
+	if input.PageSize < 1 || input.PageSize > maxPageSize {
 		input.PageSize = 20
 	}
 

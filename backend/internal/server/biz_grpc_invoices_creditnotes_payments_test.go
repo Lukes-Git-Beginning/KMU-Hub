@@ -65,6 +65,14 @@ func (r *stubInvoiceRepo) GetByID(_ context.Context, tenantID, id uuid.UUID) (*m
 	return inv, nil
 }
 
+func (r *stubInvoiceRepo) LockForCreditInTx(ctx context.Context, _ pgx.Tx, tenantID, id uuid.UUID) (string, decimal.Decimal, error) {
+	inv, err := r.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return "", decimal.Zero, err
+	}
+	return inv.Status, inv.GrossTotal, nil
+}
+
 func (r *stubInvoiceRepo) List(_ context.Context, tenantID uuid.UUID, _ invoice.ListFilter) ([]*models.Invoice, int, error) {
 	if r.listErr != nil {
 		return nil, 0, r.listErr
@@ -173,6 +181,20 @@ func (r *stubCreditNoteRepo) Create(_ context.Context, cn *models.CreditNote) er
 	}
 	r.notes[cn.ID] = cn
 	return nil
+}
+
+func (r *stubCreditNoteRepo) CreateInTx(ctx context.Context, _ pgx.Tx, cn *models.CreditNote) error {
+	return r.Create(ctx, cn)
+}
+
+func (r *stubCreditNoteRepo) SumGrossByInvoiceInTx(_ context.Context, _ pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
+	sum := decimal.Zero
+	for _, cn := range r.notes {
+		if cn.TenantID == tenantID && cn.OriginalInvoiceID == invoiceID {
+			sum = sum.Add(cn.GrossTotal)
+		}
+	}
+	return sum, nil
 }
 
 func (r *stubCreditNoteRepo) GetByID(_ context.Context, tenantID, id uuid.UUID) (*models.CreditNote, error) {
@@ -1140,9 +1162,24 @@ func TestCreateCreditNote(t *testing.T) {
 		requireGRPCCode(t, err, codes.FailedPrecondition)
 	})
 
+	t.Run("credit above the invoice's gross total maps to InvalidArgument", func(t *testing.T) {
+		invRepo := newStubInvoiceRepo()
+		inv := creditableInvoice(tenantID) // gross 100, the line item credits 119
+		invRepo.invoices[inv.ID] = inv
+		srv := newFinanceTestServer(invRepo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+
+		_, err := srv.CreateCreditNote(context.Background(), &bizv1.CreateCreditNoteRequest{
+			TenantId: tenantID.String(), CreatedBy: uuid.New().String(), OriginalInvoiceId: inv.ID.String(),
+			LineItems: []*bizv1.LineItem{lineItem()},
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+		assert.Contains(t, err.Error(), "übersteigt")
+	})
+
 	t.Run("happy path", func(t *testing.T) {
 		invRepo := newStubInvoiceRepo()
 		inv := creditableInvoice(tenantID)
+		inv.GrossTotal = decimal.NewFromInt(119) // the line item credits 100 net + 19 % VAT
 		invRepo.invoices[inv.ID] = inv
 		srv := newFinanceTestServer(invRepo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 

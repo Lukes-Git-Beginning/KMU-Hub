@@ -7,6 +7,9 @@ package creditnote_test
 
 import (
 	"context"
+	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -232,42 +235,112 @@ func TestListForDATEVExport_DateRangeStatusAndKeysetPaging(t *testing.T) {
 	assert.False(t, gotIDs[draftInRange.ID], "draft credit notes must never appear in the sent-only DATEV export")
 }
 
-// TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance pins down current
-// behavior rather than a requirement: Service.Create performs no check that a
-// credit note's gross total stays within the original invoice's amount, so a
-// credit note larger than the invoice it credits is accepted today. This is a
-// documented gap (see JOURNAL.md), not a regression this test guards against —
-// it exists so a future intentional over-credit guard shows up as an expected
-// test change instead of a silent behavior shift nobody notices.
-func TestCreate_AmountNotValidatedAgainstInvoiceOpenBalance(t *testing.T) {
+// TestCreate_OverCreditIsRefusedOnTheRealDB covers the over-credit limit against
+// real SQL: the sum of the invoice's credit notes (drafts included) may not exceed
+// its gross total (119 in seedInvoice), the boundary itself is allowed, and a
+// refused credit note leaves no row behind.
+func TestCreate_OverCreditIsRefusedOnTheRealDB(t *testing.T) {
 	appPool, _ := pgtc.StartPostgres(t)
 	tenantID := uuid.New()
 	ctx := pgtc.TenantCtx(context.Background(), tenantID)
 	seedTenantExt(t, appPool, ctx, tenantID)
 
 	invRepo := invoice.NewPostgresRepository(appPool)
-	// seedInvoice creates a 100/19/119 invoice (see send_atomic_integration_test.go).
 	origInvID := seedInvoice(t, ctx, invRepo, tenantID)
 
 	repo := creditnote.NewPostgresRepository(appPool)
-	svc := creditnote.NewService(repo, invRepo, nil, nil)
+	svc := creditnote.NewService(repo, invRepo, nil, appPool)
 
-	// Credit note gross (10 * 100 = 1000, plus tax) is far beyond the 119
-	// gross of the invoice it credits.
-	overLines := []models.LineItem{{
-		ID: "l1", Position: 1, Description: "Ueberzogene Position",
-		Quantity: decimal.NewFromInt(10), UnitPrice: decimal.NewFromInt(100),
-		TaxRate: decimal.NewFromInt(19),
-	}}
+	lines := func(unitPrice string) []models.LineItem {
+		return []models.LineItem{{
+			ID: "l1", Position: 1, Description: "Position",
+			Quantity: decimal.NewFromInt(1), UnitPrice: decimal.RequireFromString(unitPrice),
+			TaxRate: decimal.NewFromInt(19),
+		}}
+	}
+	create := func(unitPrice string) (*models.CreditNote, error) {
+		return svc.Create(ctx, creditnote.CreateInput{
+			TenantID: tenantID, OriginalInvoiceID: origInvID, LineItems: lines(unitPrice),
+			TaxMode: models.TaxModeStandard, Reason: "Obergrenze", UserID: uuid.New(),
+		})
+	}
 
-	cn, err := svc.Create(ctx, creditnote.CreateInput{
-		TenantID: tenantID, OriginalInvoiceID: origInvID, LineItems: overLines,
-		TaxMode: models.TaxModeStandard, Reason: "Testet fehlende Betragspruefung", UserID: uuid.New(),
+	// 10 * 100 = 1000 net is far beyond the 119 gross.
+	_, err := svc.Create(ctx, creditnote.CreateInput{
+		TenantID: tenantID, OriginalInvoiceID: origInvID,
+		LineItems: []models.LineItem{{
+			ID: "l1", Position: 1, Description: "Ueberzogene Position",
+			Quantity: decimal.NewFromInt(10), UnitPrice: decimal.NewFromInt(100), TaxRate: decimal.NewFromInt(19),
+		}},
+		TaxMode: models.TaxModeStandard, Reason: "Testet Betragspruefung", UserID: uuid.New(),
 	})
+	require.ErrorIs(t, err, creditnote.ErrCreditExceedsInvoice)
 
-	require.NoError(t, err, "current behavior: Create does not reject an over-credit")
-	assert.True(t, cn.GrossTotal.GreaterThan(decimal.NewFromInt(119)),
-		"credit note gross total exceeds the original invoice's gross total, and is accepted anyway")
+	// 60 net -> 71.40 gross fits; a second one of the same size (142.80 total) does not.
+	_, err = create("60")
+	require.NoError(t, err)
+	_, err = create("60")
+	require.ErrorIs(t, err, creditnote.ErrCreditExceedsInvoice)
+
+	// The rest, to the cent: 119.00 - 71.40 = 47.60 gross = 40 net. One cent more is refused.
+	_, err = create("40.01")
+	require.ErrorIs(t, err, creditnote.ErrCreditExceedsInvoice)
+	_, err = create("40")
+	require.NoError(t, err, "the exact remainder is accepted")
+
+	got, err := repo.GetByInvoiceID(ctx, tenantID, origInvID)
+	require.NoError(t, err)
+	assert.Len(t, got, 2, "only the two accepted credit notes exist")
+}
+
+// TestCreate_ConcurrentCreditsCannotJointlyExceedTheInvoice proves the row lock:
+// ten goroutines each try to credit 40 % of the invoice; without FOR UPDATE they
+// all read "nothing credited yet" and all succeed. With it exactly two fit.
+// Goroutines: verified in CI with -race, not locally.
+func TestCreate_ConcurrentCreditsCannotJointlyExceedTheInvoice(t *testing.T) {
+	appPool, _ := pgtc.StartPostgres(t)
+	tenantID := uuid.New()
+	ctx := pgtc.TenantCtx(context.Background(), tenantID)
+	seedTenantExt(t, appPool, ctx, tenantID)
+
+	invRepo := invoice.NewPostgresRepository(appPool)
+	origInvID := seedInvoice(t, ctx, invRepo, tenantID) // gross 119
+	repo := creditnote.NewPostgresRepository(appPool)
+	svc := creditnote.NewService(repo, invRepo, nil, appPool)
+
+	// 40 net -> 47.60 gross; 119 / 47.60 = 2.5, so two fit, a third does not.
+	const attempts = 10
+	var wg sync.WaitGroup
+	var ok, refused atomic.Int32
+	for i := 0; i < attempts; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := svc.Create(ctx, creditnote.CreateInput{
+				TenantID: tenantID, OriginalInvoiceID: origInvID,
+				LineItems: []models.LineItem{{
+					ID: "l1", Position: 1, Description: "Teil",
+					Quantity: decimal.NewFromInt(1), UnitPrice: decimal.NewFromInt(40), TaxRate: decimal.NewFromInt(19),
+				}},
+				TaxMode: models.TaxModeStandard, Reason: "parallel", UserID: uuid.New(),
+			})
+			switch {
+			case err == nil:
+				ok.Add(1)
+			case errors.Is(err, creditnote.ErrCreditExceedsInvoice):
+				refused.Add(1)
+			default:
+				t.Errorf("unexpected error: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.EqualValues(t, 2, ok.Load(), "exactly two credit notes fit under the invoice")
+	assert.EqualValues(t, attempts-2, refused.Load())
+	got, err := repo.GetByInvoiceID(ctx, tenantID, origInvID)
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
 }
 
 // TestCreate_DecimalAmountsSurviveDBRoundTripAsExactStrings proves amounts are
@@ -287,7 +360,7 @@ func TestCreate_DecimalAmountsSurviveDBRoundTripAsExactStrings(t *testing.T) {
 	origInvID := seedInvoice(t, ctx, invRepo, tenantID)
 
 	repo := creditnote.NewPostgresRepository(appPool)
-	svc := creditnote.NewService(repo, invRepo, nil, nil)
+	svc := creditnote.NewService(repo, invRepo, nil, appPool)
 
 	lines := []models.LineItem{
 		{ID: "l1", Position: 1, Description: "A", Quantity: decimal.NewFromInt(1), UnitPrice: decimal.RequireFromString("0.10"), TaxRate: decimal.Zero},

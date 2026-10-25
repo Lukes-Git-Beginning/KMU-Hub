@@ -11,6 +11,8 @@ import (
 
 // --- Mock Reaction Repository ---
 
+var mockChannelID = uuid.MustParse("c0ffee00-0000-4000-8000-000000000001")
+
 type mockReactionRepo struct {
 	reactions []Reaction
 }
@@ -54,6 +56,16 @@ func (m *mockReactionRepo) ReactionExists(_ context.Context, messageID, userID u
 		}
 	}
 	return false, nil
+}
+
+// ReachableMessages treats every message as reachable in one fixed channel;
+// access rules are proven against the real SQL in access_db_test.go.
+func (m *mockReactionRepo) ReachableMessages(_ context.Context, messageIDs []uuid.UUID, _ uuid.UUID) (map[uuid.UUID]uuid.UUID, error) {
+	result := make(map[uuid.UUID]uuid.UUID, len(messageIDs))
+	for _, id := range messageIDs {
+		result[id] = mockChannelID
+	}
+	return result, nil
 }
 
 func (m *mockReactionRepo) ListReactions(_ context.Context, messageID uuid.UUID) ([]Reaction, error) {
@@ -314,7 +326,7 @@ func TestService_ListReactions_OrderedResults(t *testing.T) {
 	time.Sleep(time.Millisecond) // ensure ordering
 	_ = repo.AddReaction(ctx, msgID, user2, "heart")
 
-	reactions, err := svc.ListReactions(ctx, msgID)
+	reactions, err := svc.ListReactions(ctx, msgID, user1)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

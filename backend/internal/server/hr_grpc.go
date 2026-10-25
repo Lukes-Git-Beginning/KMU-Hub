@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/absence"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/changerequest"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/employee"
@@ -146,6 +147,14 @@ func (s *HRGRPCServer) ListLeaveRequests(ctx context.Context, req *hrv1.ListLeav
 		filter.EmployeeID = &empID
 	}
 
+	if req.GetReportingLineOnly() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		filter.ManagerUserID = &caller
+	}
+
 	if req.GetStatus() != "" {
 		s := req.GetStatus()
 		filter.Status = &s
@@ -182,6 +191,15 @@ func (s *HRGRPCServer) ListLeaveRequests(ctx context.Context, req *hrv1.ListLeav
 	}, nil
 }
 
+// leaveApprovalOptions maps the approver's grant scope to the service check. Fail-closed: only an
+// explicit "all" decides for any employee, everything else is limited to direct reports.
+func leaveApprovalOptions(scope string) []leave.ApprovalOption {
+	if scope == auth.ScopeAll {
+		return nil
+	}
+	return []leave.ApprovalOption{leave.InReportingLineOnly()}
+}
+
 func (s *HRGRPCServer) ApproveLeaveRequest(ctx context.Context, req *hrv1.ApproveLeaveRequestReq) (*hrv1.ApproveLeaveRequestResp, error) {
 	id, err := uuid.Parse(req.GetId())
 	if err != nil {
@@ -193,7 +211,7 @@ func (s *HRGRPCServer) ApproveLeaveRequest(ctx context.Context, req *hrv1.Approv
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	result, err := s.leaveService.ApproveLeaveRequest(ctx, id, approverID, req.GetComment())
+	result, err := s.leaveService.ApproveLeaveRequest(ctx, id, approverID, req.GetComment(), leaveApprovalOptions(req.GetScope())...)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -214,7 +232,7 @@ func (s *HRGRPCServer) RejectLeaveRequest(ctx context.Context, req *hrv1.RejectL
 		return nil, status.Error(codes.InvalidArgument, "invalid approver_id")
 	}
 
-	if err := s.leaveService.RejectLeaveRequest(ctx, id, approverID, req.GetComment()); err != nil {
+	if err := s.leaveService.RejectLeaveRequest(ctx, id, approverID, req.GetComment(), leaveApprovalOptions(req.GetScope())...); err != nil {
 		return nil, mapHRError(err)
 	}
 
@@ -802,6 +820,13 @@ func (s *HRGRPCServer) UpdateEmployee(ctx context.Context, req *hrv1.UpdateEmplo
 		m := req.GetIsMinor()
 		input.IsMinor = &m
 	}
+	// Same presence rule: nil keeps the stored value, "" clears it.
+	input.EmergencyContactName = req.EmergencyContactName
+	input.EmergencyContactPhone = req.EmergencyContactPhone
+	input.AddressStreet = req.AddressStreet
+	input.AddressCity = req.AddressCity
+	input.AddressPostalCode = req.AddressPostalCode
+	input.AddressCountry = req.AddressCountry
 
 	// Admin/manager caller role (gRPC layer assumes authorized caller)
 	updated, err := s.employeeService.UpdateEmployee(ctx, emp.ID, input, "admin")
@@ -1249,7 +1274,18 @@ func (s *HRGRPCServer) GetTeamTime(ctx context.Context, req *hrv1.GetTeamTimeReq
 		weekStart = ws
 	}
 
-	entries, err := s.timetrackingService.GetTeamTime(ctx, tenantID, weekStart)
+	// Fail-closed: only an explicit "all" lists the whole tenant. Everything else, including an
+	// empty or unknown scope, is the caller's reporting line.
+	var managerUserID *uuid.UUID
+	if req.GetScope() != auth.ScopeAll {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		managerUserID = &caller
+	}
+
+	entries, err := s.timetrackingService.GetTeamTime(ctx, tenantID, weekStart, managerUserID)
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -2179,6 +2215,7 @@ func mapHRError(err error) error {
 		return status.Error(codes.OutOfRange, err.Error())
 	case errors.Is(err, employee.ErrInvalidSuccessor),
 		errors.Is(err, employee.ErrInvalidExitType),
+		errors.Is(err, employee.ErrInvalidCountry),
 		errors.Is(err, employee.ErrExitBeforeLastWorkDay):
 		return status.Error(codes.InvalidArgument, err.Error())
 

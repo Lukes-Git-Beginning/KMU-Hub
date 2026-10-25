@@ -132,7 +132,7 @@ type updateLeadRequest struct {
 	Status *string `json:"status,omitempty" validate:"omitempty,oneof=new contacted qualified disqualified"`
 	// An empty string clears the manual override and hands the displayed
 	// temperature back to the computed score.
-	Temperature *string `json:"temperature,omitempty" validate:"omitempty,oneof=hot warm cold"`
+	Temperature *string `json:"temperature,omitempty" validate:"omitempty,clearable_oneof=hot warm cold"`
 }
 
 // HandleUpdateLead moves a lead through the inbox or pins its temperature.

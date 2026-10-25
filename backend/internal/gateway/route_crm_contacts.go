@@ -21,11 +21,13 @@ type customFieldValueRequest struct {
 // contactProfileFields mirrors contact.ProfileFields on the HTTP layer. Shared
 // by create and update so the two request shapes cannot drift apart. The
 // lengths match the column widths of migration 000314 — an oversized value
-// should be a 400 here, not a database error downstream.
+// should be a 400 here, not a database error downstream. The clearable_*
+// rules let "" through: the service documents it as "clear the column" and
+// the desktop form sends it for every untouched field.
 type contactProfileFields struct {
-	Salutation     *string `json:"salutation,omitempty" validate:"omitempty,oneof=Herr Frau"`
+	Salutation     *string `json:"salutation,omitempty" validate:"omitempty,clearable_oneof=Herr Frau"`
 	Title          *string `json:"title,omitempty" validate:"omitempty,max=50"`
-	Mobile         *string `json:"mobile,omitempty" validate:"omitempty,phone_dach"`
+	Mobile         *string `json:"mobile,omitempty" validate:"omitempty,clearable_phone_dach"`
 	Department     *string `json:"department,omitempty" validate:"omitempty,max=100"`
 	AddressStreet  *string `json:"address_street,omitempty" validate:"omitempty,max=255"`
 	AddressZip     *string `json:"address_zip,omitempty" validate:"omitempty,max=20"`
@@ -34,8 +36,8 @@ type contactProfileFields struct {
 	Website        *string `json:"website,omitempty" validate:"omitempty,max=255"`
 	LinkedIn       *string `json:"linkedin,omitempty" validate:"omitempty,max=255"`
 	Xing           *string `json:"xing,omitempty" validate:"omitempty,max=255"`
-	Category       *string `json:"category,omitempty" validate:"omitempty,oneof=employee customer partner"`
-	Status         *string `json:"status,omitempty" validate:"omitempty,oneof=active prospect inactive"`
+	Category       *string `json:"category,omitempty" validate:"omitempty,clearable_oneof=employee customer partner"`
+	Status         *string `json:"status,omitempty" validate:"omitempty,clearable_oneof=active prospect inactive"`
 }
 
 type createContactRequest struct {
@@ -145,7 +147,7 @@ func (c *CRMRoutes) HandleListContacts(w http.ResponseWriter, r *http.Request) {
 	sortDesc := r.URL.Query().Get("sort_desc") == "true"
 	visibilityFilter := r.URL.Query().Get("visibility")
 	tagIDs := r.URL.Query()["tag_ids"]
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMax)
 
 	grpcReq := &crmv1.ListContactsRequest{
 		Search:           search,

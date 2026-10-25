@@ -36,9 +36,13 @@ const (
 // of the tenant without being an admin of that inbox.
 const PermTeamInboxManage = "kommunikation:team_inbox:manage"
 
+// PermRecordingsAdmin lets its holder delete a recording of the tenant that
+// somebody else started.
+const PermRecordingsAdmin = "recordings:admin"
+
 // forwardedPermissions are the capability keys a backend service decides on
 // itself, so they must cross the gateway->service hop.
-var forwardedPermissions = []string{PermTeamInboxManage}
+var forwardedPermissions = []string{PermTeamInboxManage, PermRecordingsAdmin}
 
 // TenantOutboundUnaryInterceptor is a gRPC client interceptor that copies the
 // tenant_id and user_id values from the HTTP request context (already populated

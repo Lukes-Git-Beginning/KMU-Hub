@@ -14,13 +14,25 @@ var (
 	ErrInvalidDependencyType = errors.New("invalid dependency type")
 	ErrNotProjectMember      = errors.New("user is not a member of this project")
 	ErrViewerCannotEdit      = errors.New("viewers cannot create or edit tasks")
-	ErrCannotMoveToProject   = errors.New("cannot move task to project")
+	ErrCannotMoveToProject   = errors.New("only a task without a project, parent or subtasks can be moved into a project")
 	ErrTaskNumberConflict    = errors.New("task number conflict")
 	ErrParentInDiffProject   = errors.New("parent task must be in the same project")
 	ErrInvalidDateRange      = errors.New("start_date must not be after due_date")
+	// ErrNoStatusForState: the project has no closed (or no open) status to move the task to.
+	ErrNoStatusForState = errors.New("project has no status for the requested state")
+	// ErrTaskWithoutProject: closing/reopening needs a project status, a project-less task has none.
+	ErrTaskWithoutProject = errors.New("task without a project cannot be completed")
 	// ErrCustomFieldNotFound is returned for a field_id that does not resolve to a
 	// custom field definition of the calling tenant. Deliberately identical for
 	// "belongs to another tenant" and "does not exist at all" so the write result
 	// cannot be used to probe foreign definition ids.
 	ErrCustomFieldNotFound   = errors.New("unknown custom field")
+	// ErrForeignStorageKey: the storage key is not an upload of the calling
+	// tenant (see chat/file.IsTenantUpload). Attaching it would hand out a
+	// download URL for an object the caller never uploaded.
+	ErrForeignStorageKey = errors.New("storage_key is not an upload of this tenant")
+	// ErrFileNotFound: no task file with this id in the calling tenant.
+	ErrFileNotFound = errors.New("task file not found")
+	// ErrFileStoreUnavailable: the service runs without an object store.
+	ErrFileStoreUnavailable = errors.New("file store unavailable")
 )

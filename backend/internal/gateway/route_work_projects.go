@@ -539,7 +539,9 @@ func (w *WorkRoutes) HandleGetUserProjectPreference(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.Proto(wr, http.StatusOK, resp)
+	// The desktop reads the preference flat (`view_type`, …), not under a `preference` key.
+	// Full, so a stored `list_sort_desc: false` is present rather than omitted.
+	response.ProtoFull(wr, http.StatusOK, resp.GetPreference())
 }
 
 type setPreferenceRequest struct {
@@ -587,5 +589,5 @@ func (w *WorkRoutes) HandleSetUserProjectPreference(wr http.ResponseWriter, r *h
 		return
 	}
 
-	response.Proto(wr, http.StatusOK, resp)
+	response.ProtoFull(wr, http.StatusOK, resp.GetPreference())
 }

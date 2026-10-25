@@ -285,7 +285,7 @@ func TestHandleDeleteRecording_ReachesRPC(t *testing.T) {
 
 // ============================================================================
 // HandleGetRecordingConsents (plural -- consent snapshot + live rows, routed
-// through the "work" registry connection via getVideoRecordingTagClient)
+// through the "work" registry connection via getVideoClient)
 // ============================================================================
 
 func TestHandleGetRecordingConsents_ServiceUnavailable(t *testing.T) {

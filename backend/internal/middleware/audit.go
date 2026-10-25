@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -293,6 +294,11 @@ func auditClientIP(r *http.Request) string {
 	}
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
+	}
+	// RemoteAddr is host:port ("[::1]:52502"), which the inet column refuses, so every entry
+	// of a request without proxy headers was lost.
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
 	}
 	return r.RemoteAddr
 }

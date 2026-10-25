@@ -27,6 +27,10 @@ type FileServiceInterface interface {
 	CreateVersion(ctx context.Context, fileID uuid.UUID, tenantID uuid.UUID, input VersionInput) (*models.DocumentFileVersion, error)
 }
 
+// ErrContentTooLarge is returned by FileServiceInterface.CreateVersion when the
+// saved content exceeds the document upload limit.
+var ErrContentTooLarge = errors.New("wopi: content too large")
+
 // VersionInput mirrors file.VersionInput for WOPI auto-versioning.
 type VersionInput struct {
 	Reader   io.Reader
@@ -74,7 +78,7 @@ func (h *Handler) CheckFileInfo(w http.ResponseWriter, r *http.Request, fileIDSt
 	}
 
 	tenantID := parseTenantIDFromClaims(claims)
-	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
+	file, err := h.fileService.GetByID(withTenantCtx(r.Context(), claims), fileID, tenantID)
 	if err != nil {
 		slog.Warn("WOPI CheckFileInfo: file not found", "file_id", fileIDStr, "error", err)
 		http.Error(w, "file not found", http.StatusNotFound)
@@ -121,13 +125,14 @@ func (h *Handler) GetFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 	}
 
 	tenantID := parseTenantIDFromClaims(claims)
-	file, err := h.fileService.GetByID(r.Context(), fileID, tenantID)
+	ctx := withTenantCtx(r.Context(), claims)
+	file, err := h.fileService.GetByID(ctx, fileID, tenantID)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
 		return
 	}
 
-	reader, err := h.fileStore.Download(r.Context(), file.StorageKey)
+	reader, err := h.fileStore.Download(ctx, file.StorageKey)
 	if err != nil {
 		slog.Error("WOPI GetFile: failed to download", "file_id", fileIDStr, "error", err)
 		http.Error(w, "failed to download file", http.StatusInternalServerError)
@@ -202,6 +207,10 @@ func (h *Handler) PutFile(w http.ResponseWriter, r *http.Request, fileIDStr stri
 	}
 
 	_, err = h.fileService.CreateVersion(ctx, fileID, tenantID, versionInput)
+	if errors.Is(err, ErrContentTooLarge) {
+		http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+		return
+	}
 	if err != nil {
 		slog.Error("WOPI PutFile: failed to create version", "file_id", fileIDStr, "error", err)
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
@@ -307,13 +316,15 @@ func (h *Handler) validateAccessToken(w http.ResponseWriter, r *http.Request) (*
 	return claims, true
 }
 
-// withTenantCtx stamps ctx with the tenant carried in the WOPI token claims,
-// mirroring middleware.Auth's context.WithValue(ctx, TenantIDKey, claims.TenantID).
-// These routes bypass the standard app-auth middleware (see route_wopi.go), so
-// without this the RLS-aware pool's BeforeAcquire hook sees no tenant and every
-// wopi_locks query is admitted zero rows.
+// withTenantCtx stamps ctx with the tenant and user carried in the WOPI token
+// claims, mirroring middleware.Auth. These routes bypass the standard app-auth
+// middleware (see route_wopi.go), so without this the RLS-aware pool's
+// BeforeAcquire hook sees no tenant (every wopi_locks query is admitted zero
+// rows) and the gRPC hop to the document service carries neither tenant nor
+// author, which it refuses.
 func withTenantCtx(ctx context.Context, claims *WOPITokenClaims) context.Context {
-	return context.WithValue(ctx, middleware.TenantIDKey, claims.TenantID)
+	ctx = context.WithValue(ctx, middleware.TenantIDKey, claims.TenantID)
+	return context.WithValue(ctx, middleware.UserIDKey, claims.UserID)
 }
 
 // parseTenantIDFromClaims extracts the tenant UUID from WOPI token claims.

@@ -36,6 +36,10 @@ type mockRepository struct {
 	findConflictCalls  int
 	listBookingsParams *ListVehicleBookingsParams
 
+	// driverUsers maps tenantID:userID to the account name; driverLookups counts the asks.
+	driverUsers   map[string]string
+	driverLookups int
+
 	exportTripLogs       []TripLog
 	exportTripLogsErr    error
 	exportTripLogsParams *ExportTripLogsParams
@@ -286,6 +290,14 @@ func (m *mockRepository) UpdateTripLog(_ context.Context, log TripLog) (TripLog,
 }
 func (m *mockRepository) DeleteTripLog(_ context.Context, _, _ uuid.UUID) error { return nil }
 
+func (m *mockRepository) DriverUserName(_ context.Context, tenantID, userID uuid.UUID) (string, error) {
+	m.driverLookups++
+	if name, ok := m.driverUsers[tenantID.String()+":"+userID.String()]; ok {
+		return name, nil
+	}
+	return "", ErrDriverNotFound
+}
+
 func (m *mockRepository) ListTripLogsForExport(_ context.Context, params ExportTripLogsParams) ([]TripLog, error) {
 	m.exportTripLogsParams = &params
 	if m.exportTripLogsErr != nil {
@@ -304,6 +316,9 @@ func (m *mockRepository) DeleteVehicleDocument(_ context.Context, _, _ uuid.UUID
 
 func (m *mockRepository) ListDriverLicenses(_ context.Context, _ ListDriverLicensesParams) ([]DriverLicense, int, error) {
 	return nil, 0, nil
+}
+func (m *mockRepository) GetDriverLicense(_ context.Context, _, _ uuid.UUID) (DriverLicense, error) {
+	return DriverLicense{}, ErrDriverLicenseNotFound
 }
 func (m *mockRepository) CreateDriverLicense(_ context.Context, lic DriverLicense) (DriverLicense, error) {
 	return lic, nil

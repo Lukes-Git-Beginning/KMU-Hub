@@ -291,6 +291,7 @@ type createTripLogRequest struct {
 	DriverName       string `json:"driver_name"`
 	BusinessPartner  string `json:"business_partner,omitempty"`
 	Notes            string `json:"notes,omitempty"`
+	DriverUserID     *string `json:"driver_user_id,omitempty" validate:"omitempty,uuid"`
 }
 
 type updateTripLogRequest struct {
@@ -304,6 +305,8 @@ type updateTripLogRequest struct {
 	DriverName      *string `json:"driver_name,omitempty"`
 	BusinessPartner *string `json:"business_partner,omitempty"`
 	Notes           *string `json:"notes,omitempty"`
+	// null or absent keeps the stored driver link, "" clears it.
+	DriverUserID *string `json:"driver_user_id,omitempty" validate:"omitempty,uuid|len=0"`
 }
 
 type createVehicleDocumentRequest struct {
@@ -817,6 +820,14 @@ func damageReporter(ctx context.Context, reportedBy, notes *string) (*string, *s
 	return nil, &note
 }
 
+// derefString is the owner id for the proto's owner_user_id: empty means the caller is unrestricted.
+func derefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -837,6 +848,14 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	reportedBy, notes := damageReporter(r.Context(), req.ReportedBy, req.Notes)
+	// A caller who may only read their own damages is also only ever the reporter of their own:
+	// the id in the body must not file a damage under a colleague (it would show up in that
+	// colleague's own-scope list).
+	if owner, scopeOK := ownerFilterForScope(w, r, "fuhrpark:damage", "read"); !scopeOK {
+		return
+	} else if owner != nil {
+		reportedBy = owner
+	}
 	resp, err := client.ReportDamage(r.Context(), &fuhrparkv1.ReportDamageRequest{
 		TenantId:    tenantID.String(),
 		VehicleId:   vehicleID,
@@ -869,12 +888,17 @@ func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *htt
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:damage", "read")
+	if !ok {
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 	resp, err := client.ListDamages(r.Context(), &fuhrparkv1.ListDamagesRequest{
-		TenantId:  tenantID.String(),
-		VehicleId: &id,
-		Page:      int32(page),
-		PageSize:  int32(pageSize),
+		TenantId:   tenantID.String(),
+		VehicleId:  &id,
+		ReportedBy: owner,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -894,12 +918,17 @@ func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Reque
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:damage", "read")
+	if !ok {
+		return
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 	q := r.URL.Query()
 	grpcReq := &fuhrparkv1.ListDamagesRequest{
-		TenantId: tenantID.String(),
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		TenantId:   tenantID.String(),
+		ReportedBy: owner,
+		Page:       int32(page),
+		PageSize:   int32(pageSize),
 	}
 	if s := q.Get("status"); s != "" {
 		grpcReq.Status = &s
@@ -1275,6 +1304,7 @@ func (fr *FuhrparkRoutes) HandleCreateTripLog(w http.ResponseWriter, r *http.Req
 		DriverName:      req.DriverName,
 		BusinessPartner: req.BusinessPartner,
 		Notes:           req.Notes,
+		DriverUserId:    req.DriverUserID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1333,6 +1363,7 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 	if req.Notes != nil {
 		grpcReq.Notes = *req.Notes
 	}
+	grpcReq.DriverUserId = req.DriverUserID
 	resp, err := client.UpdateTripLog(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1515,9 +1546,18 @@ func (fr *FuhrparkRoutes) HandleListDriverLicenses(w http.ResponseWriter, r *htt
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
+	driverID := r.URL.Query().Get("driver_id")
+	// Own scope: the driver filter is the caller, whatever the query says.
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:license", "read")
+	if !ok {
+		return
+	}
+	if owner != nil {
+		driverID = *owner
+	}
 	page, pageSize := parsePagination(r, 1, 50)
 	resp, err := client.ListDriverLicenses(r.Context(), &fuhrparkv1.ListDriverLicensesRequest{
-		DriverId: r.URL.Query().Get("driver_id"),
+		DriverId: driverID,
 		Page:     int32(page),
 		PageSize: int32(pageSize),
 	})
@@ -1543,8 +1583,16 @@ func (fr *FuhrparkRoutes) HandleCreateDriverLicense(w http.ResponseWriter, r *ht
 	if !ok {
 		return
 	}
+	driverID := req.DriverID
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:license", "write")
+	if !ok {
+		return
+	}
+	if owner != nil {
+		driverID = *owner
+	}
 	grpcReq := &fuhrparkv1.CreateDriverLicenseRequest{
-		DriverId:         req.DriverID,
+		DriverId:         driverID,
 		LicenseClasses:   req.LicenseClasses,
 		NextCheckDueDate: req.NextCheckDueDate,
 	}
@@ -1584,10 +1632,15 @@ func (fr *FuhrparkRoutes) HandleUpdateDriverLicense(w http.ResponseWriter, r *ht
 	if !ok {
 		return
 	}
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:license", "write")
+	if !ok {
+		return
+	}
 	grpcReq := &fuhrparkv1.UpdateDriverLicenseRequest{
 		Id:               id,
 		LicenseClasses:   req.LicenseClasses,
 		NextCheckDueDate: req.NextCheckDueDate,
+		OwnerUserId:      derefString(owner),
 	}
 	if req.ExpiryDate != nil {
 		grpcReq.ExpiryDate = *req.ExpiryDate
@@ -1621,7 +1674,11 @@ func (fr *FuhrparkRoutes) HandleDeleteDriverLicense(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	_, err = client.DeleteDriverLicense(r.Context(), &fuhrparkv1.DeleteDriverLicenseRequest{Id: id})
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:license", "write")
+	if !ok {
+		return
+	}
+	_, err = client.DeleteDriverLicense(r.Context(), &fuhrparkv1.DeleteDriverLicenseRequest{Id: id, OwnerUserId: derefString(owner)})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -1802,11 +1859,20 @@ func (fr *FuhrparkRoutes) HandleListVehicleBookings(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
 	q := r.URL.Query()
+	userID := q.Get("user_id")
+	// Own scope: the user filter is the caller, whatever the query says.
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:booking", "read")
+	if !ok {
+		return
+	}
+	if owner != nil {
+		userID = *owner
+	}
+	page, pageSize := parsePagination(r, 1, 50)
 	resp, err := client.ListVehicleBookings(r.Context(), &fuhrparkv1.ListVehicleBookingsRequest{
 		VehicleId: q.Get("vehicle_id"),
-		UserId:    q.Get("user_id"),
+		UserId:    userID,
 		Status:    q.Get("status"),
 		From:      q.Get("from"),
 		To:        q.Get("to"),
@@ -1835,9 +1901,17 @@ func (fr *FuhrparkRoutes) HandleCreateVehicleBooking(w http.ResponseWriter, r *h
 	if !ok {
 		return
 	}
+	userID := req.UserID
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:booking", "write")
+	if !ok {
+		return
+	}
+	if owner != nil {
+		userID = *owner
+	}
 	resp, err := client.CreateVehicleBooking(r.Context(), &fuhrparkv1.CreateVehicleBookingRequest{
 		VehicleId: req.VehicleID,
-		UserId:    req.UserID,
+		UserId:    userID,
 		StartsAt:  req.StartsAt,
 		EndsAt:    req.EndsAt,
 		Purpose:   req.Purpose,
@@ -1868,12 +1942,17 @@ func (fr *FuhrparkRoutes) HandleUpdateVehicleBooking(w http.ResponseWriter, r *h
 	if !ok {
 		return
 	}
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:booking", "write")
+	if !ok {
+		return
+	}
 	resp, err := client.UpdateVehicleBooking(r.Context(), &fuhrparkv1.UpdateVehicleBookingRequest{
-		Id:       id,
-		StartsAt: req.StartsAt,
-		EndsAt:   req.EndsAt,
-		Purpose:  req.Purpose,
-		Status:   req.Status,
+		Id:          id,
+		StartsAt:    req.StartsAt,
+		EndsAt:      req.EndsAt,
+		Purpose:     req.Purpose,
+		Status:      req.Status,
+		OwnerUserId: derefString(owner),
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1897,7 +1976,11 @@ func (fr *FuhrparkRoutes) HandleDeleteVehicleBooking(w http.ResponseWriter, r *h
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	if _, err = client.DeleteVehicleBooking(r.Context(), &fuhrparkv1.DeleteVehicleBookingRequest{Id: id}); err != nil {
+	owner, ok := ownerFilterForScope(w, r, "fuhrpark:booking", "write")
+	if !ok {
+		return
+	}
+	if _, err = client.DeleteVehicleBooking(r.Context(), &fuhrparkv1.DeleteVehicleBookingRequest{Id: id, OwnerUserId: derefString(owner)}); err != nil {
 		respondGRPCError(w, err)
 		return
 	}

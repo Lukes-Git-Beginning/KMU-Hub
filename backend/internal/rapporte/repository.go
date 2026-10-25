@@ -26,6 +26,9 @@ type Repository interface {
 	// AtomicApproveReport updates status from 'submitted' → 'approved' in one SQL statement.
 	// Returns (true, nil) on success, (false, nil) when no row was in submitted state.
 	AtomicApproveReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
+	// AtomicSubmitReport updates status from 'draft' or 'rejected' → 'submitted' in one SQL statement.
+	// Returns (true, nil) on success, (false, nil) when no row was in an editable state.
+	AtomicSubmitReport(ctx context.Context, tenantID, reportID uuid.UUID) (bool, error)
 	// AtomicRejectReport updates status from 'submitted' → 'rejected' in one SQL statement.
 	AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
 
@@ -65,6 +68,9 @@ type Repository interface {
 	// is unknown or owned by another tenant.
 	AddMeasurementPosition(ctx context.Context, tenantID, measurementID uuid.UUID, positionNumber int, description, unit string, quantity, unitPrice float64) (*MeasurementPosition, error)
 	DeleteMeasurementPosition(ctx context.Context, tenantID, positionID uuid.UUID) error
+	// MeasurementIDOfPosition returns the measurement a position belongs to, or
+	// ErrPositionNotFound (unknown id or other tenant).
+	MeasurementIDOfPosition(ctx context.Context, tenantID, positionID uuid.UUID) (uuid.UUID, error)
 
 	// Templates
 	CreateTemplate(ctx context.Context, tenantID uuid.UUID, name, description, category, defaultLinesJSON string) (*ReportTemplate, error)

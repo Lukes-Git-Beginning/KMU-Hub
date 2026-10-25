@@ -47,19 +47,26 @@ func isoDaysToDesktop(iso []int32) []int {
 	return days
 }
 
+// quietHoursOrDefault returns the stored record, or the defaults the settings form
+// starts from (every day, switched off) for a user who has none yet.
+func quietHoursOrDefault(qh *notificationv1.QuietHoursInfo) *notificationv1.QuietHoursInfo {
+	if qh != nil && qh.GetStartTime() != "" {
+		return qh
+	}
+	return &notificationv1.QuietHoursInfo{
+		StartTime:  defaultQuietStart,
+		EndTime:    defaultQuietEnd,
+		Timezone:   defaultQuietTimezone,
+		DaysOfWeek: []int32{1, 2, 3, 4, 5, 6, 7},
+	}
+}
+
 // quietHoursObject renders a quiet-hours record with both vocabularies: the service's
 // (`days_of_week` ISO, `enabled`) and the desktop's (`days` 0=Sunday, `is_active`).
 // A user without a record gets the defaults the settings form starts from, with the
 // schedule switched off.
 func quietHoursObject(qh *notificationv1.QuietHoursInfo) (jsonObject, error) {
-	if qh == nil || qh.GetStartTime() == "" {
-		qh = &notificationv1.QuietHoursInfo{
-			StartTime:  defaultQuietStart,
-			EndTime:    defaultQuietEnd,
-			Timezone:   defaultQuietTimezone,
-			DaysOfWeek: []int32{1, 2, 3, 4, 5, 6, 7},
-		}
-	}
+	qh = quietHoursOrDefault(qh)
 	obj, err := protoObject(qh)
 	if err != nil {
 		return nil, err

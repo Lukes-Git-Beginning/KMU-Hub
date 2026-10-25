@@ -38,3 +38,15 @@ func TestService_Create_CurrencyExplicitBeatsTenantDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "CHF", inv.Currency)
 }
+
+func TestService_Create_FreeTextPaymentTermsReplaceTheGeneratedLabel(t *testing.T) {
+	svc, _, _, _, _ := newTestService()
+	input := testCreateInput(uuid.New(), uuid.New())
+	input.PaymentTerms = "Sofort fällig"
+
+	inv, err := svc.Create(context.Background(), input)
+
+	require.NoError(t, err)
+	assert.Equal(t, "Sofort fällig", inv.PaymentTerms)
+	assert.Equal(t, input.InvoiceDate.AddDate(0, 0, input.PaymentTermsDays), inv.DueDate, "the due date still follows the days")
+}
