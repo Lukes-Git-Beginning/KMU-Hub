@@ -1125,3 +1125,14 @@ Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `P
 - neue-units: keine
 - desktop-aufrufer: `POST /dialer/calls` -> `DialerWorkspacePage.tsx:113` sendet nur `campaign_contact_id`; `GET /dialer/dashboard/agent` -> `useDialer.ts:127` `getAgentDashboard()` ohne Parameter; `GET /dialer/campaigns/{id}/next` -> FE ohne Aufrufer von `getNextContact` gefunden -> passt, Antwortformen unverändert.
 - offen: `HandleLogCallOutcome`/`completeWrapUp` nehmen `agent_id` im Body (`dialer-client.ts:341`) — nicht Teil dieser Unit, nicht geprüft. Der Dashboard-Pin ist im Betrieb unwirksam, solange der Guard `agent:manage` verlangt (Produktfrage `decide-member-manager-module-defaults`).
+
+## Iteration 78 — fix-inventar-movement-performed-by-from-caller — done — 2026-10-25 02:49
+- commit: (siehe git log, Subject `fix(inventar): record the caller as actor of stock movements, warnings and bookings`)
+- gebaut: neuer Helper `callerIDPtr(r)` in `route_inventar.go`; `HandleAdjustStock`, `HandleTransferStock`, `HandleRecordMovement`, `HandleBookInventurDifferences` und `HandleBookPickingList` tragen immer die ID des Aufrufers als `performed_by`/`booked_by` ein, `HandleAcknowledgeWarning` ebenso als `acknowledged_by`. Die Body-Felder werden weiter geparst und UUID-validiert (Wire-Form unverändert), aber ignoriert. Neuer Test `route_inventar_actor_pin_test.go` mit echtem gRPC-Stub (ohne Feld und mit fremder ID, alle sechs Handler).
+- gate: build ok | vet ok | lint ok (0 Funde) | test ok (`DATABASE_URL` als `kmuhub_app`, `-count=1`, `internal/gateway` komplett inkl. `TestOpenAPIRouteDrift`, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway 77,8 % (gemessen nach dem Bau; Bugfix, Gewinn ist Verhaltensabdeckung; `coverage_start` 77,6 %)
+- mutations-probe: `grpcReq.PerformedBy = req.PerformedBy` nach dem Request-Bau in `HandleAdjustStock` -> Test rot (beide Body-Varianten, „adjustment: …“). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`e930794d`: nur Gateway-Handler und Test, kein Proto, keine neue Route, kein neuer/ersetzter Guard, keine Tabelle, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: `bookInventurDifferences(sessionId, {booked_by})` -> `useInventar.ts:365` reicht `booked_by` nur durch, wenn der Aufrufer es setzt; die Inventur-UI ruft ohne -> kein Bruch. `performed_by`/`acknowledged_by` in `inventar-types.ts:119/127/134/154` sind optionale Eingabefelder, die kein Modul-Code setzt; Antwortformen unverändert (`performed_by` in der Bewegung zeigt jetzt den Akteur statt `—`).
+- offen: Eine Verwaltung kann keine Bewegung mehr „im Namen“ eines anderen buchen (Unit sah „verwerfen“ vor, kein Rückkanal für `inventar:item:write`); falls je ein Importpfad das braucht, eigene Unit. Bestehende Bewegungen ohne Akteur bleiben ohne Akteur (kein Backfill). Einlagerungen über Einkauf/Wareneingang (`receive`) laufen nicht über diese Handler und wurden nicht geprüft.
