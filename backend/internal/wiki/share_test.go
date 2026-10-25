@@ -223,7 +223,7 @@ func TestService_CreateShareToken_TokenEntropy(t *testing.T) {
 
 	raw, decodeErr := base64.RawURLEncoding.DecodeString(first.Token)
 	require.NoError(t, decodeErr, "token must be base64url without padding")
-	assert.Len(t, raw, shareTokenBytes)
+	assert.Len(t, raw, 32)
 	assert.NotEqual(t, first.Token, second.Token)
 	assert.Equal(t, []string{sharePermissionRead}, first.Permissions)
 }

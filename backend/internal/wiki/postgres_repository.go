@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -392,9 +393,9 @@ func (r *PostgresRepository) UpdateCategory(ctx context.Context, category *Categ
 
 func (r *PostgresRepository) CreateShareToken(ctx context.Context, token *ShareToken) error {
 	_, err := r.pool.Exec(ctx,
-		`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token, expires_at, permissions, created_at, created_by)
+		`INSERT INTO wiki_share_tokens (id, tenant_id, article_id, token_hash, expires_at, permissions, created_at, created_by)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		token.ID, token.TenantID, token.ArticleID, token.Token,
+		token.ID, token.TenantID, token.ArticleID, linksecret.Hash(token.Token),
 		token.ExpiresAt, token.Permissions, token.CreatedAt, token.CreatedBy,
 	)
 	return err
@@ -509,14 +510,16 @@ func (r *PostgresRepository) scanCategory(rows pgx.Rows) (*Category, error) {
 // This is the one read in this service that runs without a tenant in the
 // session, because the public request has none: RLS would filter away the
 // single row that answers which tenant the caller may see. The query is
-// therefore pinned to an exact match on the unique token column and returns
+// therefore pinned to an exact match on the unique token_hash column and returns
 // everything the service needs to decide; it is never a listing and never
 // takes a filter. Whether the token is still usable is the service's verdict,
 // not this query's, so a refused token still resolves far enough to be logged.
 // shareTokenColumns is the read shape of a share token, in the order
 // scanShareToken expects. revoked_at rides along on every read: the public
 // redemption needs it to refuse a cut link, the listing to show it as cut.
-const shareTokenColumns = `id, tenant_id, article_id, token, expires_at, permissions, created_at, revoked_at, created_by`
+// The secret is not among them: only its hash is stored (000351), so a read
+// leaves ShareToken.Token empty.
+const shareTokenColumns = `id, tenant_id, article_id, expires_at, permissions, created_at, revoked_at, created_by`
 
 func (r *PostgresRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
 	if token == "" {
@@ -525,9 +528,9 @@ func (r *PostgresRepository) GetShareTokenByToken(ctx context.Context, token str
 	var t ShareToken
 	err := r.pool.QueryRow(database.WithSystemContext(ctx),
 		`SELECT `+shareTokenColumns+`
-		 FROM wiki_share_tokens WHERE token = $1`,
-		token,
-	).Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions,
+		 FROM wiki_share_tokens WHERE token_hash = $1`,
+		linksecret.Hash(token),
+	).Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.ExpiresAt, &t.Permissions,
 		&t.CreatedAt, &t.RevokedAt, &t.CreatedBy)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrShareTokenNotFound
@@ -540,7 +543,7 @@ func (r *PostgresRepository) GetShareTokenByToken(ctx context.Context, token str
 
 func (r *PostgresRepository) scanShareToken(rows pgx.Rows) (*ShareToken, error) {
 	var t ShareToken
-	err := rows.Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.Token, &t.ExpiresAt, &t.Permissions,
+	err := rows.Scan(&t.ID, &t.TenantID, &t.ArticleID, &t.ExpiresAt, &t.Permissions,
 		&t.CreatedAt, &t.RevokedAt, &t.CreatedBy)
 	if err != nil {
 		return nil, fmt.Errorf("scan share token row: %w", err)

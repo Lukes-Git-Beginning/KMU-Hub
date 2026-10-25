@@ -569,3 +569,35 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   „“/„Privatfahrt“ überschreiben. Heute ohne Wirkung, das Desktop hat keinen Edit-Dialog für Fahrten
   (`updateTripLog` wird nirgends aufgerufen); beim Anbinden beachten. (2) „ohne GPS“ aus der Entscheidung betrifft
   die GPS-Routen, siehe NEXT-Unit. (3) Fahrername bleibt in der maskierten Zeile sichtbar (Fahrtenbuch braucht ihn).
+
+## Iteration 16 — harden-share-tokens-hashed-wiki-formulare — done — 2026-10-25 19:04
+- commit: siehe Commit `fix(wiki,formulare): store share tokens only as SHA-256` (dieser Eintrag)
+- gebaut: Neues Paket `internal/linksecret` (`New`: 32 Byte crypto/rand, base64url; `Hash`: hex-SHA-256) ersetzt die
+  wortgleichen `newShareToken`-Kopien in `wiki/share.go` und `formulare/form_share.go`. Migration 000351 legt in
+  `wiki_share_tokens` und `form_share_tokens` `token_hash` an, füllt sie per `encode(sha256(convert_to(token,'UTF8')),'hex')`
+  (PG-Core, kein pgcrypto), setzt NOT NULL + UNIQUE und droppt die Klartextspalte samt Index. Die Repos schreiben
+  und suchen nur noch per Hash; Listen und Lookups liefern `Token` leer, nur die Create-Antwort trägt das Token einmal.
+- gate: build ok | vet ok | lint ok (0 issues: linksecret, wiki, formulare, server) | test ok (`internal/wiki` +
+  `internal/formulare` 196 RUN, 0 SKIP; `internal/server` + `internal/gateway` 10575 PASS, 0 SKIP; DATABASE_URL als
+  kmuhub_app; DB-Tests real: 2 neue Tests mit 5 Subtests) | migration ok (up/down/up auf 351; Backfill-Probe: Klartext-
+  Zeile bei 350 eingefügt, nach up `token_hash` == `sha256sum` des Klartexts, Klartext nicht mehr in `row_to_json`) |
+  rls-smoke ok (form_share_tokens als kmuhub_app: fremd 0, eigen 1; Policy unverändert) | e2e n.a. (kein Flow berührt
+  Share-Links)
+- coverage: n.a. (kein Coverage-Ziel); neues Paket `internal/linksecret` 83,3 %
+- mutations-probe: (1) Wiki-Lookup ohne Hash -> `TestWikiShareRedeem_ResolvesTenantWithoutOne`, `..._RevokedTokenIsRefused`,
+  `TestWikiShareToken_StoredOnlyAsHash` rot. (2) Wiki-Insert speichert Klartext -> dieselben drei rot ("stored row contains
+  the clear secret"). (3) Formular-Lookup ohne Hash -> `TestSubmitByShareToken_IdempotencyKeyDedupesAgainstPostgres`,
+  `..._TwoTenantsRedemptionStaysScoped`, `TestFormShareLink_StoredOnlyAsHash` rot. (4) Formular-Insert Klartext ->
+  `TestFormShareLink_StoredOnlyAsHash` rot. Alle per Backup zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`944d87c4`: kein Guard, kein Proto, keine Migration; `tripViewer` liest `x-user-id`, das
+  `grpc_tenant.go` aus den Metadaten in `UserIDKey` legt; Maskierung in Liste und Export)
+- neue-units: keine
+- desktop-aufrufer: GET `/wiki/articles/{id}/share` -> `api/wiki-client.ts:216` / `WikiShareDialog.tsx` liest nur `id`,
+  `permissions`, `created_at` (kopiert wird der interne App-Link, nie `token`) -> passt, `token` kommt jetzt leer.
+  GET `/formulare/schemas/{id}/share-links` -> `FormularePage.tsx:980 shareValueOf` kopiert `url` (Gateway sendet heute
+  `""`), liest `token` nirgends -> passt. POST beider Routen liefert das Token unverändert.
+- offen: (1) Down-Migration kann Klartext nicht zurückholen: sie füllt `token` mit dem Hash, danach sind alle vorher
+  erzeugten Links tot (im Down-Kommentar). (2) Kommt FD-4 (öffentliche Ausfüllseite), muss die URL beim Erstellen
+  gezeigt werden — aus der Liste lässt sie sich nicht mehr bauen (`decide-formulare-share-link-url-channel-toggle`).
+  (3) `report_share_tokens` (000252) bleibt bewusst Klartext, nicht Teil dieser Unit. (4) Lokal kein `make`, Migration
+  per `migrate create -seq -digits 6`.

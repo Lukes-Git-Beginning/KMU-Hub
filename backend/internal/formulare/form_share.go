@@ -2,9 +2,7 @@ package formulare
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -17,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kmuhub/kmuhub/internal/idempotency"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
@@ -25,12 +24,14 @@ import (
 // public route accepts, so this struct carries exactly what deciding "may this
 // link still be used, and for whom" needs.
 type FormShareLink struct {
-	ID           uuid.UUID  `json:"id"`
-	TenantID     uuid.UUID  `json:"tenant_id"`
-	FormSchemaID uuid.UUID  `json:"form_schema_id"`
-	Token        string     `json:"token"`
-	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
-	RevokedAt    *time.Time `json:"revoked_at,omitempty"`
+	ID           uuid.UUID `json:"id"`
+	TenantID     uuid.UUID `json:"tenant_id"`
+	FormSchemaID uuid.UUID `json:"form_schema_id"`
+	// Token is the plain secret, set only on the link CreateShareLink just
+	// minted. The table keeps its hash (000351), so every read leaves it empty.
+	Token     string     `json:"token"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	// MaxSubmissions nil = unlimited.
 	MaxSubmissions  *int       `json:"max_submissions,omitempty"`
 	SubmissionCount int        `json:"submission_count"`
@@ -82,10 +83,8 @@ func (l *FormShareLink) Status(now time.Time) string {
 }
 
 const (
-	// shareTokenBytes matches the report share links (000252) and the CSAT
-	// survey links: 32 bytes of crypto/rand, base64url-encoded to 43 URL-safe
-	// characters. The token IS the credential, so it is drawn the same way.
-	shareTokenBytes = 32
+	// Tokens are drawn by linksecret.New and stored only as linksecret.Hash
+	// (000351), like the wiki share links.
 
 	// shareTokenMaxLength is the longest token string worth a database round
 	// trip. Real tokens are 43 characters; anything past this is a probe, and
@@ -137,16 +136,6 @@ type replayBody struct {
 // the link id in front.
 const maxIdempotencyKeyLength = 255
 
-// newShareToken draws a link secret from crypto/rand. base64url keeps it
-// usable as a URL path segment without escaping.
-func newShareToken() (string, error) {
-	buf := make([]byte, shareTokenBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("generate form share token: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
 // withTenant attaches a tenant resolved from a share link to the context, so
 // the repository and the RLS session GUCs see it. This is the single place a
 // public path in this service may set a tenant, and it is only ever reached
@@ -181,7 +170,7 @@ func (s *Service) CreateShareLink(ctx context.Context, in CreateShareLinkInput) 
 		return nil, ErrSchemaNotPublic
 	}
 
-	token, err := newShareToken()
+	token, err := linksecret.New()
 	if err != nil {
 		return nil, err
 	}

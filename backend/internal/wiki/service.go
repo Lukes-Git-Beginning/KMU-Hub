@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // Service handles wiki business logic.
@@ -535,7 +537,7 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		permissions = append(permissions, sharePermissionPublic)
 	}
 
-	secret, err := newShareToken()
+	secret, err := linksecret.New()
 	if err != nil {
 		return nil, err
 	}
