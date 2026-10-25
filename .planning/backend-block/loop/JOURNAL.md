@@ -915,3 +915,18 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: fix-rapporte-empty-list-wire-shape (Ende BACKLOG.yml; leere Listen sind `{}` statt `{reports:[],total:0}`, FE fängt es mit `?? []` ab, kein Totalausfall)
 - desktop-aufrufer: n.a. (keine Änderung an Validierung oder Antwortform; Bodies und Antwortformen im Test gegen `rapporte-client.ts` abgeglichen, Abweichung nur die leere Liste, siehe neue-units)
 - offen: IST des Seeds, kein Fund: Approve/Reject sind nicht an die Berichtslinie gebunden (jeder manager des Tenants prüft jeden eingereichten Rapport); member hat kein `report:delete` (kein Entwurf löschbar); `/stats` liefert tenantweite Zähler auch an member (own-Scope wirkt nicht); Vorlagen-Anlage nur admin, das Desktop hat keinen Vorlagen-Aufrufer. Das gehört zu `decide-member-manager-module-defaults`. CI-Job `e2e` muss die Datei im Morgen-PR bestätigen.
+
+## Iteration 31 — e2e-fuhrpark-member-booking-license-damage-flow — done — 2026-10-25 22:22
+- commit: (siehe git log)
+- gebaut: `backend/test/e2e/fuhrpark_test.go`, `TestFuhrparkMemberFlow` mit neun Subtests gegen den echten Seed (admin, manager, zwei member):
+  manager legt Poolfahrzeug an (member 403, liest es); member A bucht (Body-`user_id` = member B wird auf den Aufrufer umgeschrieben), Doppelbuchung identisch/Überlappung Ende/Anfang 409, umgekehrtes Fenster 400, Anschlussbuchung von B 201;
+  B sieht trotz `user_id=A` im Query nur die eigene Buchung und kann fremde per PATCH/Status/DELETE nicht ändern (404, Buchung danach unverändert); A verschiebt/storniert/löscht eigene (Kollision 409, unbekannter Status 400, storniertes Fenster wird frei, zweites DELETE 404);
+  Schaden: Body-`reported_by` wird auf den Aufrufer gesetzt, nur Melder und admin sehen ihn in beiden Listen (B und manager nicht), Update/Resolve für member und manager 403, admin 200; Führerscheinkontrolle: `driver_id` wird auf den Aufrufer gesetzt, Pflichtfelder 400, B sieht/ändert/löscht fremde nicht (404), A ändert und löscht eigene.
+  Bodies: Schaden aus `fuhrpark-types.ts`, Buchung und Führerschein aus den Gateway-Request-Structs (das Desktop hat dafür keinen Aufrufer, nur die generierte `types.ts` listet die Routen).
+- gate: build n.a. (nur Testdatei) | vet ok (`go vet -tags=e2e ./test/e2e/`) | lint ok (golangci-lint `--build-tags e2e`, null Funde in der neuen Datei) | test n.a. | e2e ok (lokal, `TestFuhrparkMemberFlow` 2,6 s Test, 9 Subtests PASS; Erstlauf 155 s mit Build, dann ~25 s) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (E2E-Unit, kein Coverage-Ziel)
+- mutations-probe: in `gateway/route_fuhrpark.go` (`HandleCreateVehicleBooking`) die Umschreibung `userID = *owner` entfernt -> Test rot (Buchung landet bei B statt A, drei Subtests rot), zurückgedreht (`git checkout`), Diff sauber, danach wieder grün.
+- verify vorgaenger: sauber (`8eea0a06`: nur `rapporte_test.go` plus Backlog/Journal, kein Produktcode, keine Route/Proto/Guard/Migration)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Bodies und Antwortformen gegen `fuhrpark-types.ts` abgeglichen, passt; Buchungen/Führerscheine haben kein Desktop-Gegenstück)
+- offen: IST des Seeds, kein Fund: der manager ist bei Schäden auf own begrenzt (sieht fremde Schäden nur als admin), Update/Resolve von Schäden nur admin; Fahrzeuganlage `vehicle:manage` (manager, admin). Listen-Antworten waren in allen Fällen mit Zeilen gefüllt, die Leerform `{}` wurde hier nicht geprüft (siehe `fix-rapporte-empty-list-wire-shape`). Der CI-Job `e2e` muss die Datei im Morgen-PR bestätigen (das Flag `modules.fuhrpark` lief lokal; in `ci.yml` nicht per Grep auffindbar, der Dienst ist im Start-Loop enthalten).

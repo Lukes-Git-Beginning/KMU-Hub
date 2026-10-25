@@ -1048,7 +1048,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'fuhrpark: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
