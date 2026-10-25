@@ -598,7 +598,7 @@ func (r *PostgresRepository) GetMeasurement(ctx context.Context, tenantID, measu
 	return &m, nil
 }
 
-func (r *PostgresRepository) ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error) {
+func (r *PostgresRepository) ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID, authorID *uuid.UUID, page, pageSize int) ([]Measurement, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -618,6 +618,12 @@ func (r *PostgresRepository) ListMeasurements(ctx context.Context, tenantID uuid
 	if reportID != nil {
 		conditions = append(conditions, fmt.Sprintf("report_id = $%d", argNum))
 		args = append(args, *reportID)
+		argNum++
+	}
+	if authorID != nil {
+		conditions = append(conditions, fmt.Sprintf(
+			"(report_id IS NULL OR report_id IN (SELECT id FROM work_reports WHERE tenant_id = $1 AND author_id = $%d))", argNum))
+		args = append(args, *authorID)
 		argNum++
 	}
 

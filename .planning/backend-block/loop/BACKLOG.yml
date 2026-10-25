@@ -224,7 +224,7 @@ units:
     service: rapporte
     model: opus
     deps: []
-    status: todo
+    status: done
     target: member liest Aufmaße nur zu Rapporten, die er selbst lesen darf
     coverage_start: n.a.
     scope: >

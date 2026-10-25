@@ -501,6 +501,7 @@ message CreateMeasurementResponse {
 message GetMeasurementRequest {
   string tenant_id = 1;
   string measurement_id = 2;
+  bool restrict_to_author = 3;
 }
 
 message GetMeasurementResponse {
@@ -512,6 +513,7 @@ message ListMeasurementsRequest {
   string report_id = 2;
   int32 page = 3;
   int32 page_size = 4;
+  bool restrict_to_author = 5;
 }
 
 message ListMeasurementsResponse {

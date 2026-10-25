@@ -3476,11 +3476,12 @@ func (x *CreateMeasurementResponse) GetMeasurement() *Measurement {
 }
 
 type GetMeasurementRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	MeasurementId string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TenantId         string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	MeasurementId    string                 `protobuf:"bytes,2,opt,name=measurement_id,json=measurementId,proto3" json:"measurement_id,omitempty"`
+	RestrictToAuthor bool                   `protobuf:"varint,3,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GetMeasurementRequest) Reset() {
@@ -3525,6 +3526,13 @@ func (x *GetMeasurementRequest) GetMeasurementId() string {
 		return x.MeasurementId
 	}
 	return ""
+}
+
+func (x *GetMeasurementRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type GetMeasurementResponse struct {
@@ -3572,13 +3580,14 @@ func (x *GetMeasurementResponse) GetMeasurement() *Measurement {
 }
 
 type ListMeasurementsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ReportId      string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	Page          int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TenantId         string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ReportId         string                 `protobuf:"bytes,2,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Page             int32                  `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize         int32                  `protobuf:"varint,4,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	RestrictToAuthor bool                   `protobuf:"varint,5,opt,name=restrict_to_author,json=restrictToAuthor,proto3" json:"restrict_to_author,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListMeasurementsRequest) Reset() {
@@ -3637,6 +3646,13 @@ func (x *ListMeasurementsRequest) GetPageSize() int32 {
 		return x.PageSize
 	}
 	return 0
+}
+
+func (x *ListMeasurementsRequest) GetRestrictToAuthor() bool {
+	if x != nil {
+		return x.RestrictToAuthor
+	}
+	return false
 }
 
 type ListMeasurementsResponse struct {
@@ -5135,17 +5151,19 @@ const file_proto_rapporte_v1_rapporte_proto_rawDesc = "" +
 	"\x0fidempotency_key\x18\b \x01(\tR\x0eidempotencyKey\x12,\n" +
 	"\x12restrict_to_author\x18\t \x01(\bR\x10restrictToAuthor\"W\n" +
 	"\x19CreateMeasurementResponse\x12:\n" +
-	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"[\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"\x89\x01\n" +
 	"\x15GetMeasurementRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12%\n" +
-	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\"T\n" +
+	"\x0emeasurement_id\x18\x02 \x01(\tR\rmeasurementId\x12,\n" +
+	"\x12restrict_to_author\x18\x03 \x01(\bR\x10restrictToAuthor\"T\n" +
 	"\x16GetMeasurementResponse\x12:\n" +
-	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"\x84\x01\n" +
+	"\vmeasurement\x18\x01 \x01(\v2\x18.rapporte.v1.MeasurementR\vmeasurement\"\xb2\x01\n" +
 	"\x17ListMeasurementsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
 	"\treport_id\x18\x02 \x01(\tR\breportId\x12\x12\n" +
 	"\x04page\x18\x03 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\"n\n" +
+	"\tpage_size\x18\x04 \x01(\x05R\bpageSize\x12,\n" +
+	"\x12restrict_to_author\x18\x05 \x01(\bR\x10restrictToAuthor\"n\n" +
 	"\x18ListMeasurementsResponse\x12<\n" +
 	"\fmeasurements\x18\x01 \x03(\v2\x18.rapporte.v1.MeasurementR\fmeasurements\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\"\x96\x02\n" +

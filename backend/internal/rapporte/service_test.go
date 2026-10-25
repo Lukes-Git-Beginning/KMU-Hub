@@ -290,7 +290,7 @@ func (m *mockRepository) GetMeasurement(_ context.Context, tenantID, measurement
 	return nil, ErrMeasurementNotFound
 }
 
-func (m *mockRepository) ListMeasurements(_ context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error) {
+func (m *mockRepository) ListMeasurements(_ context.Context, tenantID uuid.UUID, reportID, authorID *uuid.UUID, page, pageSize int) ([]Measurement, int, error) {
 	return nil, 0, nil
 }
 

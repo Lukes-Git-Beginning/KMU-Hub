@@ -147,6 +147,9 @@ var (
 	// Measurements are gated by their own keys, but they hang off a report, so the
 	// report-edit scope narrows them as well.
 	rapporteMeasurementScopeKeys = [][2]string{{"rapporte:measurement", "write"}, {"rapporte:measurement", "manage"}, {"rapporte:report", "edit"}}
+	// Reading follows the report-read scope the same way (member: measurement:read
+	// all, report:read own).
+	rapporteMeasurementReadScopeKeys = [][2]string{{"rapporte:measurement", "read"}, {"rapporte:report", "read"}}
 )
 
 // requireAnyOf is RequirePermissionAny over a key set.
@@ -1055,11 +1058,17 @@ func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementReadScopeKeys...)
+	if !ok {
+		return
+	}
+
 	page, pageSize := parsePagination(r, 1, 50)
 	grpcReq := &rapportev1.ListMeasurementsRequest{
-		TenantId: tenantID.String(),
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		Page:             int32(page),
+		PageSize:         int32(pageSize),
 	}
 	if rid := r.URL.Query().Get("report_id"); rid != "" {
 		grpcReq.ReportId = rid
@@ -1129,9 +1138,15 @@ func (rr *RapporteRoutes) HandleGetMeasurement(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementReadScopeKeys...)
+	if !ok {
+		return
+	}
+
 	resp, err := client.GetMeasurement(r.Context(), &rapportev1.GetMeasurementRequest{
-		TenantId:      tenantID.String(),
-		MeasurementId: id,
+		TenantId:         tenantID.String(),
+		RestrictToAuthor: restrict,
+		MeasurementId:    id,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
