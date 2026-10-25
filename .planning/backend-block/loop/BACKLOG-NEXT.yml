@@ -2310,3 +2310,25 @@ units:
       - backend/internal/biz/recurring/service_db_test.go
     done_when:
       - "Test 20x mit -race grün (CI) und Produktfrage im Journal beantwortet oder als decide-Unit"
+
+  - id: fix-produktion-concurrent-booking-move-deadlock
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: todo
+    target: "zwei gleichzeitige Umbuchungen auf dasselbe Fenster: eine gewinnt, die andere 409 — nie 500"
+    coverage_start: "n.a. (Bugfix/Flake)"
+    scope: >
+      `TestMachineBookingOverlapConstraint/two_concurrent_moves_onto_the_same_window` fiel auf main
+      nach dem Merge von PR #28 (CI-Run 40196109073) mit `deadlock detected (SQLSTATE 40P01)`; das
+      Paket war nicht im Lauf. Zwei UPDATEs verschiedener Zeilen prüfen dieselbe Exclusion-
+      Constraint und können sich gegenseitig blockieren; Postgres bricht dann einen mit 40P01 ab.
+      `UpdateBooking` bildet nur 23P01 auf `ErrBookingConflict` ab, der Verlierer bekäme im
+      Betrieb also 500. Fix: 40P01 dort ebenfalls als Konflikt (oder ein Retry), Test bleibt bei
+      "1 win / 1 conflict". Gleiches Muster in `CreateBookingWithLock` prüfen.
+    sources:
+      - backend/internal/produktion/postgres_repository.go
+      - backend/internal/produktion/booking_overlap_constraint_test.go
+    done_when:
+      - "Test 20x mit -race grün (CI), 40P01 im Repo-Mapping"
