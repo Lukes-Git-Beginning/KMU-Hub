@@ -644,3 +644,31 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   steht im Migrationskommentar. (3) Down setzt die Backfill-Werte nicht auf NULL zurück. (4) Done-when „Router-Tests“
   als gRPC-Server-Tests umgesetzt: der Gateway-Handler reicht durch, die 400 entsteht über `respondGRPCError` aus
   InvalidArgument; ein Gateway-Test mit Mock-Client hätte die Service-Regel nicht geprüft.
+
+## Iteration 18 — harden-calendar-join-token-participants-only — done — 2026-10-25 19:26
+- commit: siehe Commit `fix(calendar): issue video join tokens only to organiser and attendees` (dieser Eintrag)
+- gebaut: `event.Service.RequireParticipant` (Organisator = `created_by` oder Zeile in `event_attendees`, sonst
+  `ErrEventNotFound` wie bei fehlendem Event -> NotFound/404, kein Existenz-Orakel). `GenerateJoinToken` prüft damit den
+  Aufrufer aus dem Kontext (`callerID`) statt nur die Tenant-Existenz und stellt das LiveKit-Token auf die geprüfte
+  Aufrufer-ID aus statt auf `req.UserId` (sonst hätte ein Teilnehmer ein Token in fremdem Namen ziehen können; der
+  Gateway setzt das Feld heute ohnehin aus dem JWT). Spec-Beschreibung der Route ergänzt, 404 war schon dokumentiert.
+- gate: build ok (event, server, gateway, cmd/work, cmd/gateway) | vet ok | lint ok (0 issues) | test ok (event + server:
+  5090 RUN, 0 SKIP, 0 FAIL; gateway ok inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app; neuer DB-Test
+  `TestRequireParticipant_OnlyOrganiserAndAttendees` real gelaufen) | migration n.a. | rls-smoke n.a. (keine Tabelle,
+  keine Policy) | swagger-cli valid | e2e n.a. (kein Flow nutzt join-token, grep `test/e2e/`)
+- coverage: `internal/work/event` 80,6 % -> 80,9 % (kein Coverage-Ziel, `coverage_start: n.a.`)
+- mutations-probe: (1) Teilnehmer-Schleife ausgeschaltet -> DB-Test „attendee: expected access“ und gRPC-Subtest
+  „attendee gets a token in their own name“ rot. (2) Schluss-Return gewährt Zugriff -> DB-Test „colleague: expected
+  ErrEventNotFound“ und gRPC-Subtest „colleague without invitation gets NotFound“ rot. (3) Token-Identität zurück auf
+  `req.UserId` -> gRPC-Subtest „attendee gets a token in their own name“ rot (Identity per `lkauth.ParseAPIToken`). Alle
+  per Backup zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`65f196a4`: kein Guard, kein Proto, keine neue Tabelle/Route; Migration 000352 mit up/down,
+  Backfill + NOT NULL; `linksecret.Expiry` ohne Stub, Berichte-Default auf 365 Tage)
+- neue-units: keine
+- desktop-aufrufer: POST `/calendar/events/{id}/join-token` -> kein Desktop-Aufrufer, nur der generierte Typ in
+  `api/types.ts:2952` (grep `join-?token` in `desktop/src/renderer/src` ohne mocks). Der Video-Beitritt im Desktop läuft
+  nicht über diese Route -> nichts bricht. Antwortform unverändert.
+- offen: (1) „Organisator“ = `created_by` des Events; ein Kalender-Besitzer oder -Editor, der das Event nicht angelegt
+  hat und nicht eingeladen ist, bekommt jetzt 404 — so in der Entscheidung („nur Organisator und Teilnehmer“), aber
+  falls Kalender-Delegation gemeint war, ist das eine Erweiterung. (2) Recurring Events: Teilnehmer hängen an der Serie,
+  das Token auch (Raumname aus Serien-ID) — unverändert.

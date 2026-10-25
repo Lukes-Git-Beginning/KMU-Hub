@@ -1344,13 +1344,21 @@ func (s *CalendarGRPCServer) GenerateJoinToken(ctx context.Context, req *calv1.G
 	// tenant-scoped first, exactly like GetEvent does. Cancelling an event
 	// deletes the row (event.Service.DeleteEvent), so ErrEventNotFound covers
 	// cancelled events too and the token stops being issuable at that moment.
-	if _, err = s.eventService.Get(ctx, eventID, tenantID); err != nil {
+	// Within the tenant only organiser and attendees get a token; for anyone
+	// else the event answers NotFound like a missing one.
+	actorID, err := callerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = s.eventService.RequireParticipant(ctx, eventID, actorID, tenantID); err != nil {
 		return nil, mapCalendarError(err)
 	}
 
 	roomName := s.livekitService.GenerateRoomName(tenantID, eventID)
 
-	token, err := s.livekitService.GenerateJoinToken(roomName, req.UserId, req.UserName)
+	// The token identity is the checked caller, not the request field: a
+	// participant must not mint a token in someone else's name.
+	token, err := s.livekitService.GenerateJoinToken(roomName, actorID.String(), req.UserName)
 	if err != nil {
 		return nil, mapCalendarError(err)
 	}

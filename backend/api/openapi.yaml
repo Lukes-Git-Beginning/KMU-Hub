@@ -8580,6 +8580,10 @@ paths:
   /api/v1/calendar/events/{id}/join-token:
     post:
       summary: Generate a LiveKit join token for a video call event
+      description: >
+        Only the event's organiser and its attendees get a token, issued in the
+        caller's own name. Anyone else receives 404, the same as for a missing
+        event.
       tags: [events]
       operationId: generateJoinToken
       security:

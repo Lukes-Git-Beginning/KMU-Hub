@@ -503,6 +503,31 @@ func (s *Service) ListAttendees(ctx context.Context, eventID, tenantID uuid.UUID
 	return s.repo.ListAttendees(ctx, eventID)
 }
 
+// RequireParticipant returns the event when userID organises (created) or
+// attends it. Everyone else gets ErrEventNotFound -- the same answer as for a
+// missing event, so the check is no oracle for which event IDs exist. Guards
+// the video join token (decision 2026-10-25): a LiveKit token cannot be
+// revoked, so calendars:write alone must not open every room of the tenant.
+func (s *Service) RequireParticipant(ctx context.Context, eventID, userID, tenantID uuid.UUID) (*models.CalendarEvent, error) {
+	evt, err := s.repo.GetByID(ctx, eventID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if evt.CreatedBy == userID {
+		return evt, nil
+	}
+	attendees, err := s.repo.ListAttendees(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range attendees {
+		if attendees[i].UserID == userID {
+			return evt, nil
+		}
+	}
+	return nil, ErrEventNotFound
+}
+
 // SetReminders sets reminders for an event (replaces all existing)
 func (s *Service) SetReminders(ctx context.Context, eventID, actorID, tenantID uuid.UUID, minutesBefore []int) error {
 	if err := validateReminderMinutes(minutesBefore); err != nil {
