@@ -498,6 +498,11 @@ units:
       `organization_id` beim Connect und beim Verbindungstest in die Config-Metadata. Ohne
       diesen Wert ist DIESER Fix spaeter gar nicht baubar, deshalb wird er jetzt schon
       angelegt.
+    stand_2026_10_25: >-
+      Voraussetzung erfüllt: `Connect` speichert die `organization_id` (`lexware/service.go:94-106`,
+      Backfill :199-209). Der Auslöser (zweiter Lexware-Tenant) ist nicht erreicht, die Unit bleibt
+      geparkt. Der Kommentar `lexware/service.go:315` („No per-tenant identifier ... is captured
+      today“) ist veraltet und geht beim Fix mit.
     target: >-
       Zurueck nach BACKLOG.yml, sobald ein ZWEITER Lexware-Tenant aktiv ist. Voraussetzung:
       `feat-lexware-store-organization-id-on-connect` ist `done` und die Configs tragen den
@@ -576,7 +581,11 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: parked
+    status: resolved
+    resolved: >-
+      2026-10-25 gegen den Code geprüft: erledigt mit `fdbeab8a` (Deal- und Activity-Tags über
+      gRPC, `crm.proto:63,73`, `route_crm_activities.go:292-338`). Keine Route antwortet mehr 501.
+      Bleibt als Spur stehen.
     decided: 2026-08-24
     decision: >-
       DUBLETTE, aufgeloest durch Entscheidung Luke 2026-08-24 (A1). Diese Unit und
