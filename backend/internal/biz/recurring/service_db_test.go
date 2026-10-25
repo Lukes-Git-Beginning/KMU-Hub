@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,6 +37,39 @@ func newRealService(pool *pgxpool.Pool) (*Service, *PostgresRepository, *invoice
 	seqRepo := quote.NewPostgresNumberSequenceRepo(pool)
 	invSvc := invoice.NewService(invRepo, seqRepo, csRepo, nil, pool)
 	return NewService(repo, invSvc, invSvc), repo, invSvc
+}
+
+// barrierRepo makes GetByID a rendezvous: every caller blocks until `parties`
+// callers have loaded the schedule. That pins all racers to the same NextRun —
+// without it a racer that reads the plan after the winner's Update sees the
+// follow-up period and legitimately claims that one (two invoices for two
+// periods), which is not the race the test is about.
+type barrierRepo struct {
+	Repository
+	arrive  sync.WaitGroup
+	timeout time.Duration
+}
+
+func newBarrierRepo(inner Repository, parties int) *barrierRepo {
+	b := &barrierRepo{Repository: inner, timeout: 10 * time.Second}
+	b.arrive.Add(parties)
+	return b
+}
+
+func (b *barrierRepo) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.RecurringInvoice, error) {
+	rec, err := b.Repository.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return nil, err
+	}
+	b.arrive.Done()
+	done := make(chan struct{})
+	go func() { b.arrive.Wait(); close(done) }()
+	select {
+	case <-done:
+		return rec, nil
+	case <-time.After(b.timeout):
+		return nil, context.DeadlineExceeded
+	}
 }
 
 func billableLineItems(t *testing.T) json.RawMessage {
@@ -112,13 +146,14 @@ func TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice(t *testing.T) {
 	tenantID, userID := seedRecurringFixture(t, pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
 
-	svc, repo, _ := newRealService(pool)
+	_, repo, invSvc := newRealService(pool)
+	const racers = 2
+	svc := NewService(newBarrierRepo(repo, racers), invSvc, invSvc)
 	rec := newRecurringFixture(tenantID, userID)
 	rec.LineItems = billableLineItems(t)
 	require.NoError(t, repo.Create(ctx, rec))
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_recurring_invoices", rec.ID) })
 
-	const racers = 2
 	var (
 		wg     sync.WaitGroup
 		start  = make(chan struct{})

@@ -911,7 +911,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice ist deterministisch
     coverage_start: n.a. (Test-Flake)
     scope: >

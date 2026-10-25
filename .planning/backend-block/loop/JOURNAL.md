@@ -834,3 +834,16 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: GET `/vermietung/objects|rentals`, `/inventar/items|locations` -> `VermietungPage.tsx:643/644`, `InventarPage.tsx:796/797` (page_size 200/500/100) -> passt jetzt (200 statt 50 Zeilen; 500 wird auf 200 geklemmt, Rentals bleibt bei >200 Treffern abgeschnitten)
 - offen: `VermietungPage.tsx:644` fragt 500 Mieten an, bekommt höchstens 200 — echte Abhilfe wäre ein Desktop-Paging oder höheres Service-Ceiling (Entscheidung Luke). Die Produktion-Listen werden jetzt auf 100 geklemmt (vorher Default 20 bei >100).
+
+## Iteration 26 — fix-recurring-concurrent-generate-test-flake — done — 2026-10-25 21:58
+- commit: (siehe git log)
+- gebaut: `TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice` nutzt einen `barrierRepo` (GetByID als Rendezvous, 10 s Timeout): beide Racer laden den Plan,
+  bevor einer `Update` ausführt, sehen also dieselbe Periode. Kein Produktcode geändert. Ursache der CI-Flake (2 Rechnungen) war der legitime Claim der Folgeperiode, nicht ein ON-CONFLICT-Bruch.
+- gate: build n.a. (nur Testdatei) | vet ok | lint ok (0 issues) | test ok | migration n.a. | rls-smoke n.a.
+  Test 30x mit `-count=30` grün (ohne -race, lokal nicht möglich); Paket komplett grün, 0 SKIP.
+- coverage: n.a. (Test-Flake, Paket biz/recurring 88,5 % nachher, Vorher nicht gemessen)
+- mutations-probe: Barriere auf 1 Partei gestellt und Racer 2 um 500 ms verzögert (= die Flake-Reihenfolge) -> Test rot (zwei Rechnungen), zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`371684e5`: Pagination-Klemmung in Route-Dateien plus Test und Spec-`maximum`, keine neue Route/Proto/Guard/Migration)
+- neue-units: decide-recurring-generate-future-period (BACKLOG-NEXT.yml, blocked — Produktfrage "Folgeperiode vor Fälligkeit abrechenbar?")
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: `-race` nur in CI; Barriere ist rein testseitig. Produktfrage siehe decide-Unit.

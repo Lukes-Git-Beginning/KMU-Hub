@@ -1557,3 +1557,27 @@ units:
     done_when:
       - 'Entscheidung Luke: Einwilligungszeitpunkt der Teilnehmer, Status-Wire (Zahl im FE oder String-Rewrite im Backend)'
       - 'Service-Test mit echtem Repo: Start -> alle Teilnehmer willigen ein -> Initiator bestätigt -> genau ein Egress; ein fehlendes Ja -> kein Egress'
+
+  - id: decide-recurring-generate-future-period
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE: darf "jetzt erzeugen" (manueller RPC `GenerateRecurringInvoice`) eine noch nicht
+      fällige Folgeperiode abrechnen? Heute rechnet `Generate` die Periode `NextRun` ab, auch wenn
+      `NextRun > heute` — ein Doppelklick auf zwei getrennte Requests erzeugt zwei Rechnungen für zwei Monate.
+    target: Generate rechnet keine Periode ab, die in der Zukunft liegt (oder die Entscheidung dokumentiert das Gegenteil)
+    scope: >
+      Aus `fix-recurring-concurrent-generate-test-flake` (Lauf 17, Iteration 26). `ClaimPeriod` (ON CONFLICT)
+      schützt nur dieselbe Periode; liest ein zweiter Aufruf den Plan erst nach `repo.Update` des ersten, steht
+      `NextRun` auf der Folgeperiode und er claimt diese legitim. Einziger Aufrufer ist der manuelle RPC
+      (`biz_grpc_recurring.go:231`), kein Scheduler. Variante ja: `Generate` lehnt `dateOnly(rec.NextRun)` nach
+      heute mit eigenem Fehler (gRPC FailedPrecondition, HTTP 409) ab. Desktop-Aufrufer vorher greppen
+      (Button "jetzt erzeugen" bei Plänen, die noch nicht fällig sind?).
+    sources:
+      - backend/internal/biz/recurring/service.go
+      - backend/internal/server/biz_grpc_recurring.go
+    done_when:
+      - 'Entscheidung Luke: Folgeperiode vor Fälligkeit abrechenbar ja/nein, mit Datum in dieser Unit'
