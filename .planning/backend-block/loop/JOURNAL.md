@@ -862,3 +862,25 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: Aufräumen belegt — nach dem Lauf keine `kmuhub-e2e-*`-Prozesse (tasklist leer) und keine `kmuhub-e2e`-Container (`docker ps -a` leer).
   Regel 1 gilt damit für den Rest des Laufs; ein Lauf mit gültigem Stamp spart die 150 s Build. Services laufen weiter als Superuser `kmuhub_test` (lean-Marker im Skript), RLS wird im E2E also nicht bewiesen.
+
+## Iteration 28 — review-run17-r2 — done — 2026-10-25 22:05
+- commit: siehe Commit `docs(loop): review run 17 rights commits r2` (dieser Eintrag; kein Code-Commit, kein Fund)
+- gebaut: Review der Commits seit r1-End-SHA `85d1d7e1`, End-SHA **`a1c8f05e`** (r3 beginnt dort). Ergebnis je SHA:
+  - `5a57e13e`, `ddee3bbb`, `a1c8f05e` (nur Loop-Doku): n.a.
+  - `db5c75b4` Urlaubsarten beim Provisioning: kein Grant/Guard/Scope; Insert in derselben Tx mit `tenant.ID`, Quelle nur
+    Zero-UUID-Vorlagen. RLS `hr_leave_types` enabled+forced, Policy liest eigener Tenant ODER Zero-UUID, schreibt nur eigenen
+    Tenant. Smoke als `kmuhub_app`: fremder Tenant sieht 10 Zeilen (nur Vorlagen, 1 Tenant-ID), eigener Tenant 20 (eigene Kopie
+    plus Vorlagen) -> ok. `TestProvisionTenant_SeedsSystemLeaveTypes` und `TestRLS_ProvisionedTenant_IsIsolatedFromExistingData`
+    als `kmuhub_app` grün -> ok.
+  - `eab9ca11` produktion 40P01 -> 409, `12a0add8` tax_rate 0..1, `371684e5` Seitengrößen-Klemmung: Diff gegen
+    `RequirePermission|role_permissions|scope|tenant_id|GetTenantID` gegrept, null Treffer außerhalb von db5c75b4 -> keine
+    Rechte- oder Sichtbarkeitsänderung; Pagination klemmt nur `page_size`, Filter/Owner-Scopes unverändert -> n.a.
+  - `e8ff1134` recurring: nur Testdatei -> n.a.
+- gate: auth (2 Provisioning-Tests, 0 SKIP) ok; gateway `TestBranchPagination*|TaxRate*|TestOpenAPIRouteDrift` ok (24 PASS-Zeilen
+  inkl. Subtests); DATABASE_URL als `kmuhub_app`. Keine Seed-Migration im Prüfbereich -> Up/Down-Prüfung n.a. | rls-smoke ok (hr_leave_types)
+- coverage: n.a. (Review)
+- mutations-probe: n.a. (kein Code)
+- verify vorgaenger: sauber (`a1c8f05e`: nur BACKLOG/JOURNAL, kein Code)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Block B hat keine Rechte-Commits erzeugt; der Prüfbereich von r2 war deshalb dünn. Die Scan-Fix-Units sind in r1 geprüft.
