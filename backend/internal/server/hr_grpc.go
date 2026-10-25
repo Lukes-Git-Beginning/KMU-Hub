@@ -296,7 +296,16 @@ func (s *HRGRPCServer) GetEmployeeLeaveBalance(ctx context.Context, req *hrv1.Ge
 		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
 	}
 
-	balance, err := s.leaveService.GetLeaveBalance(ctx, tenantID, employeeID)
+	var balance *models.HRLeaveBalance
+	if req.GetRestrictToReportingLine() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		balance, err = s.leaveService.GetReportingLineLeaveBalance(ctx, tenantID, employeeID, caller)
+	} else {
+		balance, err = s.leaveService.GetLeaveBalance(ctx, tenantID, employeeID)
+	}
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -2154,6 +2163,8 @@ func mapHRError(err error) error {
 	case errors.Is(err, leave.ErrCannotApproveOwnRequest):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, leave.ErrNotAuthorizedToApprove):
+		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, leave.ErrNotInReportingLine):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, leave.ErrInvalidDateRange):
 		return status.Error(codes.InvalidArgument, err.Error())

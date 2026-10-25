@@ -433,6 +433,9 @@ message GetEmployeeLeaveBalanceReq {
   string employee_id = 1;
   string tenant_id = 2;
   int32 year = 3;
+  // Limits the read to the caller and their direct reports (hr_employee_profiles.manager_user_id).
+  // The caller comes from the call context, never from this message.
+  bool restrict_to_reporting_line = 4;
 }
 
 message GetEmployeeLeaveBalanceResp {

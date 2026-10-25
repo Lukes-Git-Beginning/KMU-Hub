@@ -326,7 +326,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: Manager und hr_admin sehen den Urlaubssaldo im Mitarbeiterprofil ihres Bereichs
     coverage_start: n.a. (Fix)
     scope: >

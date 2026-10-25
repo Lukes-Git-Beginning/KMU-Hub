@@ -240,3 +240,32 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - offen: Der Queue-Pfad hängt am Statusfilter (`lean:`-Marker), weil das FE dieselbe ungefilterte Anfrage für eigene
   Einträge sendet. Kein neuer Key, kein Re-Login nötig. `ApproveCorrection` selbst prüft keine Berichtslinie
   (manager hält approve `all`) — nicht Teil dieser Unit.
+
+## Iteration 6 — fix-hr-employee-leave-balance-for-team-viewers — done — 2026-10-25 17:09
+- commit: siehe Commit `fix(hr): show leave balances at the viewer's absence-data reach` (dieser Eintrag)
+- gebaut: `GET /hr/leave/balance/{userId}` folgt der Reichweite aus `team:absence_data:view` (`leaveBalanceReach`):
+  grober `hr:read`/`hr:self` über own -> Tenant (wie bisher), sonst absence_data team -> sich + Berichtslinie,
+  all -> Tenant, sonst nur sich. Neues Proto-Feld `restrict_to_reporting_line` (4) in `GetEmployeeLeaveBalanceReq`,
+  regeneriert; gRPC nimmt den Aufrufer aus dem Kontext, `leave.Service.GetReportingLineLeaveBalance` prüft
+  `hr_employee_profiles.manager_user_id` (und Tenant) und liefert sonst `ErrNotInReportingLine` -> PermissionDenied
+  -> 403; eine ID ohne Profil antwortet ebenso 403, nicht 404. Guard additiv: `selfRead` ODER `team:absence_data:view`
+  als zwei getrennte Prüfungen — der Guard aus Iteration 5 ist dafür zu `requireSelfReadOr(view...)` verallgemeinert.
+  Neuer DB-Test `route_hr_leave_balance_reach_db_test.go` (echter Seed -> ResolveTokenPermissions -> echte Auth +
+  HR-Routen -> echter HR-gRPC-Server -> Postgres-Leave/Employee-Repos).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway 5518 PASS 0 Skips inkl. TestOpenAPIRouteDrift und
+  neuer DB-Test; biz/hr/... 7 Pakete ok 0 Skips; server HR/Leave 202 PASS 0 Skips) | migration n.a. |
+  rls-smoke n.a. (keine Tabelle/Policy) | e2e ok (lokal, 2:31, `TestMemberHRSelfServiceFlow`)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: (1) Berichtslinien-Bedingung im Service entfernt -> manager liest Außenstehenden 200 statt 403, rot.
+  (2) Guard zurück auf `selfRead` (Vorzustand) -> hr_admin 403 statt 200, rot. (3) team-Zweig ohne
+  `RestrictToReportingLine` -> manager liest Außenstehenden 200, rot. Alle zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`494ec76c`: Handler über `client.ListWorkTimeEntries`, `.proto` mit `.pb.go` regeneriert,
+  Guard additiv, keine neue Route/Tabelle/Permission, Antwortform unverändert)
+- neue-units: keine
+- desktop-aufrufer: `GET /hr/leave/balance/{userId}` -> `api/hr-client.ts:407` (`getEmployeeBalance`) ->
+  `hooks/hr-hooks.ts:151` (`useEmployeeLeaveBalance`) -> `modules/team/MemberProfileContent.tsx:87` -> passt
+  (manager/hr_admin bekommen den Saldo jetzt, Antwortform unverändert `LeaveBalance`)
+- offen: Unit-Test `TestHandleGetEmployeeLeaveBalance_ReachesRPC` ruft den Handler ohne Permissions auf und lebte
+  davon, dass ein fehlender Scope als `all` galt; er fragt jetzt den eigenen Saldo ab. `GET /hr/leave/requests/{id}`
+  (in der Unit "erwägen") nicht angefasst: kein Desktop-Aufrufer (`useLeaveRequest` unbenutzt), manager/hr_admin
+  bekommen dort für fremde Anträge weiter 403 — kein Ausfall, deshalb keine Unit. Kein neuer Key, kein Re-Login nötig.

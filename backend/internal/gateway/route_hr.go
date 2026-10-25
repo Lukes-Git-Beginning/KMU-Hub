@@ -95,7 +95,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(leaveDecide).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
 		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
 		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
-		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
+		r.With(requireSelfReadOr(absenceDataViewPerm)).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
 		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
 		// Books the caller's own sick leave (user id from the token, no path id): self-service.
 		r.With(selfWrite).Post("/sick", h.HandleRecordSickLeave)
@@ -114,7 +114,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// (restrictToOwnEmployee). Approvers without hr:read reach the pending-correction
 	// queue through a review key (correctionReviewScope).
 	var (
-		zeitEntriesRead = requireSelfReadOrCorrectionReview
+		zeitEntriesRead = requireSelfReadOr(correctionApprovePerm, zeitTeamViewPerm)
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
 		zeitCorrApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:corrections", "approve"})
@@ -534,15 +534,21 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	employeeID, ok := restrictToOwnEmployee(w, r, chi.URLParam(r, "userId"))
-	if !ok {
-		return
+	// The team profile shows a colleague's balance at the caller's reach (leaveBalanceReach); the
+	// reporting line itself is checked by the HR service, not here.
+	grpcReq := &hrv1.GetEmployeeLeaveBalanceReq{TenantId: tenantID, EmployeeId: chi.URLParam(r, "userId")}
+	switch leaveBalanceReach(r.Context()) {
+	case auth.ScopeAll:
+	case auth.ScopeTeam:
+		grpcReq.RestrictToReportingLine = true
+	default:
+		if !strings.EqualFold(grpcReq.EmployeeId, middleware.GetUserID(r.Context())) {
+			response.Error(w, http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 
-	resp, err := client.GetEmployeeLeaveBalance(r.Context(), &hrv1.GetEmployeeLeaveBalanceReq{
-		TenantId:   tenantID,
-		EmployeeId: employeeID,
-	})
+	resp, err := client.GetEmployeeLeaveBalance(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

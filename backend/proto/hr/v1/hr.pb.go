@@ -2826,12 +2826,15 @@ func (x *GetLeaveBalanceResp) GetBalance() *LeaveBalance {
 }
 
 type GetEmployeeLeaveBalanceReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EmployeeId    string                 `protobuf:"bytes,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	Year          int32                  `protobuf:"varint,3,opt,name=year,proto3" json:"year,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	EmployeeId string                 `protobuf:"bytes,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	Year       int32                  `protobuf:"varint,3,opt,name=year,proto3" json:"year,omitempty"`
+	// Limits the read to the caller and their direct reports (hr_employee_profiles.manager_user_id).
+	// The caller comes from the call context, never from this message.
+	RestrictToReportingLine bool `protobuf:"varint,4,opt,name=restrict_to_reporting_line,json=restrictToReportingLine,proto3" json:"restrict_to_reporting_line,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GetEmployeeLeaveBalanceReq) Reset() {
@@ -2883,6 +2886,13 @@ func (x *GetEmployeeLeaveBalanceReq) GetYear() int32 {
 		return x.Year
 	}
 	return 0
+}
+
+func (x *GetEmployeeLeaveBalanceReq) GetRestrictToReportingLine() bool {
+	if x != nil {
+		return x.RestrictToReportingLine
+	}
+	return false
 }
 
 type GetEmployeeLeaveBalanceResp struct {
@@ -9825,12 +9835,13 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
 	"\x04year\x18\x03 \x01(\x05R\x04year\"D\n" +
 	"\x13GetLeaveBalanceResp\x12-\n" +
-	"\abalance\x18\x01 \x01(\v2\x13.hr.v1.LeaveBalanceR\abalance\"n\n" +
+	"\abalance\x18\x01 \x01(\v2\x13.hr.v1.LeaveBalanceR\abalance\"\xab\x01\n" +
 	"\x1aGetEmployeeLeaveBalanceReq\x12\x1f\n" +
 	"\vemployee_id\x18\x01 \x01(\tR\n" +
 	"employeeId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
-	"\x04year\x18\x03 \x01(\x05R\x04year\"L\n" +
+	"\x04year\x18\x03 \x01(\x05R\x04year\x12;\n" +
+	"\x1arestrict_to_reporting_line\x18\x04 \x01(\bR\x17restrictToReportingLine\"L\n" +
 	"\x1bGetEmployeeLeaveBalanceResp\x12-\n" +
 	"\abalance\x18\x01 \x01(\v2\x13.hr.v1.LeaveBalanceR\abalance\"0\n" +
 	"\x11ListLeaveTypesReq\x12\x1b\n" +

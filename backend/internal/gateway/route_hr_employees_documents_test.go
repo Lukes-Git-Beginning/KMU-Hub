@@ -378,7 +378,8 @@ func TestHandleGetEmployeeLeaveBalance_ReachesRPC(t *testing.T) {
 	routes := NewHRRoutes(registryWithService("biz"), nil)
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/hr/leave/balance/550e8400-e29b-41d4-a716-446655440000", nil)
-	req = withAuth(req, "user-123", testTenantID)
+	// The caller's own balance: without a grant beyond "own" a colleague's id is a 403 before the RPC.
+	req = withAuth(req, "550e8400-e29b-41d4-a716-446655440000", testTenantID)
 	req = withChiURLParam(req, "userId", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleGetEmployeeLeaveBalance(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)

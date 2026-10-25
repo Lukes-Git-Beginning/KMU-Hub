@@ -312,20 +312,22 @@ var (
 	zeitTeamViewPerm      = [2]string{"zeiterfassung:team", "view"}
 )
 
-// requireSelfReadOrCorrectionReview guards GET /hr/time/entries: the self-service keys
-// (hr:read | hr:self) or a correction-review key. Two separate checks on purpose: in one
-// RequirePermissionAny a denied review key would void the coarse hr:read/hr:self as well and
-// lock the caller out of their own entries.
-func requireSelfReadOrCorrectionReview(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) ||
-			middleware.HoldsAnyPermission(ctx, correctionApprovePerm, zeitTeamViewPerm) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		response.Error(w, http.StatusForbidden, "insufficient permissions")
-	})
+// requireSelfReadOr guards an HR read on the self-service keys (hr:read | hr:self) or a
+// view key of a wider audience. Two separate checks on purpose: in one RequirePermissionAny a
+// denied view key would void the coarse hr:read/hr:self as well and lock the caller out of their
+// own data.
+func requireSelfReadOr(view ...[2]string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) ||
+				middleware.HoldsAnyPermission(ctx, view[0], view[1:]...) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			response.Error(w, http.StatusForbidden, "insufficient permissions")
+		})
+	}
 }
 
 // correctionReviewScope is the reach at which the caller reviews pending time corrections: the
@@ -337,6 +339,26 @@ func correctionReviewScope(ctx context.Context) string {
 		return auth.ScopeOwn
 	}
 	return narrowestScopeAny(ctx, correctionApprovePerm, zeitTeamViewPerm)
+}
+
+// absenceDataViewPerm opens an employee's absence data (leave balance) beyond the caller.
+var absenceDataViewPerm = [2]string{"team:absence_data", "view"}
+
+// leaveBalanceReach is the reach at which the caller reads another employee's leave balance: the
+// coarse HR grant counts as tenant-wide unless narrowed to "own" (as in restrictToOwnEmployee),
+// otherwise team:absence_data:view decides — team for a manager, all for hr_admin. "own" when the
+// caller holds neither beyond themselves.
+func leaveBalanceReach(ctx context.Context) string {
+	if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) &&
+		narrowestScopeAny(ctx, hrReadPerm, hrSelfPerm) != auth.ScopeOwn {
+		return auth.ScopeAll
+	}
+	if middleware.HoldsAnyPermission(ctx, absenceDataViewPerm) {
+		if scope := middleware.PermissionScope(ctx, absenceDataViewPerm[0], absenceDataViewPerm[1]); scope == auth.ScopeAll || scope == auth.ScopeTeam {
+			return scope
+		}
+	}
+	return auth.ScopeOwn
 }
 
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
