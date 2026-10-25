@@ -1229,7 +1229,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'helpdesk: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -1252,6 +1252,41 @@ units:
         im Journal
       - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
       - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: fix-helpdesk-own-scope-ticket-detail-and-messages
+    phase: 4
+    service: helpdesk
+    model: opus
+    deps: []
+    status: todo
+    target: 'helpdesk: der own-Scope von helpdesk:ticket:read gilt auch für Detail und Nachrichten, nicht nur für die Liste'
+    coverage_start: n.a.
+    scope: >
+      VERIFIZIERT im E2E `TestHelpdeskMemberTicketFlow` (Iteration 37): member hat `helpdesk:ticket:read` mit
+      scope `own` (000256). `GET /tickets` schränkt darauf ein (ParticipantId im Gateway), aber
+      `GET /tickets/{id}`, `GET /tickets/{id}/messages` und `POST /tickets/{id}/messages` nehmen die ID wie
+      geschickt (`HandleGetTicket`, `HandleListMessages`, `HandleAddMessage` in route_helpdesk.go; der Service
+      lädt nur nach Tenant). Ein zweiter member liest damit jedes Ticket des Mandanten, dessen Nachrichten
+      INKLUSIVE interner Notizen (`internal: true`), und antwortet darauf. Fremd-Mandant ist nicht betroffen
+      (der Service scoped nach Tenant). Fix an der gemeinsamen Stelle: bei scope own prüft der Service
+      (`GetTicket`/`ListMessages`/`AddMessage`), ob der Aufrufer Requester oder Assignee ist, sonst 404
+      (kein 403, damit die ID nicht als existent bestätigt wird); Teilnehmer-ID über denselben Weg wie
+      `ParticipantId` der Liste in den gRPC-Call reichen (Rollen reisen nicht über den Hop). Interne
+      Notizen sind für Nicht-Agenten (ohne `helpdesk:ticket:edit`) zu unterdrücken, sofern das Desktop
+      sie dem member nicht anzeigen soll: Frage dazu in `offen:` stellen, wenn `HelpdeskPage.tsx` das
+      Gegenteil nahelegt. Guard bleibt additiv (Alt-Token). `GET /tickets/{id}/messages` mit unbekannter ID
+      liefert heute 200 `{}` statt 404: mitziehen.
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/server/helpdesk_grpc.go
+      - backend/internal/helpdesk/service.go
+      - backend/test/e2e/helpdesk_test.go
+    done_when:
+      - 'Router-/Service-Test: member B bekommt auf Ticket, Nachrichten und Antwort eines fremden Tickets 404; Requester und Assignee 200; manager 200'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh 'TestHelpdeskMemberTicketFlow'` grün, der Subtest
+        "a second member reaches a foreign ticket by id" auf die Sperre umgestellt
+      - 'desktop-aufrufer: HelpdeskPage.tsx (Detail, Nachrichten, interne Notizen) gegen die neue Form geprüft'
 
   - id: e2e-wiki-member-page-flow
     phase: 4
