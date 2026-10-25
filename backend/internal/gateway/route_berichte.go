@@ -453,7 +453,7 @@ func toReportDocumentWire(d *berichtev1.Document) reportDocumentWire {
 type createReportDocumentRequest struct {
 	Title       string          `json:"title,omitempty"`
 	Description string          `json:"description,omitempty"`
-	Module      string          `json:"module,omitempty"      validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	Module      string          `json:"module,omitempty"      validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion work kommunikation hr zeiterfassung vertraege einkauf fuhrpark rapporte cross"`
 	TemplateID  *string         `json:"template_id,omitempty"`
 	Rows        json.RawMessage `json:"rows,omitempty"`
 	Settings    json.RawMessage `json:"settings,omitempty"`
@@ -462,7 +462,7 @@ type createReportDocumentRequest struct {
 type updateReportDocumentRequest struct {
 	Title       *string         `json:"title,omitempty"`
 	Description *string         `json:"description,omitempty"`
-	Module      *string         `json:"module,omitempty"   validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	Module      *string         `json:"module,omitempty"   validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion work kommunikation hr zeiterfassung vertraege einkauf fuhrpark rapporte cross"`
 	Status      *string         `json:"status,omitempty"   validate:"omitempty,oneof=draft final released archived"`
 	Rows        json.RawMessage `json:"rows,omitempty"`
 	Settings    json.RawMessage `json:"settings,omitempty"`

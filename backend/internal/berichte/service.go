@@ -90,7 +90,17 @@ func NewService(repo Repository, executor Executor, opts Options) *Service {
 // ============================================================================
 
 var (
+	// validModules mirrors the desktop's ReportModule (berichte-types.ts) and
+	// the module CHECK constraints (000354): the Report Builder saves the
+	// module of its data source.
 	validModules = map[string]struct{}{
+		"finanzen": {}, "crm": {}, "helpdesk": {}, "inventar": {},
+		"produktion": {}, "work": {}, "kommunikation": {}, "hr": {},
+		"zeiterfassung": {}, "vertraege": {}, "einkauf": {}, "fuhrpark": {},
+		"rapporte": {}, "cross": {},
+	}
+	// kpiModules are the modules the executor computes dashboard KPIs for.
+	kpiModules = map[string]struct{}{
 		"finanzen": {}, "crm": {}, "helpdesk": {}, "inventar": {},
 		"produktion": {}, "cross": {},
 	}
@@ -911,7 +921,7 @@ func sanitizeModules(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, m := range in {
 		m = strings.TrimSpace(m)
-		if m == "" || !isValidModule(m) {
+		if _, ok := kpiModules[m]; !ok {
 			continue
 		}
 		out = append(out, m)

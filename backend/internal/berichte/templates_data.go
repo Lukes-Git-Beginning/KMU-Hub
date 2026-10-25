@@ -7,13 +7,11 @@ package berichte
 // Document (see normalizeDocumentRows): the block tree is frontend-owned.
 //
 // One deviation from the frontend source: tpl-projekt's module is "cross"
-// here, not "work" — the backend module enum (isValidModule, matching the
-// report_documents CHECK constraint) only allows
-// finanzen|crm|helpdesk|inventar|produktion|cross. "work" is a frontend-only
-// ReportModule value with no backend equivalent; creating a document from
-// this template must pass the module check, so it is remapped at the
-// template level. Block-internal fields (e.g. kpi.source: "work") are opaque
-// JSONB and untouched.
+// here, not "work". It dates from when the module enum only knew the six
+// executor modules; "work" is valid since 000354.
+// lean: template left on "cross"; switch to "work" when the catalogue is revisited.
+// Block-internal fields (e.g. kpi.source: "work") are opaque JSONB and
+// untouched.
 var demoTemplates = []Template{
 	{
 		ID:          "tpl-monat",

@@ -29755,7 +29755,7 @@ paths:
         - { name: sort_desc, in: query, schema: { type: boolean } }
         - name: module
           in: query
-          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
           schema: { type: string }
         - name: kind
           in: query
@@ -29796,7 +29796,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 kind:
                   type: string
                   description: "system|custom (defaults to custom)"
@@ -29867,7 +29867,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 query_config:
                   type: object
                   additionalProperties: true
@@ -30248,7 +30248,7 @@ paths:
         - { name: search, in: query, description: Case-insensitive title match, schema: { type: string } }
         - name: module
           in: query
-          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
           schema: { type: string }
         - name: status
           in: query
@@ -30294,7 +30294,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross (defaults to cross)"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross (defaults to cross)"
                 template_id:
                   type: string
                   nullable: true
@@ -30369,7 +30369,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 status:
                   type: string
                   description: "draft|final|released|archived"
@@ -50563,7 +50563,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         kind:
           type: string
           description: "system|custom"
@@ -50637,7 +50637,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         rows:
           type: array
           description: Block tree (rows -> columns -> blocks), opaque JSONB.
@@ -50677,7 +50677,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         status:
           type: string
           description: "draft|final|released|archived"
@@ -50730,7 +50730,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         icon:
           type: string
           nullable: true

@@ -84,11 +84,13 @@ func TestBerichteMemberFlow(t *testing.T) {
 	}
 
 	var (
-		defID    string
-		docID    string
-		schedID  string
-		defName  = fmt.Sprintf("Pipeline Q4 %d", suffix)
-		cronWeek = "0 8 * * 1"
+		defID         string
+		docID         string
+		builderDefIDs []string
+		builderDocID  string
+		schedID       string
+		defName       = fmt.Sprintf("Pipeline Q4 %d", suffix)
+		cronWeek      = "0 8 * * 1"
 	)
 
 	t.Run("member reads the module lists and the dashboard", func(t *testing.T) {
@@ -127,11 +129,35 @@ func TestBerichteMemberFlow(t *testing.T) {
 			t.Fatalf("unexpected definition %s", string(body))
 		}
 
-		// IST: the Builder sends the module of its source, the service refuses eight of the eleven sources.
+		// The Builder sends the module of its source; every source module is stored.
 		builder := map[string]interface{}{"kind": "builder", "sourceId": "work", "viz": "bar", "dimensions": []string{}, "measures": []interface{}{}, "filters": []interface{}{}}
 		for _, module := range []string{"work", "hr", "rapporte", "fuhrpark", "einkauf", "vertraege", "kommunikation", "zeiterfassung"} {
 			resp, body = postJSON(t, b+"/definitions", map[string]interface{}{"name": "Builder " + module, "module": module, "kind": "custom", "query_config": builder}, memberAToken)
-			requireStatus(t, resp, body, http.StatusBadRequest)
+			requireStatus(t, resp, body, http.StatusCreated)
+			saved := nested(t, body, "definition")
+			if str(saved, "module") != module {
+				t.Fatalf("builder definition stored under the wrong module: %s", string(body))
+			}
+			builderDefIDs = append(builderDefIDs, str(saved, "id"))
+		}
+		if !hasID(rows(t, b+"/definitions?module=fuhrpark&page_size=50", memberBToken, "definitions"), builderDefIDs[3]) {
+			t.Fatalf("the module filter does not find the fuhrpark builder definition")
+		}
+
+		// A document can carry a builder module too.
+		resp, body = postJSON(t, b+"/documents", map[string]interface{}{"title": "Builder doc", "module": "hr"}, memberAToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		builderDoc := nested(t, body, "document")
+		if str(builderDoc, "module") != "hr" {
+			t.Fatalf("document stored under the wrong module: %s", string(body))
+		}
+		builderDocID = str(builderDoc, "id")
+
+		// The server executor does not know the builder kind: a run is a 400 with a message, never a 500.
+		resp, body = postJSON(t, b+"/definitions/"+builderDefIDs[0]+"/run", map[string]interface{}{}, memberAToken)
+		requireStatus(t, resp, body, http.StatusBadRequest)
+		if !strings.Contains(string(body), "query config is invalid") {
+			t.Fatalf("a builder run must name the invalid query config: %s", string(body))
 		}
 	})
 
@@ -339,5 +365,11 @@ func TestBerichteMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusNoContent)
 		resp, body = getJSON(t, b+"/definitions/"+defID, memberAToken)
 		requireStatus(t, resp, body, http.StatusNotFound)
+		for _, id := range builderDefIDs {
+			resp, body = deleteJSON(t, b+"/definitions/"+id, managerToken)
+			requireStatus(t, resp, body, http.StatusNoContent)
+		}
+		resp, body = deleteJSON(t, b+"/documents/"+builderDocID, managerToken)
+		requireStatus(t, resp, body, http.StatusNoContent)
 	})
 }

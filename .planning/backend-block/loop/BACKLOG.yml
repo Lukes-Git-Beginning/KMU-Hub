@@ -1389,7 +1389,7 @@ units:
     service: berichte
     model: opus
     deps: []
-    status: todo
+    status: done
     target: 'berichte: der Report Builder kann Berichte aller elf Quellen speichern'
     coverage_start: n.a.
     scope: >
