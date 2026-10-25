@@ -26,7 +26,6 @@ import (
 // VideoGRPCServer implements the Video gRPC service and its recording-tagging extension.
 type VideoGRPCServer struct {
 	videov1.UnimplementedVideoServiceServer
-	videov1.UnimplementedVideoServiceRecordingTagServer
 	videoService     *video.Service
 	meetingService   *meeting.Service
 	recordingService *recording.Service
@@ -471,7 +470,7 @@ func (s *VideoGRPCServer) DeleteRecording(ctx context.Context, req *videov1.Dele
 // ============================================================================
 
 func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1.GetRecordingConsentsRequest) (*videov1.GetRecordingConsentsResponse, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
@@ -493,21 +492,21 @@ func (s *VideoGRPCServer) GetRecordingConsents(ctx context.Context, req *videov1
 	}
 
 	return &videov1.GetRecordingConsentsResponse{
-		RecordingID:  recordingID.String(),
+		RecordingId:  recordingID.String(),
 		Consents:     protoConsents,
 		AllConsented: cs.AllConsented,
 	}, nil
 }
 
 func (s *VideoGRPCServer) TagRecordingWithConsents(ctx context.Context, req *videov1.TagRecordingWithConsentsRequest) (*emptypb.Empty, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
 	snapshot := make([]recording.ParticipantConsentInfo, 0, len(req.Snapshot))
 	for _, e := range req.Snapshot {
-		uid, parseErr := uuid.Parse(e.UserID)
+		uid, parseErr := uuid.Parse(e.UserId)
 		if parseErr != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid user_id in snapshot")
 		}
@@ -525,13 +524,13 @@ func (s *VideoGRPCServer) TagRecordingWithConsents(ctx context.Context, req *vid
 }
 
 func (s *VideoGRPCServer) UpdateRecordingMetadata(ctx context.Context, req *videov1.UpdateRecordingMetadataRequest) (*videov1.Recording, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
 
 	meta := recording.RecordingMetadata{
-		FileURL:       req.FileURL,
+		FileURL:       req.FileUrl,
 		FileSizeBytes: req.FileSizeBytes,
 	}
 	if req.DurationSeconds != nil {
@@ -556,14 +555,14 @@ func (s *VideoGRPCServer) UpdateRecordingMetadata(ctx context.Context, req *vide
 }
 
 func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *videov1.ListRecordingsByMeetingRequest) (*videov1.ListRecordingsByMeetingResponse, error) {
-	meetingID, err := uuid.Parse(req.MeetingID)
+	meetingID, err := uuid.Parse(req.MeetingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid meeting_id")
 	}
 
 	var tenantID uuid.UUID
-	if req.TenantID != "" {
-		tenantID, err = uuid.Parse(req.TenantID)
+	if req.TenantId != "" {
+		tenantID, err = uuid.Parse(req.TenantId)
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid tenant_id")
 		}
@@ -586,7 +585,7 @@ func (s *VideoGRPCServer) ListRecordingsByMeeting(ctx context.Context, req *vide
 }
 
 func (s *VideoGRPCServer) GetRecordingStatus(ctx context.Context, req *videov1.GetRecordingStatusRequest) (*videov1.Recording, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}
@@ -600,7 +599,7 @@ func (s *VideoGRPCServer) GetRecordingStatus(ctx context.Context, req *videov1.G
 }
 
 func (s *VideoGRPCServer) CleanupExpiredRecording(ctx context.Context, req *videov1.CleanupExpiredRecordingRequest) (*emptypb.Empty, error) {
-	recordingID, err := uuid.Parse(req.RecordingID)
+	recordingID, err := uuid.Parse(req.RecordingId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid recording_id")
 	}

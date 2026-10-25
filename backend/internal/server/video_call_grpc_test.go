@@ -746,7 +746,7 @@ func TestGetRecordingConsents_EmptyReturnsEmptySlice(t *testing.T) {
 	ts := newTestVideoCallServer()
 	recID := uuid.New()
 	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusActive, CreatedAt: time.Now()}
-	resp, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingID: recID.String()})
+	resp, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingId: recID.String()})
 	require.NoError(t, err)
 	assert.NotNil(t, resp.Consents)
 	assert.Empty(t, resp.Consents)
@@ -754,7 +754,7 @@ func TestGetRecordingConsents_EmptyReturnsEmptySlice(t *testing.T) {
 
 func TestListRecordingsByMeeting_EmptyReturnsEmptySlice(t *testing.T) {
 	ts := newTestVideoCallServer()
-	resp, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingID: uuid.New().String()})
+	resp, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingId: uuid.New().String()})
 	require.NoError(t, err)
 	assert.NotNil(t, resp.Recordings)
 	assert.Empty(t, resp.Recordings)
@@ -896,12 +896,12 @@ func TestVideoCallHandlers_Validation(t *testing.T) {
 	})
 	t.Run("GetRecordingConsents_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingID: "bogus"})
+		_, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("TagRecordingWithConsents_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.TagRecordingWithConsents(context.Background(), &videov1.TagRecordingWithConsentsRequest{RecordingID: "bogus"})
+		_, err := ts.srv.TagRecordingWithConsents(context.Background(), &videov1.TagRecordingWithConsentsRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("TagRecordingWithConsents_InvalidSnapshotUserID", func(t *testing.T) {
@@ -909,34 +909,34 @@ func TestVideoCallHandlers_Validation(t *testing.T) {
 		recID := uuid.New()
 		ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, CreatedAt: time.Now()}
 		_, err := ts.srv.TagRecordingWithConsents(context.Background(), &videov1.TagRecordingWithConsentsRequest{
-			RecordingID: recID.String(),
-			Snapshot:    []*videov1.ConsentSnapshotEntry{{UserID: "bogus"}},
+			RecordingId: recID.String(),
+			Snapshot:    []*videov1.ConsentSnapshotEntry{{UserId: "bogus"}},
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("UpdateRecordingMetadata_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.UpdateRecordingMetadata(context.Background(), &videov1.UpdateRecordingMetadataRequest{RecordingID: "bogus"})
+		_, err := ts.srv.UpdateRecordingMetadata(context.Background(), &videov1.UpdateRecordingMetadataRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ListRecordingsByMeeting_InvalidMeetingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingID: "bogus"})
+		_, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ListRecordingsByMeeting_InvalidTenantID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingID: uuid.New().String(), TenantID: "bogus"})
+		_, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{MeetingId: uuid.New().String(), TenantId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("GetRecordingStatus_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingID: "bogus"})
+		_, err := ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("CleanupExpiredRecording_InvalidRecordingID", func(t *testing.T) {
 		ts := newTestVideoCallServer()
-		_, err := ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingID: "bogus"})
+		_, err := ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingId: "bogus"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ConfirmInitiatorConsent_InvalidRecordingID", func(t *testing.T) {
@@ -1267,14 +1267,14 @@ func TestGetRecordingConsents_ReflectsAllConsentedFlag(t *testing.T) {
 	_, err := ts.srv.SetRecordingConsent(context.Background(), &videov1.SetRecordingConsentRequest{RecordingId: recID.String(), UserId: user1.String(), Consented: true})
 	require.NoError(t, err)
 
-	resp, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingID: recID.String()})
+	resp, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingId: recID.String()})
 	require.NoError(t, err)
 	require.Len(t, resp.Consents, 1)
 	assert.True(t, resp.AllConsented)
 
 	_, err = ts.srv.SetRecordingConsent(context.Background(), &videov1.SetRecordingConsentRequest{RecordingId: recID.String(), UserId: uuid.New().String(), Consented: false})
 	require.NoError(t, err)
-	resp2, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingID: recID.String()})
+	resp2, err := ts.srv.GetRecordingConsents(context.Background(), &videov1.GetRecordingConsentsRequest{RecordingId: recID.String()})
 	require.NoError(t, err)
 	assert.False(t, resp2.AllConsented)
 }
@@ -1286,8 +1286,8 @@ func TestTagRecordingWithConsents_Success(t *testing.T) {
 	userID := uuid.New()
 
 	_, err := ts.srv.TagRecordingWithConsents(context.Background(), &videov1.TagRecordingWithConsentsRequest{
-		RecordingID: recID.String(),
-		Snapshot:    []*videov1.ConsentSnapshotEntry{{UserID: userID.String(), DisplayName: "Ada"}},
+		RecordingId: recID.String(),
+		Snapshot:    []*videov1.ConsentSnapshotEntry{{UserId: userID.String(), DisplayName: "Ada"}},
 	})
 	require.NoError(t, err)
 	assert.Len(t, ts.recRepo.recordings[recID].ConsentSnapshot, 1)
@@ -1300,8 +1300,8 @@ func TestUpdateRecordingMetadata_SuccessAndInvalidStatus(t *testing.T) {
 
 	fileURL := "https://example.com/rec.mp4"
 	resp, err := ts.srv.UpdateRecordingMetadata(context.Background(), &videov1.UpdateRecordingMetadataRequest{
-		RecordingID: recID.String(),
-		FileURL:     &fileURL,
+		RecordingId: recID.String(),
+		FileUrl:     &fileURL,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp.FileUrl)
@@ -1309,7 +1309,7 @@ func TestUpdateRecordingMetadata_SuccessAndInvalidStatus(t *testing.T) {
 
 	bogusStatus := "bogus-status"
 	_, err = ts.srv.UpdateRecordingMetadata(context.Background(), &videov1.UpdateRecordingMetadataRequest{
-		RecordingID: recID.String(),
+		RecordingId: recID.String(),
 		Status:      &bogusStatus,
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -1325,8 +1325,8 @@ func TestListRecordingsByMeeting_PaginationAndTenant(t *testing.T) {
 	}
 
 	resp, err := ts.srv.ListRecordingsByMeeting(context.Background(), &videov1.ListRecordingsByMeetingRequest{
-		MeetingID: meetingID.String(),
-		TenantID:  tenantID.String(),
+		MeetingId: meetingID.String(),
+		TenantId:  tenantID.String(),
 		Page:      1,
 		PageSize:  2,
 	})
@@ -1340,11 +1340,11 @@ func TestGetRecordingStatus_SuccessAndNotFound(t *testing.T) {
 	recID := uuid.New()
 	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, Status: recording.RecordingStatusCompleted, CreatedAt: time.Now()}
 
-	resp, err := ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingID: recID.String()})
+	resp, err := ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingId: recID.String()})
 	require.NoError(t, err)
 	assert.Equal(t, videov1.RecordingStatus_RECORDING_STATUS_COMPLETED, resp.Status)
 
-	_, err = ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingID: uuid.New().String()})
+	_, err = ts.srv.GetRecordingStatus(context.Background(), &videov1.GetRecordingStatusRequest{RecordingId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -1354,7 +1354,7 @@ func TestCleanupExpiredRecording_ExpiredAndNotExpired(t *testing.T) {
 	past := time.Now().Add(-time.Hour)
 	ts.recRepo.recordings[expiredID] = &recording.Recording{ID: expiredID, Status: recording.RecordingStatusCompleted, RetentionExpiresAt: &past, CreatedAt: time.Now()}
 
-	_, err := ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingID: expiredID.String()})
+	_, err := ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingId: expiredID.String()})
 	require.NoError(t, err)
 	_, stillThere := ts.recRepo.recordings[expiredID]
 	assert.False(t, stillThere)
@@ -1362,7 +1362,7 @@ func TestCleanupExpiredRecording_ExpiredAndNotExpired(t *testing.T) {
 	notExpiredID := uuid.New()
 	future := time.Now().Add(time.Hour)
 	ts.recRepo.recordings[notExpiredID] = &recording.Recording{ID: notExpiredID, Status: recording.RecordingStatusCompleted, RetentionExpiresAt: &future, CreatedAt: time.Now()}
-	_, err = ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingID: notExpiredID.String()})
+	_, err = ts.srv.CleanupExpiredRecording(context.Background(), &videov1.CleanupExpiredRecordingRequest{RecordingId: notExpiredID.String()})
 	requireGRPCCode(t, err, codes.FailedPrecondition)
 }
 

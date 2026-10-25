@@ -2,16 +2,13 @@ package server
 
 import (
 	"context"
-	"net"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/work/recording"
@@ -29,17 +26,7 @@ func TestConfirmInitiatorConsent_OverTheWire(t *testing.T) {
 	recID := uuid.New()
 	ts.recRepo.recordings[recID] = &recording.Recording{ID: recID, StartedBy: &initiator, CreatedAt: time.Now()}
 
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	gs := grpc.NewServer()
-	videov1.RegisterVideoServiceServer(gs, ts.srv)
-	go func() { _ = gs.Serve(lis) }()
-	t.Cleanup(gs.Stop)
-
-	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = conn.Close() })
-	client := videov1.NewVideoServiceClient(conn)
+	client := dialVideoServer(t, ts.srv)
 
 	t.Run("a foreign user stamps nothing", func(t *testing.T) {
 		_, err := client.ConfirmInitiatorConsent(context.Background(), &videov1.ConfirmInitiatorConsentRequest{

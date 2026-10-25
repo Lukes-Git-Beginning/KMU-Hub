@@ -2596,7 +2596,7 @@ units:
     service: video
     model: opus
     deps: [fix-video-initiator-consent-rpc-cannot-marshal]
-    status: todo
+    status: done
     coverage_start: "internal/gateway 76,9 % · internal/server 75,4 %"
     scope: >
       Gefunden in fix-video-initiator-consent-rpc-cannot-marshal (Lauf 16, Iteration 14):

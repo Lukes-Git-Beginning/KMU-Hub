@@ -1702,19 +1702,10 @@ func (vr *VideoRoutes) handleRoomFinished(r *http.Request, evt liveKitWebhookEve
 // Recording Tagging Handlers (S1.7 / Welle 1.B)
 // ============================================================================
 
-// getVideoRecordingTagClient obtains the recording-tag extended gRPC client.
-func (vr *VideoRoutes) getVideoRecordingTagClient() (videov1.VideoServiceRecordingTagClient, error) {
-	conn, err := vr.registry.GetConnection("work")
-	if err != nil {
-		return nil, err
-	}
-	return videov1.NewVideoServiceRecordingTagClient(conn), nil
-}
-
 // HandleGetRecordingConsents returns the consent snapshot + live consent rows for a recording.
 // GET /api/v1/video/recordings/{id}/consents
 func (vr *VideoRoutes) HandleGetRecordingConsents(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1726,14 +1717,16 @@ func (vr *VideoRoutes) HandleGetRecordingConsents(w http.ResponseWriter, r *http
 	}
 
 	resp, err := client.GetRecordingConsents(r.Context(), &videov1.GetRecordingConsentsRequest{
-		RecordingID: recordingID,
+		RecordingId: recordingID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, resp)
+	// The desktop type (RecordingConsentsResponse) has no optional members:
+	// keep `consented: false`, `all_consented: false` and an empty `consents`.
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 type tagRecordingConsentsRequest struct {
@@ -1747,7 +1740,7 @@ type tagRecordingConsentsRequest struct {
 // HandleTagRecordingWithConsents overwrites the consent snapshot on a recording.
 // POST /api/v1/video/recordings/{id}/tag-consents
 func (vr *VideoRoutes) HandleTagRecordingWithConsents(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1766,14 +1759,14 @@ func (vr *VideoRoutes) HandleTagRecordingWithConsents(w http.ResponseWriter, r *
 	entries := make([]*videov1.ConsentSnapshotEntry, 0, len(req.Snapshot))
 	for _, e := range req.Snapshot {
 		entries = append(entries, &videov1.ConsentSnapshotEntry{
-			UserID:      e.UserID,
+			UserId:      e.UserID,
 			DisplayName: e.DisplayName,
 			JoinedAt:    e.JoinedAt,
 		})
 	}
 
 	_, err = client.TagRecordingWithConsents(r.Context(), &videov1.TagRecordingWithConsentsRequest{
-		RecordingID: recordingID,
+		RecordingId: recordingID,
 		Snapshot:    entries,
 	})
 	if err != nil {
@@ -1794,7 +1787,7 @@ type updateRecordingMetadataRequest struct {
 // HandleUpdateRecordingMetadata updates mutable fields on a recording.
 // PATCH /api/v1/video/recordings/{id}/metadata
 func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1811,8 +1804,8 @@ func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *h
 	}
 
 	resp, err := client.UpdateRecordingMetadata(r.Context(), &videov1.UpdateRecordingMetadataRequest{
-		RecordingID:     recordingID,
-		FileURL:         req.FileURL,
+		RecordingId:     recordingID,
+		FileUrl:         req.FileURL,
 		FileSizeBytes:   req.FileSizeBytes,
 		DurationSeconds: req.DurationSeconds,
 		Status:          req.Status,
@@ -1828,7 +1821,7 @@ func (vr *VideoRoutes) HandleUpdateRecordingMetadata(w http.ResponseWriter, r *h
 // HandleGetRecordingStatus returns the current status of a single recording.
 // GET /api/v1/video/recordings/{id}/status
 func (vr *VideoRoutes) HandleGetRecordingStatus(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1840,7 +1833,7 @@ func (vr *VideoRoutes) HandleGetRecordingStatus(w http.ResponseWriter, r *http.R
 	}
 
 	resp, err := client.GetRecordingStatus(r.Context(), &videov1.GetRecordingStatusRequest{
-		RecordingID: recordingID,
+		RecordingId: recordingID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -1853,7 +1846,7 @@ func (vr *VideoRoutes) HandleGetRecordingStatus(w http.ResponseWriter, r *http.R
 // HandleListRecordingsByMeeting lists recordings for a specific meeting with pagination.
 // GET /api/v1/video/meetings/{meetingId}/recordings
 func (vr *VideoRoutes) HandleListRecordingsByMeeting(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1867,7 +1860,7 @@ func (vr *VideoRoutes) HandleListRecordingsByMeeting(w http.ResponseWriter, r *h
 	page, pageSize := parsePagination(r, 1, 20)
 
 	resp, err := client.ListRecordingsByMeeting(r.Context(), &videov1.ListRecordingsByMeetingRequest{
-		MeetingID: meetingID,
+		MeetingId: meetingID,
 		Page:      int32(page),
 		PageSize:  int32(pageSize),
 	})
@@ -1909,7 +1902,7 @@ func (vr *VideoRoutes) HandleGetRecordingDownloadURL(w http.ResponseWriter, r *h
 // HandleCleanupExpiredRecording deletes a single recording past its retention period.
 // POST /api/v1/video/recordings/{id}/cleanup  (admin/cron endpoint)
 func (vr *VideoRoutes) HandleCleanupExpiredRecording(w http.ResponseWriter, r *http.Request) {
-	client, err := vr.getVideoRecordingTagClient()
+	client, err := vr.getVideoClient()
 	if err != nil {
 		respondServiceUnavailable(w, vr.ServiceName())
 		return
@@ -1921,7 +1914,7 @@ func (vr *VideoRoutes) HandleCleanupExpiredRecording(w http.ResponseWriter, r *h
 	}
 
 	_, err = client.CleanupExpiredRecording(r.Context(), &videov1.CleanupExpiredRecordingRequest{
-		RecordingID: recordingID,
+		RecordingId: recordingID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
