@@ -159,7 +159,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     target: jeder Grant der Presets member/manager vor 000256 ist gegen die Rollenmatrix geprüft
     coverage_start: n.a. (Scan)
     scope: >
@@ -181,6 +181,78 @@ units:
       - >
         Je Fund, der fremde Daten oder Supervisor-Rechte öffnet, eine Fix-Unit VOR der ersten todo-Unit
         in BACKLOG.yml (wird in diesem Lauf gebaut); reine Produktfragen nach NEXT
+
+  - id: fix-work-member-own-comment-and-time-entry-delete
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: member löscht eigene Aufgaben-Kommentare und eigene Zeiteinträge, fremde weiterhin nicht
+    coverage_start: n.a.
+    scope: >
+      TOTALAUSFALL für die Rolle member (Fund aus `scan-legacy-seed-grants-for-member-and-manager`, Lauf 17
+      Iteration 1). `DELETE /api/v1/task-comments/{id}` und `DELETE /api/v1/time-entries/{id}`
+      (`gateway/route_work.go`, Blöcke "Task comments" und "Time entries") verlangen hart
+      `RequirePermission("tasks","delete")`. Den Key hält im Preset nur manager (000024, scope all), member
+      hält `tasks:write` (all), aber nicht `tasks:delete`. `RequirePermission` vergleicht exakt
+      (`middleware/rbac.go:38`), also bekommt JEDER member beim Löschen eines eigenen Kommentars oder
+      eigenen Zeiteintrags 403. Das Bearbeiten derselben Objekte (`PUT`, `tasks:write`) geht. Das FE zeigt
+      den Löschknopf nur über `isOwn`/`isOwner` ohne Capability-Prüfung (`useTaskComments.ts:121`,
+      `useTimeEntries.ts:196`), der Nutzer sieht also einen Knopf, der immer scheitert. Die Datengrenze
+      existiert schon im Service: `DeleteTaskComment` gibt den Akteur an `commentService.Delete` (mit
+      `IsAdmin` aus dem Request), `DeleteTimeEntry` ruft `timeEntryService.DeleteEntry(..., actorID, ...,
+      false)`. Fix: Guard additiv erweitern, z. B. `RequirePermissionAny({"tasks","delete"},
+      {"tasks","write"})` (kein neuer Key, kein Seed nötig) — vorher prüfen, dass beide Services den
+      Akteur wirklich gegen Autor/Eigentümer vergleichen und `IsAdmin` nicht aus Client-Eingabe stammt.
+    sources:
+      - backend/internal/gateway/route_work.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/
+      - desktop/src/renderer/src/api/hooks/useTaskComments.ts
+      - desktop/src/renderer/src/api/hooks/useTimeEntries.ts
+    notes: >
+      Regel 2: Router-Test mit Token aus `GetUserGrants`/`ResolveTokenPermissions` des member-Presets, nicht
+      von Hand gebaut. Guard nur additiv (Regel b).
+    done_when:
+      - 'Router-Test mit echtem member-Token: eigenen Kommentar und eigenen Zeiteintrag löschen 200/204'
+      - 'Fremden Kommentar bzw. fremden Zeiteintrag löschen als member 403/404'
+      - manager-Pfad unverändert (Test)
+
+  - id: fix-rapporte-measurement-read-follows-report-scope
+    phase: 4
+    service: rapporte
+    model: opus
+    deps: []
+    status: todo
+    target: member liest Aufmaße nur zu Rapporten, die er selbst lesen darf
+    coverage_start: n.a.
+    scope: >
+      LECK INNERHALB DES TENANTS (Fund aus `scan-legacy-seed-grants-for-member-and-manager`, Lauf 17
+      Iteration 1). member hält `rapporte:report:read` mit Scope `own`, aber `rapporte:measurement:read`
+      mit Scope `all` (beides 000256). `GET /api/v1/rapporte/measurements` und
+      `GET /api/v1/rapporte/measurements/{id}` (`gateway/route_rapporte.go`, `HandleListMeasurements`,
+      `HandleGetMeasurement`) reichen keinerlei Autor-Einschränkung durch — `ListMeasurementsRequest` und
+      `GetMeasurementRequest` haben gar kein `restrict_to_author`-Feld. Ein member liest damit alle Aufmaße
+      des Tenants inklusive Titel, Ort, `measured_by`, Notizen und Positionen zu Rapporten anderer, die
+      er selbst nicht öffnen darf. Die Schreibwege sind dagegen schon begrenzt
+      (`rapporteMeasurementScopeKeys` mit `rapporte:report:edit`, narrower wins). Kein Desktop-Aufrufer
+      heute (Aufmaß-Tab läuft auf einem lokalen Mock-Store), erreichbar per REST. Fix: `restrict_to_author`
+      in beide Requests (Proto + Regen), Gateway setzt es per `restrictToAuthor` über
+      `rapporte:measurement:read` + `rapporte:report:read`, Service filtert über den Autor des
+      zugehörigen Rapports (gleiche Logik wie die Schreibwege).
+    sources:
+      - backend/internal/gateway/route_rapporte.go
+      - backend/proto/rapporte/v1/
+      - backend/internal/rapporte/
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+    notes: >
+      Erst reproduzieren (Router- oder Service-Test mit echtem member-Token, Regel 2), dann fixen. Proto-Regen
+      im selben Commit. manager/admin (report:read all) sehen weiter alles.
+    done_when:
+      - 'Test mit echtem member-Token: Aufmaß zum eigenen Rapport 200, zu fremdem Rapport 404 (Liste ohne Eintrag)'
+      - 'manager sieht weiter alle Aufmaße (Test)'
+      - Proto regeneriert, `.pb.go` im Commit
 
   - id: scan-coarse-keys-with-non-all-scope
     phase: 4
