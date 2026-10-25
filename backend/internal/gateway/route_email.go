@@ -129,26 +129,31 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// The email:mailbox keys open what a mailbox owner does with their own
 	// mail. The email server confines every route behind them to the caller's
 	// own accounts (ownAccount/ownMessage in server/email_grpc.go), so they are
-	// safe to hand to every employee. Account provisioning (it dials any host),
-	// rules (tenant-wide, applied to every mailbox), label catalogue writes,
+	// safe to hand to every employee. The email:account keys open setting up,
+	// changing and removing an account: at scope own the create handler pins
+	// user_id to the caller and the email server confines update and delete to
+	// the caller's own accounts (the dial guard keeps the hosts public). Rules
+	// (tenant-wide, applied to every mailbox), label catalogue writes,
 	// shared-template edits, the contact mail history and CRM import/export
 	// reach beyond one mailbox and stay on the coarse keys.
 	var (
-		boxRead   = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
-		boxWrite  = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
-		boxDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
+		boxRead    = middleware.RequirePermissionAny([2]string{"email", "read"}, [2]string{"email:mailbox", "read"})
+		boxWrite   = middleware.RequirePermissionAny([2]string{"email", "write"}, [2]string{"email:mailbox", "write"})
+		boxDelete  = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:mailbox", "delete"})
+		acctWrite  = middleware.RequirePermissionAny(emailWriteKey, emailAccountWriteKey)
+		acctDelete = middleware.RequirePermissionAny([2]string{"email", "delete"}, [2]string{"email:account", "delete"})
 	)
 
 	// Email Accounts
 	r.Route("/api/v1/email/accounts", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("email", "write")).Post("/", e.HandleCreateAccount)
+		r.With(acctWrite).Post("/", e.HandleCreateAccount)
 		r.With(boxRead).Get("/", e.HandleGetAccount)
 		r.With(boxRead).Get("/list", e.HandleListAccounts)
-		r.With(middleware.RequirePermission("email", "write")).Put("/{id}", e.HandleUpdateAccount)
-		r.With(middleware.RequirePermission("email", "delete")).Delete("/{id}", e.HandleDeleteAccount)
+		r.With(acctWrite).Put("/{id}", e.HandleUpdateAccount)
+		r.With(acctDelete).Delete("/{id}", e.HandleDeleteAccount)
 		r.With(boxWrite).Post("/{id}/default", e.HandleSetDefaultAccount)
-		r.With(middleware.RequirePermission("email", "write")).Post("/test", e.HandleTestConnection)
+		r.With(acctWrite).Post("/test", e.HandleTestConnection)
 	})
 
 	// Folders
@@ -266,6 +271,13 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 // Account Handlers
 // ============================================================================
 
+// Setting up and changing a mail account takes the coarse admin key or the
+// self-setup key.
+var (
+	emailWriteKey        = [2]string{"email", "write"}
+	emailAccountWriteKey = [2]string{"email:account", "write"}
+)
+
 func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request) {
 	client, err := e.getEmailClient()
 	if err != nil {
@@ -278,6 +290,20 @@ func (e *EmailRoutes) HandleCreateAccount(w http.ResponseWriter, r *http.Request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	// At scope own the account is the caller's: an empty user_id becomes theirs,
+	// someone else's is refused rather than silently rewritten.
+	owner, ok := ownerFilterForScopeAny(w, r, emailWriteKey, emailAccountWriteKey)
+	if !ok {
+		return
+	}
+	if owner != nil {
+		if req.UserId != "" && req.UserId != *owner {
+			response.Error(w, http.StatusForbidden, "you can only set up your own email account")
+			return
+		}
+		req.UserId = *owner
 	}
 
 	resp, err := client.CreateEmailAccount(r.Context(), &req)

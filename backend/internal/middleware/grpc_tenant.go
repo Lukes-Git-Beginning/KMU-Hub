@@ -40,9 +40,22 @@ const PermTeamInboxManage = "kommunikation:team_inbox:manage"
 // somebody else started.
 const PermRecordingsAdmin = "recordings:admin"
 
+// PermEmailWrite and PermEmailDelete are the coarse email keys of admin
+// provisioning: their holder sets up, changes and removes the mail accounts of
+// other users of the tenant. Without them the email server confines account
+// changes to the caller's own accounts.
+//
+// lean: the hop carries key names, not scopes; a custom role holding the coarse
+// key at scope 'own' would reach other users' accounts. Forward the scope when a
+// role ever needs the coarse email keys narrowed (today admin only, 'all').
+const (
+	PermEmailWrite  = "email:write"
+	PermEmailDelete = "email:delete"
+)
+
 // forwardedPermissions are the capability keys a backend service decides on
 // itself, so they must cross the gateway->service hop.
-var forwardedPermissions = []string{PermTeamInboxManage, PermRecordingsAdmin}
+var forwardedPermissions = []string{PermTeamInboxManage, PermRecordingsAdmin, PermEmailWrite, PermEmailDelete}
 
 // TenantOutboundUnaryInterceptor is a gRPC client interceptor that copies the
 // tenant_id and user_id values from the HTTP request context (already populated

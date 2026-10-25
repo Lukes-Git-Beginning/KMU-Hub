@@ -206,3 +206,20 @@ func TestPermissionForwarding_RecordingsAdminCrossesTheHop(t *testing.T) {
 		t.Fatalf("x-user-perms = %v; want only %q", got, PermRecordingsAdmin)
 	}
 }
+
+// The coarse email keys decide inside the email server whether an account
+// change may touch another user's account; the self-setup keys must not cross.
+func TestPermissionForwarding_CoarseEmailKeysCrossTheHop(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserPermsKey,
+		[]string{"email:read", PermEmailWrite, PermEmailDelete, "email:account:write", "email:mailbox:write"})
+
+	var outgoingCtx context.Context
+	if err := TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx)); err != nil {
+		t.Fatalf("outbound: %v", err)
+	}
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	want := PermEmailWrite + "," + PermEmailDelete
+	if got := md.Get(gRPCPermsHeader); len(got) != 1 || got[0] != want {
+		t.Fatalf("x-user-perms = %v; want only %q", got, want)
+	}
+}

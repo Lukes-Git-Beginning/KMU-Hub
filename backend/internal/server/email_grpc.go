@@ -121,6 +121,33 @@ func (s *EmailGRPCServer) ownAccount(ctx context.Context, accountID uuid.UUID) (
 	return acct, nil
 }
 
+// mayManageAccountOf allows setting up an account for userID: the caller's own,
+// or anyone's with the coarse provisioning key (forwarded from the gateway).
+func (s *EmailGRPCServer) mayManageAccountOf(ctx context.Context, userID uuid.UUID, provisionKey string) error {
+	if slices.Contains(middleware.GetUserPermissions(ctx), provisionKey) {
+		return nil
+	}
+	caller, err := callerID(ctx)
+	if err != nil {
+		return err
+	}
+	if userID != caller {
+		return status.Error(codes.PermissionDenied, "you can only set up your own email account")
+	}
+	return nil
+}
+
+// mayManageAccount allows changing or removing an account the caller holds, or
+// any account of the tenant with the coarse provisioning key. Someone else's
+// account answers NotFound, as in ownAccount.
+func (s *EmailGRPCServer) mayManageAccount(ctx context.Context, accountID uuid.UUID, provisionKey string) error {
+	if slices.Contains(middleware.GetUserPermissions(ctx), provisionKey) {
+		return nil
+	}
+	_, err := s.ownAccount(ctx, accountID)
+	return err
+}
+
 // ownAccountIDs lists the IDs of the caller's own accounts.
 func (s *EmailGRPCServer) ownAccountIDs(ctx context.Context) ([]uuid.UUID, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
@@ -210,6 +237,9 @@ func (s *EmailGRPCServer) CreateEmailAccount(ctx context.Context, req *emailv1.C
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
+	if err := s.mayManageAccountOf(ctx, userID, middleware.PermEmailWrite); err != nil {
+		return nil, err
+	}
 
 	input := account.CreateInput{
 		UserID:       userID,
@@ -296,6 +326,9 @@ func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.U
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
 	}
+	if err := s.mayManageAccount(ctx, id, middleware.PermEmailWrite); err != nil {
+		return nil, err
+	}
 
 	input := account.UpdateInput{}
 	if req.DisplayName != nil {
@@ -354,6 +387,9 @@ func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.D
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
+	}
+	if err := s.mayManageAccount(ctx, id, middleware.PermEmailDelete); err != nil {
+		return nil, err
 	}
 
 	// Stop sync worker before deleting

@@ -25461,6 +25461,15 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            Missing email:write and email:account:write, or a caller with the self-setup key
+            (scope own) names another user in user_id. Without the coarse key the account is
+            always the caller's own; an empty user_id becomes the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":

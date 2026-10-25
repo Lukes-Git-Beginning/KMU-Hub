@@ -371,3 +371,37 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   `SELECT imap_host, smtp_host FROM email_accounts` gegen private Ranges. Nicht auflösbare Hosts passieren `Validate`
   bewusst (der Dial scheitert ohnehin, die Grenze ist der Dial-Hook). Der Verbindungstest meldet eine gesperrte
   SMTP-Adresse im Feld `imap_error` (Proto kennt nur das). `systemmail` (Operator-SMTP aus Env) bleibt ungefiltert.
+
+## Iteration 10 — feat-email-account-self-setup-for-members — done — 2026-10-25 17:59
+- commit: siehe Commit `feat(email): let members set up and manage their own mail account` (dieser Eintrag)
+- gebaut: Migration 000347 `email:account:write|delete` (member/manager `own`, admin `all`, zweimal anwendbar,
+  Down entfernt genau diese Keys). Gateway: Anlegen/Ändern/Verbindungstest `RequirePermissionAny(email:write,
+  email:account:write)`, Löschen `(email:delete, email:account:delete)` — additiv. Anlegen pinnt `user_id` bei
+  Scope `own` über `ownerFilterForScopeAny` (leer -> Aufrufer, fremd -> 403). Email-Server: `mayManageAccountOf`
+  (Create, fremde user_id -> PermissionDenied) und `mayManageAccount` (Update/Delete über `ownAccount`, fremd ->
+  NotFound), Ausnahme nur mit weitergereichtem groben Key: `email:write`/`email:delete` neu in
+  `forwardedPermissions` (`PermEmailWrite`/`PermEmailDelete`, Whitelist-Test mitgezogen). Spec: 403 an POST
+  `/email/accounts` dokumentiert (swagger-cli valid).
+- gate: build ok | vet ok | lint ok (0 issues: server, gateway, middleware) | test ok (`internal/gateway` 5533 PASS,
+  `internal/server` 5002 PASS, middleware/auth/email/... ok, 0 SKIP, DATABASE_URL als kmuhub_app) | migration ok
+  (347 up/down/up, Kopf 347 clean) | rls-smoke n.a. (keine Tabelle/Policy) | e2e n.a. (kein Flow berührt
+  `/email/accounts`)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: (1) Besitzprüfung in `UpdateEmailAccount` entfernt -> `TestUpdateEmailAccount_SomeoneElsesAccountIsNotFound`
+  und der DB-Kettentest (member PUT fremdes Konto = 200 statt 404) rot. (2) `mayManageAccountOf` lässt fremde
+  user_id durch -> `TestCreateEmailAccount_ForSomeoneElseNeedsTheProvisioningKey` rot. (3) grobe Email-Keys aus
+  `forwardedPermissions` entfernt -> DB-Kettentest (admin legt für anderen an = 403) rot. Alle zurückgedreht,
+  finaler Tree erneut grün.
+- verify vorgaenger: sauber (`7f7faf03`: kein Proto, keine Route, kein neuer Guard, keine Tabelle; Dial-Guard in
+  account/send/sync/cmd verdrahtet, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: POST `/email/accounts/`, PUT/DELETE `/email/accounts/{id}`, POST `/email/accounts/test` ->
+  `api/email-client.ts:86-119` über `api/hooks/useEmail.ts:75-108` -> passt: Antwortformen unverändert, der FE-Typ
+  `CreateEmailAccountRequest` sendet `user_id` immer mit (eigene ID = 201). Kein Konto-Dialog ruft die Hooks
+  derzeit auf (kein TSX-Aufrufer von `useCreateEmailAccount`/`useUpdateEmailAccount`/`useDeleteEmailAccount`/
+  `useTestEmailConnection`) — die Self-Setup-Oberfläche fehlt im FE.
+- offen: Neue Keys wirken erst nach Re-Login (Produktion). Die groben Keys `email:write`/`email:delete` reisen jetzt
+  über den gRPC-Hop zu ALLEN Services (nur der Email-Server liest sie); der Hop trägt keine Scopes — eine Custom-Rolle
+  mit grobem `email:write` bei Scope `own` könnte fremde Konten ändern (`lean:`-Marker in `grpc_tenant.go`; heute
+  hält nur admin die groben Keys, Scope `all`). manager bekommt den Key mit (`own`), wie bei 000337/000346 — bitte
+  bestätigen. Ein FE-Konto-Dialog für member fehlt; als FE-Thema für NEXT einordnen, falls gewünscht.

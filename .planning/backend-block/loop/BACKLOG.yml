@@ -465,7 +465,7 @@ units:
     model: opus
     deps:
       - harden-email-dial-guard-for-account-hosts
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Self-Setup für member:
