@@ -672,3 +672,24 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   hat und nicht eingeladen ist, bekommt jetzt 404 — so in der Entscheidung („nur Organisator und Teilnehmer“), aber
   falls Kalender-Delegation gemeint war, ist das eine Erweiterung. (2) Recurring Events: Teilnehmer hängen an der Serie,
   das Token auch (Raumname aus Serien-ID) — unverändert.
+
+## Iteration 19 — fix-offboarding-revokes-caldav-app-passwords — done — 2026-10-25 19:33
+- commit: siehe Commit `fix(hr): revoke CalDAV app passwords when an employee is offboarded` (dieser Eintrag)
+- gebaut: `PostgresEmployeeRepo.Offboard` setzt in derselben Transaktion `revoked_at = NOW()` auf alle noch aktiven
+  `app_specific_passwords` des Leavers (tenant-gescoped). Vorprüfung: `FindActiveByUser` joint schon auf `users.is_active`,
+  die Basic-Auth lehnte Offboardete also bereits ab (Unit `fix-caldav-basic-auth-ignores-user-state` war erledigt); der
+  Widerruf ist die zweite Schicht, damit eine versehentliche Reaktivierung keine alten Passwörter wiederbelebt.
+- gate: build ok (hr, caldav, cmd/gateway) | vet ok | lint ok (0 issues) | test ok (`internal/biz/hr/...` alle ok,
+  employee 50 RUN, 0 SKIP; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle, keine Policy;
+  Test läuft unter kmuhub_app mit Tenant-Kontext) | gateway-Test n.a. (keine Route berührt) | e2e n.a. (kein Flow prüft Offboarding, grep `test/e2e/`)
+- coverage: `internal/biz/hr/employee` 76,2 % -> 76,0 % (kein Coverage-Ziel; ein zusätzlicher Fehlerzweig im Repo ohne Test)
+- mutations-probe: Bedingung `revoked_at IS NULL` zu `IS NOT NULL` verdreht -> `TestOffboard_RevokesLeaversAppPasswordsOnly`
+  rot („leaver still has 2 active app passwords“ und „Basic Auth lookup returns 2 passwords for a re-activated leaver“).
+  Zurückgedreht, Diff nur die gewollten 12 Zeilen, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`788f475e`: kein Guard, kein Proto, keine Tabelle/Route neu; Spec-Text ergänzt, Teilnehmerprüfung
+  über `RequireParticipant` ohne Stub, Tests decken Organisator/Teilnehmer/Fremder)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Route `POST /hr/employees/{id}/offboard` unverändert)
+- offen: (1) Bestand: bereits offboardete Nutzer behalten ihre unwiderrufenen Passwörter in der Tabelle (wirkungslos wegen
+  `is_active`-Join, aber nicht widerrufen); keine Backfill-Migration gebaut, da die Unit sie nicht verlangt. (2) Der Widerruf
+  ist in der Transaktion, nicht als Folgeschritt: scheitert er, rollt das ganze Offboarding zurück.

@@ -286,6 +286,18 @@ func (r *PostgresEmployeeRepo) Offboard(ctx context.Context, in OffboardWrite) (
 		return nil, err
 	}
 
+	// CalDAV/CardDAV app passwords are long-lived credentials that outlive the
+	// login lock above in the data: FindActiveByUser refuses inactive users
+	// today, but a stored, unrevoked password would work again the moment
+	// someone flips is_active. Revoke them in the same transaction.
+	if _, err := tx.Exec(ctx,
+		`UPDATE app_specific_passwords SET revoked_at = NOW()
+		  WHERE user_id = $1 AND tenant_id = $2 AND revoked_at IS NULL`,
+		in.UserID, in.TenantID,
+	); err != nil {
+		return nil, err
+	}
+
 	if in.SuccessorUserID != nil {
 		if err := reassignReports(ctx, tx, in); err != nil {
 			return nil, err
