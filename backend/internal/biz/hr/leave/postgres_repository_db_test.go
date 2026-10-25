@@ -700,3 +700,23 @@ func TestPostgresLeaveRequestRepo_List_ManagerUserIDLimitsToDirectReports(t *tes
 		t.Fatalf("foreign employee under another manager: got total=%d len=%d err=%v, want empty", total, len(results), err)
 	}
 }
+
+// Migration 000345 copies the zero-UUID system leave types into every tenant that exists. Without
+// them ListByTenant is empty, no one can file leave, and RecordSickLeave cannot find "krank".
+func TestLeaveTypeRepo_DefaultTenantHasTheSystemTypes(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(pool.Close)
+
+	repo := NewPostgresLeaveTypeRepo(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), models.DefaultTenantID)
+	for _, key := range []string{"urlaub", "krank"} {
+		lt, err := repo.GetByKey(ctx, models.DefaultTenantID, key)
+		if err != nil {
+			t.Fatalf("GetByKey(%q): %v", key, err)
+		}
+		if lt.TenantID != models.DefaultTenantID || !lt.IsSystem {
+			t.Fatalf("%q = tenant %s, is_system %v; want the default tenant's system copy", key, lt.TenantID, lt.IsSystem)
+		}
+	}
+}
