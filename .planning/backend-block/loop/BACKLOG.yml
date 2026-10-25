@@ -284,7 +284,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: Manager und hr_admin sehen im Tab "Korrekturen" die offenen Korrekturen ihres Bereichs, nicht nur die eigenen
     coverage_start: n.a. (Fix)
     scope: >

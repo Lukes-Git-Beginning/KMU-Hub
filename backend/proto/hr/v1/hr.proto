@@ -525,6 +525,9 @@ message ListWorkTimeEntriesReq {
   int32 page = 5;
   int32 per_page = 6;
   string status = 7;                   // Optional: active|completed|correction_pending|correction_approved|superseded
+  // Narrows the list to the caller and the caller's reporting line (hr_employee_profiles.
+  // manager_user_id). The caller comes from the call context, never from this message.
+  bool restrict_to_reporting_line = 8;
 }
 
 message ListWorkTimeEntriesResp {

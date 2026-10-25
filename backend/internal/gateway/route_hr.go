@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/compliance"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -110,8 +111,10 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// beside the coarse key — the catalogue deliberately carries no capability
 	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries honours
 	// an employee_id query; hr:self at scope own is pinned to the caller there
-	// (restrictToOwnEmployee).
+	// (restrictToOwnEmployee). Approvers without hr:read reach the pending-correction
+	// queue through a review key (correctionReviewScope).
 	var (
+		zeitEntriesRead = requireSelfReadOrCorrectionReview
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
 		zeitCorrApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:corrections", "approve"})
@@ -125,7 +128,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(selfWrite).Post("/break/end", h.HandleBreakEnd)
 		r.With(selfRead).Get("/active", h.HandleGetActiveShift)
 		r.With(selfRead).Get("/status", h.HandleGetWorkTimeStatus)
-		r.With(selfRead).Get("/entries", h.HandleListWorkTimeEntries)
+		r.With(zeitEntriesRead).Get("/entries", h.HandleListWorkTimeEntries)
 		r.With(selfWrite).Post("/entries", h.HandleCreateManualEntry)
 		r.With(selfRead).Get("/summary/daily", h.HandleDailySummary)
 		r.With(selfRead).Get("/summary/weekly", h.HandleWeeklySummary)
@@ -865,19 +868,41 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 	}
 	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
-	employeeID, ok := restrictToOwnEmployee(w, r, r.URL.Query().Get("employee_id"))
-	if !ok {
-		return
+	grpcReq := &hrv1.ListWorkTimeEntriesReq{
+		TenantId:  tenantID,
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+		Status:    r.URL.Query().Get("status"),
+		Page:      int32(page),
+		PerPage:   int32(pageSize),
 	}
 
-	grpcReq := &hrv1.ListWorkTimeEntriesReq{
-		TenantId:   tenantID,
-		EmployeeId: employeeID,
-		StartDate:  r.URL.Query().Get("start_date"),
-		EndDate:    r.URL.Query().Get("end_date"),
-		Status:     r.URL.Query().Get("status"),
-		Page:       int32(page),
-		PerPage:    int32(pageSize),
+	// The approval queue (pending corrections, no employee) is listed at the approver's reach.
+	// lean: keyed on the status filter because the desktop sends the same unfiltered request for
+	// the caller's own entries (header widget, export); an explicit queue parameter once the
+	// correction panel sends one.
+	requested := r.URL.Query().Get("employee_id")
+	reach := auth.ScopeOwn
+	if requested == "" && grpcReq.Status == "correction_pending" {
+		reach = correctionReviewScope(r.Context())
+	}
+	switch reach {
+	case auth.ScopeAll:
+	case auth.ScopeTeam:
+		grpcReq.RestrictToReportingLine = true
+	default:
+		// The review keys open the queue and nothing else: a caller who passed the guard on them
+		// alone stops here.
+		if !middleware.HoldsAnyPermission(r.Context(), hrReadPerm, hrSelfPerm) &&
+			middleware.HoldsAnyPermission(r.Context(), correctionApprovePerm, zeitTeamViewPerm) {
+			response.Error(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		employeeID, ok := restrictToOwnEmployee(w, r, requested)
+		if !ok {
+			return
+		}
+		grpcReq.EmployeeId = employeeID
 	}
 
 	resp, err := client.ListWorkTimeEntries(r.Context(), grpcReq)

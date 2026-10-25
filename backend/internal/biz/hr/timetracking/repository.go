@@ -94,8 +94,11 @@ type WorkTimeFilter struct {
 	DateFrom   *time.Time
 	DateTo     *time.Time
 	Status     *string
-	Page       int
-	PerPage    int
+	// ReportingLineOf narrows the list to that user and their reporting line
+	// (hr_employee_profiles.manager_user_id); nil applies no such narrowing.
+	ReportingLineOf *uuid.UUID
+	Page            int
+	PerPage         int
 }
 
 // DailySummary contains aggregated work time data for a single date.

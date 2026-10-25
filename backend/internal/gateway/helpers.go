@@ -305,12 +305,46 @@ func callerMayDecideLeave(ctx context.Context) bool {
 	return false
 }
 
+var (
+	hrReadPerm            = [2]string{"hr", "read"}
+	hrSelfPerm            = [2]string{"hr", "self"}
+	correctionApprovePerm = [2]string{"zeiterfassung:corrections", "approve"}
+	zeitTeamViewPerm      = [2]string{"zeiterfassung:team", "view"}
+)
+
+// requireSelfReadOrCorrectionReview guards GET /hr/time/entries: the self-service keys
+// (hr:read | hr:self) or a correction-review key. Two separate checks on purpose: in one
+// RequirePermissionAny a denied review key would void the coarse hr:read/hr:self as well and
+// lock the caller out of their own entries.
+func requireSelfReadOrCorrectionReview(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) ||
+			middleware.HoldsAnyPermission(ctx, correctionApprovePerm, zeitTeamViewPerm) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		response.Error(w, http.StatusForbidden, "insufficient permissions")
+	})
+}
+
+// correctionReviewScope is the reach at which the caller reviews pending time corrections: the
+// narrower of zeiterfassung:corrections:approve and zeiterfassung:team:view, so a manager who
+// approves tenant-wide but views only the team reviews the team. "own" when the caller holds
+// neither key — a member never leaves their own entries.
+func correctionReviewScope(ctx context.Context) string {
+	if !middleware.HoldsAnyPermission(ctx, correctionApprovePerm, zeitTeamViewPerm) {
+		return auth.ScopeOwn
+	}
+	return narrowestScopeAny(ctx, correctionApprovePerm, zeitTeamViewPerm)
+}
+
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
 // to "own". An empty requested id becomes the caller's id (a list without a filter would
 // otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller
 // learns the view is not theirs. Wider scopes pass the requested id through unchanged.
 func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
-	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
+	ownerID, ok := ownerFilterForScopeAny(w, r, hrReadPerm, hrSelfPerm)
 	if !ok {
 		return "", false
 	}

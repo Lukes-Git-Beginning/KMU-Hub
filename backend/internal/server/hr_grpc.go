@@ -537,6 +537,14 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 		filter.Status = &st
 	}
 
+	if req.GetRestrictToReportingLine() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		filter.ReportingLineOf = &caller
+	}
+
 	entries, total, err := s.timetrackingService.ListWorkTimeEntries(ctx, filter)
 	if err != nil {
 		return nil, mapHRError(err)

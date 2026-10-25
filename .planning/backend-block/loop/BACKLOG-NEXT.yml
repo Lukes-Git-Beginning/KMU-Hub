@@ -1338,3 +1338,32 @@ units:
       - desktop/src/renderer/src/modules/team/TeamPage.tsx
     done_when:
       - "Toast erst nach Erfolg, Deaktivieren/Reaktivieren über die neuen Routen"
+
+  - id: fe-time-entries-own-views-send-employee-id
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 5"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      `GET /api/v1/hr/time/entries` ohne `employee_id` liefert die Reichweite des Aufrufers, nicht "meine
+      Einträge": admin (hr:read all) bekommt schon immer den ganzen Tenant, und seit
+      `fix-hr-correction-list-for-approvers` liefert `?status=correction_pending` ohne `employee_id` für
+      manager (eigene + Berichtslinie), hr_admin und admin (Tenant) die Freigabe-Queue. Drei Desktop-Stellen
+      meinen aber die EIGENEN Einträge und senden trotzdem keine `employee_id`: Header-Widget
+      (`components/header/WorkClockWidget.tsx:50`, "Heute"-Liste zeigt bei admin fremde Einträge ohne Namen
+      als eigene), Export (`modules/zeiterfassung/components/ExportDialog.tsx:69`, admin exportiert den
+      Tenant als "meine Zeiten") und der Profil-Tab "Korrekturen" (`modules/profil/tabs/ZeiterfassungTab.tsx:134`,
+      zeigt manager/hr_admin/admin jetzt die Team-Queue statt der eigenen offenen Korrekturen). Fix im FE:
+      alle drei senden `employee_id: user.id` (wie `ZeiterfassungTab.tsx:131` es schon tut); nur
+      `modules/team/TimeCorrectionPanel.tsx:33` bleibt ohne. Danach kann der Backend-Schlüssel auf den
+      Statusfilter (`lean:`-Marker in `HandleListWorkTimeEntries`) einem expliziten Queue-Parameter weichen.
+    sources:
+      - desktop/src/renderer/src/components/header/WorkClockWidget.tsx
+      - desktop/src/renderer/src/modules/zeiterfassung/components/ExportDialog.tsx
+      - desktop/src/renderer/src/modules/profil/tabs/ZeiterfassungTab.tsx
+      - backend/internal/gateway/route_hr.go (HandleListWorkTimeEntries)
+    done_when:
+      - "Header-Widget, Export und Profil-Korrekturen senden employee_id des Nutzers; admin sieht dort nur eigene Einträge (Screenshot)"

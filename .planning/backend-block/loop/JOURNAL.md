@@ -207,3 +207,36 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   hr_admin 403 (auch eigenes Stempeln) — ob hr_admin je allein vergeben wird oder immer neben member, ist eine Produktfrage;
   die zwei Fix-Units decken nur die beiden Team-Sichten ab. Tenant-eigene Rollen und Per-User-Overrides mit groben Keys
   wurden nicht gescannt (Unit-Scope = Presets).
+
+## Iteration 5 — fix-hr-correction-list-for-approvers — done — 2026-10-25 16:56
+- commit: siehe Commit `fix(hr): list pending corrections at the approver's reach` (dieser Eintrag)
+- gebaut: `GET /hr/time/entries?status=correction_pending` ohne `employee_id` folgt jetzt der Reichweite des Prüfers
+  (`correctionReviewScope` = engster Scope aus `zeiterfassung:corrections:approve` und `zeiterfassung:team:view`):
+  manager (approve all, team:view team) -> eigene + Berichtslinie, hr_admin/admin -> Tenant, member -> eigene.
+  Neues Proto-Feld `restrict_to_reporting_line` (8) in `ListWorkTimeEntriesReq`, regeneriert; gRPC setzt
+  `WorkTimeFilter.ReportingLineOf` = Aufrufer aus dem Kontext, das Repository filtert im WHERE
+  (`employee_id = caller OR IN (hr_employee_profiles.manager_user_id = caller)`, tenant-gebunden) — kein Post-Filter.
+  Guard: `requireSelfReadOrCorrectionReview` = `selfRead` ODER Review-Keys als ZWEI getrennte Prüfungen (in einem
+  gemeinsamen `RequirePermissionAny` würde ein per Override verweigerter Review-Key auch `hr:read`/`hr:self`
+  entwerten und den Nutzer aus seinen eigenen Einträgen aussperren). Wer nur über die Review-Keys hereinkam
+  (hr_admin), bekommt außerhalb der Queue 403. Alle anderen Anfragen laufen unverändert über `restrictToOwnEmployee`.
+  Neuer DB-Test `route_hr_correction_queue_db_test.go`: echter Seed -> `ResolveTokenPermissions` -> echte Auth + HR-Routen
+  -> echter HR-gRPC-Server (TenantInbound-Interceptor) -> Postgres-Repo; Mitarbeiter außerhalb der Berichtslinie geprüft.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (gateway 5513 PASS 0 Skips inkl. TestOpenAPIRouteDrift und
+  neuer DB-Test real gelaufen; timetracking ok 0 Skips; server HR-Tests 185 PASS 0 Skips) | migration n.a. |
+  rls-smoke n.a. (keine Tabelle/Policy) | e2e ok (lokal, 2:39, `TestMemberHRSelfServiceFlow` + `TestHREmployeeEditDesktopBodyFlow`)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: (1) Berichtslinien-Subselect auf `tenant_id = ... OR manager_user_id = ...` aufgeweicht -> manager
+  sieht 3 statt 2, "outside the reporting line" rot. (2) Queue-Pfad deaktiviert (= Vorzustand) -> manager sieht nur sich,
+  hr_admin 403 — damit auch der Totalausfall reproduziert. (3) Handler-Sperre "Review-Keys nur für die Queue"
+  neutralisiert -> hr_admin ungefiltert 200 statt 403. Alle zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`c6bfb10b`: nur BACKLOG.yml + JOURNAL.md, kein Code)
+- neue-units: `fe-time-entries-own-views-send-employee-id` nach BACKLOG-NEXT.yml (FE, Desktop tabu)
+- desktop-aufrufer: `GET /hr/time/entries?status=correction_pending` -> `modules/team/TimeCorrectionPanel.tsx:33` -> passt
+  (zeigt jetzt die Queue); dieselbe Anfrage aus `modules/profil/tabs/ZeiterfassungTab.tsx:134` ("meine Korrekturen") ->
+  zeigt manager/hr_admin/admin jetzt die Team-Queue (Kosmetik, fe-time-entries-own-views-send-employee-id);
+  ungefiltert aus `components/header/WorkClockWidget.tsx:50` und `ExportDialog.tsx:69` -> für manager/member unverändert
+  (gepinnt), für admin wie bisher Tenant (Altfehler, gleiche NEXT-Unit). Antwortform unverändert.
+- offen: Der Queue-Pfad hängt am Statusfilter (`lean:`-Marker), weil das FE dieselbe ungefilterte Anfrage für eigene
+  Einträge sendet. Kein neuer Key, kein Re-Login nötig. `ApproveCorrection` selbst prüft keine Berichtslinie
+  (manager hält approve `all`) — nicht Teil dieser Unit.
