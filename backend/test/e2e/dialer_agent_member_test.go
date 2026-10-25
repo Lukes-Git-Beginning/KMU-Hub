@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -141,9 +142,19 @@ func TestDialerAgentMemberFlow(t *testing.T) {
 
 		resp, body = getJSON(t, fmt.Sprintf("%s/agent-status/campaign/%s", dialer, campaignID), memberToken)
 		requireStatus(t, resp, body, http.StatusForbidden)
+	})
 
-		resp, body = getJSON(t, dialer+"/dashboard/agent", memberToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
+	t.Run("member: reads the own agent dashboard, not a colleague's", func(t *testing.T) {
+		// AgentDashboardPage calls it without agent_id; a foreign agent_id is pinned to the caller.
+		resp, body := getJSON(t, dialer+"/dashboard/agent?agent_id="+adminID, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		var dash struct {
+			AgentID string `json:"agent_id"`
+		}
+		decodeBody(t, body, &dash)
+		if dash.AgentID != memberID {
+			t.Fatalf("dashboard for %q, want the caller %q: %s", dash.AgentID, memberID, string(body))
+		}
 	})
 
 	t.Run("member: reads campaign and outcome list", func(t *testing.T) {
@@ -271,7 +282,12 @@ func TestDialerAgentMemberFlow(t *testing.T) {
 		if resp2.Header.Get("Idempotency-Replayed") != "true" {
 			t.Fatalf("second outcome POST was not served as a replay: %s", string(body2))
 		}
-		if !bytes.Equal(body, body2) {
+		// Same JSON, not the same bytes: the stored response is a JSONB column, which reorders
+		// keys and drops the compact formatting.
+		var first, second interface{}
+		decodeBody(t, body, &first)
+		decodeBody(t, body2, &second)
+		if !reflect.DeepEqual(first, second) {
 			t.Fatalf("replayed outcome differs from the first answer:\nfirst:  %s\nsecond: %s", string(body), string(body2))
 		}
 

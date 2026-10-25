@@ -72,12 +72,11 @@ func TestDialerAgentID_AgentIsPinnedToTheCallerAndManagerMayNameAnother(t *testi
 		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 		require.NotNil(t, stub.initiated)
 	}
-	// The dashboard route is guarded by agent:manage today, so the pin is exercised on the handler
-	// itself: it must hold the day the guard opens for self-service.
+	// Through the router: calls:write opens the own dashboard, the pin keeps it the caller's.
 	dashboard := func(tk tokenShape, query string) {
 		stub.dashboard = nil
 		rec := httptest.NewRecorder()
-		dr.HandleGetAgentDashboard(rec, tk.request(http.MethodGet, "/api/v1/dialer/dashboard/agent"+query))
+		router.ServeHTTP(rec, tk.request(http.MethodGet, "/api/v1/dialer/dashboard/agent"+query))
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		require.NotNil(t, stub.dashboard)
 	}
@@ -102,4 +101,9 @@ func TestDialerAgentID_AgentIsPinnedToTheCallerAndManagerMayNameAnother(t *testi
 	assert.Equal(t, leaveCallerID, stub.dashboard.GetAgentId(), "an agent cannot read a colleague's figures")
 	dashboard(manager, "?agent_id="+leaveOtherID)
 	assert.Equal(t, leaveOtherID, stub.dashboard.GetAgentId())
+
+	reader := tokenShape{perms: []string{"dialer:campaigns:read"}}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, reader.request(http.MethodGet, "/api/v1/dialer/dashboard/agent"))
+	assert.Equal(t, http.StatusForbidden, rec.Code, "without calls:write or agent:manage the dashboard stays closed")
 }

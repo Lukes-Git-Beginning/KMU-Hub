@@ -106,8 +106,10 @@ func (dr *DialerRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Ha
 			r.With(middleware.RequirePermission("dialer:outcomes", "manage")).Delete("/{id}", dr.HandleDeleteCallOutcome)
 		})
 
-		// Agent dashboard
-		r.With(middleware.RequirePermission("dialer:agent", "manage")).Get("/dashboard/agent", dr.HandleGetAgentDashboard)
+		// Agent dashboard: the workspace's own stats page (/dialer/dashboard, nav key calls:read),
+		// so calls:write opens it like the own status; HandleGetAgentDashboard pins agent_id to
+		// the caller unless they hold agent:manage.
+		r.With(ownStatus).Get("/dashboard/agent", dr.HandleGetAgentDashboard)
 
 		// Supervisor overview (tenant-wide aggregate)
 		r.With(middleware.RequirePermission("dialer:campaigns", "read")).Get("/supervisor", dr.HandleGetSupervisorOverview)
