@@ -207,6 +207,11 @@ go test -count=1 -p 2 ./internal/<svc>/...      # restliche Unterpakete; -p 2 ha
 go test -count=1 ./internal/gateway/            # PFLICHT sobald du eine Route angefasst hast
 ```
 
+**E2E lokal (seit Lauf 17):** Für E2E-Units und für jede Unit, die einen Flow in `backend/test/e2e/`
+ändert oder deren Verhalten ein Flow prüft, gehört
+`bash .planning/backend-block/loop/hooks/e2e-local.sh '<Regex>'` zum Gate (Regel 1 im Kopf von
+`BACKLOG.yml`, Details in `GATE-COMMANDS.md` unter „E2E“).
+
 **Die Coverage-Messung ist Teil des Gates, kein Extraschritt.** `-coverprofile` aendert am
 Testlauf nichts und kostet nichts — du brauchst die Zahl fuer die Pflichtzeile `coverage:` in
 Schritt 6. Gemessen wird **genau ein Paket** (`./internal/<pkg>/`, ohne `...`), damit die Zahl

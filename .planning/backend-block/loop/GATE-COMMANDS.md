@@ -209,27 +209,35 @@ cd backend && make proto-<target>
 protoc 33.4 und die Makefile-Targets sind verifiziert. `.proto`-Aenderung und regenerierte `.pb.go` gehoeren
 in **denselben** Commit.
 
-## E2E (seit Lauf 15)
+## E2E (seit Lauf 15, lokal ausführbar seit Lauf 17)
 
 Die Flows in `backend/test/e2e/` tragen `//go:build e2e` und laufen nur gegen einen
-gestarteten Stack (Gateway + Services + Postgres/Redis/MinIO). Den gibt es lokal nicht —
-**ausfuehren** kann sie nur der CI-Job "E2E Tests". Das lokale Gate einer E2E-Unit ist:
+gestarteten Stack (Gateway + Services + Postgres/Redis/MinIO). Seit Lauf 17 gibt es ihn lokal:
 
 ```bash
-cd backend
-go vet -tags=e2e ./test/e2e/
+bash .planning/backend-block/loop/hooks/e2e-local.sh                  # volle Suite
+bash .planning/backend-block/loop/hooks/e2e-local.sh 'TestSchichten'  # go test -run <Regex>
 ```
 
-`go vet` kompiliert die Tests mit dem Tag und prueft sie; ein Tippfehler in einem Helper oder
-ein falscher Typ faellt damit lokal auf. Ob der Flow gegen den echten Stack gruen ist, zeigt
-erst die CI. Deshalb steht in `offen:` jeder E2E-Iteration **"E2E erst in CI abgenommen"**.
+Das Skript bildet den CI-Job `e2e` nach:
+- Wegwerf-Postgres (Port 55432, tmpfs), Redis (56379) und MinIO (59000) in Docker. Die Dev-DB
+  `docker-postgres-1` bleibt unberührt.
+- Frisches `migrate up`.
+- 21 Services nativ nach `backend/.e2e-bin/`, gebaut nur, wenn sich `backend/` geändert hat.
+- Start mit der CI-Env (alle `COSMI_MODULE_*_ENABLED` der Module mit Flow), alle auf `127.0.0.1`.
+- `go test -tags=e2e`, danach Aufräumen (Prozesse `kmuhub-e2e-*`, Container `kmuhub-e2e-*`).
 
-Was der CI-E2E-Job startet (`.github/workflows/ci.yml`, Job `e2e`): Postgres, Redis, MinIO,
-auth, crm, chat, work (inkl. Kalender und Video), document, dialer, biz (inkl. HR, Finance,
-DATEV), notification (inkl. Inbox), seit dem Staging von Lauf 16 auch inventar, einkauf und
-schichten (Job-Env `COSMI_MODULE_{INVENTAR,EINKAUF,SCHICHTEN}_ENABLED=true`, ohne Flag mountet
-das Gateway deren Routen nicht), gateway. Braucht ein Flow einen weiteren Service, ist das eine
-Unit fuer BACKLOG-NEXT.yml — `.github/` ist fuer den Loop gesperrt.
+Logs liegen unter `logs/e2e/` (`go-test.log`, je Service eine Datei). Exit-Code = der von `go test`,
+`2` = der Stack kam nicht hoch. Laufzeit: gemessen am 2026-10-25: Container + Migration ~5 s, Build 21 Binaries kalt ~3 min, mit Cache ~50 s, entfällt ohne Änderung an `backend/`. Stack-Start ~20 s, volle Suite ~35 s, also rund 1–2 min je Lauf.
+
+**Wann es Pflicht ist:** Regel 1 im Kopf von `BACKLOG.yml`. Das gilt für E2E-Units und für Units,
+die einen Flow ändern oder deren Verhalten ein Flow prüft. Journal: `e2e ok (lokal, <Laufzeit>)`.
+Scheitert der Stack (nicht der Test), gilt der alte Fallback: `go vet -tags=e2e ./test/e2e/` plus
+„E2E erst in CI abgenommen“ in `offen:`.
+
+Braucht ein Flow einen Service, den Skript und CI nicht starten (z. B. `email`), ist das eine Unit
+für BACKLOG-NEXT.yml. `.github/` ist für den Loop gesperrt, und **Skript und CI-Job müssen
+dieselbe Service-Liste haben**.
 
 **Rolle der E2E-Nutzer:** `registerAndLogin` legt einen Nutzer mit der Rolle `member` an,
 `registerAndLoginAdmin` befoerdert per SQL zu `admin` und loggt neu ein. Seit Lauf 16 gilt: ein
@@ -243,8 +251,6 @@ Helfer in `test/e2e/helpers_test.go`: `registerAndLogin`, `registerAndLoginAdmin
 
 ## Nicht im Loop-Gate
 
-- **e2e ausfuehren / Full-Stack-Bringup** — braucht den ganzen Stack; zu schwer fuer eine
-  Iteration. Kompilieren und pruefen ja (`go vet -tags=e2e`, siehe oben), laufen lassen nein.
 - **CI** — laeuft am Draft-PR nach dem Push, nicht lokal.
 - **Prod-Smoke** — gehoert Luke.
 - **Der Race-Detector** — `go test -race` verlangt cgo und damit einen C-Compiler. Auf dieser
