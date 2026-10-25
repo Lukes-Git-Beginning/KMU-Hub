@@ -2505,7 +2505,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/biz/hr/timetracking 65,6 %"
     scope: >
       Schwächstes Paket, das dieser Lauf fachlich anfasst (Stempeluhr, Pausen, Wochen,
