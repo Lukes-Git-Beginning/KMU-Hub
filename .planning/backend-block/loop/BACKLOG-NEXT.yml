@@ -2208,3 +2208,81 @@ units:
     done_when:
       - "Luke: (a) Übergabe oder (b) Tausch zweier Schichten entschieden; Bau-Unit mit Datenmodell angelegt"
 
+
+  # ========================================================================================
+  # NACHBEARBEITUNG LAUF 16 (2026-10-25, Morgen-PR #28)
+  #
+  # Der erste CI-E2E-Lauf der member-Flows fand zwei Rechte-Lecks und eine Altlast, die die
+  # Unit-Tests mit handgebauten Tokens nicht sehen konnten. Im PR behoben: Token-Scopes aus
+  # allen Grants (hr:self fiel durch den `resource LIKE '%:%'`-Filter und galt als "all"),
+  # 000344 (member ohne dialer:agent:manage), 000345 (Urlaubsarten je Tenant), Schichten
+  # 23505 -> 409. Hier die Reste.
+  # ========================================================================================
+
+  - id: seed-leave-types-on-tenant-provisioning
+    phase: 4
+    service: hr
+    model: sonnet
+    deps: []
+    status: todo
+    target: "neuer Tenant hat ab Anlage die zehn System-Urlaubsarten"
+    coverage_start: "n.a. (Bugfix)"
+    scope: >
+      000345 kopiert die Zero-UUID-Vorlagen aus 000046 nur in die Tenants, die beim Migrieren
+      existieren (`lean:`-Marker dort). Ein später angelegter Tenant (Provisioning in
+      `internal/auth/postgres_repository.go:~1227`, `INSERT INTO tenants`) hat wieder keine
+      Urlaubsart: kein Urlaubsantrag, `RecordSickLeave` findet "krank" nicht. Gleiches Muster
+      prüfen für `hr_document_categories` (dort liest `ListByTenant` die Vorlagen mit, also
+      vermutlich kein Bruch). Fix in derselben Transaktion wie die Tenant-Anlage oder als
+      idempotentes Seed beim ersten HR-Zugriff, DB-Test mit frischem Tenant.
+    sources:
+      - backend/migrations/000345_copy_system_leave_types_to_tenants.up.sql
+      - backend/internal/auth/postgres_repository.go
+      - backend/internal/biz/hr/leave/postgres_repository.go
+    done_when:
+      - "DB-Test: frisch provisionierter Tenant hat urlaub und krank (is_system)"
+
+  - id: harden-einkauf-po-line-tax-rate-range
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    target: "tax_rate ausserhalb 0..1 ist 400, nicht 500"
+    coverage_start: "n.a. (Haertung)"
+    scope: >
+      `po_lines.tax_rate` ist NUMERIC(5,4), also ein Bruch (0.19). Der E2E-Flow schickte "19"
+      und bekam 500 (`numeric field overflow`, SQLSTATE 22003, CI-Run 40188556300). Der Desktop
+      sendet heute keinen Steuersatz (EinkaufDialogs), `einkauf-export.ts:173` rechnet ihn als
+      Bruch. Validierung an der Trust-Boundary (Service oder Gateway-Tag), gleiche Prüfung für
+      update line; Spec-Beschreibung "Bruch, 0.19 = 19 %".
+    sources:
+      - backend/internal/einkauf/service.go
+      - backend/internal/gateway/route_einkauf.go
+      - backend/migrations/000085_create_einkauf.up.sql
+    done_when:
+      - "Gateway-Test: tax_rate 19 -> 400 mit validation_failed, 0.19 -> 201"
+
+  - id: scan-legacy-seed-grants-for-member-and-manager
+    phase: 4
+    service: auth
+    model: opus
+    deps: []
+    status: todo
+    target: "jeder Grant der Presets member/manager vor 000256 ist gegen die Rollenmatrix geprüft"
+    coverage_start: "n.a. (Scan)"
+    scope: >
+      000068 hatte member `dialer:agent:manage` gegeben ("agent self-manage"), unbemerkt bis
+      zum ersten E2E mit echtem Seed. Die Rollenmatrix aus Lauf 16 (`role-matrix-lauf16.tsv`)
+      hat das als "ja/ok" gelistet, weil sie den Ist-Seed abbildet, nicht die Absicht. Scan:
+      alle `role_permissions` von member/manager (Preset, tenant_id IS NULL) mit Schlüsseln
+      `*:manage`, `*:delete`, `*:approve`, `admin:*` auflisten, je Grant die Herkunfts-Migration
+      und ob ein Handler den Key als Supervisor-/Fremdzugriff liest. Ergebnis: Fix-Units je
+      Fund, keine Code-Änderung im Scan. Zweite Frage: hat irgendein weiterer grober Key
+      (resource ohne Doppelpunkt) einen Scope ungleich 'all' — seit dem Token-Fix wirkt er.
+    sources:
+      - backend/migrations/000068_dialer_permissions.up.sql
+      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
+      - .planning/backend-block/loop/role-matrix-lauf16.tsv
+    done_when:
+      - "Liste mit Herkunft je Grant im Journal, je Fund eine Unit in BACKLOG-NEXT.yml"
