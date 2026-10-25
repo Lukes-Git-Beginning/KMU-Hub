@@ -728,3 +728,44 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - offen: (1) Abgebrochene `pending`-Zeilen bleiben liegen (keine Aufnahme, kein Medium); Retention-Cleanup greift
   nur `completed`, ein Aufräumen ist nicht gebaut. (2) Down-Migration setzt `pending` auf `failed`; lokal ohne
   Meetings nicht mit echter pending-Zeile durchgespielt. (3) Stop auf `pending` bleibt 412/FailedPrecondition.
+
+## Iteration 21 — review-run17-r1 — done — 2026-10-25 19:51
+- commit: siehe Commit `docs(loop): review run 17 rights commits r1` (dieser Eintrag; kein Code-Commit, kein Fund)
+- gebaut: Review der Commits seit dem Staging-Commit `65ebf725`, End-SHA **`85d1d7e1`** (r2 beginnt dort). Ergebnis je SHA:
+  - `b1ec2498`, `c6bfb10b` (Scans, nur Doku): n.a.
+  - `bea77419` work own delete: Guard `Any(tasks:delete, tasks:write)`, Alt-Key erhalten; Besitzprüfung im Service
+    (Kommentar: Autor oder `IsAdmin` aus `middleware.IsAdmin`, Zeiteintrag: nur Besitzer), `task_comments`/`time_entries`
+    RLS forced; Gateway-Test mit Seed-Token -> ok.
+  - `a69fc2e6` rapporte, `494ec76c` + `2d60e1fb` hr: Tests mit Seed-Token decken member nur selbst, manager eigene
+    Berichtslinie, nicht fremde Teams, hr_admin/admin Tenant -> ok. Neue Guards additiv (`requireSelfReadOr(...)`).
+  - `1c5b1e64` + `8f67a1ff` inbox: `visibleToCaller` (Besitzer/Zugewiesener/Team-Mitglied) in GetByID, List mit
+    Team-Filter nur bei Mitgliedschaft, ListMembers bei privatem Team nur für Mitglieder, Guards `Any(inbox:read, …)`;
+    Seed 346 geprüft; E2E `TestInboxTeamAndRoutingFlow` (member liest Team-Inbox, entfernter member verliert sie) per
+    echtem Login grün -> ok.
+  - `7f7faf03` safedial: kein Grant/Guard -> n.a. (Dial-Guard ist Voraussetzung für 347).
+  - `d6c12f0b` (347), `a8351f01` (348), `c1eacccd` (349), `b35523cd`, `f897ceb2` (350) E-Mail: alle Guards
+    `Any(grob, fein)`, grobe Keys über `forwardedPermissions` an den Hop (lean-Marker zum fehlenden Scope im Hop
+    vorhanden); Tests mit Seed-Token decken zweiten member (fremdes Konto/Regel/Vorlage/Nachricht -> 403/404,
+    Zeilen unverändert), manager/admin `all` bei Kontakt-Historie laut Entscheidung -> ok.
+  - `944d87c4` fuhrpark: Maske in Liste und Export, Viewer aus `x-user-id`, `uuid.Nil` maskiert alles; Update antwortet
+    nur mit dem, was der Aufrufer selbst schrieb (Vollersatz); GPS bereits als `decide-…` in NEXT -> ok.
+  - `9fe78eb6`, `65f196a4` Share-Tokens, `788f475e` Kalender-Join, `977046ac` CalDAV, `85d1d7e1` Video: keine Grants,
+    Sichtbarkeitsgrenzen mit DB-Tests -> ok.
+- gate: Seeds 346/347/348/349/350 in einer ROLLBACK-Transaktion gegen die lokale DB (Kopf 353): zweites Up ändert
+  0 Zeilen, Down entfernt genau 18 + 9 eigene Grants und die eigenen Keys, 0 fremde, Re-Up stellt sie wieder her;
+  Token-Scopes laut DB: member/manager `own`, admin `all`, manager `email:contact_history:read` `all`.
+  gateway 5564 RUN, 0 SKIP, ok (inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app). Service-Pakete
+  inbox/message, email/{rule,template,contactlink}, fuhrpark, work/{event,recording}, biz/hr/employee, wiki, formulare,
+  rapporte, linksecret: 804 RUN, 0 SKIP, alle ok bis auf einen fuhrpark-Lauf (s. offen). RLS forced auf allen
+  berührten Tabellen geprüft. e2e ok (lokal, 158 s; Inbox, MemberDailyWork, WorkProjectMembers, Calendar,
+  MemberHRSelfService; 76 RUN, 0 SKIP).
+- coverage: n.a. (Review-Unit, kein Coverage-Ziel)
+- mutations-probe: n.a. (kein Code geändert)
+- verify vorgaenger: sauber (`85d1d7e1`: Proto mit Regen, Migration 353 up/down, keine neue Route/Guard, Claim per
+  `status = 'pending'`)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) `TestVehicleBookingOverlapConstraint/two_concurrent_moves…` fiel einmal mit 40P01, Wiederholung grün —
+  bekannter Flake, Unit `fix-fuhrpark-concurrent-booking-move-deadlock` steht schon im Backlog. (2) Zeiteinträge
+  kann auch admin nicht fremd löschen (`DeleteEntry(..., false)`), Altbestand, kein Leck. (3) Alle neuen Keys aus
+  346–350 wirken in Produktion erst nach Re-Login.
