@@ -2286,3 +2286,27 @@ units:
       - .planning/backend-block/loop/role-matrix-lauf16.tsv
     done_when:
       - "Liste mit Herkunft je Grant im Journal, je Fund eine Unit in BACKLOG-NEXT.yml"
+
+  - id: fix-recurring-concurrent-generate-test-flake
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: "TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice ist deterministisch"
+    coverage_start: "n.a. (Test-Flake)"
+    scope: >
+      Fiel im PR #28 einmal unter `-race` (CI-Run 40191840035, 2 Rechnungen statt 1, Paket nicht
+      im Lauf angefasst). Ursache: liest der zweite Racer den Plan erst NACH `repo.Update` des
+      ersten, steht `NextRun` schon auf der Folgeperiode und er claimt legitim diese — zwei
+      Rechnungen für zwei Perioden. `ClaimPeriod` (ON CONFLICT) schützt nur dieselbe Periode,
+      und das tut es. Einziger Aufrufer ist der manuelle RPC (`biz_grpc_recurring.go:231`), kein
+      Scheduler. Fix im Test: beide Racer müssen dieselbe Periode sehen (z. B. Barriere nach
+      `GetByID` über einen Test-Hook, oder Generate zweimal mit vorab geladenem Plan). Daneben
+      die Produktfrage für Luke: darf "jetzt erzeugen" eine noch nicht fällige Folgeperiode
+      abrechnen (Doppelklick = zwei Monate)? Wenn nein, `Generate` mit `NextRun > heute` ablehnen.
+    sources:
+      - backend/internal/biz/recurring/service.go
+      - backend/internal/biz/recurring/service_db_test.go
+    done_when:
+      - "Test 20x mit -race grün (CI) und Produktfrage im Journal beantwortet oder als decide-Unit"
