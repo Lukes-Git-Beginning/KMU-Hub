@@ -536,3 +536,36 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - offen: Neuer Key wirkt erst nach Re-Login. Ein Custom-Role mit `email:contact_history:read` auf `team` wird
   wie `all` behandelt (`ownerFilterForScopeAny` engt nur bei `own` ein) — heute hat keine Systemrolle `team`.
   Lokal fehlt `make` in Git Bash; Migration per `migrate create -seq -digits 6` angelegt.
+
+## Iteration 15 — fix-fuhrpark-trip-logs-private-flag-not-filtered — done — 2026-10-25 18:56
+- commit: siehe Commit `fix(fuhrpark): mask private trips for everyone but their driver` (dieser Eintrag)
+- gebaut: `fuhrpark.maskPrivateTrips` im Service leert bei `is_private` für jeden außer dem Fahrer
+  (`driver_user_id` == Aufrufer) Start-/Zielort, Geschäftspartner und Notizen und setzt den Zweck auf das Label
+  „Privatfahrt“; Datum, km-Stände, Strecke, Fahrzeug und Fahrer bleiben. Greift in `ListTripLogs` (Liste und
+  Fahrzeugliste) und `ExportTripLogs` (CSV/PDF, Zeile bleibt drin). Neues Feld `ViewerID` in beiden Params, der
+  gRPC-Server setzt es aus `x-user-id` (`tripViewer`, fehlend -> uuid.Nil -> alles maskiert). Privatfahrt ohne
+  Fahrerkonto ist für alle maskiert. Kein Proto, keine Route, keine Migration.
+- gate: build ok | vet ok | lint ok (0 issues: fuhrpark, server, gateway) | test ok (`internal/fuhrpark` 189 PASS,
+  0 SKIP; `internal/server` 5011 PASS, 0 SKIP; `internal/gateway` 5564 PASS, 0 SKIP; DATABASE_URL als kmuhub_app;
+  DB-Tests real: neuer Schema-Test mit 5 Subtests) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) |
+  e2e n.a. (kein Flow berührt Fahrtenbuch)
+- coverage: n.a. (kein Coverage-Ziel); `internal/fuhrpark` nachher 83,4 %
+- mutations-probe: (1) Fahrer-Ausnahme entfernt (alles maskiert) -> `TestMaskPrivateTrips/for the driver...`,
+  Schema-Subtests "driver lists ... in full" und "driver's export" sowie Server-Subtests rot. (2) `ViewerID` in
+  `ListTripLogs` des Servers weggelassen -> Server-Subtest "the driver lists the full trip" rot. (3) Maskierung im
+  Export entfernt -> Schema-Subtest "manager's export ... masked" und Server-Subtest "colleague exports" rot.
+  (4) Geschäftspartner nicht geleert -> Unit- und beide Manager-Schema-Subtests rot. Alle per Backup
+  zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`f897ceb2`: Guard additiv per `RequirePermissionAny`, Seed 000350 mit Up/Down für
+  member own / manager+admin all, Proto mit `.pb.go` regeneriert, Owner-Filter in Liste UND Count der Query)
+- neue-units: `fix-fuhrpark-concurrent-booking-move-deadlock` (Backlog-Ende, Zwilling der produktion-Unit:
+  `TestVehicleBookingOverlapConstraint` fiel lokal einmal mit 40P01, 3x danach grün); in BACKLOG-NEXT
+  `decide-fuhrpark-gps-during-private-trips` (GPS-Punkte lassen sich Privatfahrten heute nicht zuordnen)
+- desktop-aufrufer: GET `/fuhrpark/trip-logs` und `/fuhrpark/vehicles/{id}/trip-logs` -> `api/fuhrpark-client.ts`
+  (`TripLog`), `FuhrparkPage.tsx:115 adaptTripLog` -> passt, Form unverändert; maskierte Zeile zeigt leere Orte und
+  Zweck „Privatfahrt“. Export liefert Datei, Form unverändert.
+- offen: (1) `UpdateTripLog` schreibt alle Felder voll (`postgres_repository.go`, SET aller Spalten): ein
+  Nicht-Fahrer, der eine maskierte Privatfahrt aus der Liste editiert und zurückschickt, würde Ziel/Zweck mit
+  „“/„Privatfahrt“ überschreiben. Heute ohne Wirkung, das Desktop hat keinen Edit-Dialog für Fahrten
+  (`updateTripLog` wird nirgends aufgerufen); beim Anbinden beachten. (2) „ohne GPS“ aus der Entscheidung betrifft
+  die GPS-Routen, siehe NEXT-Unit. (3) Fahrername bleibt in der maskierten Zeile sichtbar (Fahrtenbuch braucht ihn).

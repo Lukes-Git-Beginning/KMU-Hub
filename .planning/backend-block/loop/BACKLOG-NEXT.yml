@@ -1435,3 +1435,28 @@ units:
       - desktop/src/renderer/src/stores/mailTemplates.ts
     done_when:
       - "Entscheidung im Unit-Text, danach Router-Test: member POST shared -> 403 (falls a)"
+
+  - id: decide-fuhrpark-gps-during-private-trips
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: sollen GPS-Punkte während einer Privatfahrt für Nicht-Fahrer verborgen werden, und wie lassen sie sich zuordnen? Fund aus Lauf 17 Iteration 15"
+    target: "Luke entscheidet, danach eine Backend-Unit (ggf. mit Migration)"
+    scope: >
+      `fix-fuhrpark-trip-logs-private-flag-not-filtered` maskiert Privatfahrten in Fahrtenbuch-Liste und Export
+      (Ziel, Zweck, Route weg). Die Entscheidung vom 2026-10-25 nennt auch „ohne GPS“. Das Fahrtenbuch selbst
+      trägt kein GPS, die GPS-Routen (`GET /fuhrpark/gps/positions`, `/gps/routes`, Guard `fuhrpark:gps:read`)
+      liefern aber weiterhin alle Positionen eines Fahrzeugs. `gps_positions` hat weder Fahrer noch Fahrtbezug,
+      `trip_logs.date` ist ein DATE ohne Uhrzeit: eine Privatfahrt lässt sich den Positionen heute nicht
+      zuordnen. Optionen: (a) Uhrzeit von/bis an `trip_logs` plus Ausblenden der Positionen im Fenster für
+      Nicht-Fahrer, (b) Privat-Flag an den GPS-Punkten (vom Tracker/Fahrer gesetzt), (c) so lassen, GPS bleibt
+      eine Flottenfunktion für admin/manager.
+    sources:
+      - backend/migrations/000195_create_gps_positions.up.sql
+      - backend/migrations/000193_create_trip_logs.up.sql
+      - backend/internal/gateway/route_fuhrpark.go (GPS)
+    done_when:
+      - "Entscheidung im Unit-Text, danach Unit mit DB-Test im Backlog"
+

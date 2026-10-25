@@ -597,7 +597,7 @@ units:
     service: fuhrpark
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): MASKIEREN. Für alle
@@ -2996,3 +2996,27 @@ units:
       - '`internal/caldav` ≥ 78 % (go test -cover, Wert im Journal)'
       - Mutationsprobe dokumentiert
       - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: fix-fuhrpark-concurrent-booking-move-deadlock
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    target: >
+      zwei gleichzeitige Fahrzeug-Umbuchungen auf dasselbe Fenster: eine gewinnt, die andere 409, nie 500
+    coverage_start: n.a. (Bugfix/Flake)
+    scope: >
+      Zwilling von `fix-produktion-concurrent-booking-move-deadlock` im Fuhrpark (Fund Lauf 17 Iteration 15).
+      `TestVehicleBookingOverlapConstraint/two_concurrent_moves_onto_the_same_window:_exactly_one_wins`
+      (`internal/fuhrpark/booking_overlap_constraint_test.go:170`) fiel lokal mit `update booking: ERROR:
+      deadlock detected (SQLSTATE 40P01)`, drei Wiederholungen danach grün. Zwei UPDATEs verschiedener Zeilen
+      prüfen dieselbe Exclusion-Constraint und blockieren sich gegenseitig; `UpdateBooking` bildet nur 23P01
+      auf `ErrBookingConflict` ab, der Verlierer bekäme im Betrieb 500 statt 409. Fix wie beim
+      produktion-Zwilling (40P01 als Konflikt oder ein Retry), gleiches Muster beim Anlegen prüfen. Den Fix
+      beider Pakete gleich halten, ggf. gemeinsamen Helfer nutzen, wenn der produktion-Fix einen anlegt.
+    sources:
+      - backend/internal/fuhrpark/postgres_repository.go (UpdateBooking)
+      - backend/internal/fuhrpark/booking_overlap_constraint_test.go
+    done_when:
+      - Test 20x lokal grün (`-count=20 -run TestVehicleBookingOverlapConstraint`), 40P01 im Repo-Mapping

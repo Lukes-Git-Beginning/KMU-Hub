@@ -208,6 +208,9 @@ type ListTripLogsParams struct {
 	VehicleID uuid.UUID // zero value = no filter
 	Page      int32
 	PageSize  int32
+	// ViewerID is the caller; private trips of other drivers come back masked
+	// (maskPrivateTrips). uuid.Nil masks every private trip.
+	ViewerID uuid.UUID
 }
 
 // ExportTripLogsParams holds filtering for the trip log export. Unlike
@@ -218,6 +221,8 @@ type ExportTripLogsParams struct {
 	VehicleID uuid.UUID  // zero value = no filter
 	From      *time.Time // nil = no lower bound
 	To        *time.Time // nil = no upper bound
+	// ViewerID is the caller; see ListTripLogsParams.ViewerID.
+	ViewerID uuid.UUID
 }
 
 // ListVehicleDocumentsParams holds filtering and pagination for vehicle document queries.

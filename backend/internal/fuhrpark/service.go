@@ -730,7 +730,35 @@ func (s *Service) DeleteFuelLog(ctx context.Context, tenantID, id uuid.UUID) err
 
 // ListTripLogs retrieves trip log entries with optional filtering and pagination.
 func (s *Service) ListTripLogs(ctx context.Context, params ListTripLogsParams) ([]TripLog, int, error) {
-	return s.repo.ListTripLogs(ctx, params)
+	logs, total, err := s.repo.ListTripLogs(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	maskPrivateTrips(logs, params.ViewerID)
+	return logs, total, nil
+}
+
+// privateTripLabel stands in for the purpose of a masked private trip.
+const privateTripLabel = "Privatfahrt"
+
+// maskPrivateTrips blanks destination, route, purpose, business partner and
+// notes of every private trip not driven by viewer (decision 2026-10-25). Date,
+// odometer readings, distance, vehicle and driver stay: the Fahrtenbuch must
+// list a private trip with its km, just not where it went. The purpose carries
+// the label so list and export read "Privatfahrt" instead of an empty cell.
+// A trip without a linked driver account is masked for everyone.
+func maskPrivateTrips(logs []TripLog, viewer uuid.UUID) {
+	for i := range logs {
+		l := &logs[i]
+		if !l.IsPrivate || (viewer != uuid.Nil && l.DriverUserID != nil && *l.DriverUserID == viewer) {
+			continue
+		}
+		l.StartLocation = ""
+		l.EndLocation = ""
+		l.Purpose = privateTripLabel
+		l.BusinessPartner = ""
+		l.Notes = ""
+	}
 }
 
 // CreateTripLog creates a new trip/logbook entry.
@@ -810,6 +838,7 @@ func (s *Service) ExportTripLogs(ctx context.Context, params ExportTripLogsParam
 	if err != nil {
 		return nil, "", "", err
 	}
+	maskPrivateTrips(logs, params.ViewerID)
 
 	rows := make([]map[string]any, 0, len(logs))
 	for i, l := range logs {

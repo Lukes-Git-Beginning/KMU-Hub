@@ -834,6 +834,7 @@ func (s *FuhrparkGRPCServer) ListTripLogs(ctx context.Context, req *fuhrparkv1.L
 		TenantID: tenantID,
 		Page:     req.Page,
 		PageSize: req.PageSize,
+		ViewerID: tripViewer(ctx),
 	}
 	if req.VehicleId != "" {
 		id, parseErr := uuid.Parse(req.VehicleId)
@@ -851,6 +852,17 @@ func (s *FuhrparkGRPCServer) ListTripLogs(ctx context.Context, req *fuhrparkv1.L
 		pb[i] = tripLogToProto(l)
 	}
 	return &fuhrparkv1.ListTripLogsResponse{TripLogs: pb, Total: int32(total)}, nil
+}
+
+// tripViewer is the caller the trip-log reads unmask private trips for. A
+// missing or malformed x-user-id yields uuid.Nil, which masks every private
+// trip -- the safe side.
+func tripViewer(ctx context.Context) uuid.UUID {
+	id, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
 }
 
 func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.CreateTripLogRequest) (*fuhrparkv1.CreateTripLogResponse, error) {
@@ -944,7 +956,7 @@ func (s *FuhrparkGRPCServer) ExportTripLogs(ctx context.Context, req *fuhrparkv1
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
-	params := fuhrpark.ExportTripLogsParams{TenantID: tenantID}
+	params := fuhrpark.ExportTripLogsParams{TenantID: tenantID, ViewerID: tripViewer(ctx)}
 	if req.GetVehicleId() != "" {
 		vehicleID, parseErr := uuid.Parse(req.GetVehicleId())
 		if parseErr != nil {
