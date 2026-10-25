@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"slices"
 	"time"
@@ -908,16 +909,33 @@ func (s *EmailGRPCServer) SendEmail(ctx context.Context, req *emailv1.SendEmailR
 	// Automation sends from the account its workflow names and carries no
 	// user. Every call through the gateway carries one and may only send from
 	// the caller's own mailbox.
+	var acct *models.EmailAccount
 	if middleware.GetUserID(ctx) != "" {
-		if _, err := s.ownAccount(ctx, accountID); err != nil {
-			return nil, err
-		}
+		acct, err = s.ownAccount(ctx, accountID)
+	} else {
+		acct, err = s.accounts.GetByID(ctx, accountID, tenantID)
+		err = mapEmailError(err)
 	}
+	if err != nil {
+		return nil, err
+	}
+	input.From = senderOf(acct)
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
 
 	msg, err := s.sendService.Send(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.SendEmailResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -944,14 +962,23 @@ func (s *EmailGRPCServer) SaveDraft(ctx context.Context, req *emailv1.SaveDraftR
 		BCC:       toSendAddresses(req.Bcc),
 	}
 
-	if _, err := s.ownAccount(ctx, accountID); err != nil {
+	acct, err := s.ownAccount(ctx, accountID)
+	if err != nil {
 		return nil, err
 	}
+	input.From = senderOf(acct)
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	input.HasAttachments = len(outgoing) > 0
 
 	msg, err := s.sendService.SaveDraft(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.SaveDraftResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -972,7 +999,8 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	if _, err := s.ownAccount(ctx, accountID); err != nil {
+	acct, err := s.ownAccount(ctx, accountID)
+	if err != nil {
 		return nil, err
 	}
 	origMsg, err := s.ownMessage(ctx, origID)
@@ -983,6 +1011,7 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 	input := send.ReplyInput{
 		AccountID:   accountID,
 		TenantID:    tenantID,
+		From:        senderOf(acct),
 		OriginalMsg: origMsg,
 		BodyHTML:    req.BodyHtml,
 		BodyText:    req.BodyText,
@@ -990,6 +1019,16 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 			{Name: origMsg.FromName, Email: origMsg.FromEmail},
 		},
 	}
+
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
 
 	var msg *models.EmailMessage
 	if req.ReplyAll {
@@ -1000,6 +1039,7 @@ func (s *EmailGRPCServer) ReplyEmail(ctx context.Context, req *emailv1.ReplyEmai
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.ReplyEmailResponse{Message: toEmailMessageInfo(msg)}, nil
 }
@@ -1020,7 +1060,8 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 		return nil, status.Error(codes.InvalidArgument, "invalid original_message_id")
 	}
 
-	if _, err := s.ownAccount(ctx, accountID); err != nil {
+	acct, err := s.ownAccount(ctx, accountID)
+	if err != nil {
 		return nil, err
 	}
 	origMsg, err := s.ownMessage(ctx, origID)
@@ -1031,18 +1072,93 @@ func (s *EmailGRPCServer) ForwardEmail(ctx context.Context, req *emailv1.Forward
 	input := send.ForwardInput{
 		AccountID:   accountID,
 		TenantID:    tenantID,
+		From:        senderOf(acct),
 		OriginalMsg: origMsg,
 		To:          toSendAddresses(req.To),
 		BodyHTML:    req.BodyHtml,
 		BodyText:    req.BodyText,
 	}
 
+	outgoing, err := s.pendingAttachments(ctx, req.AttachmentIds, accountID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	closeData, err := s.openAttachments(ctx, outgoing, &input.Attachments)
+	if err != nil {
+		return nil, err
+	}
+	defer closeData()
+
 	msg, err := s.sendService.Forward(ctx, input)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
+	s.bindAttachments(ctx, outgoing, msg.ID, tenantID)
 
 	return &emailv1.ForwardEmailResponse{Message: toEmailMessageInfo(msg)}, nil
+}
+
+// senderOf is the From address of mail leaving acct.
+func senderOf(acct *models.EmailAccount) send.EmailAddress {
+	return send.EmailAddress{Name: acct.DisplayName, Email: acct.EmailAddress}
+}
+
+// pendingAttachments resolves the attachment_ids of an outgoing mail to the
+// pre-send uploads of the sending mailbox. An ID that is foreign, already bound
+// or unknown answers NotFound before anything is sent.
+func (s *EmailGRPCServer) pendingAttachments(ctx context.Context, rawIDs []string, accountID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
+	if len(rawIDs) == 0 {
+		return nil, nil
+	}
+	ids := make([]uuid.UUID, 0, len(rawIDs))
+	for _, raw := range rawIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid attachment id")
+		}
+		ids = append(ids, id)
+	}
+	atts, err := s.attachmentService.PendingForSend(ctx, ids, accountID, tenantID)
+	if err != nil {
+		return nil, mapEmailError(err)
+	}
+	return atts, nil
+}
+
+// openAttachments streams the stored bytes of atts into dst for the MIME build.
+// The returned func releases the streams and must run once the send is over.
+func (s *EmailGRPCServer) openAttachments(ctx context.Context, atts []*models.EmailAttachment, dst *[]send.AttachmentData) (func(), error) {
+	var opened []io.Closer
+	closeAll := func() {
+		for _, c := range opened {
+			_ = c.Close()
+		}
+	}
+	for _, att := range atts {
+		rc, err := s.attachmentService.Open(ctx, att)
+		if err != nil {
+			closeAll()
+			slog.Error("open outgoing attachment", "attachment_id", att.ID, "error", err)
+			return nil, status.Error(codes.Internal, "attachment unavailable")
+		}
+		opened = append(opened, rc)
+		*dst = append(*dst, send.AttachmentData{
+			Filename:    att.Filename,
+			ContentType: att.ContentType,
+			Data:        rc,
+			Size:        att.SizeBytes,
+		})
+	}
+	return closeAll, nil
+}
+
+// bindAttachments ties the uploads to the stored copy of the mail. The mail is
+// already out (or the draft saved), so a failure is logged, not returned: an
+// error here would invite the caller to send twice.
+func (s *EmailGRPCServer) bindAttachments(ctx context.Context, atts []*models.EmailAttachment, messageID, tenantID uuid.UUID) {
+	if err := s.attachmentService.AttachToMessage(ctx, atts, messageID, tenantID); err != nil {
+		slog.Warn("bind attachments to sent message", "message_id", messageID, "error", err)
+	}
 }
 
 // ============================================================================

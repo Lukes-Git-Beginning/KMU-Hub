@@ -37,6 +37,14 @@ func (m *memAttachmentStore) Upload(_ context.Context, accountID uuid.UUID, _ ui
 	return key, nil
 }
 
+func (m *memAttachmentStore) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	b, ok := m.keys[key]
+	if !ok {
+		return nil, io.ErrUnexpectedEOF
+	}
+	return io.NopCloser(bytes.NewReader(b)), nil
+}
+
 func (m *memAttachmentStore) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "https://files.test/" + key, nil
 }

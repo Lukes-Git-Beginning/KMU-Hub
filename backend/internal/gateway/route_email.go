@@ -28,25 +28,28 @@ type sendEmailDTO struct {
 	BodyText  string   `json:"body_text"`
 	// ContactID, when set, makes the email service enforce marketing consent
 	// (UWG §7) for the recipient. Omit for transactional/system mail.
-	ContactID string `json:"contact_id" validate:"omitempty,uuid"`
+	ContactID     string   `json:"contact_id" validate:"omitempty,uuid"`
+	AttachmentIDs []string `json:"attachment_ids" validate:"omitempty,max=20,dive,uuid"`
 }
 
 type saveDraftDTO struct {
-	AccountID string   `json:"account_id"`
-	To        addrList `json:"to"`
-	Cc        addrList `json:"cc"`
-	Bcc       addrList `json:"bcc"`
-	Subject   string   `json:"subject"`
-	BodyHtml  string   `json:"body_html"`
-	BodyText  string   `json:"body_text"`
+	AccountID     string   `json:"account_id"`
+	To            addrList `json:"to"`
+	Cc            addrList `json:"cc"`
+	Bcc           addrList `json:"bcc"`
+	Subject       string   `json:"subject"`
+	BodyHtml      string   `json:"body_html"`
+	BodyText      string   `json:"body_text"`
+	AttachmentIDs []string `json:"attachment_ids" validate:"omitempty,max=20,dive,uuid"`
 }
 
 type replyEmailDTO struct {
-	AccountID         string `json:"account_id"`
-	OriginalMessageID string `json:"original_message_id" validate:"required"`
-	BodyHtml          string `json:"body_html"`
-	BodyText          string `json:"body_text"`
-	ReplyAll          bool   `json:"reply_all"`
+	AccountID         string   `json:"account_id"`
+	OriginalMessageID string   `json:"original_message_id" validate:"required"`
+	BodyHtml          string   `json:"body_html"`
+	BodyText          string   `json:"body_text"`
+	ReplyAll          bool     `json:"reply_all"`
+	AttachmentIDs     []string `json:"attachment_ids" validate:"omitempty,max=20,dive,uuid"`
 }
 
 type forwardEmailDTO struct {
@@ -55,6 +58,7 @@ type forwardEmailDTO struct {
 	To                addrList `json:"to" validate:"required,min=1"`
 	BodyHtml          string   `json:"body_html"`
 	BodyText          string   `json:"body_text"`
+	AttachmentIDs     []string `json:"attachment_ids" validate:"omitempty,max=20,dive,uuid"`
 }
 
 type setDefaultSignatureDTO struct {
@@ -694,13 +698,14 @@ func (e *EmailRoutes) HandleSendEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := &emailv1.SendEmailRequest{
-		AccountId: dto.AccountID,
-		To:        dto.To.proto(),
-		Cc:        dto.Cc.proto(),
-		Bcc:       dto.Bcc.proto(),
-		Subject:   dto.Subject,
-		BodyHtml:  dto.BodyHtml,
-		BodyText:  dto.BodyText,
+		AccountId:     dto.AccountID,
+		To:            dto.To.proto(),
+		Cc:            dto.Cc.proto(),
+		Bcc:           dto.Bcc.proto(),
+		Subject:       dto.Subject,
+		BodyHtml:      dto.BodyHtml,
+		BodyText:      dto.BodyText,
+		AttachmentIds: dto.AttachmentIDs,
 	}
 	if dto.ContactID != "" {
 		req.ContactId = &dto.ContactID
@@ -728,13 +733,14 @@ func (e *EmailRoutes) HandleSaveDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := &emailv1.SaveDraftRequest{
-		AccountId: dto.AccountID,
-		To:        dto.To.proto(),
-		Cc:        dto.Cc.proto(),
-		Bcc:       dto.Bcc.proto(),
-		Subject:   dto.Subject,
-		BodyHtml:  dto.BodyHtml,
-		BodyText:  dto.BodyText,
+		AccountId:     dto.AccountID,
+		To:            dto.To.proto(),
+		Cc:            dto.Cc.proto(),
+		Bcc:           dto.Bcc.proto(),
+		Subject:       dto.Subject,
+		BodyHtml:      dto.BodyHtml,
+		BodyText:      dto.BodyText,
+		AttachmentIds: dto.AttachmentIDs,
 	}
 
 	resp, err := client.SaveDraft(r.Context(), req)
@@ -764,6 +770,7 @@ func (e *EmailRoutes) HandleReplyEmail(w http.ResponseWriter, r *http.Request) {
 		BodyHtml:          dto.BodyHtml,
 		BodyText:          dto.BodyText,
 		ReplyAll:          dto.ReplyAll,
+		AttachmentIds:     dto.AttachmentIDs,
 	}
 
 	resp, err := client.ReplyEmail(r.Context(), req)
@@ -793,6 +800,7 @@ func (e *EmailRoutes) HandleForwardEmail(w http.ResponseWriter, r *http.Request)
 		To:                dto.To.proto(),
 		BodyHtml:          dto.BodyHtml,
 		BodyText:          dto.BodyText,
+		AttachmentIds:     dto.AttachmentIDs,
 	}
 
 	resp, err := client.ForwardEmail(r.Context(), req)

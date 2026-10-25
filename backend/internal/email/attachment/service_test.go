@@ -51,6 +51,10 @@ func (m *MockRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, tena
 	return "", ErrAttachmentNotFound
 }
 
+func (m *MockRepository) AttachToMessage(context.Context, []uuid.UUID, uuid.UUID, uuid.UUID) error {
+	return nil
+}
+
 // MockObjectStore implements ObjectStore for testing.
 type MockObjectStore struct {
 	UploadFn          func(ctx context.Context, accountID uuid.UUID, messageUID uint32, filename string, reader io.Reader, size int64, contentType string) (string, error)
@@ -63,6 +67,10 @@ func (m *MockObjectStore) Upload(ctx context.Context, accountID uuid.UUID, messa
 		return m.UploadFn(ctx, accountID, messageUID, filename, reader, size, contentType)
 	}
 	return "attachments/" + accountID.String() + "/" + filename, nil
+}
+
+func (m *MockObjectStore) Download(context.Context, string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
 }
 
 func (m *MockObjectStore) GetPresignedURL(ctx context.Context, minioKey string, expiry time.Duration) (string, error) {

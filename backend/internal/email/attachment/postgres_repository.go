@@ -91,3 +91,14 @@ func (r *PostgresRepository) GetMinIOKeyByID(ctx context.Context, id uuid.UUID, 
 	}
 	return minioKey, nil
 }
+
+func (r *PostgresRepository) AttachToMessage(ctx context.Context, ids []uuid.UUID, messageID uuid.UUID, tenantID uuid.UUID) error {
+	_, err := r.pool.Exec(ctx,
+		`UPDATE email_attachments SET message_id = $1
+		 WHERE id = ANY($2) AND tenant_id = $3 AND message_id IS NULL`, messageID, ids, tenantID,
+	)
+	if err != nil {
+		return fmt.Errorf("attach to message: %w", err)
+	}
+	return nil
+}

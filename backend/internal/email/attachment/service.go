@@ -96,3 +96,43 @@ func (s *Service) GetDownloadURL(ctx context.Context, attachmentID uuid.UUID, te
 
 	return s.store.GetPresignedURL(ctx, minioKey, 0)
 }
+
+// PendingForSend resolves pre-send uploads for a mail leaving accountID. An ID
+// that is unknown, belongs to another tenant or mailbox, or is already bound to
+// a message answers ErrAttachmentNotFound; duplicate IDs collapse to one entry.
+func (s *Service) PendingForSend(ctx context.Context, ids []uuid.UUID, accountID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailAttachment, error) {
+	seen := make(map[uuid.UUID]bool, len(ids))
+	out := make([]*models.EmailAttachment, 0, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		att, err := s.repo.GetByID(ctx, id, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if att.MessageID != uuid.Nil || att.AccountID != accountID {
+			return nil, ErrAttachmentNotFound
+		}
+		out = append(out, att)
+	}
+	return out, nil
+}
+
+// Open streams the stored bytes of an attachment.
+func (s *Service) Open(ctx context.Context, att *models.EmailAttachment) (io.ReadCloser, error) {
+	return s.store.Download(ctx, att.MinIOKey)
+}
+
+// AttachToMessage binds pre-send uploads to the message they were sent with.
+func (s *Service) AttachToMessage(ctx context.Context, atts []*models.EmailAttachment, messageID uuid.UUID, tenantID uuid.UUID) error {
+	if len(atts) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, 0, len(atts))
+	for _, a := range atts {
+		ids = append(ids, a.ID)
+	}
+	return s.repo.AttachToMessage(ctx, ids, messageID, tenantID)
+}

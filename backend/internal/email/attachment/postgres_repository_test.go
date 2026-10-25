@@ -273,6 +273,10 @@ func (urlStore) Upload(context.Context, uuid.UUID, uint32, string, io.Reader, in
 	return "", errors.New("not used")
 }
 
+func (urlStore) Download(context.Context, string) (io.ReadCloser, error) {
+	return nil, errors.New("not used")
+}
+
 func (urlStore) GetPresignedURL(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "signed:" + key, nil
 }

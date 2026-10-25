@@ -77,6 +77,7 @@ type ReplyInput struct {
 	BodyHTML      string
 	BodyText      string
 	SignatureID   *uuid.UUID
+	Attachments   []AttachmentData
 }
 
 // ForwardInput contains the data needed to forward an email.
@@ -108,6 +109,8 @@ type DraftInput struct {
 	BodyHTML  string
 	BodyText  string
 	SignatureID *uuid.UUID
+	// HasAttachments marks a draft whose uploads the caller binds to it afterwards.
+	HasAttachments bool
 }
 
 // Service handles email sending and composition.
@@ -258,6 +261,7 @@ func (s *Service) Reply(ctx context.Context, input ReplyInput) (*models.EmailMes
 		BodyHTML:    input.BodyHTML,
 		BodyText:    input.BodyText,
 		SignatureID: input.SignatureID,
+		Attachments: input.Attachments,
 	})
 }
 
@@ -330,6 +334,7 @@ func (s *Service) SaveDraft(ctx context.Context, input DraftInput) (*models.Emai
 		BodyHTML:     bodyHTML,
 		BodyText:     input.BodyText,
 		IsDraft:      true,
+		HasAttachments: input.HasAttachments,
 		Date:         time.Now().UTC(),
 		CreatedAt:    time.Now().UTC(),
 		UpdatedAt:    time.Now().UTC(),

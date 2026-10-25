@@ -2907,12 +2907,49 @@ units:
       - "Kein Cross-Tenant-Zugriff: Vorlage eines anderen Tenants -> NotFound, keine Zeile geschrieben"
       - "Mutations-Probe: TenantID-Zuweisung entfernt, der Test wird rot"
 
+  - id: fix-email-sent-copy-and-draft-have-no-folder
+    phase: 4
+    service: email
+    model: opus
+    deps: []
+    status: todo
+    coverage_start: "internal/email/send nicht gemessen"
+    scope: >
+      Gefunden in fix-email-send-ignores-attachment-ids (Lauf 16, Iteration 81), gegen die echte
+      DB belegt. `send.Service.Send` und `SaveDraft` bauen die lokale Kopie als
+      `models.EmailMessage` OHNE `FolderID` (uuid.Nil) und ohne `UID`
+      (`email/send/service.go`, `msg := &models.EmailMessage{...}`). `email_messages.folder_id` ist
+      `NOT NULL REFERENCES email_folders(id)` und `UNIQUE(folder_id, uid)` (Migration 41), der
+      INSERT scheitert also immer mit 23503. Folge: (1) `SaveDraft` (POST /email/messages/drafts)
+      liefert für JEDEN Nutzer 500 "failed to save draft" - Totalausfall; (2) `Send` loggt nur
+      "failed to save sent message locally", die Mail ist raus, die zurückgegebene `msg.ID` existiert
+      aber nicht in der DB, der Gesendet-Ordner bleibt leer und alles, was an der Nachricht hängt
+      (Anhänge nach fix-email-send-ignores-attachment-ids, Kontaktverknüpfung), findet keine Zeile.
+      Fix-Richtung (Entscheidung beim Bau, nicht raten): den Ordner des Kontos per Typ `sent` bzw.
+      `drafts` auflösen (`message.Service`/FolderRepository), `UID` für lokale Kopien vergeben, ohne
+      mit dem IMAP-Sync zu kollidieren (der später die echte Kopie aus dem Gesendet-Ordner holt -
+      Dublette vermeiden, z. B. über den Message-ID-Header `GetByMessageIDHeader`). Fehlt der Ordner
+      (Konto noch nie synchronisiert), darf Senden nicht scheitern. Der Test in
+      `server/email_grpc_send_attachments_db_test.go` behilft sich mit `sentCopyCreator`
+      (Ordner + UID von Hand) und kann danach auf den echten Pfad umgestellt werden.
+    sources:
+      - backend/internal/email/send/service.go
+      - backend/internal/email/message/service.go
+      - backend/internal/email/message/postgres_repository.go
+      - backend/internal/server/email_grpc_send_attachments_db_test.go
+      - backend/migrations/000041_create_email_tables.up.sql
+    done_when:
+      - "DB-Test als kmuhub_app ohne Hilfs-Creator: SaveDraft legt eine Zeile in email_messages mit is_draft = true im Entwürfe-Ordner des Kontos an"
+      - "DB-Test: SendEmail legt die Kopie im Gesendet-Ordner an, ein zweiter Versand kollidiert nicht auf (folder_id, uid)"
+      - "Konto ohne Gesendet-Ordner: Senden gelingt weiterhin"
+      - "Mutations-Probe: FolderID-Zuweisung entfernt, der Test wird rot"
+
   - id: fix-email-send-ignores-attachment-ids
     phase: 4
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 75,8 %"
     scope: >
       Gefunden in fix-email-attachment-upload-nil-message-fk (Lauf 16, Iteration 69), per Grep

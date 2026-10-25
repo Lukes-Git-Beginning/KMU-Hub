@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
+	"github.com/kmuhub/kmuhub/internal/email/send"
 	"github.com/kmuhub/kmuhub/internal/models"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
@@ -27,11 +28,9 @@ func mailboxCtx(tenantID uuid.UUID) context.Context {
 type stubMailboxAccounts struct {
 	foreign map[uuid.UUID]bool
 	list    func() []uuid.UUID
-	lookups int
 }
 
 func (s *stubMailboxAccounts) GetByID(_ context.Context, id, tenantID uuid.UUID) (*models.EmailAccount, error) {
-	s.lookups++
 	owner := testMailboxOwner
 	if s.foreign[id] {
 		owner = uuid.New()
@@ -151,10 +150,12 @@ func TestMailbox_AutomationSendsWithoutCaller(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID, acct := uuid.New(), uuid.New()
 	f.mailbox.foreign[acct] = true
+	host, port := startFakeSMTPServer(t)
+	f.accounts.creds[acct] = &send.Credentials{SMTPHost: host, SMTPPort: port, Username: "user", Password: "pass"}
 
-	_, _ = f.srv.SendEmail(ctxWithTenant(tenantID), &emailv1.SendEmailRequest{AccountId: acct.String(), To: []*emailv1.EmailAddress{{Email: "x@example.com"}}, Subject: "s"})
-	require.Zero(t, f.mailbox.lookups, "an internal send must not run the owner check")
+	_, err := f.srv.SendEmail(ctxWithTenant(tenantID), &emailv1.SendEmailRequest{AccountId: acct.String(), To: []*emailv1.EmailAddress{{Email: "x@example.com"}}, Subject: "s"})
+	require.NoError(t, err, "an internal send must not run the owner check, even for an account another user holds")
 
-	_, err := f.srv.SendEmail(mailboxCtx(tenantID), &emailv1.SendEmailRequest{AccountId: acct.String(), To: []*emailv1.EmailAddress{{Email: "x@example.com"}}, Subject: "s"})
+	_, err = f.srv.SendEmail(mailboxCtx(tenantID), &emailv1.SendEmailRequest{AccountId: acct.String(), To: []*emailv1.EmailAddress{{Email: "x@example.com"}}, Subject: "s"})
 	requireGRPCCode(t, err, codes.NotFound)
 }

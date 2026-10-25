@@ -203,10 +203,23 @@ func (r *stubAttachmentRepo) GetMinIOKeyByID(_ context.Context, id, tenantID uui
 	return a.MinIOKey, nil
 }
 
+func (r *stubAttachmentRepo) AttachToMessage(_ context.Context, ids []uuid.UUID, messageID, tenantID uuid.UUID) error {
+	for _, id := range ids {
+		if a, ok := r.attachments[id]; ok && a.TenantID == tenantID && a.MessageID == uuid.Nil {
+			a.MessageID = messageID
+		}
+	}
+	return nil
+}
+
 type stubObjectStore struct{}
 
 func (stubObjectStore) Upload(_ context.Context, _ uuid.UUID, _ uint32, filename string, _ io.Reader, _ int64, _ string) (string, error) {
 	return "minio/" + filename, nil
+}
+
+func (stubObjectStore) Download(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("stub-bytes")), nil
 }
 
 func (stubObjectStore) GetPresignedURL(_ context.Context, minioKey string, _ time.Duration) (string, error) {
