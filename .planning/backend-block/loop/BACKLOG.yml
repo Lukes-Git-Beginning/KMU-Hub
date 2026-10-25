@@ -1323,7 +1323,7 @@ units:
     service: wiki
     model: opus
     deps: []
-    status: todo
+    status: done
     target: 'wiki: der own-Scope von wiki:article:edit gilt auch für Bearbeiten, Wiederherstellen und Anhänge'
     coverage_start: n.a.
     scope: >

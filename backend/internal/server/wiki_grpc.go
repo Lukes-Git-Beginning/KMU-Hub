@@ -95,11 +95,17 @@ func (s *WikiGRPCServer) UpdateArticle(ctx context.Context, req *wikiv1.UpdateAr
 		return nil, status.Errorf(codes.InvalidArgument, "invalid editor_id: %v", err)
 	}
 
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
 	input := wiki.UpdateArticleInput{
 		TenantID:  tenantID,
 		ArticleID: articleID,
 		Content:   req.GetContent(),
 		EditorID:  editorID,
+		OwnerID:   ownerID,
 	}
 
 	if req.Title != nil {
@@ -275,7 +281,12 @@ func (s *WikiGRPCServer) RestoreVersion(ctx context.Context, req *wikiv1.Restore
 		return nil, status.Errorf(codes.InvalidArgument, "invalid editor_id: %v", err)
 	}
 
-	article, err := s.svc.RestoreVersion(ctx, tenantID, articleID, versionID, editorID)
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
+	article, err := s.svc.RestoreVersion(ctx, tenantID, articleID, versionID, editorID, ownerID)
 	if err != nil {
 		return nil, mapWikiError(err)
 	}
@@ -296,12 +307,18 @@ func (s *WikiGRPCServer) UploadAttachment(ctx context.Context, req *wikiv1.Uploa
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
 
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
 	input := wiki.UploadInput{
 		TenantID:  tenantID,
 		ArticleID: articleID,
 		FileRef:   req.GetFileRef(),
 		Mime:      req.GetMime(),
 		Size:      req.GetSize(),
+		OwnerID:   ownerID,
 	}
 
 	if req.UploadedBy != nil {
@@ -672,6 +689,19 @@ func shareTokenToProto(t *wiki.ShareToken) *wikiv1.ShareToken {
 // ============================================================================
 // Error mapping
 // ============================================================================
+
+// parseWikiOwnerID parses the optional owner_id that narrows an edit to the
+// caller's own articles. Unset means tenant-wide.
+func parseWikiOwnerID(raw *string) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	id, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid owner_id: %v", err)
+	}
+	return &id, nil
+}
 
 func mapWikiError(err error) error {
 	if err == nil {

@@ -551,15 +551,18 @@ func (x *GetArticleRequest) GetArticleId() string {
 }
 
 type UpdateArticleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ArticleId     string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
-	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Slug          *string                `protobuf:"bytes,4,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
-	Content       []byte                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`                               // empty = no content change
-	CategoryId    *string                `protobuf:"bytes,6,opt,name=category_id,json=categoryId,proto3,oneof" json:"category_id,omitempty"` // empty string = clear category
-	Published     *bool                  `protobuf:"varint,7,opt,name=published,proto3,oneof" json:"published,omitempty"`
-	EditorId      string                 `protobuf:"bytes,8,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TenantId   string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ArticleId  string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	Title      *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Slug       *string                `protobuf:"bytes,4,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
+	Content    []byte                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`                               // empty = no content change
+	CategoryId *string                `protobuf:"bytes,6,opt,name=category_id,json=categoryId,proto3,oneof" json:"category_id,omitempty"` // empty string = clear category
+	Published  *bool                  `protobuf:"varint,7,opt,name=published,proto3,oneof" json:"published,omitempty"`
+	EditorId   string                 `protobuf:"bytes,8,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	// Set when the caller may edit only articles they wrote: a foreign article
+	// then answers not-found, so the id stays unconfirmed.
+	OwnerId       *string `protobuf:"bytes,9,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -646,6 +649,13 @@ func (x *UpdateArticleRequest) GetPublished() bool {
 func (x *UpdateArticleRequest) GetEditorId() string {
 	if x != nil {
 		return x.EditorId
+	}
+	return ""
+}
+
+func (x *UpdateArticleRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -1239,11 +1249,13 @@ func (x *VersionResponse) GetVersion() *Version {
 }
 
 type RestoreVersionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ArticleId     string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
-	VersionId     string                 `protobuf:"bytes,3,opt,name=version_id,json=versionId,proto3" json:"version_id,omitempty"`
-	EditorId      string                 `protobuf:"bytes,4,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ArticleId string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	VersionId string                 `protobuf:"bytes,3,opt,name=version_id,json=versionId,proto3" json:"version_id,omitempty"`
+	EditorId  string                 `protobuf:"bytes,4,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	// See UpdateArticleRequest.owner_id.
+	OwnerId       *string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1306,14 +1318,23 @@ func (x *RestoreVersionRequest) GetEditorId() string {
 	return ""
 }
 
+func (x *RestoreVersionRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
+}
+
 type UploadAttachmentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ArticleId     string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
-	FileRef       string                 `protobuf:"bytes,2,opt,name=file_ref,json=fileRef,proto3" json:"file_ref,omitempty"`
-	Mime          string                 `protobuf:"bytes,3,opt,name=mime,proto3" json:"mime,omitempty"`
-	Size          int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
-	UploadedBy    *string                `protobuf:"bytes,5,opt,name=uploaded_by,json=uploadedBy,proto3,oneof" json:"uploaded_by,omitempty"`
-	TenantId      string                 `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	ArticleId  string                 `protobuf:"bytes,1,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	FileRef    string                 `protobuf:"bytes,2,opt,name=file_ref,json=fileRef,proto3" json:"file_ref,omitempty"`
+	Mime       string                 `protobuf:"bytes,3,opt,name=mime,proto3" json:"mime,omitempty"`
+	Size       int64                  `protobuf:"varint,4,opt,name=size,proto3" json:"size,omitempty"`
+	UploadedBy *string                `protobuf:"bytes,5,opt,name=uploaded_by,json=uploadedBy,proto3,oneof" json:"uploaded_by,omitempty"`
+	TenantId   string                 `protobuf:"bytes,6,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// See UpdateArticleRequest.owner_id.
+	OwnerId       *string `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1386,6 +1407,13 @@ func (x *UploadAttachmentRequest) GetUploadedBy() string {
 func (x *UploadAttachmentRequest) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *UploadAttachmentRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -2615,7 +2643,7 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x11GetArticleRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"article_id\x18\x02 \x01(\tR\tarticleId\"\xb7\x02\n" +
+	"article_id\x18\x02 \x01(\tR\tarticleId\"\xe4\x02\n" +
 	"\x14UpdateArticleRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -2626,12 +2654,14 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\vcategory_id\x18\x06 \x01(\tH\x02R\n" +
 	"categoryId\x88\x01\x01\x12!\n" +
 	"\tpublished\x18\a \x01(\bH\x03R\tpublished\x88\x01\x01\x12\x1b\n" +
-	"\teditor_id\x18\b \x01(\tR\beditorIdB\b\n" +
+	"\teditor_id\x18\b \x01(\tR\beditorId\x12\x1e\n" +
+	"\bowner_id\x18\t \x01(\tH\x04R\aownerId\x88\x01\x01B\b\n" +
 	"\x06_titleB\a\n" +
 	"\x05_slugB\x0e\n" +
 	"\f_category_idB\f\n" +
 	"\n" +
-	"_published\"R\n" +
+	"_publishedB\v\n" +
+	"\t_owner_id\"R\n" +
 	"\x14DeleteArticleRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -2675,14 +2705,16 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"version_id\x18\x01 \x01(\tR\tversionId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"=\n" +
 	"\x0fVersionResponse\x12*\n" +
-	"\aversion\x18\x01 \x01(\v2\x10.wiki.v1.VersionR\aversion\"\x8f\x01\n" +
+	"\aversion\x18\x01 \x01(\v2\x10.wiki.v1.VersionR\aversion\"\xbc\x01\n" +
 	"\x15RestoreVersionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
 	"article_id\x18\x02 \x01(\tR\tarticleId\x12\x1d\n" +
 	"\n" +
 	"version_id\x18\x03 \x01(\tR\tversionId\x12\x1b\n" +
-	"\teditor_id\x18\x04 \x01(\tR\beditorId\"\xce\x01\n" +
+	"\teditor_id\x18\x04 \x01(\tR\beditorId\x12\x1e\n" +
+	"\bowner_id\x18\x05 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\xfb\x01\n" +
 	"\x17UploadAttachmentRequest\x12\x1d\n" +
 	"\n" +
 	"article_id\x18\x01 \x01(\tR\tarticleId\x12\x19\n" +
@@ -2691,8 +2723,10 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\x04size\x18\x04 \x01(\x03R\x04size\x12$\n" +
 	"\vuploaded_by\x18\x05 \x01(\tH\x00R\n" +
 	"uploadedBy\x88\x01\x01\x12\x1b\n" +
-	"\ttenant_id\x18\x06 \x01(\tR\btenantIdB\x0e\n" +
-	"\f_uploaded_by\"I\n" +
+	"\ttenant_id\x18\x06 \x01(\tR\btenantId\x12\x1e\n" +
+	"\bowner_id\x18\a \x01(\tH\x01R\aownerId\x88\x01\x01B\x0e\n" +
+	"\f_uploaded_byB\v\n" +
+	"\t_owner_id\"I\n" +
 	"\x12AttachmentResponse\x123\n" +
 	"\n" +
 	"attachment\x18\x01 \x01(\v2\x13.wiki.v1.AttachmentR\n" +
@@ -2951,6 +2985,7 @@ func file_proto_wiki_v1_wiki_proto_init() {
 	file_proto_wiki_v1_wiki_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[6].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_wiki_v1_wiki_proto_msgTypes[18].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[19].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[27].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[31].OneofWrappers = []any{}

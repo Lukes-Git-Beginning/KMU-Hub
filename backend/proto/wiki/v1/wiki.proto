@@ -114,6 +114,9 @@ message UpdateArticleRequest {
   optional string category_id = 6; // empty string = clear category
   optional bool published = 7;
   string editor_id = 8;
+  // Set when the caller may edit only articles they wrote: a foreign article
+  // then answers not-found, so the id stays unconfirmed.
+  optional string owner_id = 9;
 }
 
 message DeleteArticleRequest {
@@ -181,6 +184,8 @@ message RestoreVersionRequest {
   string article_id = 2;
   string version_id = 3;
   string editor_id = 4;
+  // See UpdateArticleRequest.owner_id.
+  optional string owner_id = 5;
 }
 
 // ============================================================================
@@ -194,6 +199,8 @@ message UploadAttachmentRequest {
   int64 size = 4;
   optional string uploaded_by = 5;
   string tenant_id = 6;
+  // See UpdateArticleRequest.owner_id.
+  optional string owner_id = 7;
 }
 
 message AttachmentResponse {

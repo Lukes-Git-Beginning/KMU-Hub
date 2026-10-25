@@ -48,6 +48,9 @@ type UpdateArticleInput struct {
 	CategoryID *uuid.UUID // uuid.Nil to clear
 	Published  *bool
 	EditorID   uuid.UUID // user making the change (saved as version author)
+	// OwnerID narrows the edit to articles this user wrote (scope "own");
+	// nil leaves it tenant-wide. A foreign article answers ErrArticleNotFound.
+	OwnerID *uuid.UUID
 }
 
 // ListArticlesInput contains filtering options for listing articles.
@@ -71,6 +74,7 @@ type UploadInput struct {
 	Mime       string
 	Size       int64
 	UploadedBy *uuid.UUID
+	OwnerID    *uuid.UUID // see UpdateArticleInput.OwnerID
 }
 
 // CreateCategoryInput contains data for creating a category.
@@ -163,7 +167,7 @@ func (s *Service) CreateArticle(ctx context.Context, input CreateArticleInput) (
 
 // UpdateArticle updates an existing article and saves a version snapshot.
 func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (*Article, error) {
-	article, err := s.repo.GetArticleByID(ctx, input.TenantID, input.ArticleID)
+	article, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID)
 	if err != nil {
 		return nil, err
 	}
@@ -317,8 +321,13 @@ func (s *Service) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID)
 	return s.repo.GetVersion(ctx, tenantID, versionID)
 }
 
-// RestoreVersion restores an article to a previous version's content.
-func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID) (*Article, error) {
+// RestoreVersion restores an article to a previous version's content. ownerID
+// narrows it like UpdateArticleInput.OwnerID; the article is checked before the
+// version, so a foreign article never confirms that a version id exists.
+func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID, ownerID *uuid.UUID) (*Article, error) {
+	if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+		return nil, err
+	}
 	version, err := s.repo.GetVersion(ctx, tenantID, versionID)
 	if err != nil {
 		return nil, err
@@ -329,7 +338,22 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versi
 		ArticleID: articleID,
 		Content:   version.Content,
 		EditorID:  editorID,
+		OwnerID:   ownerID,
 	})
+}
+
+// loadEditableArticle loads an article the caller may change. With ownerID set
+// (scope "own") an article written by someone else answers ErrArticleNotFound
+// rather than a permission error, so the caller learns nothing about the id.
+func (s *Service) loadEditableArticle(ctx context.Context, tenantID, articleID uuid.UUID, ownerID *uuid.UUID) (*Article, error) {
+	article, err := s.repo.GetArticleByID(ctx, tenantID, articleID)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != nil && article.AuthorID != *ownerID {
+		return nil, ErrArticleNotFound
+	}
+	return article, nil
 }
 
 // ============================================================================
@@ -340,6 +364,11 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versi
 func (s *Service) UploadAttachment(ctx context.Context, input UploadInput) (*Attachment, error) {
 	if strings.TrimSpace(input.FileRef) == "" {
 		return nil, ErrInvalidContent
+	}
+	if input.OwnerID != nil {
+		if _, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID); err != nil {
+			return nil, err
+		}
 	}
 
 	now := time.Now()

@@ -21,8 +21,8 @@ import (
 //     `wiki:articles:read` and `wiki:categories:read` (000234); delete, share links, attachment delete and every
 //     category write are 403; manager holds the legacy `wiki:articles:write` and `wiki:categories:write`
 //     (000234), which open delete, share links and category management on top of the catalogue keys;
-//   - the own scope of `wiki:article:edit` is NOT applied: a second member edits, restores and attaches to a
-//     foreign article (fix-wiki-own-scope-article-edit);
+//   - the own scope of `wiki:article:edit` binds PATCH, restore and attachment upload to the author: a second
+//     member gets 404 on a foreign article; manager (legacy `wiki:articles:write`) and admin stay tenant-wide;
 //   - article reads are tenant-wide, drafts included: a second member lists and opens another member's draft;
 //   - Create/Get/Update/Restore answer `{article:{…}}`, the desktop client reads the article flat;
 //   - `tags`, `icon`, `cover_url`, `change_note` of the desktop body are not part of the gateway request and
@@ -33,6 +33,7 @@ func TestWikiMemberFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
 
+	adminToken, _ := registerAndLoginWithRole(t, base, "admin")
 	managerToken, _ := registerAndLoginWithRole(t, base, "manager")
 	memberAToken, memberAID := registerAndLoginWithRole(t, base, "member")
 	memberBToken, _ := registerAndLoginWithRole(t, base, "member")
@@ -371,25 +372,50 @@ func TestWikiMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
-	t.Run("a second member edits a foreign article (IST, fix-wiki-own-scope-article-edit)", func(t *testing.T) {
-		// `wiki:article:edit` is granted to member at scope own, yet the PATCH, restore and attachment routes
-		// check only the key. Flip these three to 403/404 together with the fix.
+	t.Run("a second member cannot edit a foreign article, manager and admin can", func(t *testing.T) {
+		// `wiki:article:edit` sits at scope own for member: a foreign article answers 404 on all three edit
+		// routes (not 403, the id stays unconfirmed) and nothing changes.
 		resp, body := doRequest(t, http.MethodPatch, wiki+"/articles/"+articleID, map[string]interface{}{"title": titleA + " hijacked"}, memberBToken)
-		requireStatus(t, resp, body, http.StatusOK)
+		requireStatus(t, resp, body, http.StatusNotFound)
 
 		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/versions/"+firstVer+"/restore", nil, memberBToken)
-		requireStatus(t, resp, body, http.StatusOK)
+		requireStatus(t, resp, body, http.StatusNotFound)
 
 		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/attachments", map[string]interface{}{
 			"file_ref": fmt.Sprintf("wiki/%d/foreign.png", suffix), "mime": "image/png", "size": 10,
 		}, memberBToken)
-		requireStatus(t, resp, body, http.StatusCreated)
+		requireStatus(t, resp, body, http.StatusNotFound)
 
 		resp, body = getJSON(t, wiki+"/articles/"+articleID, memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
-		if got := str(nested(t, body, "article"), "title"); got != titleA+" hijacked" {
-			t.Fatalf("expected the foreign edit to be visible to the author, got %q", got)
+		if got := str(nested(t, body, "article"), "title"); got != titleA+" v2" {
+			t.Fatalf("a refused foreign edit must not change the title, got %q", got)
 		}
+		resp, body = getJSON(t, wiki+"/articles/"+articleID+"/attachments", memberAToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if strings.Contains(string(body), "foreign.png") {
+			t.Fatalf("a refused upload must not leave an attachment: %s", string(body))
+		}
+
+		// manager edits through the legacy `wiki:articles:write` (scope all) although `wiki:article:edit` is
+		// own for manager too; admin holds both at scope all.
+		resp, body = doRequest(t, http.MethodPatch, wiki+"/articles/"+articleID, map[string]interface{}{"title": titleA + " by manager"}, managerToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/versions/"+firstVer+"/restore", nil, managerToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = doRequest(t, http.MethodPatch, wiki+"/articles/"+articleID, map[string]interface{}{"title": titleA + " by admin"}, adminToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/attachments", map[string]interface{}{
+			"file_ref": fmt.Sprintf("wiki/%d/admin.png", suffix), "mime": "image/png", "size": 10,
+		}, adminToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		if got := str(nested(t, body, "attachment"), "id"); got == "" {
+			t.Fatalf("admin attachment without id: %s", string(body))
+		}
+
+		// The author still edits their own article.
+		resp, body = doRequest(t, http.MethodPatch, wiki+"/articles/"+articleID, map[string]interface{}{"title": titleA + " v3"}, memberAToken)
+		requireStatus(t, resp, body, http.StatusOK)
 	})
 
 	t.Run("manager removes the drafts and attachments, the article is gone for everyone", func(t *testing.T) {

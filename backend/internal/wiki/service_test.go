@@ -633,7 +633,7 @@ func TestService_RestoreVersion_Success(t *testing.T) {
 		ChangedAt:     time.Now(),
 	}
 
-	restored, err := svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, uuid.New())
+	restored, err := svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, uuid.New(), nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, string(oldContent), string(restored.Content))
@@ -837,4 +837,86 @@ func TestBuildSearchQuery_StripsSpecialChars(t *testing.T) {
 	assert.NotContains(t, result, ";")
 	assert.NotContains(t, result, "--")
 	assert.Contains(t, result, "hello")
+}
+
+// ============================================================================
+// Own-scope edit (wiki:article:edit at scope own)
+// ============================================================================
+
+func TestService_OwnScopeEdit(t *testing.T) {
+	tenantID := uuid.New()
+	content := json.RawMessage(`{"type":"doc","content":[{"text":"new"}]}`)
+
+	setup := func() (*Service, *mockRepository, *Article, uuid.UUID) {
+		repo := newMockRepository()
+		a := addArticle(repo, tenantID, "Article", "art", true)
+		vID := uuid.New()
+		repo.versions[vID] = &Version{ID: vID, ArticleID: a.ID, VersionNumber: 1, Content: content, ChangedAt: time.Now()}
+		return NewService(repo), repo, a, vID
+	}
+
+	t.Run("a stranger at own scope gets not found on update, restore and upload", func(t *testing.T) {
+		svc, repo, a, vID := setup()
+		stranger := uuid.New()
+		title := "Hijacked"
+
+		_, err := svc.UpdateArticle(context.Background(), UpdateArticleInput{
+			TenantID: tenantID, ArticleID: a.ID, Title: &title, Content: content, EditorID: stranger, OwnerID: &stranger,
+		})
+		require.ErrorIs(t, err, ErrArticleNotFound)
+
+		_, err = svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, stranger, &stranger)
+		require.ErrorIs(t, err, ErrArticleNotFound)
+
+		_, err = svc.UploadAttachment(context.Background(), UploadInput{
+			TenantID: tenantID, ArticleID: a.ID, FileRef: "uploads/x.pdf", UploadedBy: &stranger, OwnerID: &stranger,
+		})
+		require.ErrorIs(t, err, ErrArticleNotFound)
+
+		assert.Equal(t, "Article", repo.articles[a.ID].Title, "title must stay untouched")
+		assert.Len(t, repo.versions, 1, "no version snapshot for a refused edit")
+		assert.Empty(t, repo.attachments, "no attachment for a refused upload")
+	})
+
+	t.Run("the author at own scope edits, restores and uploads", func(t *testing.T) {
+		svc, repo, a, vID := setup()
+		author := a.AuthorID
+		title := "Renamed"
+
+		updated, err := svc.UpdateArticle(context.Background(), UpdateArticleInput{
+			TenantID: tenantID, ArticleID: a.ID, Title: &title, EditorID: author, OwnerID: &author,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "Renamed", updated.Title)
+
+		restored, err := svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, author, &author)
+		require.NoError(t, err)
+		assert.Equal(t, string(content), string(restored.Content))
+
+		_, err = svc.UploadAttachment(context.Background(), UploadInput{
+			TenantID: tenantID, ArticleID: a.ID, FileRef: "uploads/x.pdf", UploadedBy: &author, OwnerID: &author,
+		})
+		require.NoError(t, err)
+		assert.Len(t, repo.attachments, 1)
+	})
+
+	t.Run("without an owner the edit stays tenant-wide", func(t *testing.T) {
+		svc, _, a, vID := setup()
+		other := uuid.New()
+		title := "Manager edit"
+
+		_, err := svc.UpdateArticle(context.Background(), UpdateArticleInput{
+			TenantID: tenantID, ArticleID: a.ID, Title: &title, EditorID: other,
+		})
+		require.NoError(t, err)
+		_, err = svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, other, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("an unknown article at own scope is not found before the version is looked up", func(t *testing.T) {
+		svc, _, _, _ := setup()
+		me := uuid.New()
+		_, err := svc.RestoreVersion(context.Background(), tenantID, uuid.New(), uuid.New(), me, &me)
+		require.ErrorIs(t, err, ErrArticleNotFound)
+	})
 }
