@@ -180,7 +180,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     needs: [lint, test]
     services:
       postgres:
@@ -223,6 +223,15 @@ jobs:
       COSMI_MODULE_INVENTAR_ENABLED: "true"
       COSMI_MODULE_EINKAUF_ENABLED: "true"
       COSMI_MODULE_SCHICHTEN_ENABLED: "true"
+      COSMI_MODULE_PRODUKTION_ENABLED: "true"
+      COSMI_MODULE_VERTRAEGE_ENABLED: "true"
+      COSMI_MODULE_RAPPORTE_ENABLED: "true"
+      COSMI_MODULE_FUHRPARK_ENABLED: "true"
+      COSMI_MODULE_VERMIETUNG_ENABLED: "true"
+      COSMI_MODULE_WIKI_ENABLED: "true"
+      COSMI_MODULE_BERICHTE_ENABLED: "true"
+      COSMI_MODULE_FORMULARE_ENABLED: "true"
+      COSMI_MODULE_HELPDESK_ENABLED: "true"
 
     steps:
       - name: Checkout
@@ -277,6 +286,9 @@ jobs:
           go build -o bin/inventar ./cmd/inventar
           go build -o bin/einkauf ./cmd/einkauf
           go build -o bin/schichten ./cmd/schichten
+          for svc in produktion vertraege rapporte fuhrpark vermietung wiki berichte formulare helpdesk; do
+            go build -o bin/$svc ./cmd/$svc
+          done
 
       - name: Start auth service
         working-directory: backend
@@ -417,12 +429,13 @@ jobs:
             sleep 1
           done
 
-      - name: Start inventar, einkauf and schichten services
-        # Branchen modules with the most dropped-field fixes so far; their
-        # gateway routes need the COSMI_MODULE_* flags set in the job env.
+      - name: Start the branchen module services
+        # Every module service with an e2e flow; their gateway routes need the
+        # COSMI_MODULE_* flags set in the job env. Mirrored locally by
+        # .planning/backend-block/loop/hooks/e2e-local.sh, keep both in step.
         working-directory: backend
         run: |
-          for svc in inventar:9110 einkauf:9111 schichten:9115; do
+          for svc in inventar:9110 einkauf:9111 schichten:9115                      produktion:9112 vertraege:9113 rapporte:9114 fuhrpark:9116 vermietung:9117                      wiki:9102 berichte:9103 formulare:9104 helpdesk:9105; do
             name="${svc%%:*}"; port="${svc##*:}"
             ./bin/$name > /tmp/$name.log 2>&1 &
             for i in $(seq 1 30); do
