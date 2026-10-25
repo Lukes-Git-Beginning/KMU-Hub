@@ -2524,7 +2524,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/work/task 67,4 %"
     scope: >
       `internal/work/task` nach den Block-A-Änderungen (offene Projekte, Teil-Updates):
@@ -2872,3 +2872,37 @@ units:
       - "Test: Manager (Scope all) darf weiterhin im Namen eines Mitarbeiters stellen"
       - "Mutations-Probe: Pin/Eigentumsprüfung entfernt, der zugehörige Test wird rot"
 
+
+  - id: fix-project-from-template-copies-no-tasks
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/work/task 85,0 %"
+    scope: >
+      Gefunden in cov-work-task (Lauf 16, Iteration 68), gegen die echte DB belegt: eine Vorlage
+      kopiert beim Anlegen eines Projekts nur die Status, nie die Aufgaben. `project.Service.
+      CreateFromTemplate` (`work/project/service.go:472`) sagt „Task copying is handled by the
+      task service (06-03)“, aber `task.Service.CreateFromTemplate` (`work/task/service.go:684`)
+      hat keinen Aufrufer außerhalb von Tests (`CreateProjectFromTemplate` in
+      `server/work_grpc.go:429` ruft nur den Projekt-Service). Ruft man die Task-Methode doch auf,
+      scheitert sie immer: `newTask` trägt kein `TenantID` (uuid.Nil), der INSERT verletzt die
+      RLS-Policy auf `tasks` („new row violates row-level security policy“, SQLSTATE 42501). Zwei
+      weitere Fehler im selben Pfad, per Code gelesen: die kopierten Aufgaben behalten die
+      `status_id` des QUELL-Projekts (Status gehören je Projekt, die Vorlagen-Statuse werden aber
+      neu angelegt), und `Assignee`/`StartDate`/`DueDate` werden nicht übernommen (gewollt für
+      Vorlagen, im Zweifel so lassen). Fix: `TenantID` setzen, `status_id` über die Status-Zuordnung
+      Quell- -> Zielprojekt umsetzen (Name oder sort_order), `CreateProjectFromTemplate` im
+      Work-Server nach dem Projektanlegen die Methode aufrufen lassen. Heute kein Totalausfall
+      (die Route liefert ein leeres Projekt mit Statussen), aber die Vorlagenfunktion ist
+      halb. FE-Aufrufer prüfen: `/api/v1/projects/from-template` (`types.ts:1935`).
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/work/project/service.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/work/task/relations_db_test.go
+    done_when:
+      - "DB-Test als kmuhub_app: Projekt aus Vorlage enthält die Aufgaben der Vorlage mit Eltern-Zuordnung, Abhängigkeiten und Statussen des ZIELprojekts"
+      - "Kein Cross-Tenant-Zugriff: Vorlage eines anderen Tenants -> NotFound, keine Zeile geschrieben"
+      - "Mutations-Probe: TenantID-Zuweisung entfernt, der Test wird rot"
