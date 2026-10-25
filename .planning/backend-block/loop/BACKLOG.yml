@@ -2543,7 +2543,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     coverage_start: "internal/server 75,3 %"
     scope: >
       Gefunden in fix-email-module-for-members (Lauf 16, Iteration 11), lokal an der DB belegt:
@@ -2906,3 +2906,32 @@ units:
       - "DB-Test als kmuhub_app: Projekt aus Vorlage enthält die Aufgaben der Vorlage mit Eltern-Zuordnung, Abhängigkeiten und Statussen des ZIELprojekts"
       - "Kein Cross-Tenant-Zugriff: Vorlage eines anderen Tenants -> NotFound, keine Zeile geschrieben"
       - "Mutations-Probe: TenantID-Zuweisung entfernt, der Test wird rot"
+
+  - id: fix-email-send-ignores-attachment-ids
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: todo
+    coverage_start: "internal/server 75,8 %"
+    scope: >
+      Gefunden in fix-email-attachment-upload-nil-message-fk (Lauf 16, Iteration 69), per Grep
+      über `backend/` belegt: `SendEmailRequest`, `SaveDraftRequest` und die Reply/Forward-Requests
+      tragen `attachment_ids` (`email.proto`, `types.ts`), aber kein Code außerhalb von `*.pb.go`
+      liest das Feld (`GetAttachmentIds`/`.AttachmentIds` hat keinen Treffer). Ein hochgeladener
+      Anhang (jetzt möglich, Migration 342) wird also nie an die gesendete Mail gehängt, ohne
+      Fehlermeldung. Heute ohne sichtbaren Ausfall: `useUploadAttachment` hat keinen
+      Komponenten-Aufrufer. Fix: beim Senden/Speichern die IDs auflösen (Anhang -> `account_id`
+      muss das Absender-Konto des Aufrufers sein, sonst NotFound), die Bytes über den
+      `ObjectStore` holen, als `send.AttachmentData` ans MIME geben und die Zeile mit
+      `message_id` der gespeicherten Nachricht verknüpfen. Die `ObjectStore`-Schnittstelle hat
+      heute nur Upload/Presign/Delete, es fehlt ein Download.
+    sources:
+      - backend/internal/server/email_grpc.go
+      - backend/internal/email/send/service.go
+      - backend/internal/email/attachment/store.go
+      - backend/proto/email/v1/email.proto
+    done_when:
+      - "DB-Test als kmuhub_app: Upload, Senden mit attachment_ids, die MIME-Mail enthält den Anhang und die Zeile hängt an der Nachricht"
+      - "Anhang eines anderen Nutzers in attachment_ids -> NotFound, nichts gesendet"
+      - "go test -count=1 ./internal/server/ ./internal/email/... grün, DATABASE_URL gesetzt, 0 Skips"

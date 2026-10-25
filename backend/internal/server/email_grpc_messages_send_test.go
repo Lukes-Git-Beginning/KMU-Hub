@@ -1027,23 +1027,41 @@ func TestGetAttachmentDownloadURL_MetadataPresentForRealMessageAttachment(t *tes
 	require.EqualValues(t, 1234, resp.SizeBytes)
 }
 
-func TestGetAttachmentDownloadURL_MetadataPresentForPreSendAttachment(t *testing.T) {
+func TestGetAttachmentDownloadURL_PreSendAttachmentFollowsItsMailbox(t *testing.T) {
 	f := newEmailMessagesFixture()
 	tenantID := uuid.New()
-	att := &models.EmailAttachment{
-		ID:          uuid.New(),
-		TenantID:    tenantID,
-		MessageID:   uuid.Nil, // matches UploadAttachment's pre-send convention
-		Filename:    "contract.pdf",
-		ContentType: "application/pdf",
-		SizeBytes:   1234,
-		MinIOKey:    "minio/contract.pdf",
+	newPreSend := func(accountID uuid.UUID) *models.EmailAttachment {
+		att := &models.EmailAttachment{
+			ID:          uuid.New(),
+			TenantID:    tenantID,
+			MessageID:   uuid.Nil, // matches UploadAttachment's pre-send convention
+			AccountID:   accountID,
+			Filename:    "contract.pdf",
+			ContentType: "application/pdf",
+			SizeBytes:   1234,
+			MinIOKey:    "minio/contract.pdf",
+		}
+		f.attRepo.attachments[att.ID] = att
+		return att
 	}
-	f.attRepo.attachments[att.ID] = att
+	download := func(att *models.EmailAttachment) (*emailv1.GetAttachmentDownloadURLResponse, error) {
+		return f.srv.GetAttachmentDownloadURL(mailboxCtx(tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
+	}
 
-	// A pre-send upload hangs off no message, so nothing proves whose mailbox
-	// it belongs to: it is not downloadable through the owner check.
-	_, err := f.srv.GetAttachmentDownloadURL(mailboxCtx(tenantID), &emailv1.GetAttachmentDownloadURLRequest{Id: att.ID.String()})
+	// A pre-send upload hangs off no message: the mailbox it was uploaded to decides.
+	resp, err := download(newPreSend(uuid.New()))
+	requireGRPCOK(t, err)
+	require.Equal(t, "contract.pdf", resp.Filename)
+	require.Equal(t, "application/pdf", resp.ContentType)
+	require.EqualValues(t, 1234, resp.SizeBytes)
+
+	foreign := uuid.New()
+	f.mailbox.foreign[foreign] = true
+	_, err = download(newPreSend(foreign))
+	requireGRPCCode(t, err, codes.NotFound)
+
+	// Neither message nor mailbox: nothing proves who owns it.
+	_, err = download(newPreSend(uuid.Nil))
 	requireGRPCCode(t, err, codes.NotFound)
 }
 

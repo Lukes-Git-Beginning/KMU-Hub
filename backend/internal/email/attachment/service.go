@@ -50,6 +50,7 @@ func (s *Service) CreateFromStream(
 		ID:          uuid.New(),
 		TenantID:    tenantID,
 		MessageID:   messageID,
+		AccountID:   accountID,
 		Filename:    filename,
 		ContentType: contentType,
 		SizeBytes:   size,

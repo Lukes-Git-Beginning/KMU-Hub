@@ -136,7 +136,8 @@ type EmailContactLink struct {
 type EmailAttachment struct {
 	ID          uuid.UUID `json:"id"`
 	TenantID    uuid.UUID `json:"tenant_id"`
-	MessageID   uuid.UUID `json:"message_id"`
+	MessageID   uuid.UUID `json:"message_id"` // uuid.Nil for a pre-send upload
+	AccountID   uuid.UUID `json:"account_id"` // owning mailbox, uuid.Nil on rows from before 000342
 	Filename    string    `json:"filename"`
 	ContentType string    `json:"content_type"`
 	SizeBytes   int64     `json:"size_bytes"`

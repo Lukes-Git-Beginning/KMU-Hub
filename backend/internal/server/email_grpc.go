@@ -1467,7 +1467,16 @@ func (s *EmailGRPCServer) GetAttachmentDownloadURL(ctx context.Context, req *ema
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
-	if _, err := s.ownMessage(ctx, att.MessageID); err != nil {
+	// A pre-send upload has no message yet; the mailbox it was uploaded to decides.
+	if att.MessageID == uuid.Nil {
+		if att.AccountID == uuid.Nil {
+			return nil, status.Error(codes.NotFound, attachment.ErrAttachmentNotFound.Error())
+		}
+		_, err = s.ownAccount(ctx, att.AccountID)
+	} else {
+		_, err = s.ownMessage(ctx, att.MessageID)
+	}
+	if err != nil {
 		return nil, status.Error(codes.NotFound, attachment.ErrAttachmentNotFound.Error())
 	}
 
