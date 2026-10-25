@@ -2571,7 +2571,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-global-search-for-members]
-    status: todo
+    status: done
     coverage_start: "internal/auth 77,9 %"
     scope: >
       Gefunden in fix-global-search-for-members (Lauf 16, Iteration 12): Migration 338 gibt

@@ -1037,3 +1037,14 @@ Klasse C (zu viel Recht) geprüft, kein neuer Fund: `PUT /admin/branding` und `P
 - neue-units: `fix-email-send-ignores-attachment-ids` (ans Ende; kein Leck, kein Totalausfall: `attachment_ids` wird in `SendEmail`/`SaveDraft` von keinem Code gelesen, ein hochgeladener Anhang käme nie in die Mail; der Upload-Hook hat heute keinen Komponenten-Aufrufer)
 - desktop-aufrufer: `POST /email/attachments/upload` -> `email-client.ts:387` (`UploadAttachmentResponse`) -> Antwortform unverändert (`id`, `minio_key`, `size_bytes`); `GET /email/attachments/{id}/download` -> `email-client.ts:395` -> unverändert. Hook `useUploadAttachment` ohne Komponenten-Aufrufer.
 - offen: Migration 342 muss beim Deploy laufen (additiv: nullable Spalte, gelockerte NOT NULL, kein Backfill nötig, `ALTER` auf `email_attachments` kurz exklusiv). Synced Anhänge haben `account_id` NULL, nur neue Zeilen tragen es. `document/virtual` joint `email_attachments` per INNER JOIN über `message_id`: Pre-Send-Anhänge erscheinen dort bewusst nicht. `NULLIF($3::uuid, $12::uuid)` braucht die Casts, ohne sie inferiert Postgres Text.
+
+## Iteration 70 — seed-search-read-for-remaining-presets — done — 2026-10-25 02:14
+- commit: (siehe git log, Subject `feat(auth): seed search:read for the readonly, it_admin and hr_admin presets`)
+- gebaut: Migration 343 gibt `search:read` (Scope all) an die System-Presets `readonly`, `it_admin`, `hr_admin`; `extern` bleibt bewusst ohne. Down entfernt genau diese drei Grants. DB-Test `TestPresetRoles_DB_ReadonlyItAdminHrAdminHoldSearchRead` in `internal/auth/preset_search_read_db_test.go` (über `GetUserPermissions`, dieselbe Abfrage wie beim Login).
+- gate: build n.a. (nur SQL und Test) | vet ok | lint ok (0 Funde) | test ok (`DATABASE_URL` als `kmuhub_app`, `-count=1`, `./internal/auth/...` grün, 0 Skips) | migration ok (up, down 1 entfernt genau hr_admin/it_admin/readonly, up erneut, drittes up "no change") | rls-smoke n.a. (keine Tabelle, keine Policy)
+- coverage: internal/auth 77,9 % -> 77,9 % (Seed-Unit, kein Coverage-Ziel; der Gewinn ist der Grant-Test)
+- mutations-probe: `hr_admin` aus der Rollenliste der Migration genommen und dessen Grant in der lokalen DB gelöscht -> `TestPresetRoles_DB_ReadonlyItAdminHrAdminHoldSearchRead` rot („hr_admin preset must hold search:read“); Migration zurückgedreht, DB per down/up wiederhergestellt, Diff sauber.
+- verify vorgaenger: sauber (`8c4608d6`: Migration 342 ändert nur `email_attachments` additiv, RLS-Policy der Tabelle unverändert; keine Route, kein Proto, kein neuer Guard; DB-Test läuft als `kmuhub_app` mit zwei Nutzern)
+- neue-units: keine
+- desktop-aufrufer: n.a. (nur Seed, keine Validierungs- oder Antwortform-Änderung; `SearchBar.tsx` ruft `GET /search/global` unverändert)
+- offen: Greift erst nach dem nächsten Login (Permissions im JWT). Migration 343 muss beim Deploy laufen (reiner INSERT mit `ON CONFLICT DO NOTHING`).

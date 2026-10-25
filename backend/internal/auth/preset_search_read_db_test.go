@@ -32,3 +32,23 @@ func TestPresetRoles_DB_MemberAndManagerHoldSearchRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, got, "search:read", "extern must not hold search:read")
 }
+
+// Migration 000343 extends the grant to the remaining presets that read CRM and documents. extern
+// is a guest and stays out: a tenant-wide document search would show more than its UI does.
+func TestPresetRoles_DB_ReadonlyItAdminHrAdminHoldSearchRead(t *testing.T) {
+	pool, _ := effPermSetup(t)
+	repo := auth.NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), effPermTenant)
+
+	for _, preset := range []string{"readonly", "it_admin", "hr_admin"} {
+		userID := effPermUser(t, pool, effPermTenant, "search-read-"+preset+"@test.local", preset)
+		got, err := repo.GetUserPermissions(ctx, userID)
+		require.NoError(t, err)
+		assert.Contains(t, got, "search:read", "%s preset must hold search:read", preset)
+	}
+
+	extern := effPermUser(t, pool, effPermTenant, "search-read-extern2@test.local", "extern")
+	got, err := repo.GetUserPermissions(ctx, extern)
+	require.NoError(t, err)
+	assert.NotContains(t, got, "search:read", "extern must not hold search:read")
+}
