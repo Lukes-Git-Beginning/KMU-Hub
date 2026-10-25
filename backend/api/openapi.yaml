@@ -17435,7 +17435,7 @@ paths:
               required: [body]
               properties:
                 body: { type: string }
-                internal: { type: boolean, description: Internal note (not visible to requester) }
+                internal: { type: boolean, description: "Internal note (not visible to requester); requires helpdesk:ticket:edit or helpdesk:write, else 403" }
                 attachments: { type: array, items: { type: string } }
       responses:
         "201":
@@ -17445,6 +17445,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"

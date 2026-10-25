@@ -1258,7 +1258,7 @@ units:
     service: helpdesk
     model: opus
     deps: []
-    status: todo
+    status: done
     target: 'helpdesk: der own-Scope von helpdesk:ticket:read gilt auch für Detail und Nachrichten, nicht nur für die Liste'
     coverage_start: n.a.
     scope: >
@@ -3265,3 +3265,29 @@ units:
       - 'Handler-Test: Objekt-Body und base64-Body ergeben dieselbe Einreichung'
       - 'E2E `TestFormulareMemberFlow`: Subtest "public fill-out ..." erwartet 201 auf den Objekt-Body statt 400'
       - swagger-cli validate grün
+
+  - id: fix-helpdesk-sla-status-own-scope
+    phase: 4
+    service: helpdesk
+    model: sonnet
+    deps: []
+    status: todo
+    target: '`GET /helpdesk/tickets/{id}/sla-status` hält den own-Scope von helpdesk:ticket:read ein wie Detail und Nachrichten'
+    coverage_start: n.a.
+    scope: >
+      Fund aus `fix-helpdesk-own-scope-ticket-detail-and-messages` (Lauf 17, Iteration 38), nicht reproduziert,
+      daher ans Ende: `HandleGetSLAStatus` (route_helpdesk.go) hängt am Alt-Guard `helpdesk:read` und reicht die
+      Ticket-ID ohne `participant_id` an `GetSLAStatus`. Seit Iteration 38 antworten Detail, Nachrichten und
+      Antwort bei scope own mit 404 auf fremde Tickets; die SLA-Status-Route bestätigt einem member dagegen weiter,
+      dass eine fremde Ticket-ID existiert, und liefert ihre Fristen. Fix wie dort: `participant_id` an
+      `GetSLAStatusRequest` (Proto-Regen), der Service lädt das Ticket über `loadVisibleTicket`, Gateway setzt
+      die ID per `ownerFilterForScope(w, r, "helpdesk:ticket", "read")`. Guard additiv lassen. Erst prüfen, ob
+      `useSlaStatus` (helpdesk-client.ts:242) überhaupt einen Aufrufer in einer Komponente hat.
+    sources:
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/server/helpdesk_grpc.go
+      - backend/internal/helpdesk/service.go
+      - backend/proto/helpdesk/v1/helpdesk.proto
+    done_when:
+      - 'Service-Test: fremde Ticket-ID bei scope own -> ErrTicketNotFound, Requester/Assignee/scope all -> Status'
+      - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestHelpdeskMemberTicketFlow` grün mit einem 404-Fall für member B auf `/sla-status`'

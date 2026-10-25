@@ -23,10 +23,10 @@ import (
 //     hours and stats are readable, every write on a ticket (edit, close, reopen, assign, merge, CSAT) and every
 //     configuration write is 403; manager has the whole module;
 //   - editing a ticket assigned to the member is 403 today (feat-helpdesk-assigned-tickets-edit-for-members);
-//   - own scope narrows only the LIST (raised by or assigned to the caller): `GET /tickets/{id}`,
-//     `GET|POST /tickets/{id}/messages` take the id as sent, so a second member opens, reads (internal notes
-//     included) and answers a ticket that is neither theirs nor assigned to them
-//     (fix-helpdesk-own-scope-ticket-detail-and-messages);
+//   - own scope (raised by or assigned to the caller) narrows the list, `GET /tickets/{id}` and
+//     `GET|POST /tickets/{id}/messages`: any other ticket answers 404 (fix-helpdesk-own-scope-ticket-detail-and-messages);
+//   - internal notes need `helpdesk:ticket:edit` (or legacy `helpdesk:write`) to write and to read: a member's
+//     message list leaves them out, a member's internal note is 403;
 //   - the requester is always the caller: a `requester_id` in the desktop's body is dropped.
 //
 // There is no second tenant in the stack, so a foreign-tenant read is not part of this flow.
@@ -288,41 +288,60 @@ func TestHelpdeskMemberTicketFlow(t *testing.T) {
 		requireStatus(t, resp, b, http.StatusNotFound)
 		resp, b = getJSON(t, hd+"/tickets/not-a-uuid", memberAToken)
 		requireStatus(t, resp, b, http.StatusBadRequest)
-		// IST: the message list does not look the ticket up, so an unknown id reads as an empty list.
-		if n := len(messages(t, uuid.NewString(), memberAToken)); n != 0 {
-			t.Fatalf("an unknown ticket has no messages, got %d", n)
-		}
+		resp, b = getJSON(t, hd+"/tickets/"+uuid.NewString()+"/messages", memberAToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
 		resp, b = postJSON(t, hd+"/tickets/"+uuid.NewString()+"/messages", map[string]string{"body": "hi"}, memberAToken)
 		requireStatus(t, resp, b, http.StatusNotFound)
 	})
 
-	t.Run("a second member reaches a foreign ticket by id (own scope covers only the list)", func(t *testing.T) {
-		// IST, fix-helpdesk-own-scope-ticket-detail-and-messages: member B neither raised the ticket nor is
-		// assigned to it, yet detail, messages and replies work. When the unit lands these become 403/404.
-		resp, b := getJSON(t, hd+"/tickets/"+ownAID, memberBToken)
-		requireStatus(t, resp, b, http.StatusOK)
-		resp, b = getJSON(t, hd+"/tickets/"+assignedID, memberBToken)
-		requireStatus(t, resp, b, http.StatusOK)
-		if n := len(messages(t, assignedID, memberBToken)); n != 2 {
-			t.Fatalf("member B reads the messages of a foreign ticket today, want 2, got %d", n)
+	t.Run("a second member reaches a foreign ticket by id", func(t *testing.T) {
+		// Own scope covers detail, messages and replies, not only the list: a ticket member B neither raised
+		// nor is assigned to answers 404 (not 403, so the id is not confirmed to exist).
+		before := len(messages(t, ownAID, managerToken))
+		for _, id := range []string{ownAID, assignedID} {
+			resp, b := getJSON(t, hd+"/tickets/"+id, memberBToken)
+			requireStatus(t, resp, b, http.StatusNotFound)
+			resp, b = getJSON(t, hd+"/tickets/"+id+"/messages", memberBToken)
+			requireStatus(t, resp, b, http.StatusNotFound)
+			resp, b = postJSON(t, hd+"/tickets/"+id+"/messages", map[string]string{"body": "Mitgelesen von B"}, memberBToken)
+			requireStatus(t, resp, b, http.StatusNotFound)
 		}
-		// Internal notes: the agent's note reaches the member's list as well, flagged `internal`.
-		resp, b = postJSON(t, hd+"/tickets/"+assignedID+"/messages",
-			map[string]interface{}{"body": "Nur intern: Garantie prüfen", "internal": true}, managerToken)
-		requireStatus(t, resp, b, http.StatusCreated)
-		seen := false
-		for _, m := range messages(t, assignedID, memberBToken) {
-			if m["internal"] == true && str(m, "body") == "Nur intern: Garantie prüfen" {
-				seen = true
+		if after := len(messages(t, ownAID, managerToken)); after != before {
+			t.Fatalf("the refused reply of member B was stored: %d -> %d messages", before, after)
+		}
+		// Requester, assignee and manager still reach their tickets.
+		for who, c := range map[string]struct{ id, token string }{
+			"requester A": {ownAID, memberAToken}, "assignee A": {assignedID, memberAToken},
+			"requester B": {ownBID, memberBToken}, "manager": {ownAID, managerToken},
+		} {
+			resp, b := getJSON(t, hd+"/tickets/"+c.id, c.token)
+			requireStatus(t, resp, b, http.StatusOK)
+			if str(obj(t, b), "id") != c.id {
+				t.Fatalf("%s: wrong ticket: %s", who, string(b))
 			}
 		}
-		if !seen {
-			t.Fatalf("IST: the internal note is in the list of member B today")
-		}
-		resp, b = postJSON(t, hd+"/tickets/"+ownAID+"/messages", map[string]string{"body": "Mitgelesen von B"}, memberBToken)
+
+		// Internal notes are an agent tool: the manager writes one, the member may not, and the member's
+		// list leaves it out while the manager's shows it.
+		resp, b := postJSON(t, hd+"/tickets/"+assignedID+"/messages",
+			map[string]interface{}{"body": "Nur intern: Garantie prüfen", "internal": true}, managerToken)
 		requireStatus(t, resp, b, http.StatusCreated)
-		if got := str(obj(t, b), "author_id"); got != memberBID {
-			t.Fatalf("the author of the foreign reply must be the caller, got %s", got)
+		resp, b = postJSON(t, hd+"/tickets/"+assignedID+"/messages",
+			map[string]interface{}{"body": "Ich notiere intern", "internal": true}, memberAToken)
+		requireStatus(t, resp, b, http.StatusForbidden)
+		noteIn := func(msgs []map[string]interface{}) bool {
+			for _, m := range msgs {
+				if m["internal"] == true {
+					return true
+				}
+			}
+			return false
+		}
+		if memberView := messages(t, assignedID, memberAToken); noteIn(memberView) || len(memberView) != 2 {
+			t.Fatalf("member A must see the two public messages only, got %v", memberView)
+		}
+		if !noteIn(messages(t, assignedID, managerToken)) {
+			t.Fatalf("the manager must see the internal note")
 		}
 	})
 

@@ -196,13 +196,35 @@ func (s *Service) CreateTicketFromMessage(
 	return t, true, nil
 }
 
-// GetTicket retrieves a ticket by ID.
-func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// GetTicket retrieves a ticket by ID. A non-nil participantID is the
+// own-scope of helpdesk:ticket:read: the ticket must have been raised by or be
+// assigned to that user, otherwise it answers ErrTicketNotFound.
+func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID, participantID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadVisibleTicket(ctx, id, tenantID, participantID)
 	if err != nil {
 		return nil, fmt.Errorf("get ticket: %w", err)
 	}
 	return t, nil
+}
+
+// loadVisibleTicket loads a ticket the caller may see. With a participantID a
+// ticket outside the caller's own scope is reported as not found, not as
+// forbidden, so its id is never confirmed to exist — the same rows
+// ListTickets narrows to (requester or assignee).
+func (s *Service) loadVisibleTicket(ctx context.Context, id, tenantID uuid.UUID, participantID *uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if participantID != nil && !isParticipant(t, *participantID) {
+		return nil, ErrTicketNotFound
+	}
+	return t, nil
+}
+
+func isParticipant(t *Ticket, userID uuid.UUID) bool {
+	return (t.RequesterID != nil && *t.RequesterID == userID) ||
+		(t.AssigneeID != nil && *t.AssigneeID == userID)
 }
 
 // ListTickets returns a paginated list of tickets for a tenant.
@@ -457,12 +479,13 @@ func (s *Service) AddMessage(
 	body string,
 	internal bool,
 	attachments []string,
+	participantID *uuid.UUID,
 ) (*TicketMessage, error) {
 	if body == "" {
 		return nil, fmt.Errorf("message body must not be empty")
 	}
 
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
+	ticket, err := s.loadVisibleTicket(ctx, ticketID, tenantID, participantID)
 	if err != nil {
 		return nil, fmt.Errorf("add message – load ticket: %w", err)
 	}
@@ -509,12 +532,26 @@ func (s *Service) AddMessage(
 }
 
 // ListMessages returns all messages for a ticket ordered by created_at ASC.
-func (s *Service) ListMessages(ctx context.Context, ticketID, tenantID uuid.UUID) ([]*TicketMessage, error) {
+// The ticket has to exist and be visible to participantID (see GetTicket);
+// hideInternal drops internal notes for callers who may not write them.
+func (s *Service) ListMessages(ctx context.Context, ticketID, tenantID uuid.UUID, participantID *uuid.UUID, hideInternal bool) ([]*TicketMessage, error) {
+	if _, err := s.loadVisibleTicket(ctx, ticketID, tenantID, participantID); err != nil {
+		return nil, fmt.Errorf("list messages: %w", err)
+	}
 	messages, err := s.repo.ListMessagesByTicket(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
 	}
-	return messages, nil
+	if !hideInternal {
+		return messages, nil
+	}
+	public := make([]*TicketMessage, 0, len(messages))
+	for _, m := range messages {
+		if !m.Internal {
+			public = append(public, m)
+		}
+	}
+	return public, nil
 }
 
 // ---------------------------------------------------------------------------

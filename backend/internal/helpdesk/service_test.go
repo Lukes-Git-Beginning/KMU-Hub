@@ -566,7 +566,7 @@ func TestAddMessage_Success(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Can't login", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	authorID := uuid.New()
 
-	msg, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, authorID, "Have you tried turning it off and on?", false, nil)
+	msg, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, authorID, "Have you tried turning it off and on?", false, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestAddMessage_SetsFirstResponseAt(t *testing.T) {
 		t.Fatal("ticket should have no first_response_at initially")
 	}
 
-	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "We will help you.", false, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "We will help you.", false, nil, nil)
 
 	stored := h.repo.tickets[ticket.ID]
 	if stored.FirstResponseAt == nil {
@@ -599,7 +599,7 @@ func TestAddMessage_InternalDoesNotSetFirstResponseAt(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Internal note test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Internal note only.", true, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Internal note only.", true, nil, nil)
 
 	stored := h.repo.tickets[ticket.ID]
 	if stored.FirstResponseAt != nil {
@@ -612,7 +612,7 @@ func TestAddMessage_EmptyBodyFails(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Subject", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	_, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "", false, nil)
+	_, err := h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "", false, nil, nil)
 	if err == nil {
 		t.Error("expected error for empty body")
 	}
@@ -697,7 +697,7 @@ func TestMergeTickets_Success(t *testing.T) {
 	target, _ := h.svc.CreateTicket(context.Background(), tenantID, uuidPtr(uuid.New()), "Original issue", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
 	// Add a message to source.
-	h.svc.AddMessage(context.Background(), source.ID, tenantID, uuid.New(), "From source ticket.", false, nil)
+	h.svc.AddMessage(context.Background(), source.ID, tenantID, uuid.New(), "From source ticket.", false, nil, nil)
 
 	err := h.svc.MergeTickets(context.Background(), tenantID, source.ID, target.ID)
 	if err != nil {
@@ -1023,10 +1023,10 @@ func TestListMessages_AfterAdd(t *testing.T) {
 	h := newTestHarness()
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "List msgs", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
-	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "First message", false, nil)
-	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Second message (internal)", true, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "First message", false, nil, nil)
+	h.svc.AddMessage(context.Background(), ticket.ID, ticket.TenantID, uuid.New(), "Second message (internal)", true, nil, nil)
 
-	msgs, err := h.svc.ListMessages(context.Background(), ticket.ID, ticket.TenantID)
+	msgs, err := h.svc.ListMessages(context.Background(), ticket.ID, ticket.TenantID, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1035,10 +1035,81 @@ func TestListMessages_AfterAdd(t *testing.T) {
 	}
 }
 
+func TestOwnScope_TicketDetailAndMessages(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+	tenantID, requester, assignee, stranger := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+
+	ticket, err := h.svc.CreateTicket(ctx, tenantID, &requester, "Printer jam", TicketPriorityNormal, &assignee, nil, "", "", nil, nil, TicketIntake{})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	if _, err := h.svc.AddMessage(ctx, ticket.ID, tenantID, assignee, "Public reply", false, nil, nil); err != nil {
+		t.Fatalf("add public reply: %v", err)
+	}
+	if _, err := h.svc.AddMessage(ctx, ticket.ID, tenantID, assignee, "Agent-only note", true, nil, nil); err != nil {
+		t.Fatalf("add internal note: %v", err)
+	}
+
+	t.Run("participants and wide scope reach the ticket", func(t *testing.T) {
+		for name, pid := range map[string]*uuid.UUID{"requester": &requester, "assignee": &assignee, "scope all": nil} {
+			if _, err := h.svc.GetTicket(ctx, ticket.ID, tenantID, pid); err != nil {
+				t.Errorf("%s: get ticket: %v", name, err)
+			}
+			msgs, err := h.svc.ListMessages(ctx, ticket.ID, tenantID, pid, false)
+			// Every pass adds one reply, so at least the two seeded messages.
+			if err != nil || len(msgs) < 2 {
+				t.Errorf("%s: list messages = %d, %v; want >= 2, nil", name, len(msgs), err)
+			}
+			if _, err := h.svc.AddMessage(ctx, ticket.ID, tenantID, uuid.New(), "Reply from "+name, false, nil, pid); err != nil {
+				t.Errorf("%s: add message: %v", name, err)
+			}
+		}
+	})
+
+	t.Run("a stranger at own scope gets not found everywhere", func(t *testing.T) {
+		if _, err := h.svc.GetTicket(ctx, ticket.ID, tenantID, &stranger); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("get ticket: want ErrTicketNotFound, got %v", err)
+		}
+		if _, err := h.svc.ListMessages(ctx, ticket.ID, tenantID, &stranger, false); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("list messages: want ErrTicketNotFound, got %v", err)
+		}
+		before, _ := h.svc.ListMessages(ctx, ticket.ID, tenantID, nil, false)
+		if _, err := h.svc.AddMessage(ctx, ticket.ID, tenantID, stranger, "Sneaky reply", false, nil, &stranger); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("add message: want ErrTicketNotFound, got %v", err)
+		}
+		after, _ := h.svc.ListMessages(ctx, ticket.ID, tenantID, nil, false)
+		if len(after) != len(before) {
+			t.Errorf("refused reply was stored: %d -> %d messages", len(before), len(after))
+		}
+	})
+
+	t.Run("unknown ticket lists no messages but not found", func(t *testing.T) {
+		if _, err := h.svc.ListMessages(ctx, uuid.New(), tenantID, nil, false); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("want ErrTicketNotFound, got %v", err)
+		}
+	})
+
+	t.Run("hide internal drops agent notes only", func(t *testing.T) {
+		msgs, err := h.svc.ListMessages(ctx, ticket.ID, tenantID, &requester, true)
+		if err != nil {
+			t.Fatalf("list messages: %v", err)
+		}
+		for _, m := range msgs {
+			if m.Internal {
+				t.Errorf("internal note %q leaked to a non-agent", m.Body)
+			}
+		}
+		if len(msgs) == 0 {
+			t.Error("public replies were dropped along with the internal note")
+		}
+	})
+}
+
 func TestGetTicket_NotFound(t *testing.T) {
 	h := newTestHarness()
 
-	_, err := h.svc.GetTicket(context.Background(), uuid.New(), uuid.New())
+	_, err := h.svc.GetTicket(context.Background(), uuid.New(), uuid.New(), nil)
 	if !errors.Is(err, ErrTicketNotFound) {
 		t.Errorf("expected ErrTicketNotFound, got %v", err)
 	}

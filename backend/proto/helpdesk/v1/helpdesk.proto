@@ -210,6 +210,10 @@ message CreateTicketRequest {
 
 message GetTicketRequest {
   string ticket_id = 1;
+  // Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+  // to "own": a ticket they neither raised nor are assigned answers NotFound.
+  // Never taken from the request body.
+  optional string participant_id = 2;
 }
 
 message ListTicketsRequest {
@@ -316,10 +320,21 @@ message AddMessageRequest {
   string body = 3;
   bool internal = 4;
   repeated string attachments = 5;
+  // Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+  // to "own": a ticket they neither raised nor are assigned answers NotFound.
+  // Never taken from the request body.
+  optional string participant_id = 6;
 }
 
 message ListMessagesRequest {
   string ticket_id = 1;
+  // Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+  // to "own": a ticket they neither raised nor are assigned answers NotFound.
+  // Never taken from the request body.
+  optional string participant_id = 2;
+  // Set by the gateway for callers who may not write internal notes (no
+  // helpdesk:ticket:edit): internal notes are then left out of the list.
+  bool hide_internal = 3;
 }
 
 message ListMessagesResponse {

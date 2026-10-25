@@ -256,6 +256,61 @@ func TestHandleAddMessage_MissingBody(t *testing.T) {
 	assertValidationError(t, rec, "body")
 }
 
+// TestHandleAddMessage_InternalNoteNeedsAgentKey: an internal note is an agent
+// tool (helpdesk:ticket:edit or legacy helpdesk:write). A member holding only
+// reply is refused before the RPC; an agent passes and reaches it (503 here,
+// the registry has no live connection).
+func TestHandleAddMessage_InternalNoteNeedsAgentKey(t *testing.T) {
+	cases := map[string]struct {
+		perms []string
+		want  int
+	}{
+		"reply only":           {[]string{"helpdesk:ticket:reply"}, http.StatusForbidden},
+		"catalogue agent key":  {[]string{"helpdesk:ticket:reply", "helpdesk:ticket:edit"}, http.StatusServiceUnavailable},
+		"legacy coarse writer": {[]string{"helpdesk:write"}, http.StatusServiceUnavailable},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/", jsonBody(t, map[string]interface{}{"body": "note", "internal": true}))
+			req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+			req = withAuth(req, "user-123", testTenantID)
+			req = withPermissions(req, tc.perms...)
+			routes.HandleAddMessage(rec, req)
+			assertStatus(t, rec, tc.want)
+		})
+	}
+}
+
+// TestHelpdeskTicketDetail_OwnScopeWithoutUserIsRejected: detail, message list
+// and reply share the list's own-scope; without a user id in the token they
+// refuse instead of reaching the RPC unfiltered.
+func TestHelpdeskTicketDetail_OwnScopeWithoutUserIsRejected(t *testing.T) {
+	routes := newHelpdeskRoutes(registryWithService("helpdesk"))
+	handlers := map[string]struct {
+		method string
+		h      http.HandlerFunc
+		scopes map[string]string
+	}{
+		"get ticket":            {"GET", routes.HandleGetTicket, map[string]string{"helpdesk:ticket:read": "own"}},
+		"list messages":         {"GET", routes.HandleListMessages, map[string]string{"helpdesk:ticket:read": "own"}},
+		"reply, read narrowed":  {"POST", routes.HandleAddMessage, map[string]string{"helpdesk:ticket:read": "own", "helpdesk:ticket:reply": "all"}},
+		"reply, reply narrowed": {"POST", routes.HandleAddMessage, map[string]string{"helpdesk:ticket:reply": "own"}},
+	}
+	for name, tc := range handlers {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(tc.method, "/", jsonBody(t, map[string]interface{}{"body": "hello"}))
+			req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+			req = withTenantID(req, testTenantID)
+			req = withScopes(req, tc.scopes)
+			tc.h(rec, req)
+			assertStatus(t, rec, http.StatusUnauthorized)
+		})
+	}
+}
+
 // --- HandleCreateQueue ---
 
 func TestHandleCreateQueue_ServiceUnavailable(t *testing.T) {

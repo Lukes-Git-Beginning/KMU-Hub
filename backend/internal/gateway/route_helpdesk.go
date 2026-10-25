@@ -440,7 +440,13 @@ func (h *HelpdeskRoutes) HandleGetTicket(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	resp, err := client.GetTicket(r.Context(), &helpdeskv1.GetTicketRequest{TicketId: ticketID})
+	// Same own-scope as the list: a ticket outside it answers 404.
+	ownerID, ok := ownerFilterForScope(w, r, "helpdesk:ticket", "read")
+	if !ok {
+		return
+	}
+
+	resp, err := client.GetTicket(r.Context(), &helpdeskv1.GetTicketRequest{TicketId: ticketID, ParticipantId: ownerID})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -709,13 +715,27 @@ func (h *HelpdeskRoutes) HandleAddMessage(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	// Internal notes are an agent tool; HelpdeskPage.tsx offers the toggle
+	// only with helpdesk:ticket:edit, and ListMessages hides them from
+	// everyone else.
+	if req.Internal && !canWriteInternalNotes(r) {
+		response.Error(w, http.StatusForbidden, "internal notes require helpdesk:ticket:edit")
+		return
+	}
+	// A reply reaches only tickets the caller may read: own-scope on either
+	// read or reply narrows to tickets they raised or are assigned.
+	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"helpdesk:ticket", "read"}, [2]string{"helpdesk:ticket", "reply"})
+	if !ok {
+		return
+	}
 
 	resp, err := client.AddMessage(r.Context(), &helpdeskv1.AddMessageRequest{
-		TicketId:    ticketID,
-		AuthorId:    userID,
-		Body:        req.Body,
-		Internal:    req.Internal,
-		Attachments: req.Attachments,
+		TicketId:      ticketID,
+		AuthorId:      userID,
+		Body:          req.Body,
+		Internal:      req.Internal,
+		Attachments:   req.Attachments,
+		ParticipantId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -737,13 +757,28 @@ func (h *HelpdeskRoutes) HandleListMessages(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	resp, err := client.ListMessages(r.Context(), &helpdeskv1.ListMessagesRequest{TicketId: ticketID})
+	ownerID, ok := ownerFilterForScope(w, r, "helpdesk:ticket", "read")
+	if !ok {
+		return
+	}
+
+	resp, err := client.ListMessages(r.Context(), &helpdeskv1.ListMessagesRequest{
+		TicketId:      ticketID,
+		ParticipantId: ownerID,
+		HideInternal:  !canWriteInternalNotes(r),
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// canWriteInternalNotes reports whether the caller holds the agent key that
+// unlocks internal notes (hdTicketEdit's pair, legacy helpdesk:write included).
+func canWriteInternalNotes(r *http.Request) bool {
+	return middleware.HoldsAnyPermission(r.Context(), [2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "edit"})
 }
 
 // ============================================================================

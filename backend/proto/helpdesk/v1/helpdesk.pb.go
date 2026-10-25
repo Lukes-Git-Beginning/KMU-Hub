@@ -846,8 +846,12 @@ func (x *CreateTicketRequest) GetCustomFields() *structpb.Struct {
 }
 
 type GetTicketRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TicketId string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+	// to "own": a ticket they neither raised nor are assigned answers NotFound.
+	// Never taken from the request body.
+	ParticipantId *string `protobuf:"bytes,2,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -885,6 +889,13 @@ func (*GetTicketRequest) Descriptor() ([]byte, []int) {
 func (x *GetTicketRequest) GetTicketId() string {
 	if x != nil {
 		return x.TicketId
+	}
+	return ""
+}
+
+func (x *GetTicketRequest) GetParticipantId() string {
+	if x != nil && x.ParticipantId != nil {
+		return *x.ParticipantId
 	}
 	return ""
 }
@@ -1639,12 +1650,16 @@ func (x *CreateTicketFromMessageResponse) GetCreated() bool {
 }
 
 type AddMessageRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
-	AuthorId      string                 `protobuf:"bytes,2,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
-	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
-	Internal      bool                   `protobuf:"varint,4,opt,name=internal,proto3" json:"internal,omitempty"`
-	Attachments   []string               `protobuf:"bytes,5,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TicketId    string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	AuthorId    string                 `protobuf:"bytes,2,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
+	Body        string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
+	Internal    bool                   `protobuf:"varint,4,opt,name=internal,proto3" json:"internal,omitempty"`
+	Attachments []string               `protobuf:"bytes,5,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+	// to "own": a ticket they neither raised nor are assigned answers NotFound.
+	// Never taken from the request body.
+	ParticipantId *string `protobuf:"bytes,6,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1714,9 +1729,23 @@ func (x *AddMessageRequest) GetAttachments() []string {
 	return nil
 }
 
+func (x *AddMessageRequest) GetParticipantId() string {
+	if x != nil && x.ParticipantId != nil {
+		return *x.ParticipantId
+	}
+	return ""
+}
+
 type ListMessagesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TicketId string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:read grant is scoped
+	// to "own": a ticket they neither raised nor are assigned answers NotFound.
+	// Never taken from the request body.
+	ParticipantId *string `protobuf:"bytes,2,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
+	// Set by the gateway for callers who may not write internal notes (no
+	// helpdesk:ticket:edit): internal notes are then left out of the list.
+	HideInternal  bool `protobuf:"varint,3,opt,name=hide_internal,json=hideInternal,proto3" json:"hide_internal,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1756,6 +1785,20 @@ func (x *ListMessagesRequest) GetTicketId() string {
 		return x.TicketId
 	}
 	return ""
+}
+
+func (x *ListMessagesRequest) GetParticipantId() string {
+	if x != nil && x.ParticipantId != nil {
+		return *x.ParticipantId
+	}
+	return ""
+}
+
+func (x *ListMessagesRequest) GetHideInternal() bool {
+	if x != nil {
+		return x.HideInternal
+	}
+	return false
 }
 
 type ListMessagesResponse struct {
@@ -4053,9 +4096,11 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\n" +
 	"\b_channelB\x12\n" +
 	"\x10_requester_emailB\x11\n" +
-	"\x0f_requester_name\"/\n" +
+	"\x0f_requester_name\"n\n" +
 	"\x10GetTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"\xb7\x02\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12*\n" +
+	"\x0eparticipant_id\x18\x02 \x01(\tH\x00R\rparticipantId\x88\x01\x01B\x11\n" +
+	"\x0f_participant_id\"\xb7\x02\n" +
 	"\x12ListTicketsRequest\x12(\n" +
 	"\rstatus_filter\x18\x01 \x01(\tH\x00R\fstatusFilter\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
@@ -4125,15 +4170,20 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"message_id\x18\x03 \x01(\tR\tmessageId\"h\n" +
 	"\x1fCreateTicketFromMessageResponse\x12+\n" +
 	"\x06ticket\x18\x01 \x01(\v2\x13.helpdesk.v1.TicketR\x06ticket\x12\x18\n" +
-	"\acreated\x18\x02 \x01(\bR\acreated\"\x9f\x01\n" +
+	"\acreated\x18\x02 \x01(\bR\acreated\"\xde\x01\n" +
 	"\x11AddMessageRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x1b\n" +
 	"\tauthor_id\x18\x02 \x01(\tR\bauthorId\x12\x12\n" +
 	"\x04body\x18\x03 \x01(\tR\x04body\x12\x1a\n" +
 	"\binternal\x18\x04 \x01(\bR\binternal\x12 \n" +
-	"\vattachments\x18\x05 \x03(\tR\vattachments\"2\n" +
+	"\vattachments\x18\x05 \x03(\tR\vattachments\x12*\n" +
+	"\x0eparticipant_id\x18\x06 \x01(\tH\x00R\rparticipantId\x88\x01\x01B\x11\n" +
+	"\x0f_participant_id\"\x96\x01\n" +
 	"\x13ListMessagesRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"N\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12*\n" +
+	"\x0eparticipant_id\x18\x02 \x01(\tH\x00R\rparticipantId\x88\x01\x01\x12#\n" +
+	"\rhide_internal\x18\x03 \x01(\bR\fhideInternalB\x11\n" +
+	"\x0f_participant_id\"N\n" +
 	"\x14ListMessagesResponse\x126\n" +
 	"\bmessages\x18\x01 \x03(\v2\x1a.helpdesk.v1.TicketMessageR\bmessages\"\xcd\x01\n" +
 	"\x12CreateQueueRequest\x12\x12\n" +
@@ -4554,10 +4604,13 @@ func file_proto_helpdesk_v1_helpdesk_proto_init() {
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[5].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[6].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[7].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[9].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[13].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[20].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[22].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[23].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[28].OneofWrappers = []any{}
