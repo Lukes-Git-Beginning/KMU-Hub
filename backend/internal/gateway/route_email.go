@@ -138,7 +138,9 @@ func (e *EmailRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Hand
 	// owner's mailboxes only and leaves the tenant-wide rules to the coarse
 	// key. The email:template keys open changing and removing the caller's own
 	// personal templates; the email server leaves shared templates and
-	// visibility changes to the coarse keys. Label catalogue writes, the contact
+	// visibility changes to the coarse keys. The label catalogue is shared
+	// (decision 2026-10-25): the mailbox keys list it and assign labels to the
+	// caller's own messages (ownMessage). Label catalogue writes, the contact
 	// mail history and CRM import/export reach beyond one mailbox and stay on
 	// the coarse keys.
 	var (

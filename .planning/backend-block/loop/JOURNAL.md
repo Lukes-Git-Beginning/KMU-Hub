@@ -482,3 +482,30 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
   Entscheidung in der neuen NEXT-Unit. admin sieht und ändert fremde persönliche Vorlagen weiter (unverändertes
   Verhalten, `is_admin` plus grober Key). manager bekommt die Keys mit (`own`), wie bei 000347/000348.
   "Admin" heißt im Server: grober Key über den Hop (wie bei den Regeln), nicht die Rolle.
+
+## Iteration 13 — feat-email-labels-read-assign-for-members — done — 2026-10-25 18:38
+- commit: siehe Commit `test(email): prove members label their own mail and leave the catalogue to admin` (dieser Eintrag)
+- gebaut: Kein Produktionscode nötig — Grenze und Grants standen schon: `GET /email/labels` und
+  `POST /email/messages/{id}/labels` hängen seit 000337 an `boxRead`/`boxWrite` (`email:mailbox:*`, member/manager
+  `own`), `AssignMessageLabels` prüft `ownMessage` vor der Zuweisung, Katalog-POST/PATCH/DELETE bleiben auf
+  `email:write|delete` (admin). Neu: Gateway-Kettentest `route_email_labels_member_db_test.go` mit echtem Seed über
+  `ResolveTokenPermissions`, echtem Auth, gRPC-Server hinter `TenantInboundUnaryInterceptor` und Postgres-Repos für
+  Account/Message/Label; Router-Kommentar nennt den geteilten Katalog.
+- gate: build ok | vet ok | lint ok (0 issues: gateway, email/label) | test ok (`internal/gateway` 5558 PASS,
+  0 SKIP, 0 FAIL, DATABASE_URL als kmuhub_app; DB-Tests real gelaufen: neuer Kettentest mit 6 Subtests; `email/label`
+  ok) | migration n.a. (keine) | rls-smoke n.a. (keine Tabelle/Policy) | e2e n.a. (kein Flow berührt Labels)
+- coverage: n.a. (kein Coverage-Ziel; nur Gateway-Test, `internal/email/label` unverändert 83,1 %)
+- mutations-probe: (1) `ownMessage`-Prüfung in `AssignMessageLabels` entfernt -> Subtest "colleague's message" rot.
+  (2) Assign-Guard auf grobes `email:write` -> "own message" und "colleague's message" rot. (3) Katalog-POST auf
+  `boxWrite` -> "cannot change the catalogue" rot. (4) Katalog-GET auf grobes `email:read` -> "reads the catalogue"
+  rot. Alle per `git checkout` zurückgedreht, finaler Tree erneut grün.
+- verify vorgaenger: sauber (`c1eacccd`: Guards PUT/DELETE additiv, Seed 000349 mit Up/Down für member/manager/
+  admin, `maintainer` aus weitergereichtem grobem Key, ErrSharedTemplate -> PermissionDenied, kein Proto, keine
+  neue Route)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung); zur Kontrolle `api/email-client.ts:310-330`
+  liest `{labels:[...]}` und `{message:{...}}` und sendet `{label_ids:[...]}` -> passt.
+- offen: Die Unit war vor dem Lauf schon erfüllt (000337 + `ownMessage`), dieser Commit belegt sie nur. Testbefund
+  ohne Produktionswirkung: `email_messages.message_id/preview/body_*/raw_headers` und `email_accounts.display_name`
+  sind nullable, die Scans lesen sie als `string` — eine per SQL eingefügte Zeile mit NULL gibt 500. Die App
+  schreibt diese Spalten immer als String (Sync/Create), deshalb keine Unit; Seeds im Test setzen sie explizit.
