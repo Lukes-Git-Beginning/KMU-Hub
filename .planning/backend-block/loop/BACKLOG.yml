@@ -1294,7 +1294,7 @@ units:
     model: sonnet
     deps:
       - e2e-local-gate-check
-    status: todo
+    status: done
     target: 'wiki: member-Flow läuft lokal und in CI gegen den echten Seed'
     coverage_start: n.a.
     scope: >
@@ -1317,6 +1317,43 @@ units:
         im Journal
       - Jede Abweichung Desktop-Body ↔ Gateway ist Fix-Unit oder im Test begründet
       - go vet -tags=e2e ./test/e2e/ grün
+
+  - id: fix-wiki-own-scope-article-edit
+    phase: 4
+    service: wiki
+    model: opus
+    deps: []
+    status: todo
+    target: 'wiki: der own-Scope von wiki:article:edit gilt auch für Bearbeiten, Wiederherstellen und Anhänge'
+    coverage_start: n.a.
+    scope: >
+      VERIFIZIERT im E2E `TestWikiMemberFlow` (Iteration 39, Subtest „a second member edits a foreign article"):
+      member hat `wiki:article:edit` mit scope `own` (000256, Zeile `member: 15 grant(s) at scope 'own'`), aber
+      `PATCH /wiki/articles/{id}`, `POST /wiki/articles/{id}/versions/{versionId}/restore` und
+      `POST /wiki/articles/{id}/attachments` prüfen nur den Key (`wikiEdit` in route_wiki.go, Service lädt nur nach
+      Tenant, `UpdateArticle` vergleicht `author_id` nie). Ein zweiter member ändert Titel/Inhalt eines fremden
+      Artikels, stellt eine alte Version her und hängt Anhänge an. Fremd-Mandant nicht betroffen. Fix an der
+      gemeinsamen Stelle wie bei `fix-helpdesk-own-scope-ticket-detail-and-messages`: Gateway liest den Scope
+      (`ownerFilterForScope(w, r, "wiki:article", "edit")`), reicht die Aufrufer-ID als optionales Proto-Feld
+      (regenerieren) an `UpdateArticle`/`RestoreVersion`/`UploadAttachment`; der Service antwortet bei fremdem
+      `author_id` mit 404 (kein 403, die ID bleibt unbestätigt). Wichtig: Der Alt-Key `wiki:articles:write`
+      (manager) und `wiki:article:edit` mit scope all (admin) bleiben unbeschränkt; nur wer die Erlaubnis
+      AUSSCHLIESSLICH über scope own hat, wird eingeschränkt (`ownerFilterForScopeAny` über beide Keys). Guard
+      bleibt additiv (Alt-Token). Mitprüfen: ob member fremde ENTWÜRFE lesen darf (heute ja, Listen und Detail
+      tenantweit; `GET /articles/{id}` und `?published=false`), Frage dazu in `offen:` stellen, nicht
+      eigenmächtig sperren — das Desktop zeigt Entwürfe in der Liste.
+    sources:
+      - backend/internal/gateway/route_wiki.go
+      - backend/internal/server/wiki_grpc.go
+      - backend/internal/wiki/service.go
+      - backend/proto/wiki/v1/wiki.proto
+      - backend/test/e2e/wiki_test.go
+    done_when:
+      - 'Router-/Service-Test: member B bekommt auf PATCH, Restore und Anhang eines fremden Artikels 404; Autor 200; manager (Alt-Key) und admin 200'
+      - >
+        `bash .planning/backend-block/loop/hooks/e2e-local.sh 'TestWikiMemberFlow'` grün, der Subtest „a second member
+        edits a foreign article" auf die Sperre umgestellt
+      - 'desktop-aufrufer: WikiPage.tsx / WikiArticle.tsx (Bearbeiten) gegen die neue Form geprüft; `swagger-cli validate` grün, wenn die OpenAPI angefasst wird'
 
   - id: e2e-berichte-schedule-run-now-flow
     phase: 4
