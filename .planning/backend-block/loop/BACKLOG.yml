@@ -822,7 +822,7 @@ units:
     service: hr
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: neuer Tenant hat ab Anlage die zehn System-Urlaubsarten
     coverage_start: n.a. (Bugfix)
     scope: >

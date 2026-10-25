@@ -1233,6 +1233,24 @@ func (r *PostgresRepository) ProvisionTenant(ctx context.Context, tenant *models
 		return err
 	}
 
+	// The ten system leave types live as zero-UUID templates (000046) and
+	// ListByTenant reads tenant_id = $1 only: a tenant without its own copy
+	// cannot file leave, and RecordSickLeave finds no "krank". 000345 copied
+	// them for the tenants that existed then; this is the same copy for the
+	// one created now.
+	if _, err = tx.Exec(ctx,
+		`INSERT INTO hr_leave_types (tenant_id, key, name, color, deducts_from_balance,
+		                             requires_approval, requires_au_document, is_system, sort_order)
+		 SELECT $1, s.key, s.name, s.color, s.deducts_from_balance,
+		        s.requires_approval, s.requires_au_document, s.is_system, s.sort_order
+		   FROM hr_leave_types s
+		  WHERE s.tenant_id = '00000000-0000-0000-0000-000000000000'
+		 ON CONFLICT (tenant_id, key) DO NOTHING`,
+		tenant.ID,
+	); err != nil {
+		return err
+	}
+
 	// updated_by stays NULL: the activation comes out of provisioning, not out
 	// of an administrator toggling a module, and the platform operator is not
 	// a user of this tenant.

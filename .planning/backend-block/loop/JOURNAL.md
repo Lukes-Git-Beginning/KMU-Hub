@@ -777,3 +777,16 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - coverage-delta: internal/email/contactlink 35,0 -> 78,0 · internal/email/template 79,1 -> 87,6 · internal/work/recording 80,3 -> 81,1 · (2 weitere)
 - offen mit entscheidungsbedarf: 5 von 21 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
 - minuten je iteration: 9,8 (205 gesamt)
+
+## Iteration 22 — seed-leave-types-on-tenant-provisioning — done — 2026-10-25 21:45
+- commit: (siehe git log)
+- gebaut: `ProvisionTenant` kopiert in derselben Transaktion die zehn Zero-UUID-Urlaubsarten (`hr_leave_types`, `ON CONFLICT DO NOTHING`)
+  in den neuen Tenant; DB-Test mit frisch provisioniertem Tenant (urlaub/krank is_system, Nachbar-Tenant sieht 0).
+- gate: build ok | vet ok | lint ok | test ok | migration n.a. | rls-smoke ok (Test prüft Nachbar-Tenant als kmuhub_app: 0 Zeilen)
+  auth 313 RUN, 0 SKIP; gateway ok (inkl. TestOpenAPIRouteDrift)
+- coverage: internal/auth 77,9 % (Bugfix-Unit, Vorher-Wert nicht gemessen) | n.a. (kein Coverage-Ziel)
+- mutations-probe: Quell-SELECT im Seed auf `WHERE 1=0 AND ...` gebrochen -> TestProvisionTenant_SeedsSystemLeaveTypes rot (0 statt 10), zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (`ddee3bbb` nur Journal)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: `hr_document_categories` nicht angefasst — `ListByTenant` liest die Zero-UUID-Vorlagen laut Unit mit, kein Bruch erwartet (nicht separat geprüft).
