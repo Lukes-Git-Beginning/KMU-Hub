@@ -26,6 +26,9 @@ type Repository interface {
 	// AtomicApproveReport updates status from 'submitted' → 'approved' in one SQL statement.
 	// Returns (true, nil) on success, (false, nil) when no row was in submitted state.
 	AtomicApproveReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
+	// AtomicSubmitReport updates status from 'draft' or 'rejected' → 'submitted' in one SQL statement.
+	// Returns (true, nil) on success, (false, nil) when no row was in an editable state.
+	AtomicSubmitReport(ctx context.Context, tenantID, reportID uuid.UUID) (bool, error)
 	// AtomicRejectReport updates status from 'submitted' → 'rejected' in one SQL statement.
 	AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error)
 

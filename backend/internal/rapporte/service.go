@@ -346,24 +346,31 @@ func (s *Service) ListReports(ctx context.Context, input ListReportsInput) ([]*W
 // State machine methods
 // ============================================================================
 
-// SubmitReport transitions a report from Draft → Submitted.
-// Guard 2 (ErrInvalidStateTransition): only Draft can move to Submitted.
+// SubmitReport transitions a report from Draft or Rejected → Submitted atomically.
+// A rejected report is corrected by its author and handed in again; the review note stays
+// as history. Guard 2 (ErrInvalidStateTransition): any other status cannot be submitted.
 func (s *Service) SubmitReport(ctx context.Context, input SubmitReportInput) (*WorkReport, error) {
 	report, err := s.loadReport(ctx, input.TenantID, input.ReportID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Guard 2: pre-check before DB write
-	if report.Status != StatusDraft {
+	// Guard 2: pre-check, then the atomic UPDATE closes the TOCTOU window
+	if report.Status != StatusDraft && report.Status != StatusRejected {
 		return nil, ErrInvalidStateTransition
 	}
 
-	report.Status = StatusSubmitted
-	report.UpdatedAt = time.Now()
-
-	if err := s.repo.UpdateReport(ctx, report); err != nil {
+	affected, err := s.repo.AtomicSubmitReport(ctx, input.TenantID, input.ReportID)
+	if err != nil {
 		return nil, fmt.Errorf("submit work report: %w", err)
+	}
+	if !affected {
+		return nil, ErrInvalidStateTransition
+	}
+
+	report, err = s.repo.GetReport(ctx, input.TenantID, input.ReportID)
+	if err != nil {
+		return nil, err
 	}
 
 	slog.Info("work report submitted", "report_id", report.ID, "tenant_id", report.TenantID)

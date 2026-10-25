@@ -190,6 +190,20 @@ func (m *mockRepository) AtomicApproveReport(_ context.Context, tenantID, report
 	return true, nil
 }
 
+func (m *mockRepository) AtomicSubmitReport(_ context.Context, tenantID, reportID uuid.UUID) (bool, error) {
+	rep, ok := m.reports[reportID]
+	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {
+		return false, ErrReportNotFound
+	}
+	if rep.Status != StatusDraft && rep.Status != StatusRejected {
+		return false, nil
+	}
+	rep.Status = StatusSubmitted
+	rep.UpdatedAt = time.Now()
+	m.reports[reportID] = rep
+	return true, nil
+}
+
 func (m *mockRepository) AtomicRejectReport(_ context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
 	rep, ok := m.reports[reportID]
 	if !ok || rep.TenantID != tenantID || rep.DeletedAt != nil {

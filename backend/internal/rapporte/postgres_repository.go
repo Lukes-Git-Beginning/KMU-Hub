@@ -401,6 +401,21 @@ func (r *PostgresRepository) AtomicApproveReport(ctx context.Context, tenantID, 
 	return ct.RowsAffected() > 0, nil
 }
 
+// AtomicSubmitReport performs a single UPDATE that moves a draft or a rejected report to
+// submitted. The review note and reviewer of a prior rejection stay as history.
+func (r *PostgresRepository) AtomicSubmitReport(ctx context.Context, tenantID, reportID uuid.UUID) (bool, error) {
+	ct, err := r.pool.Exec(ctx, `
+		UPDATE work_reports
+		SET status='submitted', updated_at=NOW()
+		WHERE id=$1 AND tenant_id=$2 AND status IN ('draft','rejected') AND deleted_at IS NULL`,
+		reportID, tenantID,
+	)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
 // AtomicRejectReport performs a single UPDATE that both checks the current status
 // and sets rejected in one round-trip, closing the TOCTOU race window.
 func (r *PostgresRepository) AtomicRejectReport(ctx context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {

@@ -155,6 +155,20 @@ func (r *stubRapporteRepo) AtomicApproveReport(_ context.Context, tenantID, repo
 	return true, nil
 }
 
+func (r *stubRapporteRepo) AtomicSubmitReport(_ context.Context, tenantID, reportID uuid.UUID) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.err != nil {
+		return false, r.err
+	}
+	rep, ok := r.reports[reportID]
+	if !ok || rep.TenantID != tenantID || (rep.Status != rapporte.StatusDraft && rep.Status != rapporte.StatusRejected) {
+		return false, nil
+	}
+	rep.Status = rapporte.StatusSubmitted
+	return true, nil
+}
+
 func (r *stubRapporteRepo) AtomicRejectReport(_ context.Context, tenantID, reportID, reviewerID uuid.UUID, reviewNote string) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
