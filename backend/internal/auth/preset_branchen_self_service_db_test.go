@@ -42,6 +42,10 @@ func TestPresetRoles_DB_MemberAndManagerHoldBranchenSelfServiceKeys(t *testing.T
 					want = "own"
 				}
 			}
+			// 000360: member reads the damages of every vehicle; manager stays at own.
+			if preset == "member" && key == "fuhrpark:damage:read" {
+				want = "all"
+			}
 			var scope string
 			err := pool.QueryRow(testutil.WithSystemCtx(context.Background()), `
 				SELECT rp.scope FROM role_permissions rp
