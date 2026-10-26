@@ -2728,7 +2728,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/email/signature von 43,0 % auf ≥ 70 %
     coverage_start: internal/email/signature 43,0 %
     scope: >
