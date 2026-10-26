@@ -3187,7 +3187,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/email/attachment von 68,8 % auf ≥ 78 %
     coverage_start: internal/email/attachment 68,8 %
     scope: >
