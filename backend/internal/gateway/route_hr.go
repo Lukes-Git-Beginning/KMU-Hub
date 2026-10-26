@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -1180,6 +1181,33 @@ func directoryEntryOf(p *hrv1.EmployeeProfile) employeeDirectoryEntry {
 	}
 }
 
+// teamProfileFieldPerms open a colleague's personal data (address, emergency contact) and
+// contract data (contract, leave days, start and exit) beyond the directory: team for a manager,
+// all for hr_admin. EmployeeProfile carries no salary or bank field (hourly_rate stays in the
+// table), so the two together are the full profile.
+var teamProfileFieldPerms = [][2]string{{"team:data_personal", "view"}, {"team:data_job", "view"}}
+
+// fullProfileReaches reports whether the caller reads emp's full profile through
+// teamProfileFieldPerms: at scope all for anyone, at scope team for the caller's direct reports
+// (manager_user_id, the reporting line the HR service checks for leave balances too).
+//
+// lean: both keys or the directory; split the fields per key once a custom role holds only one.
+func fullProfileReaches(ctx context.Context, emp *hrv1.EmployeeProfile) bool {
+	for _, p := range teamProfileFieldPerms {
+		if !middleware.HoldsAnyPermission(ctx, p) {
+			return false
+		}
+	}
+	switch narrowestScopeAny(ctx, teamProfileFieldPerms...) {
+	case auth.ScopeAll:
+		return true
+	case auth.ScopeTeam:
+		caller := middleware.GetUserID(ctx)
+		return caller != "" && strings.EqualFold(emp.GetManagerUserId(), caller)
+	}
+	return false
+}
+
 // lean: tenant-wide directory even at manager scope team — a people picker needs every
 // colleague and these fields are not confidential in a KMU; narrow when a tenant asks for it.
 func employeeDirectory(profiles []*hrv1.EmployeeProfile) []employeeDirectoryEntry {
@@ -1228,8 +1256,9 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reached through team:employee:read alone: the colleague's profile window gets the same
-	// directory fields as the list, nothing of contract, address or exit details.
-	if !callerHasPermission(r, "hr:read") {
+	// directory fields as the list, nothing of contract, address or exit details — unless the
+	// personal and contract keys reach this employee (a manager: their direct reports).
+	if !callerHasPermission(r, "hr:read") && !fullProfileReaches(r.Context(), resp.Employee) {
 		response.JSON(w, http.StatusOK, map[string]interface{}{"employee": directoryEntryOf(resp.Employee)})
 		return
 	}
