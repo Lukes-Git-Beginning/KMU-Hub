@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -517,8 +518,27 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	remaining, fits, err := bookContractCall(ctx, tx, call, false)
+	if err != nil {
+		return err
+	}
+	if !fits {
+		return fmt.Errorf("call-off of %s, remaining %s: %w", call.Amount, remaining, ErrContractBudgetExceeded)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit contract call: %w", err)
+	}
+	return nil
+}
+
+// bookContractCall does the work of CreateContractCall inside the caller's
+// transaction and reports the remaining value before the call-off and whether
+// the call-off fit into it. With overBudget false a call-off that does not fit
+// is not written; with overBudget true (goods receipts) it is written anyway.
+func bookContractCall(ctx context.Context, tx pgx.Tx, call *FrameworkContractCall, overBudget bool) (string, bool, error) {
 	var contractStatus, totalValue, contractCurrency string
-	err = tx.QueryRow(ctx,
+	err := tx.QueryRow(ctx,
 		`SELECT status, total_value::text, currency
 		 FROM framework_contracts
 		 WHERE id = $1 AND tenant_id = $2
@@ -526,13 +546,13 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 		call.ContractID, call.TenantID,
 	).Scan(&contractStatus, &totalValue, &contractCurrency)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrContractNotFound
+		return "", false, ErrContractNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("lock framework contract: %w", err)
+		return "", false, fmt.Errorf("lock framework contract: %w", err)
 	}
 	if contractStatus != string(ContractStatusActive) {
-		return fmt.Errorf("contract is in status %q: %w", contractStatus, ErrContractNotActive)
+		return "", false, fmt.Errorf("contract is in status %q: %w", contractStatus, ErrContractNotActive)
 	}
 
 	// The contract is the source of the currency: an empty call-off currency
@@ -541,7 +561,7 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 	if call.Currency == "" {
 		call.Currency = contractCurrency
 	} else if !strings.EqualFold(call.Currency, contractCurrency) {
-		return fmt.Errorf("call-off in %s, contract in %s: %w", call.Currency, contractCurrency, ErrContractCurrencyMismatch)
+		return "", false, fmt.Errorf("call-off in %s, contract in %s: %w", call.Currency, contractCurrency, ErrContractCurrencyMismatch)
 	}
 
 	// Comparison and remaining value are computed by Postgres in numeric, not
@@ -556,10 +576,10 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 		totalValue, call.Amount, call.ContractID, call.TenantID,
 	).Scan(&remaining, &fits)
 	if err != nil {
-		return fmt.Errorf("compute remaining contract value: %w", err)
+		return "", false, fmt.Errorf("compute remaining contract value: %w", err)
 	}
-	if !fits {
-		return fmt.Errorf("call-off of %s, remaining %s: %w", call.Amount, remaining, ErrContractBudgetExceeded)
+	if !fits && !overBudget {
+		return remaining, false, nil
 	}
 
 	if _, err = tx.Exec(ctx,
@@ -570,7 +590,7 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 		call.Amount, call.Currency, call.CalledAt, call.Notes,
 		call.CreatedAt, call.UpdatedAt,
 	); err != nil {
-		return fmt.Errorf("insert contract call: %w", err)
+		return "", false, fmt.Errorf("insert contract call: %w", err)
 	}
 
 	if _, err = tx.Exec(ctx,
@@ -583,13 +603,123 @@ func (r *PostgresRepository) CreateContractCall(ctx context.Context, call *Frame
 		 WHERE id = $1 AND tenant_id = $2`,
 		call.ContractID, call.TenantID,
 	); err != nil {
-		return fmt.Errorf("update contract used_value: %w", err)
+		return "", false, fmt.Errorf("update contract used_value: %w", err)
+	}
+	return remaining, fits, nil
+}
+
+// ApplyGoodsReceipt implements Repository.ApplyGoodsReceipt.
+//
+// The PO row is locked first, so two receipts of the same PO run one after the
+// other and the second sees the quantities the first committed: the call-off
+// value is derived from the received_quantity the UPDATE replaces, never from
+// a read the service made before the transaction.
+func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin goods receipt tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var status POStatus
+	var contractID *uuid.UUID
+	var currency, poNumber string
+	err = tx.QueryRow(ctx,
+		`SELECT status, framework_contract_id, currency, po_number
+		 FROM purchase_orders
+		 WHERE id = $1 AND tenant_id = $2
+		 FOR UPDATE`,
+		receipt.POID, receipt.TenantID,
+	).Scan(&status, &contractID, &currency, &poNumber)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrPONotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock purchase order: %w", err)
+	}
+	if !isReceivable(status) {
+		return nil, ErrPONotReceivable
+	}
+
+	ids := make([]uuid.UUID, len(receipt.Lines))
+	qtys := make([]string, len(receipt.Lines))
+	for i, l := range receipt.Lines {
+		ids[i], qtys[i] = l.LineID, l.ReceivedQuantity
+	}
+	// prev reads the quantities this statement replaces (same snapshot), so
+	// each line contributes unit_price * (new - old), and nothing for a
+	// correction downwards.
+	// lean: no reversing call-off for a downward correction; add one when
+	// received quantities get corrected in practice.
+	var updated int
+	var value string
+	var anything bool
+	err = tx.QueryRow(ctx,
+		`WITH input AS (
+		     SELECT * FROM unnest($3::uuid[], $4::numeric[]) AS t(id, qty)
+		 ), prev AS (
+		     SELECT id, received_quantity FROM po_lines WHERE po_id = $1 AND tenant_id = $2
+		 ), upd AS (
+		     UPDATE po_lines l
+		     SET received_quantity = i.qty, updated_at = NOW()
+		     FROM input i JOIN prev p ON p.id = i.id
+		     WHERE l.id = i.id AND l.tenant_id = $2
+		     RETURNING l.unit_price * GREATEST(i.qty - p.received_quantity, 0) AS value
+		 )
+		 SELECT COUNT(*), ROUND(COALESCE(SUM(value), 0), 4)::text, COALESCE(SUM(value), 0) > 0 FROM upd`,
+		receipt.POID, receipt.TenantID, ids, qtys,
+	).Scan(&updated, &value, &anything)
+	if err != nil {
+		return nil, fmt.Errorf("update received quantities: %w", err)
+	}
+	if updated != len(receipt.Lines) {
+		return nil, ErrPOLineNotFound
+	}
+
+	if _, err = tx.Exec(ctx,
+		`UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
+		receipt.Status, receipt.POID, receipt.TenantID,
+	); err != nil {
+		return nil, fmt.Errorf("update po status: %w", err)
+	}
+
+	var result *ReceiptCallOff
+	if contractID != nil && anything {
+		result = &ReceiptCallOff{ContractID: *contractID, Amount: value}
+		now := time.Now()
+		call := &FrameworkContractCall{
+			ID:         uuid.New(),
+			TenantID:   receipt.TenantID,
+			ContractID: *contractID,
+			POID:       &receipt.POID,
+			Amount:     value,
+			Currency:   currency,
+			CalledAt:   now,
+			Notes:      fmt.Sprintf("goods receipt PO %s", poNumber),
+			CreatedAt:  now,
+			UpdatedAt:  now,
+		}
+		remaining, fits, bookErr := bookContractCall(ctx, tx, call, true)
+		switch {
+		case errors.Is(bookErr, ErrContractNotFound), errors.Is(bookErr, ErrContractNotActive),
+			errors.Is(bookErr, ErrContractCurrencyMismatch):
+			result.Warning = "call-off skipped: " + bookErr.Error()
+		case bookErr != nil:
+			return nil, bookErr
+		default:
+			result.CallID = &call.ID
+			result.Remaining = remaining
+			if !fits {
+				result.BudgetExceeded = true
+				result.Warning = fmt.Sprintf("call-off of %s exceeds the contract's remaining value %s", value, remaining)
+			}
+		}
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit contract call: %w", err)
+		return nil, fmt.Errorf("commit goods receipt: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 func (r *PostgresRepository) ListContractCalls(ctx context.Context, tenantID, contractID uuid.UUID) ([]*FrameworkContractCall, error) {

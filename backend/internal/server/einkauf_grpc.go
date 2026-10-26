@@ -514,7 +514,7 @@ func (s *EinkaufGRPCServer) ReceiveGoods(ctx context.Context, req *einkaufv1.Rec
 	if err != nil {
 		return nil, mapEinkaufError(err)
 	}
-	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
+	return &einkaufv1.POResponse{Po: poToProto(po), ContractCallOff: receiptCallOffToProto(po.ReceiptCallOff)}, nil
 }
 
 func (s *EinkaufGRPCServer) PartialReceive(ctx context.Context, req *einkaufv1.PartialReceiveRequest) (*einkaufv1.POResponse, error) {
@@ -543,12 +543,29 @@ func (s *EinkaufGRPCServer) PartialReceive(ctx context.Context, req *einkaufv1.P
 	if err != nil {
 		return nil, mapEinkaufError(err)
 	}
-	return &einkaufv1.POResponse{Po: poToProto(po)}, nil
+	return &einkaufv1.POResponse{Po: poToProto(po), ContractCallOff: receiptCallOffToProto(po.ReceiptCallOff)}, nil
 }
 
 // ============================================================================
 // Conversion helpers
 // ============================================================================
+
+func receiptCallOffToProto(c *einkauf.ReceiptCallOff) *einkaufv1.ReceiptCallOff {
+	if c == nil {
+		return nil
+	}
+	p := &einkaufv1.ReceiptCallOff{
+		ContractId:     c.ContractID.String(),
+		Amount:         c.Amount,
+		BudgetExceeded: c.BudgetExceeded,
+		Remaining:      c.Remaining,
+		Warning:        c.Warning,
+	}
+	if c.CallID != nil {
+		p.CallId = c.CallID.String()
+	}
+	return p
+}
 
 func supplierToProto(s *einkauf.Supplier) *einkaufv1.Supplier {
 	if s == nil {

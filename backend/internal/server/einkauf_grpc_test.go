@@ -37,6 +37,8 @@ type stubEinkaufRepo struct {
 	contractItems map[uuid.UUID]*einkauf.FrameworkContractItem
 	contractCalls map[uuid.UUID]*einkauf.FrameworkContractCall
 
+	receiptCallOff *einkauf.ReceiptCallOff
+
 	getSupplierErr error
 	getPOErr       error
 }
@@ -273,6 +275,26 @@ func (r *stubEinkaufRepo) UpdatePOLineReceivedQuantity(_ context.Context, tenant
 	}
 	l.ReceivedQuantity = receivedQty
 	return nil
+}
+
+// ApplyGoodsReceipt applies quantities and status in memory and returns the
+// canned receiptCallOff; the transaction itself is proven in the einkauf package.
+func (r *stubEinkaufRepo) ApplyGoodsReceipt(_ context.Context, rc *einkauf.GoodsReceipt) (*einkauf.ReceiptCallOff, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	po, ok := r.pos[rc.POID]
+	if !ok || po.TenantID != rc.TenantID {
+		return nil, einkauf.ErrPONotFound
+	}
+	for _, item := range rc.Lines {
+		l, ok := r.lines[item.LineID]
+		if !ok || l.TenantID != rc.TenantID {
+			return nil, einkauf.ErrPOLineNotFound
+		}
+		l.ReceivedQuantity = item.ReceivedQuantity
+	}
+	po.Status = rc.Status
+	return r.receiptCallOff, nil
 }
 
 func (r *stubEinkaufRepo) CountPOLines(_ context.Context, tenantID, poID uuid.UUID) (int, error) {
@@ -1259,6 +1281,51 @@ func TestEinkauf_PartialReceive_TransitionsToPartiallyReceived(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "received", full.Po.Status)
+}
+
+// TestEinkauf_Receive_CarriesTheContractCallOff locks down the wire shape of
+// the call-off a goods receipt reports: absent for an unbound receipt, and the
+// booked call, the exceeded budget or the skip warning when present.
+func TestEinkauf_Receive_CarriesTheContractCallOff(t *testing.T) {
+	repo := newStubEinkaufRepo()
+	srv := newEinkaufServerWithRepo(repo)
+	ctx := context.Background()
+	tenantID := uuid.New()
+	supplier := addStubSupplier(repo, tenantID)
+
+	po := addStubPO(repo, tenantID, supplier.ID, "PO-300", einkauf.POStatusSubmitted)
+	line := addStubPOLine(repo, tenantID, po.ID, "10", "1.00")
+	resp, err := srv.PartialReceive(ctx, &einkaufv1.PartialReceiveRequest{
+		TenantId: tenantID.String(), PoId: po.ID.String(),
+		Items: []*einkaufv1.PartialReceiveItem{{LineId: line.ID.String(), ReceivedQuantity: "4"}},
+	})
+	require.NoError(t, err)
+	assert.Nil(t, resp.ContractCallOff, "no call-off without a contract")
+
+	contractID, callID := uuid.New(), uuid.New()
+	repo.receiptCallOff = &einkauf.ReceiptCallOff{
+		ContractID: contractID, CallID: &callID, Amount: "6.0000",
+		BudgetExceeded: true, Remaining: "2.0000", Warning: "over budget",
+	}
+	resp, err = srv.ReceiveGoods(ctx, &einkaufv1.ReceiveGoodsRequest{TenantId: tenantID.String(), PoId: po.ID.String()})
+	require.NoError(t, err)
+	assert.Equal(t, "received", resp.Po.Status)
+	require.NotNil(t, resp.ContractCallOff)
+	assert.Equal(t, contractID.String(), resp.ContractCallOff.ContractId)
+	assert.Equal(t, callID.String(), resp.ContractCallOff.CallId)
+	assert.Equal(t, "6.0000", resp.ContractCallOff.Amount)
+	assert.True(t, resp.ContractCallOff.BudgetExceeded)
+	assert.Equal(t, "2.0000", resp.ContractCallOff.Remaining)
+	assert.Equal(t, "over budget", resp.ContractCallOff.Warning)
+
+	skipped := addStubPO(repo, tenantID, supplier.ID, "PO-301", einkauf.POStatusSubmitted)
+	addStubPOLine(repo, tenantID, skipped.ID, "1", "1.00")
+	repo.receiptCallOff = &einkauf.ReceiptCallOff{ContractID: contractID, Amount: "1.0000", Warning: "call-off skipped"}
+	resp, err = srv.ReceiveGoods(ctx, &einkaufv1.ReceiveGoodsRequest{TenantId: tenantID.String(), PoId: skipped.ID.String()})
+	require.NoError(t, err)
+	require.NotNil(t, resp.ContractCallOff)
+	assert.Empty(t, resp.ContractCallOff.CallId, "a skipped call-off has no call id")
+	assert.Equal(t, "call-off skipped", resp.ContractCallOff.Warning)
 }
 
 func TestEinkauf_ListPOs_Filtering(t *testing.T) {

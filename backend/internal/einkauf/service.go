@@ -646,15 +646,17 @@ func (s *Service) CancelPO(ctx context.Context, tenantID, poID uuid.UUID) (*Purc
 }
 
 // ReceiveGoods marks all lines as fully received and transitions the PO to
-// received status. If an InventarAdjuster is configured, it also increments
-// the inventar stock level for each line's SKU by the ordered quantity.
+// received status. Lines, status and — for a PO bound to a framework contract —
+// the call-off for the newly received value are written in one transaction
+// (Repository.ApplyGoodsReceipt). If an InventarAdjuster is configured, it also
+// increments the inventar stock level for each line's SKU by the ordered quantity.
 // Missing SKUs in inventar are silently skipped (graceful degradation).
 func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
 	po, err := s.repo.GetPO(ctx, tenantID, poID)
 	if err != nil {
 		return nil, err
 	}
-	if po.Status != POStatusSubmitted && po.Status != POStatusSent && po.Status != POStatusPartiallyReceived {
+	if !isReceivable(po.Status) {
 		return nil, ErrPONotReceivable
 	}
 
@@ -663,18 +665,17 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 		return nil, fmt.Errorf("list po lines for receive: %w", err)
 	}
 
-	// Update received quantities for every line (full delivery).
+	// Full delivery: every line's received quantity becomes its ordered quantity.
+	receipt := &GoodsReceipt{TenantID: tenantID, POID: poID, Status: POStatusReceived}
 	for _, line := range lines {
-		if err := s.repo.UpdatePOLineReceivedQuantity(ctx, tenantID, line.ID, line.Quantity); err != nil {
-			return nil, fmt.Errorf("update received quantity for line %s: %w", line.ID, err)
-		}
+		receipt.Lines = append(receipt.Lines, PartialReceiveItem{LineID: line.ID, ReceivedQuantity: line.Quantity})
 	}
-
-	// Transition PO to received.
-	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, POStatusReceived); err != nil {
-		return nil, fmt.Errorf("update po status received: %w", err)
+	callOff, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
+	if err != nil {
+		return nil, fmt.Errorf("apply goods receipt: %w", err)
 	}
 	po.Status = POStatusReceived
+	reportReceiptCallOff(po, callOff)
 
 	// Record inventory movements for each line (best-effort: skip on error so
 	// that a missing inventar item never blocks a goods receipt).
@@ -698,6 +699,8 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 
 // PartialReceive updates received quantities per line and transitions the PO
 // to partially_received or received depending on whether all lines are complete.
+// Like ReceiveGoods it writes through Repository.ApplyGoodsReceipt, so a bound
+// PO's call-off covers only the value that arrived with this delivery.
 // If an InventarAdjuster is configured, it also increments inventar stock for
 // each supplied line's SKU by the newly received delta quantity.
 // Missing SKUs in inventar are silently skipped (graceful degradation).
@@ -706,8 +709,20 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	if err != nil {
 		return nil, err
 	}
-	if po.Status != POStatusSubmitted && po.Status != POStatusSent && po.Status != POStatusPartiallyReceived {
+	if !isReceivable(po.Status) {
 		return nil, ErrPONotReceivable
+	}
+
+	lines, err := s.repo.ListPOLines(ctx, tenantID, poID)
+	if err != nil {
+		return nil, fmt.Errorf("list po lines for partial receive: %w", err)
+	}
+	// after holds a copy of every line with the quantities this delivery sets,
+	// so the new status is derived without writing first.
+	after := make(map[uuid.UUID]*POLine, len(lines))
+	for _, l := range lines {
+		c := *l
+		after[l.ID] = &c
 	}
 
 	// -------------------------------------------------------------------------
@@ -715,19 +730,22 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	// lineDeltas maps lineID → (sku, incomingQty) for stock adjustment.
 	// -------------------------------------------------------------------------
 	type lineAdjust struct {
-		sku      string
+		sku         string
 		incomingQty float64
 	}
 	lineAdjusts := make(map[uuid.UUID]lineAdjust, len(items))
+	// order lists each line once (a repeated line keeps its last quantity).
+	var order []uuid.UUID
+	seen := make(map[uuid.UUID]bool, len(items))
 
 	for _, item := range items {
 		recv, err := strconv.ParseFloat(item.ReceivedQuantity, 64)
 		if err != nil || recv < 0 {
 			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, ErrInvalidQuantity)
 		}
-		line, err := s.repo.GetPOLine(ctx, tenantID, item.LineID)
-		if err != nil {
-			return nil, fmt.Errorf("partial receive line %s lookup: %w", item.LineID, err)
+		line, ok := after[item.LineID]
+		if !ok {
+			return nil, fmt.Errorf("partial receive line %s lookup: %w", item.LineID, ErrPOLineNotFound)
 		}
 		ordered, err := strconv.ParseFloat(line.Quantity, 64)
 		if err != nil {
@@ -745,37 +763,38 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 		if delta > 0 && line.SKU != "" {
 			lineAdjusts[item.LineID] = lineAdjust{sku: line.SKU, incomingQty: delta}
 		}
-	}
-
-	// -------------------------------------------------------------------------
-	// Phase 2: Persist received-quantity updates.
-	// -------------------------------------------------------------------------
-	for _, item := range items {
-		if err := s.repo.UpdatePOLineReceivedQuantity(ctx, tenantID, item.LineID, item.ReceivedQuantity); err != nil {
-			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, err)
+		if !seen[item.LineID] {
+			seen[item.LineID] = true
+			order = append(order, item.LineID)
 		}
+		line.ReceivedQuantity = item.ReceivedQuantity
 	}
 
 	// -------------------------------------------------------------------------
-	// Phase 3: Determine new PO status.
+	// Phase 2: Determine the new PO status and persist the receipt.
 	// -------------------------------------------------------------------------
-	lines, err := s.repo.ListPOLines(ctx, tenantID, poID)
-	if err != nil {
-		return nil, fmt.Errorf("reload lines after partial receive: %w", err)
+	final := make([]*POLine, 0, len(lines))
+	for _, l := range lines {
+		final = append(final, after[l.ID])
 	}
-
 	newStatus := POStatusPartiallyReceived
-	if allFullyReceived(lines) {
+	if allFullyReceived(final) {
 		newStatus = POStatusReceived
 	}
 
-	if err := s.repo.UpdatePOStatus(ctx, tenantID, poID, newStatus); err != nil {
-		return nil, fmt.Errorf("update po status after partial receive: %w", err)
+	receipt := &GoodsReceipt{TenantID: tenantID, POID: poID, Status: newStatus}
+	for _, id := range order {
+		receipt.Lines = append(receipt.Lines, PartialReceiveItem{LineID: id, ReceivedQuantity: after[id].ReceivedQuantity})
+	}
+	callOff, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
+	if err != nil {
+		return nil, fmt.Errorf("apply partial receive: %w", err)
 	}
 	po.Status = newStatus
+	reportReceiptCallOff(po, callOff)
 
 	// -------------------------------------------------------------------------
-	// Phase 4: Record inventory movements (best-effort, non-blocking).
+	// Phase 3: Record inventory movements (best-effort, non-blocking).
 	// -------------------------------------------------------------------------
 	if s.inventarAdj != nil {
 		reason := fmt.Sprintf("partial goods receipt PO %s", po.PONumber)
@@ -789,6 +808,31 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 
 	slog.Info("einkauf partial receive applied", "po_id", poID, "tenant_id", tenantID, "new_status", newStatus)
 	return po, nil
+}
+
+// isReceivable reports whether goods can still be received against a PO in
+// this status.
+func isReceivable(status POStatus) bool {
+	return status == POStatusSubmitted || status == POStatusSent || status == POStatusPartiallyReceived
+}
+
+// reportReceiptCallOff attaches the call-off a goods receipt booked to the
+// returned PO and logs it; an exceeded budget or a skipped call-off is a warning,
+// never an error — the goods have physically arrived.
+func reportReceiptCallOff(po *PurchaseOrder, callOff *ReceiptCallOff) {
+	po.ReceiptCallOff = callOff
+	if callOff == nil {
+		return
+	}
+	if callOff.Warning != "" {
+		slog.Warn("einkauf goods receipt contract call-off",
+			"po_id", po.ID, "tenant_id", po.TenantID, "contract_id", callOff.ContractID,
+			"amount", callOff.Amount, "budget_exceeded", callOff.BudgetExceeded, "warning", callOff.Warning)
+		return
+	}
+	slog.Info("einkauf goods receipt contract call-off booked",
+		"po_id", po.ID, "tenant_id", po.TenantID, "contract_id", callOff.ContractID,
+		"call_id", *callOff.CallID, "amount", callOff.Amount)
 }
 
 // ============================================================================

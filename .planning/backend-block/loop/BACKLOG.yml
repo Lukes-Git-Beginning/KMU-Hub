@@ -2313,7 +2313,7 @@ units:
     model: opus
     deps:
       - feat-einkauf-po-framework-contract-field
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): WEICH. Abruf je Wareneingang
@@ -3474,3 +3474,31 @@ units:
     done_when:
       - 'Service-Test: fremde Ticket-ID bei scope own -> ErrTicketNotFound, Requester/Assignee/scope all -> Status'
       - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestHelpdeskMemberTicketFlow` grün mit einem 404-Fall für member B auf `/sla-status`'
+
+  - id: fix-einkauf-receive-goods-stock-delta
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    target: '`ReceiveGoods` bucht ins Inventar nur die noch offene Menge je Zeile, nicht die volle Bestellmenge'
+    coverage_start: 'internal/einkauf 81,3 % (nach feat-einkauf-po-framework-contract-call-off-wiring)'
+    scope: >
+      Fund aus `feat-einkauf-po-framework-contract-call-off-wiring` (Lauf 17, Iteration 78), im Code gelesen, nicht
+      per Test reproduziert: `Service.ReceiveGoods` (service.go, Abschnitt "Record inventory movements") ruft
+      `inventarAdj.AdjustStockBySKU` mit `line.Quantity` (Bestellmenge) auf, egal wie viel davon schon per
+      `PartialReceive` eingebucht wurde. Teillieferung 4 von 10, danach "vollständig erhalten" erhöht den Bestand
+      um 4 + 10 = 14 statt 10. Der Rahmenvertrags-Abruf rechnet seit Iteration 78 korrekt mit dem Delta (in der
+      Transaktion aus `received_quantity` vor dem UPDATE); das Inventar soll dasselbe Delta nehmen
+      (Bestellmenge minus bisher erhaltene Menge, nur > 0).
+    sources:
+      - backend/internal/einkauf/service.go
+      - backend/internal/einkauf/inventar_adjuster.go
+      - backend/test/e2e/inventar_einkauf_test.go
+    notes: >
+      Lean: das Delta aus den vor der Transaktion gelesenen Zeilen genügt (Inventar ist ohnehin best-effort
+      außerhalb der Transaktion). Prüfen, ob ein bestehender Test die Doppelbuchung festschreibt.
+    done_when:
+      - 'Service-Test: PartialReceive 4 von 10, danach ReceiveGoods -> AdjustStockBySKU insgesamt 10 (4 + 6), nicht 14'
+      - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestInventarEinkaufFlow` grün'
+      - go test -count=1 ./internal/einkauf/... grün, DATABASE_URL gesetzt, 0 Skips

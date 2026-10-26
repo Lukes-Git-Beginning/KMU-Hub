@@ -47,6 +47,16 @@ type Repository interface {
 	GetPOLine(ctx context.Context, tenantID, lineID uuid.UUID) (*POLine, error)
 	ListPOLines(ctx context.Context, tenantID, poID uuid.UUID) ([]*POLine, error)
 	UpdatePOLineReceivedQuantity(ctx context.Context, tenantID, lineID uuid.UUID, receivedQty string) error
+	// ApplyGoodsReceipt writes a goods receipt in one transaction under a lock
+	// on the PO row: it re-checks that the PO is receivable (ErrPONotReceivable),
+	// writes the line quantities (ErrPOLineNotFound for a line outside the PO)
+	// and the status, and — when the PO is bound to a framework contract — books
+	// a call-off for the net value of the newly received quantities. The budget
+	// is soft here: an exceeded remaining value is booked anyway and reported.
+	// An inactive, missing or other-currency contract skips the call-off with a
+	// warning. The receipt itself never fails on the contract. Returns nil when
+	// the PO is unbound or nothing new arrived.
+	ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, error)
 	CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error)
 	// RecomputePOTotal recalculates and persists the PO's total_amount as the
 	// net sum (quantity * unit_price) of its current lines.

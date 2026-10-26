@@ -21448,7 +21448,7 @@ paths:
           description: Goods received
           content:
             application/json:
-              schema: { type: object }
+              schema: { $ref: "#/components/schemas/EinkaufGoodsReceiptResponse" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -21486,7 +21486,7 @@ paths:
           description: Partial receipt recorded
           content:
             application/json:
-              schema: { type: object }
+              schema: { $ref: "#/components/schemas/EinkaufGoodsReceiptResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -50229,6 +50229,34 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    EinkaufGoodsReceiptResponse:
+      type: object
+      description: >-
+        Result of a (partial) goods receipt. `contract_call_off` is present only
+        when the PO is bound to a framework contract and the delivery added value:
+        the receipt then books a call-off for the net value of the newly received
+        quantities. The budget is soft — a call-off above the remaining value is
+        booked anyway and reported with `budget_exceeded`; an inactive or
+        other-currency contract skips the call-off (`call_id` empty, `warning` set).
+        The receipt itself never fails on the contract.
+      properties:
+        po:
+          type: object
+        contract_call_off:
+          type: object
+          properties:
+            contract_id: { type: string, format: uuid }
+            call_id:
+              type: string
+              description: "Booked call-off; absent when the call-off was skipped"
+            amount:
+              type: string
+              description: "Net value of the newly received quantities, numeric string"
+            budget_exceeded: { type: boolean }
+            remaining:
+              type: string
+              description: "Remaining contract value before this call-off"
+            warning: { type: string }
     EinkaufContractCall:
       type: object
       description: >-

@@ -208,6 +208,21 @@ message GetPORequest {
 
 message POResponse {
   PurchaseOrder po = 1;
+  // Set only by ReceiveGoods and PartialReceive, when the receipt touched the
+  // PO's framework contract.
+  ReceiptCallOff contract_call_off = 2;
+}
+
+// ReceiptCallOff reports the framework-contract call-off a goods receipt
+// booked. call_id is empty when it was skipped; warning is set when the
+// call-off exceeded the remaining value or was skipped.
+message ReceiptCallOff {
+  string contract_id = 1;
+  string call_id = 2;
+  string amount = 3;
+  bool budget_exceeded = 4;
+  string remaining = 5;
+  string warning = 6;
 }
 
 message ListPOsRequest {
