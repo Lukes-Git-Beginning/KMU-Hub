@@ -1347,3 +1347,15 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Wirkt erst, wenn ein Admin eine Policy `call_sessions` mit 730 Tagen anlegt — kein Default-Seed, wie bei den anderen Handlern; im Dry-Run löscht nichts. (2) Sitzungen mit Aufnahme bleiben, solange die Aufnahme-Zeile existiert; eine Aufnahme ohne `retention_expires_at` (oder mit Status `deleted` ohne Zeilenlöschung) hält die Sitzung dauerhaft zurück — sichtbar als Skip im Lauf-Ergebnis. (3) Kein Index auf `(tenant_id, COALESCE(ended_at, created_at))`; der Tageslauf scannt die Tabelle (nur `idx_call_sessions_tenant_id`).
+
+## Iteration 66 — feat-retention-public-bookings-24m — done — 2026-10-26 03:47
+- commit: (siehe git log)
+- gebaut: `PublicBookingRetentionHandler` (`gdpr/retention_public_bookings.go`, resource_type `public_bookings`) im Registry-Block von `cmd/auth/main.go` verdrahtet. Uhr = Termindatum `public_bookings.date` (DATE; die Tabelle hat kein Endefeld), fällig wenn `date < cutoff::date`, unabhängig vom Status (auch stornierte Buchungen tragen Name/E-Mail/Telefon). Delete-only, tenant-gescoped, Plan schreibt nie; die 24 Monate sind der `retention_days`-Wert der Policy, Dry-Run bleibt Worker-Default. Nichts referenziert `public_bookings` (kein FK).
+  Tests (`retention_public_bookings_test.go`, echte DB als kmuhub_app): alt/storniert/knapp darüber fällig, jünger und Zukunft nicht, Fremd-Mandant (auch unter System-Kontext), Plan löscht nichts, fremde ID im Apply bleibt, Apply idempotent.
+- gate: build ok | vet ok | lint ok (0 issues gdpr/cmd/auth) | test ok (`internal/security/gdpr` ok, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | gateway n.a. (keine Route) | e2e n.a.
+- coverage: internal/security/gdpr 76,3 % -> 76,4 % (neue Datei: Plan 76,9 %, Apply 83,3 %, Rest 100 %; Rest sind die Fehlerzweige der DB-Aufrufe)
+- mutations-probe: (1) Vergleich `date < $2::date` auf `>` -> Test rot. (2) Tenant-Filter im Plan entfernt -> Test rot (dank System-Kontext-Fall). (3) Tenant-Filter im DELETE entfernt -> Test rot (ebenso). Jeweils aus Backup zurück, `cmp` sauber.
+- verify vorgaenger: sauber (`7f82435b`: Handler Delete-only, Recording-Ausschluss in Plan und DELETE, tenant-gescoped, in `cmd/auth` verdrahtet, Test mit Fremd-Mandant und System-Kontext, kein Stub, keine Route/Proto/Tabelle)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Wirkt erst, wenn ein Admin eine Policy `public_bookings` mit 730 Tagen anlegt — kein Default-Seed, wie bei den anderen Handlern; im Dry-Run löscht nichts. (2) „Terminende" = Ende des Termintags (kein Endefeld, Dauer steckt im Service-JSONB der Buchungsseite); der Tag selbst wird nie verkürzt. (3) Das beim Buchen erzeugte `calendar_events`-Ereignis fällt unter die `calendar_events`-Policy, nicht unter diese. (4) Kein Index auf `(tenant_id, date)`; der Tageslauf scannt über `idx_public_bookings_tenant_id`.

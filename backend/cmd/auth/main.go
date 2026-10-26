@@ -152,6 +152,7 @@ func main() {
 		gdpr.NewMeetingChatRetentionHandler(pool),
 		gdpr.NewDialerAgentStatusLogRetentionHandler(pool),
 		gdpr.NewCallSessionRetentionHandler(pool),
+		gdpr.NewPublicBookingRetentionHandler(pool),
 	)
 	retentionEngine := gdpr.NewRetentionEngine(pool, gdprRepo, retentionRegistry)
 
