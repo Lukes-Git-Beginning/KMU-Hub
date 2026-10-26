@@ -36,7 +36,7 @@ func (s *BizGRPCServer) ImportIncomingInvoice(ctx context.Context, req *bizv1.Im
 		return nil, status.Error(codes.InvalidArgument, "content is required")
 	}
 
-	inv, err := s.einvoiceSvc.Import(ctx, einvoice.ImportInput{
+	inv, warnings, err := s.einvoiceSvc.ImportWithWarnings(ctx, einvoice.ImportInput{
 		TenantID:  tenantID,
 		CreatedBy: createdBy,
 		Filename:  req.GetFilename(),
@@ -47,8 +47,14 @@ func (s *BizGRPCServer) ImportIncomingInvoice(ctx context.Context, req *bizv1.Im
 		return nil, mapEInvoiceError(err)
 	}
 
+	protoWarnings := make([]*bizv1.IncomingInvoiceWarning, 0, len(warnings))
+	for _, w := range warnings {
+		protoWarnings = append(protoWarnings, &bizv1.IncomingInvoiceWarning{Rule: w.Rule, Term: w.Term, Message: w.Message})
+	}
+
 	return &bizv1.ImportIncomingInvoiceResponse{
-		Invoice: toProtoIncomingInvoice(inv),
+		Invoice:  toProtoIncomingInvoice(inv),
+		Warnings: protoWarnings,
 	}, nil
 }
 

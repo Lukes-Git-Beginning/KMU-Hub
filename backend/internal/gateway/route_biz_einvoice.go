@@ -1,7 +1,9 @@
 package gateway
 
 import (
+	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -81,7 +83,34 @@ func (b *BizRoutes) HandleImportInvoice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.Proto(w, http.StatusCreated, resp.Invoice)
+	body, err := importResponseBody(resp)
+	if err != nil {
+		slog.Error("marshal imported incoming invoice", "error", err)
+		response.Error(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	response.JSON(w, http.StatusCreated, body)
+}
+
+// importResponseBody keeps the invoice as the top-level object (the frontend reads it flat)
+// and adds the codelist findings as an additive `warnings` member, `[]` when clean.
+func importResponseBody(resp *bizv1.ImportIncomingInvoiceResponse) (map[string]json.RawMessage, error) {
+	invoiceJSON, err := response.MarshalProto(resp.GetInvoice())
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]json.RawMessage{}
+	if err := json.Unmarshal(invoiceJSON, &body); err != nil {
+		return nil, err
+	}
+	warnings := make([]map[string]string, 0, len(resp.GetWarnings()))
+	for _, w := range resp.GetWarnings() {
+		warnings = append(warnings, map[string]string{"rule": w.GetRule(), "term": w.GetTerm(), "message": w.GetMessage()})
+	}
+	if body["warnings"], err = json.Marshal(warnings); err != nil {
+		return nil, err
+	}
+	return body, nil
 }
 
 // HandleListIncomingInvoices lists incoming invoices with optional filters.

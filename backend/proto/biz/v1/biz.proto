@@ -1335,8 +1335,16 @@ message ImportIncomingInvoiceRequest {
   string created_by = 5;
 }
 
+// Finding about an accepted inbound invoice; the invoice is stored regardless.
+message IncomingInvoiceWarning {
+  string rule    = 1;  // EN 16931 rule id, e.g. BR-CL-04
+  string term    = 2;  // business term, e.g. BT-5
+  string message = 3;
+}
+
 message ImportIncomingInvoiceResponse {
   IncomingInvoice invoice = 1;
+  repeated IncomingInvoiceWarning warnings = 2;
 }
 
 message GetIncomingInvoiceRequest {

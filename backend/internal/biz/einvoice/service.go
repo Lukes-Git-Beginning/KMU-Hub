@@ -46,6 +46,14 @@ type ImportInput struct {
 // Returns ErrDuplicateInvoice if the same supplier+invoice_number already exists
 // for this tenant.
 func (s *Service) Import(ctx context.Context, input ImportInput) (*models.IncomingInvoice, error) {
+	inv, _, err := s.ImportWithWarnings(ctx, input)
+	return inv, err
+}
+
+// ImportWithWarnings is Import plus the codelist findings (see CheckCodelists).
+// A finding never rejects the invoice: it is stored, logged and handed back so
+// the caller can show it to the reviewer.
+func (s *Service) ImportWithWarnings(ctx context.Context, input ImportInput) (*models.IncomingInvoice, []Warning, error) {
 	var xmlBytes []byte
 
 	switch {
@@ -53,7 +61,7 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*models.Incomi
 		var err error
 		xmlBytes, err = ExtractXMLFromPDF(input.Content)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	case strings.Contains(input.MimeType, "xml"):
 		xmlBytes = input.Content
@@ -83,7 +91,7 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*models.Incomi
 			parsed, parseErr = ParseUBL(xmlBytes)
 		}
 		if parseErr != nil {
-			return nil, ErrUnsupportedFormat
+			return nil, nil, ErrUnsupportedFormat
 		}
 		format = parsed.SourceFormat
 		if format == "" {
@@ -91,17 +99,17 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*models.Incomi
 		}
 	}
 	if parseErr != nil {
-		return nil, parseErr
+		return nil, nil, parseErr
 	}
 
 	// Marshal line items and tax breakdown as JSONB
 	lineItemsJSON, err := marshalLineItems(parsed.LineItems)
 	if err != nil {
-		return nil, fmt.Errorf("marshal line items: %w", err)
+		return nil, nil, fmt.Errorf("marshal line items: %w", err)
 	}
 	taxBreakdownJSON, err := marshalTaxBreakdown(parsed.TaxBreakdown)
 	if err != nil {
-		return nil, fmt.Errorf("marshal tax breakdown: %w", err)
+		return nil, nil, fmt.Errorf("marshal tax breakdown: %w", err)
 	}
 
 	now := time.Now().UTC()
@@ -130,7 +138,19 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*models.Incomi
 	}
 
 	if err := s.repo.Create(ctx, inv); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	warnings := CheckCodelists(parsed)
+	for _, w := range warnings {
+		slog.Warn("incoming invoice deviates from the supported codelists",
+			"id", inv.ID,
+			"tenant_id", input.TenantID,
+			"invoice_number", inv.InvoiceNumber,
+			"rule", w.Rule,
+			"term", w.Term,
+			"detail", w.Message,
+		)
 	}
 
 	slog.Info("incoming invoice imported",
@@ -141,7 +161,7 @@ func (s *Service) Import(ctx context.Context, input ImportInput) (*models.Incomi
 		"format", format,
 	)
 
-	return inv, nil
+	return inv, warnings, nil
 }
 
 // ============================================================================
