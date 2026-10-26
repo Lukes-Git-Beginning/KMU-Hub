@@ -1657,8 +1657,11 @@ type AbsenceEntry struct {
 	LeaveTypeName  string                 `protobuf:"bytes,6,opt,name=leave_type_name,json=leaveTypeName,proto3" json:"leave_type_name,omitempty"`
 	LeaveTypeColor string                 `protobuf:"bytes,7,opt,name=leave_type_color,json=leaveTypeColor,proto3" json:"leave_type_color,omitempty"`
 	TotalDays      string                 `protobuf:"bytes,8,opt,name=total_days,json=totalDays,proto3" json:"total_days,omitempty"` // Decimal as string
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// hr_employee_profiles.manager_user_id of the absent employee, so the gateway can tell a
+	// manager's reporting line apart; empty without a manager.
+	ManagerUserId string `protobuf:"bytes,9,opt,name=manager_user_id,json=managerUserId,proto3" json:"manager_user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AbsenceEntry) Reset() {
@@ -1743,6 +1746,13 @@ func (x *AbsenceEntry) GetLeaveTypeColor() string {
 func (x *AbsenceEntry) GetTotalDays() string {
 	if x != nil {
 		return x.TotalDays
+	}
+	return ""
+}
+
+func (x *AbsenceEntry) GetManagerUserId() string {
+	if x != nil {
+		return x.ManagerUserId
 	}
 	return ""
 }
@@ -9736,7 +9746,7 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x12work_hours_per_day\x18\t \x01(\x05R\x0fworkHoursPerDay\x12&\n" +
 	"\x0fmax_daily_hours\x18\n" +
 	" \x01(\x05R\rmaxDailyHours\x12*\n" +
-	"\x11break_after_hours\x18\v \x01(\x05R\x0fbreakAfterHours\"\x9f\x02\n" +
+	"\x11break_after_hours\x18\v \x01(\x05R\x0fbreakAfterHours\"\xc7\x02\n" +
 	"\fAbsenceEntry\x12\x1f\n" +
 	"\vemployee_id\x18\x01 \x01(\tR\n" +
 	"employeeId\x12#\n" +
@@ -9750,7 +9760,8 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x0fleave_type_name\x18\x06 \x01(\tR\rleaveTypeName\x12(\n" +
 	"\x10leave_type_color\x18\a \x01(\tR\x0eleaveTypeColor\x12\x1d\n" +
 	"\n" +
-	"total_days\x18\b \x01(\tR\ttotalDays\"\xbb\x02\n" +
+	"total_days\x18\b \x01(\tR\ttotalDays\x12&\n" +
+	"\x0fmanager_user_id\x18\t \x01(\tR\rmanagerUserId\"\xbb\x02\n" +
 	"\fDailySummary\x12\x12\n" +
 	"\x04date\x18\x01 \x01(\tR\x04date\x12,\n" +
 	"\x12total_work_minutes\x18\x02 \x01(\x05R\x10totalWorkMinutes\x12.\n" +

@@ -166,7 +166,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// Absence calendar
 	r.Route("/api/v1/hr/absences", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/calendar", h.HandleGetAbsenceCalendar)
+		// Additive: hr:read keeps the full calendar, team:absence:read (member/readonly all,
+		// manager team, migrations 000256/000335) gets the projection in HandleGetAbsenceCalendar.
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"hr", "read"}, [2]string{"team:absence", "read"},
+		)).Get("/calendar", h.HandleGetAbsenceCalendar)
 	})
 
 	// Same additive-guard rationale as zeitTeamView etc. above: "hr:read" is
@@ -1096,7 +1100,60 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 	}
 
 	// The client reads `{entries}`; a bare array made the calendar and the dashboard widget empty.
-	response.ProtoListWrapped(w, http.StatusOK, "entries", resp.Absences, nil)
+	if leaveBalanceReach(r.Context()) == auth.ScopeAll {
+		response.ProtoListWrapped(w, http.StatusOK, "entries", resp.Absences, nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"entries": absenceCalendarProjection(r.Context(), resp.Absences),
+	})
+}
+
+// absenceNeutralColor replaces the leave type colour where the type stays hidden; a colour per
+// type would give 'Krankheit' away as well as its name.
+const absenceNeutralColor = "#9ca3af"
+
+// absenceCalendarEntry is the calendar row for a caller below the full calendar: who is away when,
+// as the coarse class "absent". The leave type is an Art. 9 GDPR health datum when it reads
+// 'Krankheit', so it is only set where team:absence_data:view reaches the employee.
+type absenceCalendarEntry struct {
+	EmployeeID     string `json:"employee_id"`
+	EmployeeName   string `json:"employee_name"`
+	Department     string `json:"department"`
+	StartDate      string `json:"start_date"`
+	EndDate        string `json:"end_date"`
+	AbsenceClass   string `json:"absence_class"`
+	LeaveTypeName  string `json:"leave_type_name,omitempty"`
+	LeaveTypeColor string `json:"leave_type_color"`
+}
+
+// absenceCalendarProjection narrows the calendar for a caller whose leaveBalanceReach is below
+// all: the leave type of their own absences, at scope team also of their direct reports
+// (manager_user_id, the reporting line of the leave balance), and nothing of it for the rest.
+// No total_days for anyone.
+func absenceCalendarProjection(ctx context.Context, entries []*hrv1.AbsenceEntry) []absenceCalendarEntry {
+	caller := middleware.GetUserID(ctx)
+	team := leaveBalanceReach(ctx) == auth.ScopeTeam
+	out := make([]absenceCalendarEntry, 0, len(entries))
+	for _, e := range entries {
+		row := absenceCalendarEntry{
+			EmployeeID:     e.GetEmployeeId(),
+			EmployeeName:   e.GetEmployeeName(),
+			Department:     e.GetDepartment(),
+			StartDate:      e.GetStartDate(),
+			EndDate:        e.GetEndDate(),
+			AbsenceClass:   "absent",
+			LeaveTypeColor: absenceNeutralColor,
+		}
+		reached := caller != "" && (strings.EqualFold(e.GetEmployeeId(), caller) ||
+			(team && strings.EqualFold(e.GetManagerUserId(), caller)))
+		if reached {
+			row.LeaveTypeName = e.GetLeaveTypeName()
+			row.LeaveTypeColor = e.GetLeaveTypeColor()
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // ============================================================================

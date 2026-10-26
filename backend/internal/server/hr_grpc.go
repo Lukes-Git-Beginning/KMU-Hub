@@ -641,11 +641,11 @@ func (s *HRGRPCServer) SubmitTimeCorrection(ctx context.Context, req *hrv1.Submi
 	}
 
 	input := timetracking.CorrectionInput{
-		OriginalEntryID:      originalID,
-		CorrectedClockIn:     req.GetCorrectedClockIn().AsTime(),
-		CorrectedClockOut:    req.GetCorrectedClockOut().AsTime(),
+		OriginalEntryID:       originalID,
+		CorrectedClockIn:      req.GetCorrectedClockIn().AsTime(),
+		CorrectedClockOut:     req.GetCorrectedClockOut().AsTime(),
 		CorrectedBreakMinutes: int(req.GetCorrectedBreakMinutes()),
-		Reason:               req.GetReason(),
+		Reason:                req.GetReason(),
 	}
 
 	correction, err := s.timetrackingService.SubmitTimeCorrection(ctx, tenantID, userID, input)
@@ -719,13 +719,14 @@ func (s *HRGRPCServer) GetAbsenceCalendar(ctx context.Context, req *hrv1.GetAbse
 	protoEntries := make([]*hrv1.AbsenceEntry, 0, len(entries))
 	for _, e := range entries {
 		protoEntries = append(protoEntries, &hrv1.AbsenceEntry{
-			EmployeeId:    e.EmployeeID.String(),
-			EmployeeName:  e.EmployeeName,
-			Department:    e.Department,
-			StartDate:     e.StartDate.Format("2006-01-02"),
-			EndDate:       e.EndDate.Format("2006-01-02"),
-			LeaveTypeName: e.LeaveTypeName,
+			EmployeeId:     e.EmployeeID.String(),
+			EmployeeName:   e.EmployeeName,
+			Department:     e.Department,
+			StartDate:      e.StartDate.Format("2006-01-02"),
+			EndDate:        e.EndDate.Format("2006-01-02"),
+			LeaveTypeName:  e.LeaveTypeName,
 			LeaveTypeColor: e.Color,
+			ManagerUserId:  e.ManagerUserID,
 		})
 	}
 
@@ -1764,18 +1765,18 @@ func toProtoWorkTimeEntry(e *models.HRWorkTimeEntry) *hrv1.WorkTimeEntry {
 		return nil
 	}
 	pe := &hrv1.WorkTimeEntry{
-		Id:               e.ID.String(),
-		TenantId:         e.TenantID.String(),
-		EmployeeId:       e.EmployeeID.String(),
-		ClockIn:          timestamppb.New(e.ClockIn),
-		BreakMinutes:     int32(e.BreakMinutes),
+		Id:                e.ID.String(),
+		TenantId:          e.TenantID.String(),
+		EmployeeId:        e.EmployeeID.String(),
+		ClockIn:           timestamppb.New(e.ClockIn),
+		BreakMinutes:      int32(e.BreakMinutes),
 		AutoBreakDeducted: int32(e.AutoBreakDeducted),
-		Status:           workTimeStatusToProto(e.Status),
-		IsCorrection:     e.IsCorrection,
-		CorrectionReason: e.CorrectionReason,
-		CreatedAt:        timestamppb.New(e.CreatedAt),
-		UpdatedAt:        timestamppb.New(e.UpdatedAt),
-		EmployeeName:     e.EmployeeName,
+		Status:            workTimeStatusToProto(e.Status),
+		IsCorrection:      e.IsCorrection,
+		CorrectionReason:  e.CorrectionReason,
+		CreatedAt:         timestamppb.New(e.CreatedAt),
+		UpdatedAt:         timestamppb.New(e.UpdatedAt),
+		EmployeeName:      e.EmployeeName,
 	}
 	if e.ClockOut != nil {
 		pe.ClockOut = timestamppb.New(*e.ClockOut)
@@ -1937,11 +1938,11 @@ func toProtoDailySummary(s *timetracking.DailySummary) *hrv1.DailySummary {
 		return nil
 	}
 	return &hrv1.DailySummary{
-		Date:             s.Date.Format("2006-01-02"),
-		TotalWorkMinutes: int32(s.TotalWorkedMinutes),
+		Date:              s.Date.Format("2006-01-02"),
+		TotalWorkMinutes:  int32(s.TotalWorkedMinutes),
 		TotalBreakMinutes: int32(s.TotalBreakMinutes),
-		NetWorkMinutes:   int32(s.NetWorkMinutes),
-		OvertimeMinutes:  int32(s.OvertimeMinutes),
+		NetWorkMinutes:    int32(s.NetWorkMinutes),
+		OvertimeMinutes:   int32(s.OvertimeMinutes),
 	}
 }
 

@@ -13243,6 +13243,14 @@ paths:
   /api/v1/hr/absences/calendar:
     get:
       summary: Get absence calendar for team view
+      description: >
+        Requires hr:read or team:absence:read. Where the caller's absence-data reach is tenant-wide
+        (hr:read, or team:absence_data:view at scope all as for hr_admin) the entries are the full
+        AbsenceEntry. Below that every entry is the projection AbsenceCalendarEntry: who is away
+        when as absence_class "absent" with a neutral colour, no total_days, and leave_type_name plus
+        its colour only for the caller's own absences and, at scope team (manager), for their direct
+        reports (manager_user_id = caller). The leave type is withheld because 'Krankheit' is a
+        health datum (Art. 9 GDPR).
       tags: [hr-absence]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -13261,9 +13269,15 @@ paths:
                   entries:
                     type: array
                     items:
-                      $ref: "#/components/schemas/AbsenceEntry"
+                      oneOf:
+                        - $ref: "#/components/schemas/AbsenceEntry"
+                        - $ref: "#/components/schemas/AbsenceCalendarEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -45531,6 +45545,23 @@ components:
         department: { type: string }
         start_date: { type: string, format: date }
         end_date: { type: string, format: date }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
+        manager_user_id: { type: string, description: "Manager of the absent employee, empty without one" }
+
+    AbsenceCalendarEntry:
+      type: object
+      description: >
+        Absence calendar row below the full calendar. leave_type_name is omitted where the caller's
+        absence-data reach does not cover the employee; leave_type_color is then neutral.
+      required: [employee_id, employee_name, department, start_date, end_date, absence_class, leave_type_color]
+      properties:
+        employee_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        department: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        absence_class: { type: string, enum: [absent] }
         leave_type_name: { type: string }
         leave_type_color: { type: string }
 

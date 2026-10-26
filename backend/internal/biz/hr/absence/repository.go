@@ -24,17 +24,18 @@ type AbsenceFilter struct {
 
 // AbsenceEntry represents a single absence entry for the calendar view.
 type AbsenceEntry struct {
-	EmployeeID         uuid.UUID                `json:"employee_id"`
-	EmployeeName       string                   `json:"employee_name"`
-	Department         string                   `json:"department"`
-	LeaveTypeName      string                   `json:"leave_type_name"`
-	LeaveTypeKey       string                   `json:"leave_type_key"`
-	Color              string                   `json:"color"`
-	StartDate          time.Time                `json:"start_date"`
-	EndDate            time.Time                `json:"end_date"`
-	IsHalfDayStart     bool                     `json:"is_half_day_start"`
-	HalfDayPeriodStart *models.HalfDayPeriod    `json:"half_day_period_start,omitempty"`
-	IsHalfDayEnd       bool                     `json:"is_half_day_end"`
-	HalfDayPeriodEnd   *models.HalfDayPeriod    `json:"half_day_period_end,omitempty"`
+	EmployeeID         uuid.UUID                 `json:"employee_id"`
+	EmployeeName       string                    `json:"employee_name"`
+	Department         string                    `json:"department"`
+	ManagerUserID      string                    `json:"manager_user_id"`
+	LeaveTypeName      string                    `json:"leave_type_name"`
+	LeaveTypeKey       string                    `json:"leave_type_key"`
+	Color              string                    `json:"color"`
+	StartDate          time.Time                 `json:"start_date"`
+	EndDate            time.Time                 `json:"end_date"`
+	IsHalfDayStart     bool                      `json:"is_half_day_start"`
+	HalfDayPeriodStart *models.HalfDayPeriod     `json:"half_day_period_start,omitempty"`
+	IsHalfDayEnd       bool                      `json:"is_half_day_end"`
+	HalfDayPeriodEnd   *models.HalfDayPeriod     `json:"half_day_period_end,omitempty"`
 	Status             models.LeaveRequestStatus `json:"status"`
 }

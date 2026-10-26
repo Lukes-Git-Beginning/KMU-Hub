@@ -307,6 +307,9 @@ message AbsenceEntry {
   string leave_type_name = 6;
   string leave_type_color = 7;
   string total_days = 8;               // Decimal as string
+  // hr_employee_profiles.manager_user_id of the absent employee, so the gateway can tell a
+  // manager's reporting line apart; empty without a manager.
+  string manager_user_id = 9;
 }
 
 message DailySummary {
