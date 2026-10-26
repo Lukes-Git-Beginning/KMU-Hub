@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -70,6 +71,7 @@ func TestMapBizError(t *testing.T) {
 		// Payment errors
 		{"payment not found", payment.ErrNotFound, codes.NotFound},
 		{"payment invoice locked", payment.ErrInvoiceLocked, codes.FailedPrecondition},
+		{"payment currency mismatch", fmt.Errorf("%w: payment EUR, invoice CHF", payment.ErrCurrencyMismatch), codes.InvalidArgument},
 		// Dunning errors
 		{"dunning not found", dunning.ErrDunningNotFound, codes.NotFound},
 		{"dunning not draft", dunning.ErrDunningNotDraft, codes.FailedPrecondition},

@@ -71,6 +71,7 @@ func TestTenantIsolation_DocumentChains(t *testing.T) {
 		"tenant_id":    tenantA,
 		"invoice_id":   invoiceID,
 		"amount":       "400.00",
+		"currency":     "EUR",
 		"payment_date": day(-5).Format("2006-01-02"),
 		"created_by":   tenantA,
 	})

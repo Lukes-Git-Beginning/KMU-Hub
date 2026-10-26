@@ -281,6 +281,9 @@ func (s *Service) Reconcile(ctx context.Context, input ReconcileInput) (*models.
 		TenantID:  input.TenantID,
 		InvoiceID: invoiceID,
 		Amount:    tx.Amount,
+		// A credit in another currency than the invoice is rejected by the
+		// payment service — booking it at face value would settle the wrong sum.
+		Currency:  tx.Currency,
 		Date:      tx.ValueDate,
 		Method:    "bank_transfer",
 		Reference: reconcileReference(tx),

@@ -45,6 +45,7 @@ func newTestPayment(tenantID, invoiceID uuid.UUID, amount string, paymentDate ti
 		TenantID:    tenantID,
 		InvoiceID:   invoiceID,
 		Amount:      decimal.RequireFromString(amount),
+		Currency:    "EUR", // seedPaymentInvoice leaves finance_invoices.currency at its default
 		PaymentDate: paymentDate,
 		Method:      "bank_transfer",
 		Reference:   "REF-" + uuid.New().String()[:8],
@@ -541,4 +542,47 @@ func TestGetByIdempotencyKey_UnknownKey_ReturnsNilNoError(t *testing.T) {
 	got, err := repo.GetByIdempotencyKey(ctx, tenantID, "no-such-key")
 	require.NoError(t, err)
 	assert.Nil(t, got)
+}
+
+// TestPostgresRepository_Currency_RoundTripsAndScopesTheSum covers the new
+// finance_payments.currency column (feat-finance-payments-currency-column): the
+// value round-trips through Create/GetByID/List, and SumByInvoiceID (the figure
+// that flips an invoice to paid) adds only payments in the invoice currency.
+func TestPostgresRepository_Currency_RoundTripsAndScopesTheSum(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Payment Currency Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+	invoiceID := seedPaymentInvoice(t, pool, tenantID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	eur := newTestPayment(tenantID, invoiceID, "100.00", time.Now())
+	require.NoError(t, repo.Create(ctx, eur))
+	defer testutil.CleanupRow(t, pool, "finance_payments", eur.ID)
+	chf := newTestPayment(tenantID, invoiceID, "900.00", time.Now())
+	chf.Currency = "CHF"
+	require.NoError(t, repo.Create(ctx, chf))
+	defer testutil.CleanupRow(t, pool, "finance_payments", chf.ID)
+
+	got, err := repo.GetByID(ctx, tenantID, chf.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "CHF", got.Currency)
+	list, err := repo.List(ctx, tenantID, invoiceID)
+	require.NoError(t, err)
+	require.Len(t, list, 2)
+	currencies := map[uuid.UUID]string{}
+	for _, p := range list {
+		currencies[p.ID] = p.Currency
+	}
+	assert.Equal(t, map[uuid.UUID]string{eur.ID: "EUR", chf.ID: "CHF"}, currencies)
+
+	sum, err := repo.SumByInvoiceID(ctx, tenantID, invoiceID)
+	require.NoError(t, err)
+	assert.True(t, decimal.RequireFromString("100.00").Equal(sum),
+		"only the EUR payment counts against the EUR invoice; got %s", sum)
 }

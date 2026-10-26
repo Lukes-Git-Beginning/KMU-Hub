@@ -574,7 +574,8 @@ func (r *PostgresRepository) CountByFiscalYear(ctx context.Context, tenantID uui
 // AggregatePaymentStats returns aggregated payment statistics for invoices
 // with invoice_date within [fromDate, toDate]. total_outstanding_amount and
 // total_paid_amount are netted against finance_payments the same way
-// postgres_open_items.go's openItemsBase nets the Open-Items view: a partial
+// postgres_open_items.go's openItemsBase nets the Open-Items view (payments in
+// the invoice currency only): a partial
 // payment lowers the outstanding amount, and an overpayment shows up in the
 // paid amount. Where no payment row exists for a 'paid' invoice (marked paid
 // without a tracked payment), gross_total is used as the fallback so a
@@ -601,11 +602,11 @@ func (r *PostgresRepository) AggregatePaymentStats(ctx context.Context, tenantID
 		FROM finance_invoices i
 		CROSS JOIN (SELECT COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR') AS code) dc
 		LEFT JOIN (
-		    SELECT invoice_id, SUM(amount) AS paid
+		    SELECT invoice_id, currency, SUM(amount) AS paid
 		    FROM finance_payments
 		    WHERE tenant_id = $1
-		    GROUP BY invoice_id
-		) p ON p.invoice_id = i.id
+		    GROUP BY invoice_id, currency
+		) p ON p.invoice_id = i.id AND p.currency = i.currency
 		WHERE i.tenant_id = $1
 		  AND i.invoice_date >= $2
 		  AND i.invoice_date <= $3`,

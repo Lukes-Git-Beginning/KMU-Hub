@@ -288,16 +288,19 @@ type CreditNote struct {
 
 // Payment represents a payment received against an invoice.
 type Payment struct {
-	ID          uuid.UUID       `json:"id"`
-	TenantID    uuid.UUID       `json:"tenant_id"`
-	InvoiceID   uuid.UUID       `json:"invoice_id"`
-	Amount      decimal.Decimal `json:"amount"`
-	PaymentDate time.Time       `json:"payment_date"`
-	Method      string          `json:"method"`
-	Reference   string          `json:"reference"`
-	Notes       string          `json:"notes"`
-	CreatedBy   uuid.UUID       `json:"created_by"`
-	CreatedAt   time.Time       `json:"created_at"`
+	ID        uuid.UUID       `json:"id"`
+	TenantID  uuid.UUID       `json:"tenant_id"`
+	InvoiceID uuid.UUID       `json:"invoice_id"`
+	Amount    decimal.Decimal `json:"amount"`
+	// Currency is the ISO 4217 code the payment was booked in. Always the
+	// invoice currency: no exchange rate is stored, a differing one is rejected.
+	Currency    string    `json:"currency"`
+	PaymentDate time.Time `json:"payment_date"`
+	Method      string    `json:"method"`
+	Reference   string    `json:"reference"`
+	Notes       string    `json:"notes"`
+	CreatedBy   uuid.UUID `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
 	// IdempotencyKey is the client-supplied Idempotency-Key used for DB-level
 	// payment deduplication (F5). Empty for payments recorded without one.
 	// Internal only — not exposed in API responses.

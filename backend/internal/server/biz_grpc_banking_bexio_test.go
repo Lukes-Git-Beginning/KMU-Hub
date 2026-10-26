@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/biz/banking"
 	"github.com/kmuhub/kmuhub/internal/biz/bexio"
+	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
@@ -36,6 +38,8 @@ func TestBankingError(t *testing.T) {
 		{"already_reconciled", banking.ErrAlreadyReconciled, codes.FailedPrecondition},
 		{"nothing_to_reject", banking.ErrNothingToReject, codes.FailedPrecondition},
 		{"not_a_credit", banking.ErrNotACredit, codes.FailedPrecondition},
+		// Reconcile wraps the payment service error ("record payment: %w").
+		{"payment_currency_mismatch", fmt.Errorf("record payment: %w", payment.ErrCurrencyMismatch), codes.FailedPrecondition},
 		{"unmapped_default", banking.ErrAccountNotFound, codes.Internal},
 	}
 	for _, tc := range cases {

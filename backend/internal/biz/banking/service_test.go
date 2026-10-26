@@ -326,6 +326,11 @@ func TestReconcileBooksTheSuggestedInvoice(t *testing.T) {
 	if call.Date != credit.ValueDate {
 		t.Errorf("payment date = %v, want the value date %v", call.Date, credit.ValueDate)
 	}
+	// The booking currency goes along so the payment service can refuse a
+	// credit in another currency than the invoice.
+	if credit.Currency == "" || call.Currency != credit.Currency {
+		t.Errorf("currency = %q, want the booking currency %q", call.Currency, credit.Currency)
+	}
 	// The idempotency key is what stops a retried confirmation from booking a
 	// second payment.
 	if call.IdempotencyKey != "bank-tx:"+credit.ID.String() {

@@ -54,6 +54,7 @@ func TestTenantIsolation_OpenItems(t *testing.T) {
 		"tenant_id":    testutil.TenantA,
 		"invoice_id":   invoiceID,
 		"amount":       "400.00",
+		"currency":     "EUR",
 		"payment_date": asOf.Format("2006-01-02"),
 		"created_by":   testutil.TenantA,
 	})

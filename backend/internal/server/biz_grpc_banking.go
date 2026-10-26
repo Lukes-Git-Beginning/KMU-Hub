@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/biz/banking"
+	"github.com/kmuhub/kmuhub/internal/biz/payment"
 	"github.com/kmuhub/kmuhub/internal/models"
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -45,7 +46,10 @@ func bankingError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, banking.ErrAlreadyReconciled),
 		errors.Is(err, banking.ErrNothingToReject),
-		errors.Is(err, banking.ErrNotACredit):
+		errors.Is(err, banking.ErrNotACredit),
+		// A credit in another currency than the invoice cannot settle it — the
+		// payment service refuses to book it (no exchange rate is stored).
+		errors.Is(err, payment.ErrCurrencyMismatch):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
 		return status.Error(codes.Internal, "failed to process bank statement")

@@ -10746,7 +10746,8 @@ paths:
         "400":
           description: >-
             The invoice id in the path is not a valid UUID, or the body is
-            malformed or fails validation. Also returned when the
+            malformed or fails validation, or `currency` names another
+            currency than the invoice's. Also returned when the
             Idempotency-Key header is missing on this mutating request: that
             only applies while the gateway runs in IDEMPOTENCY_MODE=hard, but
             every shipped compose file (dev and prod) hard-sets it, so it is
@@ -11446,7 +11447,9 @@ paths:
         "409":
           description: >
             Already reconciled, or the entry is a debit — money leaving the
-            account cannot settle a receivable.
+            account cannot settle a receivable. Also returned when the credit
+            is in another currency than the invoice (no exchange rate is
+            stored, the payment is not booked).
             Also returned when a request carrying the same
             Idempotency-Key is still in flight; retry after the delay in
             Retry-After with the same key and body.
@@ -44698,6 +44701,12 @@ components:
           format: uuid
         amount:
           type: string
+        currency:
+          type: string
+          description: >-
+            ISO 4217 code the payment was booked in. Always the invoice
+            currency (no exchange rate is stored).
+          example: EUR
         payment_date:
           type: string
           format: date
@@ -44735,6 +44744,13 @@ components:
           type: string
         notes:
           type: string
+        currency:
+          type: string
+          description: >-
+            Optional ISO 4217 code. Omitted or empty books the payment in
+            the invoice currency; any other code than the invoice's is
+            rejected with 400 (no exchange rate is stored).
+          example: EUR
 
     BankStatement:
       type: object

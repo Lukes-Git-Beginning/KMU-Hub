@@ -249,6 +249,43 @@ func TestHandleRecordPayment_IdempotencyKeyForwarded(t *testing.T) {
 	assertStatus(t, rec, http.StatusServiceUnavailable)
 }
 
+// TestHandleRecordPayment_CurrencyValidation: currency is optional (the FE
+// sends none), but a value that is not an ISO 4217 code is a 400 at the
+// boundary. A well-formed code reaches the RPC (503 here, no biz client); the
+// mismatch against the invoice is the biz service's call.
+func TestHandleRecordPayment_CurrencyValidation(t *testing.T) {
+	routes := NewBizRoutes(registryWithService("biz"))
+	cases := []struct {
+		currency string
+		want     int
+	}{
+		{"", http.StatusServiceUnavailable},
+		{"CHF", http.StatusServiceUnavailable},
+		{"chf", http.StatusBadRequest},
+		{"EURO", http.StatusBadRequest},
+		{"XYZ", http.StatusBadRequest},
+	}
+	for _, tc := range cases {
+		t.Run("currency="+tc.currency, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/api/v1/finance/invoices/id/payments", jsonBody(t, map[string]interface{}{
+				"amount":       "100.00",
+				"payment_date": "2026-01-01",
+				"method":       "bank_transfer",
+				"currency":     tc.currency,
+			}))
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
+			routes.HandleRecordPayment(rec, req)
+			if tc.want == http.StatusBadRequest {
+				assertValidationError(t, rec, "currency")
+				return
+			}
+			assertStatus(t, rec, tc.want)
+		})
+	}
+}
+
 // A request with NO Idempotency-Key header is not this package's concern to
 // prove: the header is enforced by middleware.Idempotency, which wraps the
 // router in front of every handler here and is never in the call path when a

@@ -1296,6 +1296,7 @@ type Payment struct {
 	TenantId      string                 `protobuf:"bytes,8,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	CreatedBy     string                 `protobuf:"bytes,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Currency      string                 `protobuf:"bytes,11,opt,name=currency,proto3" json:"currency,omitempty"` // ISO 4217, always the invoice currency
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1398,6 +1399,13 @@ func (x *Payment) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *Payment) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
 }
 
 type DunningRecord struct {
@@ -4825,6 +4833,7 @@ type RecordPaymentRequest struct {
 	Notes          string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
 	CreatedBy      string                 `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
 	IdempotencyKey string                 `protobuf:"bytes,9,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // Client Idempotency-Key for DB-level dedup (F5); optional
+	Currency       string                 `protobuf:"bytes,10,opt,name=currency,proto3" json:"currency,omitempty"`                                  // ISO 4217; optional, empty = invoice currency, any other is rejected
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -4918,6 +4927,13 @@ func (x *RecordPaymentRequest) GetCreatedBy() string {
 func (x *RecordPaymentRequest) GetIdempotencyKey() string {
 	if x != nil {
 		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *RecordPaymentRequest) GetCurrency() string {
+	if x != nil {
+		return x.Currency
 	}
 	return ""
 }
@@ -14650,7 +14666,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"created_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1a\n" +
-	"\bcurrency\x18\x0e \x01(\tR\bcurrency\"\xcd\x02\n" +
+	"\bcurrency\x18\x0e \x01(\tR\bcurrency\"\xe9\x02\n" +
 	"\aPayment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -14665,7 +14681,8 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"created_by\x18\t \x01(\tR\tcreatedBy\x129\n" +
 	"\n" +
 	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xdd\x02\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1a\n" +
+	"\bcurrency\x18\v \x01(\tR\bcurrency\"\xdd\x02\n" +
 	"\rDunningRecord\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -14943,7 +14960,7 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"M\n" +
 	"\x16SendCreditNoteResponse\x123\n" +
 	"\vcredit_note\x18\x01 \x01(\v2\x12.biz.v1.CreditNoteR\n" +
-	"creditNote\"\xb8\x02\n" +
+	"creditNote\"\xd4\x02\n" +
 	"\x14RecordPaymentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -14955,7 +14972,9 @@ const file_proto_biz_v1_biz_proto_rawDesc = "" +
 	"\x05notes\x18\a \x01(\tR\x05notes\x12\x1d\n" +
 	"\n" +
 	"created_by\x18\b \x01(\tR\tcreatedBy\x12'\n" +
-	"\x0fidempotency_key\x18\t \x01(\tR\x0eidempotencyKey\"B\n" +
+	"\x0fidempotency_key\x18\t \x01(\tR\x0eidempotencyKey\x12\x1a\n" +
+	"\bcurrency\x18\n" +
+	" \x01(\tR\bcurrency\"B\n" +
 	"\x15RecordPaymentResponse\x12)\n" +
 	"\apayment\x18\x01 \x01(\v2\x0f.biz.v1.PaymentR\apayment\"\x80\x01\n" +
 	"\x13ListPaymentsRequest\x12\x1b\n" +

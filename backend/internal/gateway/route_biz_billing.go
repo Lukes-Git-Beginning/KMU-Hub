@@ -20,13 +20,13 @@ import (
 // ============================================================================
 
 type createCreditNoteRequest struct {
-	OriginalInvoiceID string                  `json:"original_invoice_id" validate:"omitempty,uuid"`
+	OriginalInvoiceID string `json:"original_invoice_id" validate:"omitempty,uuid"`
 	// Customer is optional: the service takes the customer from the original invoice, and the
 	// desktop dialog sends none.
-	Customer          *bizv1.CustomerSnapshot `json:"customer"`
-	LineItems         []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
-	TaxMode           taxModeField            `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
-	Reason            string                  `json:"reason"              validate:"required"`
+	Customer  *bizv1.CustomerSnapshot `json:"customer"`
+	LineItems []*bizv1.LineItem       `json:"line_items"          validate:"required,min=1"`
+	TaxMode   taxModeField            `json:"tax_mode"            validate:"required,oneof=standard reverse_charge kleinunternehmer"`
+	Reason    string                  `json:"reason"              validate:"required"`
 }
 
 func (b *BizRoutes) HandleCreateCreditNote(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +205,9 @@ type recordPaymentRequest struct {
 	Method      string `json:"method"       validate:"required,oneof=bank_transfer cash credit_card other"`
 	Reference   string `json:"reference"`
 	Notes       string `json:"notes"`
+	// Currency is optional: empty books the payment in invoice currency, any
+	// other code than the invoice's is rejected by the biz service (400).
+	Currency string `json:"currency" validate:"omitempty,iso4217"`
 }
 
 func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) {
@@ -238,6 +241,7 @@ func (b *BizRoutes) HandleRecordPayment(w http.ResponseWriter, r *http.Request) 
 		Method:      paymentMethodToProto(req.Method),
 		Reference:   req.Reference,
 		Notes:       req.Notes,
+		Currency:    req.Currency,
 		CreatedBy:   userID,
 		// Forward the client Idempotency-Key (already required by the idempotency
 		// middleware in HardMode) to the biz service for DB-level dedup (F5).

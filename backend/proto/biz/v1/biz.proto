@@ -329,6 +329,7 @@ message Payment {
   string tenant_id = 8;
   string created_by = 9;
   google.protobuf.Timestamp created_at = 10;
+  string currency = 11;            // ISO 4217, always the invoice currency
 }
 
 message DunningRecord {
@@ -716,6 +717,7 @@ message RecordPaymentRequest {
   string notes = 7;
   string created_by = 8;
   string idempotency_key = 9;     // Client Idempotency-Key for DB-level dedup (F5); optional
+  string currency = 10;           // ISO 4217; optional, empty = invoice currency, any other is rejected
 }
 
 message RecordPaymentResponse {
