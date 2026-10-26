@@ -1942,3 +1942,11 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `GET /automation/actions` (Katalog) -> `api/automation-types.ts` (`default_value: unknown`) -> passt; ein zusätzlicher optionaler Template-Parameter, kein neues Feldformat. Gespeicherte Automationen ohne `created_by` laufen über den `actor_id`-Default weiter.
 - offen: (1) Läuft eine Automation ohne Akteur (Zeitplan-/System-Trigger mit leerem `actor_id`) und ohne `created_by`, schlägt `work.create_task` jetzt mit klarer Meldung fehl statt mit `invalid created_by`; ein System-Akteur im Server (Variante b) wäre eine Datenmodell-Entscheidung für Luke. (2) Bereits ausgelieferte Vorlagen in Mandanten-DBs (kopierte Automationen) bleiben ohne explizites `created_by`, funktionieren aber über den Default. (3) `work_actions.go` und `templates.go` sind CRLF, nicht umformatiert.
+
+## Bilanz Lauf (2026-10-26 10:00)
+- iterationen: 96 im Bereich 22-117, davon 95 done, 1 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: cov 31 · feat 29 · fix 13 · e2e 12 · review 5 · seed 3 · harden 2 · refactor 1
+- commits nach typ: test 43 · feat 30 · fix 15 · docs 6 · refactor 1 · chore 1 (96 seit ddee3bbb)
+- coverage-delta: internal/work/livekit 38,9 -> 99,1 · internal/notification/integration/teams 40,5 -> 96,3 · internal/email/signature 43,0 -> 92,4 · (40 weitere)
+- offen mit entscheidungsbedarf: 23 von 96 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 7,4 (712 gesamt)
