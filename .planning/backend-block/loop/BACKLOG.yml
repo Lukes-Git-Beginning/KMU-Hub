@@ -2977,7 +2977,7 @@ units:
     service: plugin
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/plugin/repository von 60,9 % auf ≥ 78 %
     coverage_start: internal/plugin/repository 60,9 %
     scope: >
