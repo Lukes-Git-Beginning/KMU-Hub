@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kmuhub/kmuhub/internal/featureflag"
@@ -143,6 +144,7 @@ type createPORequest struct {
 	ExpectedDeliveryDate string `json:"expected_delivery_date,omitempty"`
 	Currency             string `json:"currency,omitempty"`
 	Notes                string `json:"notes,omitempty"`
+	FrameworkContractID  string `json:"framework_contract_id,omitempty" validate:"omitempty,uuid"`
 }
 
 // parseClearableDate reads a PATCH date the editor can empty: `null` or "" is sent as the epoch
@@ -164,6 +166,8 @@ type updatePORequest struct {
 	ExpectedDeliveryDate clearableString `json:"expected_delivery_date"`
 	Currency             *string         `json:"currency,omitempty"`
 	Notes                *string         `json:"notes,omitempty"`
+	// `null` or "" unbinds the PO from its framework contract, an omitted key leaves it.
+	FrameworkContractID clearableString `json:"framework_contract_id"`
 }
 
 type addPOLineRequest struct {
@@ -443,6 +447,9 @@ func (er *EinkaufRoutes) HandleCreatePO(w http.ResponseWriter, r *http.Request) 
 		Notes:                req.Notes,
 		CreatedBy:            &userID,
 	}
+	if req.FrameworkContractID != "" {
+		grpcReq.FrameworkContractId = &req.FrameworkContractID
+	}
 
 	resp, err := client.CreatePO(r.Context(), grpcReq)
 	if err != nil {
@@ -510,6 +517,16 @@ func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	var contractID *string
+	if req.FrameworkContractID.Set {
+		if v := req.FrameworkContractID.Value; v != "" {
+			if _, pErr := uuid.Parse(v); pErr != nil {
+				response.Error(w, http.StatusBadRequest, "framework_contract_id must be a UUID")
+				return
+			}
+		}
+		contractID = &req.FrameworkContractID.Value
+	}
 
 	grpcReq := &einkaufv1.UpdatePORequest{
 		TenantId:             tenantID.String(),
@@ -520,6 +537,7 @@ func (er *EinkaufRoutes) HandleUpdatePO(w http.ResponseWriter, r *http.Request) 
 		ExpectedDeliveryDate: deliveryDate,
 		Currency:             req.Currency,
 		Notes:                req.Notes,
+		FrameworkContractId:  contractID,
 	}
 
 	resp, err := client.UpdatePO(r.Context(), grpcReq)

@@ -2288,7 +2288,7 @@ units:
     service: einkauf
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Rahmenvertrag bauen,

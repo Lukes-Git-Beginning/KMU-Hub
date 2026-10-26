@@ -964,8 +964,10 @@ type CreatePORequest struct {
 	Currency             string                 `protobuf:"bytes,6,opt,name=currency,proto3" json:"currency,omitempty"`
 	Notes                string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
 	CreatedBy            *string                `protobuf:"bytes,8,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Binds the PO to a framework contract of the same tenant and currency; empty = unbound.
+	FrameworkContractId *string `protobuf:"bytes,9,opt,name=framework_contract_id,json=frameworkContractId,proto3,oneof" json:"framework_contract_id,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *CreatePORequest) Reset() {
@@ -1054,6 +1056,13 @@ func (x *CreatePORequest) GetCreatedBy() string {
 	return ""
 }
 
+func (x *CreatePORequest) GetFrameworkContractId() string {
+	if x != nil && x.FrameworkContractId != nil {
+		return *x.FrameworkContractId
+	}
+	return ""
+}
+
 type UpdatePORequest struct {
 	state                protoimpl.MessageState `protogen:"open.v1"`
 	TenantId             string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
@@ -1064,6 +1073,7 @@ type UpdatePORequest struct {
 	ExpectedDeliveryDate *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expected_delivery_date,json=expectedDeliveryDate,proto3,oneof" json:"expected_delivery_date,omitempty"` // send epoch to clear
 	Currency             *string                `protobuf:"bytes,7,opt,name=currency,proto3,oneof" json:"currency,omitempty"`
 	Notes                *string                `protobuf:"bytes,8,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	FrameworkContractId  *string                `protobuf:"bytes,9,opt,name=framework_contract_id,json=frameworkContractId,proto3,oneof" json:"framework_contract_id,omitempty"` // empty string to clear
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -1150,6 +1160,13 @@ func (x *UpdatePORequest) GetCurrency() string {
 func (x *UpdatePORequest) GetNotes() string {
 	if x != nil && x.Notes != nil {
 		return *x.Notes
+	}
+	return ""
+}
+
+func (x *UpdatePORequest) GetFrameworkContractId() string {
+	if x != nil && x.FrameworkContractId != nil {
+		return *x.FrameworkContractId
 	}
 	return ""
 }
@@ -4862,7 +4879,7 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\"a\n" +
 	"\x15ListSuppliersResponse\x122\n" +
 	"\tsuppliers\x18\x01 \x03(\v2\x14.einkauf.v1.SupplierR\tsuppliers\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xfe\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xd1\x03\n" +
 	"\x0fCreatePORequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vsupplier_id\x18\x02 \x01(\tR\n" +
@@ -4874,9 +4891,11 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\bcurrency\x18\x06 \x01(\tR\bcurrency\x12\x14\n" +
 	"\x05notes\x18\a \x01(\tR\x05notes\x12\"\n" +
 	"\n" +
-	"created_by\x18\b \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\x19\n" +
+	"created_by\x18\b \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x127\n" +
+	"\x15framework_contract_id\x18\t \x01(\tH\x02R\x13frameworkContractId\x88\x01\x01B\x19\n" +
 	"\x17_expected_delivery_dateB\r\n" +
-	"\v_created_by\"\xbd\x03\n" +
+	"\v_created_byB\x18\n" +
+	"\x16_framework_contract_id\"\x90\x04\n" +
 	"\x0fUpdatePORequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x13\n" +
 	"\x05po_id\x18\x02 \x01(\tR\x04poId\x12$\n" +
@@ -4887,14 +4906,16 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"order_date\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampH\x02R\torderDate\x88\x01\x01\x12U\n" +
 	"\x16expected_delivery_date\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x03R\x14expectedDeliveryDate\x88\x01\x01\x12\x1f\n" +
 	"\bcurrency\x18\a \x01(\tH\x04R\bcurrency\x88\x01\x01\x12\x19\n" +
-	"\x05notes\x18\b \x01(\tH\x05R\x05notes\x88\x01\x01B\x0e\n" +
+	"\x05notes\x18\b \x01(\tH\x05R\x05notes\x88\x01\x01\x127\n" +
+	"\x15framework_contract_id\x18\t \x01(\tH\x06R\x13frameworkContractId\x88\x01\x01B\x0e\n" +
 	"\f_supplier_idB\f\n" +
 	"\n" +
 	"_po_numberB\r\n" +
 	"\v_order_dateB\x19\n" +
 	"\x17_expected_delivery_dateB\v\n" +
 	"\t_currencyB\b\n" +
-	"\x06_notes\"C\n" +
+	"\x06_notesB\x18\n" +
+	"\x16_framework_contract_id\"C\n" +
 	"\x0fDeletePORequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x13\n" +
 	"\x05po_id\x18\x02 \x01(\tR\x04poId\"\x12\n" +

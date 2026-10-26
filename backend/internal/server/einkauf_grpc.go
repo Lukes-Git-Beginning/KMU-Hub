@@ -206,6 +206,14 @@ func (s *EinkaufGRPCServer) CreatePO(ctx context.Context, req *einkaufv1.CreateP
 		input.CreatedBy = &id
 	}
 
+	if req.FrameworkContractId != nil && *req.FrameworkContractId != "" {
+		id, err := uuid.Parse(*req.FrameworkContractId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid framework_contract_id: %v", err)
+		}
+		input.FrameworkContractID = &id
+	}
+
 	po, err := s.svc.CreatePO(ctx, input)
 	if err != nil {
 		return nil, mapEinkaufError(err)
@@ -237,6 +245,16 @@ func (s *EinkaufGRPCServer) UpdatePO(ctx context.Context, req *einkaufv1.UpdateP
 			return nil, status.Errorf(codes.InvalidArgument, "invalid supplier_id: %v", err)
 		}
 		input.SupplierID = &id
+	}
+
+	if req.FrameworkContractId != nil {
+		id := uuid.Nil // empty string clears the binding
+		if *req.FrameworkContractId != "" {
+			if id, err = uuid.Parse(*req.FrameworkContractId); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid framework_contract_id: %v", err)
+			}
+		}
+		input.FrameworkContractID = &id
 	}
 
 	if req.OrderDate != nil {
@@ -579,6 +597,10 @@ func poToProto(po *einkauf.PurchaseOrder) *einkaufv1.PurchaseOrder {
 		str := po.CreatedBy.String()
 		p.CreatedBy = &str
 	}
+	if po.FrameworkContractID != nil {
+		str := po.FrameworkContractID.String()
+		p.FrameworkContractId = &str
+	}
 	for _, l := range po.Lines {
 		p.Lines = append(p.Lines, lineToProto(l))
 	}
@@ -664,6 +686,8 @@ func mapEinkaufError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, einkauf.ErrContractCurrencyMismatch):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, einkauf.ErrPOContractCurrencyMismatch):
+		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled einkauf service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

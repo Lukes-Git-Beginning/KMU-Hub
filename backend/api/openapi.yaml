@@ -21294,6 +21294,7 @@ paths:
                 expected_delivery_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 currency: { type: string, example: EUR }
                 notes: { type: string }
+                framework_contract_id: { type: string, format: uuid, description: "Binds the PO to a framework contract of the same tenant. A non-UUID value or a contract in another currency than the PO -> 400; an unknown or foreign-tenant contract -> 404." }
       responses:
         "201":
           description: Purchase order created
@@ -21302,6 +21303,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
@@ -21345,8 +21347,9 @@ paths:
                 po_number: { type: string }
                 order_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 expected_delivery_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears the date; an omitted key leaves it unchanged." }
-                currency: { type: string }
+                currency: { type: string, description: "On a PO bound to a framework contract a currency other than the contract's -> 400." }
                 notes: { type: string }
+                framework_contract_id: { type: string, format: uuid, nullable: true, description: "`null` or an empty string unbinds the PO, an omitted key leaves the binding unchanged. A non-UUID value or a contract in another currency than the PO -> 400; an unknown or foreign-tenant contract -> 404." }
       responses:
         "200":
           description: Purchase order updated

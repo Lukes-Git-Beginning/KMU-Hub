@@ -178,6 +178,8 @@ message CreatePORequest {
   string currency = 6;
   string notes = 7;
   optional string created_by = 8;
+  // Binds the PO to a framework contract of the same tenant and currency; empty = unbound.
+  optional string framework_contract_id = 9;
 }
 
 message UpdatePORequest {
@@ -189,6 +191,7 @@ message UpdatePORequest {
   optional google.protobuf.Timestamp expected_delivery_date = 6; // send epoch to clear
   optional string currency = 7;
   optional string notes = 8;
+  optional string framework_contract_id = 9; // empty string to clear
 }
 
 message DeletePORequest {

@@ -98,6 +98,7 @@ type CreatePOInput struct {
 	Currency             string
 	Notes                string
 	CreatedBy            *uuid.UUID
+	FrameworkContractID  *uuid.UUID
 }
 
 // UpdatePOInput contains data for updating a purchase order.
@@ -110,6 +111,7 @@ type UpdatePOInput struct {
 	ExpectedDeliveryDate *time.Time // send zero-value pointer to clear
 	Currency             *string
 	Notes                *string
+	FrameworkContractID  *uuid.UUID // uuid.Nil to clear
 }
 
 // ListPOsInput contains options for listing purchase orders.
@@ -300,6 +302,12 @@ func (s *Service) CreatePO(ctx context.Context, input CreatePOInput) (*PurchaseO
 		currency = "EUR"
 	}
 
+	if input.FrameworkContractID != nil {
+		if cErr := s.checkPOContract(ctx, input.TenantID, *input.FrameworkContractID, currency); cErr != nil {
+			return nil, cErr
+		}
+	}
+
 	orderDate := input.OrderDate
 	if orderDate.IsZero() {
 		orderDate = time.Now()
@@ -318,6 +326,7 @@ func (s *Service) CreatePO(ctx context.Context, input CreatePOInput) (*PurchaseO
 		Currency:             currency,
 		Notes:                strings.TrimSpace(input.Notes),
 		CreatedBy:            input.CreatedBy,
+		FrameworkContractID:  input.FrameworkContractID,
 		CreatedAt:            now,
 		UpdatedAt:            now,
 	}
@@ -372,11 +381,30 @@ func (s *Service) UpdatePO(ctx context.Context, input UpdatePOInput) (*PurchaseO
 			po.ExpectedDeliveryDate = input.ExpectedDeliveryDate
 		}
 	}
+	oldCurrency := po.Currency
 	if input.Currency != nil {
 		po.Currency = strings.TrimSpace(*input.Currency)
 	}
 	if input.Notes != nil {
 		po.Notes = strings.TrimSpace(*input.Notes)
+	}
+
+	// A bound PO and its contract must share a currency. Re-check whenever
+	// either side of that pair moves; an untouched binding is left alone.
+	contractChanged := false
+	if input.FrameworkContractID != nil {
+		if *input.FrameworkContractID == uuid.Nil {
+			po.FrameworkContractID = nil
+		} else {
+			id := *input.FrameworkContractID
+			contractChanged = po.FrameworkContractID == nil || *po.FrameworkContractID != id
+			po.FrameworkContractID = &id
+		}
+	}
+	if po.FrameworkContractID != nil && (contractChanged || po.Currency != oldCurrency) {
+		if cErr := s.checkPOContract(ctx, input.TenantID, *po.FrameworkContractID, po.Currency); cErr != nil {
+			return nil, cErr
+		}
 	}
 
 	po.UpdatedAt = time.Now()
@@ -387,6 +415,23 @@ func (s *Service) UpdatePO(ctx context.Context, input UpdatePOInput) (*PurchaseO
 
 	slog.Info("einkauf po updated", "po_id", po.ID, "tenant_id", po.TenantID)
 	return po, nil
+}
+
+// checkPOContract verifies that a purchase order may be bound to contractID:
+// the contract belongs to the tenant (ErrContractNotFound otherwise) and
+// carries the PO's currency (ErrPOContractCurrencyMismatch).
+func (s *Service) checkPOContract(ctx context.Context, tenantID, contractID uuid.UUID, currency string) error {
+	if s.repoExt == nil {
+		return fmt.Errorf("%w: framework contracts are not available", ErrInvalidInput)
+	}
+	fc, err := s.repoExt.GetFrameworkContract(ctx, tenantID, contractID)
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(fc.Currency), strings.TrimSpace(currency)) {
+		return fmt.Errorf("%w: purchase order %q, contract %q", ErrPOContractCurrencyMismatch, currency, fc.Currency)
+	}
+	return nil
 }
 
 // DeletePO deletes a purchase order — only allowed when status is draft.
