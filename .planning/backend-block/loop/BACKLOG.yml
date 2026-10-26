@@ -2623,7 +2623,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/notification/notification von 59,4 % auf ≥ 75 %
     coverage_start: internal/notification/notification 59,4 %
     scope: >
