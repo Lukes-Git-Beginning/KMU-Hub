@@ -111,9 +111,8 @@ func TestSendEmailAction_NilClientAndBadConfig(t *testing.T) {
 
 // ─── work.create_task ───────────────────────────────────────────────────────
 
-// These tests pin what the action maps from its config. They deliberately say
-// nothing about created_by: the work service rejects an empty one, which the
-// action currently never fills (see fix-work-create-task-action-created-by).
+// These tests pin what the action maps from its config, including the creator
+// the work service insists on (an empty created_by is rejected server-side).
 
 func TestCreateTaskAction_MapsConfigToRequest(t *testing.T) {
 	var got *workv1.CreateTaskRequest
@@ -129,9 +128,12 @@ func TestCreateTaskAction_MapsConfigToRequest(t *testing.T) {
 		"project_id":  "{{project_id}}",
 		"title":       "Follow-up: {{deal.name}}",
 		"assignee_id": "{{deal.owner_id}}",
+		"created_by":  "{{creator}}",
 		"priority":    "high",
 		"due_days":    3,
 	}), map[string]any{
+		"creator":    "11111111-1111-4111-8111-111111111111",
+		"actor_id":   "22222222-2222-4222-8222-222222222222",
 		"project_id": "proj-1",
 		"deal":       map[string]any{"name": "Acme", "owner_id": "user-5"},
 	})
@@ -143,6 +145,7 @@ func TestCreateTaskAction_MapsConfigToRequest(t *testing.T) {
 	assert.Equal(t, "proj-1", got.ProjectId)
 	assert.Equal(t, "Follow-up: Acme", got.Title)
 	assert.Equal(t, "high", got.Priority)
+	assert.Equal(t, "11111111-1111-4111-8111-111111111111", got.CreatedBy, "explicit created_by wins over the event actor")
 	require.NotNil(t, got.AssigneeId)
 	assert.Equal(t, "user-5", *got.AssigneeId)
 	require.NotNil(t, got.DueDate)
@@ -159,17 +162,18 @@ func TestCreateTaskAction_DefaultsAndOptionalFields(t *testing.T) {
 	// empty string behaves like no assignee.
 	res, err := NewCreateTaskAction(client).Execute(context.Background(),
 		json.RawMessage(`{"project_id":"p","title":"t","assignee_id":"{{missing}}","due_days":0}`),
-		map[string]any{"missing": ""})
+		map[string]any{"missing": "", "actor_id": "22222222-2222-4222-8222-222222222222"})
 	require.NoError(t, err)
 	assert.True(t, res.Success)
 	require.NotNil(t, got)
 	assert.Equal(t, "normal", got.Priority)
 	assert.Nil(t, got.AssigneeId)
 	assert.Nil(t, got.DueDate)
+	assert.Equal(t, "22222222-2222-4222-8222-222222222222", got.CreatedBy, "created_by defaults to the event actor")
 
 	// A negative due_days is not a due date in the past.
 	_, err = NewCreateTaskAction(client).Execute(context.Background(),
-		json.RawMessage(`{"project_id":"p","title":"t","due_days":-2}`), nil)
+		json.RawMessage(`{"project_id":"p","title":"t","due_days":-2}`), map[string]any{"actor_id": "22222222-2222-4222-8222-222222222222"})
 	require.NoError(t, err)
 	assert.Nil(t, got.DueDate)
 }
@@ -184,7 +188,8 @@ func TestCreateTaskAction_ErrorPaths(t *testing.T) {
 	a := NewCreateTaskAction(&fakeWorkClient{createTask: func(*workv1.CreateTaskRequest) (*workv1.CreateTaskResponse, error) {
 		return nil, wantErr
 	}})
-	res, err = a.Execute(context.Background(), json.RawMessage(`{"project_id":"p","title":"t"}`), nil)
+	res, err = a.Execute(context.Background(), json.RawMessage(`{"project_id":"p","title":"t"}`),
+		map[string]any{"actor_id": "22222222-2222-4222-8222-222222222222"})
 	require.ErrorIs(t, err, wantErr)
 	assert.False(t, res.Success)
 	assert.Equal(t, "project not found", res.Error)
@@ -193,6 +198,41 @@ func TestCreateTaskAction_ErrorPaths(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, res.Success)
 	assert.True(t, strings.HasPrefix(res.Error, "invalid config: "))
+}
+
+// work.create_task must never reach the work service without a creator: the
+// server rejects an empty or malformed created_by, which failed every run.
+func TestCreateTaskAction_RejectsMissingCreator(t *testing.T) {
+	called := false
+	a := NewCreateTaskAction(&fakeWorkClient{createTask: func(*workv1.CreateTaskRequest) (*workv1.CreateTaskResponse, error) {
+		called = true
+		return &workv1.CreateTaskResponse{}, nil
+	}})
+	cfg := json.RawMessage(`{"project_id":"p","title":"t"}`)
+
+	for name, env := range map[string]map[string]any{
+		"no env":         nil,
+		"empty actor":    {"actor_id": ""},
+		"system actor":   {"actor_id": "system"},
+		"nil uuid actor": {"actor_id": uuid.Nil.String()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			res, err := a.Execute(context.Background(), cfg, env)
+			require.Error(t, err)
+			assert.False(t, res.Success)
+			assert.Contains(t, res.Error, "created_by must be a user ID")
+		})
+	}
+	assert.False(t, called, "a bad creator must not reach the work service")
+
+	// An explicit created_by that resolves to garbage is rejected as well,
+	// even though the event actor would have been valid.
+	res, err := a.Execute(context.Background(),
+		json.RawMessage(`{"project_id":"p","title":"t","created_by":"{{nope}}"}`),
+		map[string]any{"actor_id": "22222222-2222-4222-8222-222222222222"})
+	require.Error(t, err)
+	assert.False(t, res.Success)
+	assert.False(t, called)
 }
 
 // ─── notification.send ──────────────────────────────────────────────────────

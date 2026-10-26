@@ -3229,7 +3229,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: die Automations-Action work.create_task legt Aufgaben wieder an (heute scheitert jede Ausführung)
     coverage_start: n.a. (Bugfix)
     scope: >
