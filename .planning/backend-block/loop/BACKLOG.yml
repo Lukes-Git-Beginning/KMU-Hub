@@ -3061,7 +3061,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/consent von 65,3 % auf ≥ 78 %
     coverage_start: internal/crm/consent 65,3 %
     scope: >
