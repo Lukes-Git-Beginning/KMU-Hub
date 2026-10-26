@@ -2665,7 +2665,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/label von 49,5 % auf ≥ 70 %
     coverage_start: internal/work/label 49,5 %
     scope: >
@@ -3502,3 +3502,31 @@ units:
       - 'Service-Test: PartialReceive 4 von 10, danach ReceiveGoods -> AdjustStockBySKU insgesamt 10 (4 + 6), nicht 14'
       - '`bash .planning/backend-block/loop/hooks/e2e-local.sh TestInventarEinkaufFlow` grün'
       - go test -count=1 ./internal/einkauf/... grün, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-work-label-update-empty-color
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: PUT /api/v1/work/labels/{id} ohne color liefert 400 oder behält die Farbe statt 500
+    scope: >
+      Fund aus `cov-work-label` (Lauf 17, Iteration 92), per psql und im Code verifiziert: `validateLabel`
+      (`internal/work/label/service.go`) lässt `color == ""` durch; `Create` fängt das im gRPC-Layer ab
+      (`work_grpc.go` setzt `#6b7280`), `UpdateLabel` (`work_grpc.go`, ca. Zeile 2509) reicht den leeren Wert
+      unverändert an `repo.Update` durch. Die Spalte `work_labels.color` hat `CHECK (color ~ '^#[0-9A-Fa-f]{6}$')`
+      (Migration 000145), also scheitert das UPDATE mit 23514, `mapWorkError` kennt den Fall nicht und
+      liefert Internal -> 500. Das Gateway (`route_work_labels.go`, `updateLabelRequest`) markiert `color` als
+      `omitempty`, ein Aufrufer ohne Farbfeld löst den 500 aus. Das Desktop-FE sendet `color` immer
+      (`updateWorkLabel(id, {name, color})`), daher kein Totalausfall, aber ein Vertragsloch.
+    sources:
+      - backend/internal/work/label/service.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/gateway/route_work_labels.go
+    notes: >
+      Lean: Entscheidung im Service statt in jedem Caller. Leere Farbe beim Update entweder auf die bestehende
+      Farbe fallen lassen (bevorzugt, passt zu PUT mit optionalem Feld) oder `ErrColorInvalid` liefern. Desktop-
+      Aufrufer greppen und im Journal nennen.
+    done_when:
+      - 'Test: Update mit leerer Farbe -> kein 500 (Farbe bleibt bzw. ErrColorInvalid), gegen echte DB als kmuhub_app'
+      - go test -count=1 ./internal/work/... ./internal/server/ ./internal/gateway/ grün, DATABASE_URL gesetzt, 0 Skips
