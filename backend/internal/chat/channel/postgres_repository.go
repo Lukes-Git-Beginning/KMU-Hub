@@ -331,6 +331,13 @@ func (r *PostgresRepository) FindDMChannel(ctx context.Context, user1, user2, te
 	))
 }
 
+func (r *PostgresRepository) FindGroupDMChannel(ctx context.Context, groupKey string, tenantID uuid.UUID) (*models.Channel, error) {
+	return r.scanChannel(r.pool.QueryRow(ctx,
+		`SELECT id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_user1, dm_user2, created_at, updated_at
+		 FROM channels WHERE is_dm = TRUE AND dm_group_key = $1 AND tenant_id = $2`, groupKey, tenantID,
+	))
+}
+
 // Read receipts (Sprint 3)
 
 func (r *PostgresRepository) UpdateLastRead(ctx context.Context, channelID, userID uuid.UUID, readAt time.Time) error {
@@ -420,6 +427,42 @@ func (r *PostgresRepository) CreateDMChannel(ctx context.Context, channel *model
 	)
 	if err != nil {
 		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// CreateGroupDMChannel inserts a group DM and all its memberships in one
+// transaction. A concurrent insert of the same member set hits the unique
+// index on (tenant_id, dm_group_key) and yields ErrGroupDMExists.
+func (r *PostgresRepository) CreateGroupDMChannel(ctx context.Context, channel *models.Channel, groupKey string, members []*models.ChannelMembership) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx,
+		`INSERT INTO channels (id, tenant_id, name, description, is_private, is_dm, is_archived, created_by, dm_group_key, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, TRUE, FALSE, $6, $7, $8, $9)
+		 ON CONFLICT (tenant_id, dm_group_key) WHERE dm_group_key IS NOT NULL DO NOTHING`,
+		channel.ID, channel.TenantID, channel.Name, channel.Description, channel.IsPrivate,
+		channel.CreatedBy, groupKey, channel.CreatedAt, channel.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrGroupDMExists
+	}
+
+	for _, m := range members {
+		if _, err = tx.Exec(ctx,
+			`INSERT INTO channel_memberships (channel_id, user_id, tenant_id, role, joined_at) VALUES ($1, $2, $3, $4, $5)`,
+			m.ChannelID, m.UserID, m.TenantID, m.Role, m.JoinedAt,
+		); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit(ctx)

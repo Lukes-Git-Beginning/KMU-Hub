@@ -31,6 +31,8 @@ func TestMapChatError(t *testing.T) {
 		{"cannot change owner", channel.ErrCannotChangeOwner, codes.FailedPrecondition},
 		{"invalid role", channel.ErrInvalidRole, codes.InvalidArgument},
 		{"cannot dm self", channel.ErrCannotDMSelf, codes.InvalidArgument},
+		{"too many dm participants", channel.ErrTooManyDMParticipants, codes.InvalidArgument},
+		{"dm name too long", channel.ErrDMNameTooLong, codes.InvalidArgument},
 		{"cannot join dm", channel.ErrCannotJoinDM, codes.FailedPrecondition},
 		{"cannot leave dm", channel.ErrCannotLeaveDM, codes.FailedPrecondition},
 		{"cannot delete dm", channel.ErrCannotDeleteDM, codes.FailedPrecondition},

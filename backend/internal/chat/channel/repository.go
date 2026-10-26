@@ -42,6 +42,9 @@ type Repository interface {
 	// DM operations
 	FindDMChannel(ctx context.Context, user1, user2, tenantID uuid.UUID) (*models.Channel, error)
 	CreateDMChannel(ctx context.Context, channel *models.Channel, mem1, mem2 *models.ChannelMembership) error
+	// Group DMs are keyed by groupDMKey(member set), unique per tenant.
+	FindGroupDMChannel(ctx context.Context, groupKey string, tenantID uuid.UUID) (*models.Channel, error)
+	CreateGroupDMChannel(ctx context.Context, channel *models.Channel, groupKey string, members []*models.ChannelMembership) error
 
 	// Read receipts (Sprint 3)
 	UpdateLastRead(ctx context.Context, channelID, userID uuid.UUID, readAt time.Time) error
