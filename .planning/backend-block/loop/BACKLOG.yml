@@ -2518,7 +2518,7 @@ units:
     service: database
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/database von 44,3 % auf ≥ 65 %
     coverage_start: internal/database 44,3 %
     scope: >

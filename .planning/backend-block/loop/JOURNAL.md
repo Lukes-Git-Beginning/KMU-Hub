@@ -1576,3 +1576,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Der lokale Vorher-Wert (56,8 %) weicht vom CI-Wert (48,4 %) ab, weil lokal die DB-Tests von `tenant_isolation_phase2_test.go` mitlaufen; die CI-Zahl ohne DB wäre niedriger. (2) `TestConnection` (Login-/Logout-Pfad) bleibt ohne IMAP-Gegenstelle ungetestet, Paketziel ist trotzdem erreicht. (3) Die Tests ändern am Verhalten nichts; kein Fund.
+
+## Iteration 85 — cov-database — done — 2026-10-26 06:21
+- commit: siehe Commit `test(database): cover RLS transactions and the Redis client` (git log)
+- gebaut: `internal/database/transaction_test.go` (DB-Tests als kmuhub_app): `BeginRLSTx` setzt `app.tenant_id`/`user_id`/`role`/`user_roles` (Tenant-Kontext), System-Kontext (`role=system`, `is_system_context()`, kein Tenant/User), fehlender oder ungültiger Tenant -> `ErrMissingTenantContext` ohne Tx (fail-closed), Nicht-UUID-User wird nicht ins GUC geschrieben, nach Commit sieht eine neue Verbindung keinen Tenant; `WithSystemContext`-Roundtrip. `redis_test.go` (miniredis): Ping gegen erreichbaren Server, Parse-Fehler bei `http://`-URL, unerreichbarer Server liefert trotzdem einen Client (Auth startet ohne Redis).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/database` 16 PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/database 44,3 % -> 87,1 %
+- mutations-probe: 6 Proben rot: `role = "system"` -> `"user"`, `userStr = uid` entfernt, `Join(roles, ";")`, `perr == nil` -> `!= nil` (rot in zwei Tests), `err != nil` global abgeschaltet (Fail-closed-Test rot). Aus Backup zurück, `transaction.go` unverändert. Zwei Proben überlebten bewusst: `set_config(..., true)` -> `false` für `app.role`/`app.tenant_id` — das ist ein äquivalenter Mutant, weil der `AfterRelease`-Hook in `postgres.go` die GUCs beim Zurückgeben der Verbindung ohnehin zurücksetzt (Defence-in-depth, im Doc-Kommentar so beschrieben); der Leak-Test belegt das Endergebnis, nicht den LOCAL-Scope allein.
+- verify vorgaenger: sauber (`7d64723c`: nur Test-Dateien in `internal/email/account` plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Der Unreachable-Redis-Test nutzt einen abgebrochenen Kontext, damit der Ping sofort scheitert (sonst ~4 s Retry-Budget); er prüft damit den Warn-Zweig, nicht eine echte Netzwerk-Verweigerung. (2) LOCAL-Scope von `set_config` ist wegen des AfterRelease-Resets nicht einzeln beweisbar.
