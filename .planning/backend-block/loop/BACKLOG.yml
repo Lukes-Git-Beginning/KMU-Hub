@@ -2173,7 +2173,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
     coverage_start: n.a.
     scope: >
