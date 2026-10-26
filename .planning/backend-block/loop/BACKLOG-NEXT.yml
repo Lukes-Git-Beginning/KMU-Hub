@@ -1883,3 +1883,25 @@ units:
       Rechnung aus Angebot frei lassen. Danach `types.ts` aus der OpenAPI regenerieren.
     sources:
       - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx
+
+  - id: fe-new-dm-dialog-real-user-directory
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 17 Iteration 80 (`feat-chat-group-dm-gateway-and-ws`): `POST /api/v1/channels/dm` nimmt jetzt
+      `{participant_ids:[…]}` an (Gruppen-DM, 3–50 Personen, Aufrufer implizit). `NewDMDialog.tsx:34-39`
+      baut seine Personenliste aber aus den Demo-Daten `EMPLOYEES` mit IDs `usr-<id>` statt aus einem
+      echten Nutzerverzeichnis; gegen das Backend sind das keine UUIDs, also 400 (für 1:1 wie für Gruppen).
+      Liste aus einer echten Nutzer-Quelle des Tenants laden, den Cast in `useStartConversation`
+      (`api/hooks/useChannels.ts:203`) entfernen und `types.ts` aus der OpenAPI regenerieren (Request hat
+      jetzt `participant_ids` und `name`).
+    sources:
+      - desktop/src/renderer/src/modules/chat/channels/NewDMDialog.tsx
+      - desktop/src/renderer/src/api/hooks/useChannels.ts

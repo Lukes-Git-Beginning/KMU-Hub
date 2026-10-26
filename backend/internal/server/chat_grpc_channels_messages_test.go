@@ -447,7 +447,7 @@ func (r *stubChatMessageRepo) GetFilesByMessageIDs(_ context.Context, _ []uuid.U
 	return make(map[uuid.UUID][]models.ChatFileWithUploader), nil
 }
 
-func (r *stubChatMessageRepo) GetDMRecipient(_ context.Context, _, _ uuid.UUID) (*uuid.UUID, error) {
+func (r *stubChatMessageRepo) GetDMRecipients(_ context.Context, _, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
 

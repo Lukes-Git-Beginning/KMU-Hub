@@ -4122,7 +4122,13 @@ paths:
 
   /api/v1/channels/dm:
     post:
-      summary: Get or create a direct message channel with another user
+      summary: Get or create a direct message channel (1:1 or group)
+      description: >
+        Send exactly one of `other_user_id` (1:1 DM) or `participant_ids` (group DM).
+        The caller is always a member and may be omitted from `participant_ids`; a
+        single other participant resolves to the 1:1 DM. The same member set always
+        returns the same channel (200), a new set creates one (201). Up to 50 members,
+        caller included.
       tags: [chat-channels]
       operationId: getOrCreateDM
       requestBody:
@@ -4131,11 +4137,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [other_user_id]
               properties:
                 other_user_id:
                   type: string
                   format: uuid
+                participant_ids:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                    format: uuid
+                name:
+                  type: string
+                  maxLength: 100
+                  description: Label of a newly created group DM (defaults to "DM"); ignored for 1:1 DMs and existing groups.
       responses:
         "200":
           description: Existing DM channel found

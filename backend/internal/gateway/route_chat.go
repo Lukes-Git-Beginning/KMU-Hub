@@ -12,6 +12,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	"github.com/kmuhub/kmuhub/internal/validation"
 	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
@@ -642,8 +643,13 @@ func (ch *ChatRoutes) HandleDeleteMessage(w http.ResponseWriter, r *http.Request
 // DM Handlers
 // ============================================================================
 
+// getOrCreateDMRequest takes exactly one of other_user_id (1:1 DM) or
+// participant_ids (group DM, caller added implicitly; a single other id
+// resolves to the 1:1 DM). name only labels a newly created group DM.
 type getOrCreateDMRequest struct {
-	OtherUserID string `json:"other_user_id" validate:"required,uuid"`
+	OtherUserID    string   `json:"other_user_id" validate:"omitempty,uuid"`
+	ParticipantIDs []string `json:"participant_ids" validate:"omitempty,max=50,dive,uuid"`
+	Name           *string  `json:"name" validate:"omitempty,max=100"`
 }
 
 func (ch *ChatRoutes) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request) {
@@ -660,10 +666,31 @@ func (ch *ChatRoutes) HandleGetOrCreateDM(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	resp, err := client.GetOrCreateDM(r.Context(), &chatv1.GetOrCreateDMRequest{
-		UserId:      userID,
-		OtherUserId: req.OtherUserID,
-	})
+	if (req.OtherUserID == "") == (len(req.ParticipantIDs) == 0) {
+		rule := "required_without"
+		if req.OtherUserID != "" {
+			rule = "excluded_with"
+		}
+		body, _ := validation.ErrorBody(&validation.Errors{Fields: []validation.FieldError{
+			{Field: "other_user_id", Rule: rule, Param: "participant_ids"},
+		}})
+		response.JSON(w, http.StatusBadRequest, body)
+		return
+	}
+
+	var resp *chatv1.GetOrCreateDMResponse
+	if len(req.ParticipantIDs) > 0 {
+		resp, err = client.GetOrCreateGroupDM(r.Context(), &chatv1.GetOrCreateGroupDMRequest{
+			UserId:         userID,
+			ParticipantIds: req.ParticipantIDs,
+			Name:           req.Name,
+		})
+	} else {
+		resp, err = client.GetOrCreateDM(r.Context(), &chatv1.GetOrCreateDMRequest{
+			UserId:      userID,
+			OtherUserId: req.OtherUserID,
+		})
+	}
 	if err != nil {
 		respondGRPCError(w, err)
 		return

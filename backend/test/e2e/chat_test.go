@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -211,5 +212,98 @@ func TestChatDMFlow(t *testing.T) {
 	t.Run("list_dms", func(t *testing.T) {
 		resp, body := getJSON(t, base+"/api/v1/channels/dm", token1)
 		requireStatus(t, resp, body, http.StatusOK)
+	})
+}
+
+// TestChatGroupDMFlow drives a group DM as three members with the exact body
+// useStartConversation sends ({participant_ids:[…]}, caller not listed), and
+// checks that a fourth member of the same tenant stays outside.
+func TestChatGroupDMFlow(t *testing.T) {
+	base := gatewayURL()
+	waitForHealth(t, base)
+
+	token1, userID1 := registerAndLoginWithRole(t, base, "member")
+	token2, userID2 := registerAndLoginWithRole(t, base, "member")
+	token3, userID3 := registerAndLoginWithRole(t, base, "member")
+	outsiderToken, _ := registerAndLoginWithRole(t, base, "member")
+
+	type dmResult struct {
+		Channel struct {
+			ID string `json:"id"`
+		} `json:"channel"`
+	}
+	var groupID string
+
+	t.Run("create_group_dm", func(t *testing.T) {
+		resp, body := postJSON(t, base+"/api/v1/channels/dm", map[string]interface{}{
+			"participant_ids": []string{userID2, userID3},
+		}, token1)
+		requireStatus(t, resp, body, http.StatusCreated)
+		var result dmResult
+		decodeBody(t, body, &result)
+		if result.Channel.ID == "" {
+			t.Fatal("expected group DM channel id")
+		}
+		groupID = result.Channel.ID
+	})
+
+	t.Run("same_member_set_returns_the_same_channel", func(t *testing.T) {
+		resp, body := postJSON(t, base+"/api/v1/channels/dm", map[string]interface{}{
+			"participant_ids": []string{userID3, userID1},
+		}, token2)
+		requireStatus(t, resp, body, http.StatusOK)
+		var result dmResult
+		decodeBody(t, body, &result)
+		if result.Channel.ID != groupID {
+			t.Fatalf("expected group DM %s, got %s", groupID, result.Channel.ID)
+		}
+	})
+
+	t.Run("send_group_dm", func(t *testing.T) {
+		resp, body := postJSON(t, base+"/api/v1/channels/"+groupID+"/messages", map[string]interface{}{
+			"content": "Hello group!",
+		}, token1)
+		requireStatus(t, resp, body, http.StatusCreated)
+	})
+
+	t.Run("third_member_reads_and_sees_it_unread", func(t *testing.T) {
+		resp, body := getJSON(t, base+"/api/v1/channels/"+groupID+"/messages", token3)
+		requireStatus(t, resp, body, http.StatusOK)
+		var msgs struct {
+			Messages []map[string]interface{} `json:"messages"`
+		}
+		decodeBody(t, body, &msgs)
+		if len(msgs.Messages) != 1 {
+			t.Fatalf("expected one group DM message, got %d", len(msgs.Messages))
+		}
+
+		resp, body = getJSON(t, base+"/api/v1/channels/unread", token3)
+		requireStatus(t, resp, body, http.StatusOK)
+		var unread struct {
+			UnreadCounts map[string]int `json:"unread_counts"`
+		}
+		decodeBody(t, body, &unread)
+		if unread.UnreadCounts[groupID] != 1 {
+			t.Fatalf("expected 1 unread in the group DM, got %d (%s)", unread.UnreadCounts[groupID], string(body))
+		}
+	})
+
+	t.Run("listed_for_members", func(t *testing.T) {
+		resp, body := getJSON(t, base+"/api/v1/channels/dm", token2)
+		requireStatus(t, resp, body, http.StatusOK)
+		if !strings.Contains(string(body), groupID) {
+			t.Fatalf("expected the group DM in the second member's DM list: %s", string(body))
+		}
+	})
+
+	t.Run("outsider_cannot_read", func(t *testing.T) {
+		resp, body := getJSON(t, base+"/api/v1/channels/"+groupID+"/messages", outsiderToken)
+		requireStatus(t, resp, body, http.StatusForbidden)
+
+		resp, body = getJSON(t, base+"/api/v1/channels/dm", outsiderToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if strings.Contains(string(body), groupID) {
+			t.Fatalf("group DM leaked into an outsider's DM list: %s", string(body))
+		}
 	})
 }

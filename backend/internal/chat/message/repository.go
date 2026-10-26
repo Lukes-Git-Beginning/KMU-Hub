@@ -41,7 +41,7 @@ type Repository interface {
 	GetFilesByMessageIDs(ctx context.Context, messageIDs []uuid.UUID) (map[uuid.UUID][]models.ChatFileWithUploader, error)
 
 	// Channel info for notification events
-	GetDMRecipient(ctx context.Context, channelID, senderID uuid.UUID) (*uuid.UUID, error)
+	GetDMRecipients(ctx context.Context, channelID, senderID uuid.UUID) ([]uuid.UUID, error)
 	GetChannelName(ctx context.Context, channelID uuid.UUID) (string, error)
 
 	// Guest session info

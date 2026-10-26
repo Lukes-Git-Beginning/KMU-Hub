@@ -491,7 +491,9 @@ func (r *PostgresRepository) GetChannelMemberIDs(ctx context.Context, channelID 
 	return ids, rows.Err()
 }
 
-func (r *PostgresRepository) GetDMRecipient(ctx context.Context, channelID, senderID uuid.UUID) (*uuid.UUID, error) {
+// GetDMRecipients returns who a DM message notifies: the other participant of
+// a 1:1 DM, every member but the sender of a group DM, nil for other channels.
+func (r *PostgresRepository) GetDMRecipients(ctx context.Context, channelID, senderID uuid.UUID) ([]uuid.UUID, error) {
 	var dmUser1, dmUser2 *uuid.UUID
 	var isDM bool
 	err := r.pool.QueryRow(ctx,
@@ -504,11 +506,32 @@ func (r *PostgresRepository) GetDMRecipient(ctx context.Context, channelID, send
 		return nil, nil
 	}
 
-	// Return the other participant
-	if dmUser1 != nil && *dmUser1 == senderID {
-		return dmUser2, nil
+	if dmUser1 != nil && dmUser2 != nil {
+		if *dmUser1 == senderID {
+			return []uuid.UUID{*dmUser2}, nil
+		}
+		return []uuid.UUID{*dmUser1}, nil
 	}
-	return dmUser1, nil
+
+	// Group DM: the pair columns are NULL, the members are the participants.
+	rows, err := r.pool.Query(ctx,
+		`SELECT user_id FROM channel_memberships WHERE channel_id = $1 AND user_id <> $2 ORDER BY user_id`,
+		channelID, senderID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if scanErr := rows.Scan(&id); scanErr != nil {
+			return nil, scanErr
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (r *PostgresRepository) GetChannelName(ctx context.Context, channelID uuid.UUID) (string, error) {
