@@ -1461,42 +1461,81 @@ units:
       - "Entscheidung im Unit-Text, danach Unit mit DB-Test im Backlog"
 
 
-  - id: harden-share-tokens-hashed-berichte-csat
+  - id: fe-berichte-share-link-shown-once
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante a): Berichte-Token werden gehasht, sobald der
+      Desktop den Link nur noch einmalig aus der Create-Antwort zeigt.
+    target: der Berichte-Share-Dialog braucht das Token aus der Liste nicht mehr
+    scope: >
+      `ShareLinkDialog.tsx:134/138` baut „Link kopieren“ aus `s.token` der Liste (`GET /berichte/documents/{id}/shares`)
+      und verwirft die Create-Antwort. Umbauen: nach dem Erstellen den Link aus der Create-Antwort einmalig anzeigen
+      (kopierbar, Hinweis „wird nur jetzt angezeigt“, i18n ×4); die Liste zeigt Ablauf/Widerruf, aber keinen
+      Kopieren-Knopf mehr. Voraussetzung für `harden-share-tokens-hashed-berichte`.
+    sources:
+      - desktop/src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx
+    done_when:
+      - Link nur nach dem Erstellen kopierbar, Liste ohne Token, i18n ×4, Screenshot-QA
+
+  - id: harden-share-tokens-hashed-berichte
     phase: 4
     service: berichte
     model: opus
     deps:
       - harden-share-tokens-hashed-wiki-formulare
-    status: blocked
-    blocked_reason: >-
-      ENTSCHEIDUNG LUKE (Lauf 17 Iteration 17): Die Entscheidung setzt voraus, dass das Token nur einmal in der
-      Create-Antwort gebraucht wird. Das stimmt für beide Tabellen nicht. (1) Berichte: `ShareLinkDialog.tsx:134/138`
-      baut den kopierbaren Link aus `s.token` der LISTE (`GET /berichte/documents/{id}/shares`), die Create-Antwort
-      verwirft der Dialog (`onSuccess` liest `data` nicht). Hash-only = jeder Link im Dialog wird
-      `cosmi://share/report/` ohne Token, „Link kopieren“ tot; Desktop ist für den Loop tabu. (2) CSAT: das Token wird
-      beim Ticket-Schließen gemintet, verschickt wird es VERZÖGERT vom Dispatcher, der es per `ListDueCsatSurveys`
-      (`helpdesk/postgres_repository.go:519`, `SELECT r.token`) aus der DB liest und in `csat_dispatch.go:288` zum
-      Link baut. Hash-only = der Dispatcher kann keinen Link mehr bauen. Frage: (a) Berichte erst nach einer FE-Unit
-      umstellen, die den Link aus der Create-Antwort einmalig anzeigt (Liste ohne Kopieren)? (b) CSAT: Token erst
-      beim Versand im Dispatcher minten (Claim -> `linksecret.New` -> Hash speichern -> Mail), statt beim Schließen —
-      das ändert den CSAT-Dispatch, der laut Sperre nur in der Token-Ablage angefasst werden darf. Oder (c) beides
-      Klartext lassen (Begründung 000252/000288) und nur die Generator-Kopien auf `linksecret.New` ziehen.
-    decided: '2026-10-25'
+      - fe-berichte-share-link-shown-once
+    status: todo
+    decided: '2026-10-26'
     decision: >
-      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Hash-Ablage auch
-      für Berichte- und CSAT-Token.
-    target: kein Link-Token mehr im Klartext
+      ENTSCHEIDUNG LUKE, 2026-10-25, präzisiert 2026-10-26 (Morgen-Check Lauf 17, Variante a): Hash-Ablage für
+      Berichte-Token, erst nachdem `fe-berichte-share-link-shown-once` gemergt ist (sonst ist „Link kopieren“ tot).
+    target: kein Berichte-Link-Token mehr im Klartext
     coverage_start: n.a.
     scope: >
-      Zweiter Teil von `harden-share-tokens-hashed-wiki-formulare`: Berichte-Share-Secret (`berichte/service.go:newShareSecret`)
-      und CSAT-Survey-Token (`helpdesk/csat_survey.go`) auf `internal/linksecret` und Hash-Ablage umstellen,
-      nach demselben Migrationsmuster. CSAT ist in Produktion aus, das Token wird trotzdem umgestellt.
+      Berichte-Share-Secret (`berichte/service.go:newShareSecret`) auf `internal/linksecret` und Hash-Ablage umstellen,
+      Migrationsmuster wie 000351 (Backfill per `sha256`, Bestandslinks bleiben gültig). Die Liste liefert kein Token
+      mehr; das Klartext-Token verlässt den Server nur in der Create-Antwort. Herkunft: Lauf 17 Iteration 17 hat die
+      Sammel-Unit `harden-share-tokens-hashed-berichte-csat` blockiert (Begründung im Journal).
     sources:
       - backend/internal/berichte/service.go
-      - backend/internal/helpdesk/csat_survey.go
+      - backend/migrations/000351_share_token_hashes.up.sql
     done_when:
-      - 'DB-Test je Tabelle: Bestands-Token gültig, Klartext entfernt'
-      - Keine Kopie des Generators mehr im Repo (grep belegt das)
+      - 'DB-Test: Bestands-Token gültig, Klartext-Spalte entfernt, Liste ohne Token'
+      - Keine Kopie des Generators mehr in berichte (grep belegt das)
+
+  - id: harden-csat-token-minted-at-dispatch
+    phase: 4
+    service: helpdesk
+    model: opus
+    deps:
+      - harden-share-tokens-hashed-wiki-formulare
+    status: todo
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante b): Das CSAT-Token entsteht erst beim Versand im
+      Dispatcher, gespeichert wird nur der Hash. Die CSAT-Sperre ist für genau diesen Umbau des Dispatch gelockert;
+      CSAT bleibt aus.
+    target: kein CSAT-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Heute mintet das Schließen des Tickets das Token, der Dispatcher liest es später per `ListDueCsatSurveys`
+      (`helpdesk/postgres_repository.go:519`, `SELECT r.token`) und baut den Link (`csat_dispatch.go:288`). Neu: beim
+      Schließen nur die fällige Umfrage ohne Token anlegen; der Dispatcher claimt sie, mintet per `linksecret.New`,
+      speichert den Hash im selben Claim und verschickt die Mail. Die Lookup-Route hasht das vorgelegte Token.
+      Migration: Bestand backfillen wie 000351, Klartext-Spalte entfernen. Scheitert der Versand nach dem Claim, darf
+      ein Retry ein neues Token minten (alter Hash wird ersetzt).
+    sources:
+      - backend/internal/helpdesk/csat_survey.go
+      - backend/internal/helpdesk/csat_dispatch.go
+      - backend/internal/helpdesk/postgres_repository.go
+    done_when:
+      - 'DB-Test: Dispatcher verschickt einen gültigen Link, in der DB steht nur der Hash, Bestands-Token gültig'
+      - 'Test: Retry nach Versandfehler ersetzt den Hash, der alte Link ist ungültig'
 
   - id: fe-share-link-expiry-max-365-days
     phase: 4
@@ -1831,7 +1870,7 @@ units:
     service: hr
     model: opus
     deps: [fix-hr-document-rls-roles-over-grpc]
-    status: blocked
+    status: todo
     blocked_reason: >
       Wartet auf Luke (Lauf 17, Iteration 54). Zwei Funde: (1) Die Rollen überqueren den gRPC-Hop nicht, die
       RLS-Stufen der Akte greifen im HR-Service nie — selbst hr_admin/admin sehen `[]`; Fix-Unit
@@ -1851,7 +1890,9 @@ units:
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
-      Personalakte seiner Berichtslinie.
+      Personalakte seiner Berichtslinie. Ergänzt 2026-10-26 (Morgen-Check Lauf 17): die Kategorie
+      `gehaltsabrechnung` wird für Aufrufer ohne `team:salary:view` ausgefiltert; der manager sieht die übrigen
+      Dokumente seiner Berichte.
     target: Personalakte für Teamleiter
     coverage_start: n.a.
     scope: >
@@ -1864,6 +1905,8 @@ units:
     done_when:
       - >
         Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
+      - >
+        DB-Test: manager ohne `team:salary:view` sieht keine `gehaltsabrechnung` seiner Berichte, hr_admin sieht sie
 
   - id: fe-invoice-form-pin-currency
     phase: 4

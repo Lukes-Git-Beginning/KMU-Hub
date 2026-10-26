@@ -858,3 +858,26 @@ units:
         einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: feat-automation-system-actor-for-unattended-triggers
+    phase: 4
+    service: automation
+    model: opus
+    deps: []
+    status: parked
+    decided: '2026-10-26'
+    decision: >-
+      GEPARKT, Entscheidung Luke 2026-10-26 (Morgen-Check Lauf 17): kein System-Akteur. Seit Lauf 17 Iteration 117
+      (`fix-work-create-task-action-created-by`) scheitert `work.create_task` ohne `actor_id` und ohne `created_by`
+      mit klarer Konfigurationsmeldung statt `invalid created_by`; das reicht vorerst.
+      Auslöser: Ein Zeitplan- oder System-Trigger soll Aufgaben anlegen. Dann einen festen System-Nutzer je Mandant
+      als Ersteller (Datenmodell-Entscheidung) bauen.
+    target: Automationen ohne Akteur können Aufgaben anlegen
+    scope: >-
+      Server setzt einen System-Akteur als `created_by`, wenn die Action keinen Akteur hat. Offene Fragen beim
+      Auslösen: eigener Nutzer je Mandant oder `uuid.Nil` mit Sonderfall in RLS/Audit.
+    sources:
+      - backend/internal/automation/action/work_actions.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - 'Test: Zeitplan-Trigger ohne Akteur legt eine Aufgabe mit dem System-Akteur an'
