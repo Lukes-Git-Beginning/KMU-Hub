@@ -31,6 +31,12 @@ var (
 	// ErrInvalidSuccessor is returned when the named successor is the leaver, is
 	// not an employee of this tenant, or is already inactive.
 	ErrInvalidSuccessor = errors.New("the named successor is not an active employee of this tenant")
+	// ErrNotOffboarded is returned when reactivating a personnel record that is
+	// still active.
+	ErrNotOffboarded = errors.New("employee is active and cannot be reactivated")
+	// ErrSeatLimitReached is returned when reactivating would take a seat the
+	// tenant has not booked. Same rule as auth.ErrSeatLimitReached.
+	ErrSeatLimitReached = errors.New("no seat available: the booked seats are all taken by active users and pending invitations")
 	// ErrInvalidExitType is returned when the exit type is outside the accepted set.
 	ErrInvalidExitType = errors.New("unknown exit type")
 	// ErrExitBeforeLastWorkDay is returned when the exit date precedes the last working day.

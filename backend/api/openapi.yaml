@@ -13575,6 +13575,43 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
+  /api/v1/hr/employees/{id}/reactivate:
+    post:
+      summary: Reactivate an offboarded employee
+      description: >
+        Reverses an offboard in one transaction: the personnel record is active
+        again with its exit data cleared, the account can log in, and it gets
+        the base role "member" back (the offboard removed every role; wider
+        roles have to be assigned again). Revoked app passwords stay revoked and
+        reports moved to a successor stay there. Takes a seat, so it is refused
+        when the tenant's booked seats are all in use. No request body.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee reactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
+        "400":
+          description: Malformed employee id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:employee:offboard
+        "404":
+          description: Employee profile not found
+        "409":
+          description: Employee is still active, or no seat is left
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/hr/change-requests:
     get:
       summary: List profile change requests
@@ -45668,7 +45705,7 @@ components:
         status: { type: string, enum: [active, inactive] }
         last_work_day: { type: string, format: date }
         exit_date: { type: string, format: date }
-        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement, other] }
         exit_reason: { type: string }
         is_minor:
           type: boolean
@@ -45684,7 +45721,10 @@ components:
       properties:
         lastWorkDay: { type: string, format: date }
         exitDate: { type: string, format: date }
-        exitType: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exitType:
+          type: string
+          enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement, other]
+          description: "\"other\" is what the team page's deactivate button records."
         reason: { type: string }
         backfill:
           type: boolean

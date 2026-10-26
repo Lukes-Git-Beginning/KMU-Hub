@@ -20,6 +20,7 @@ type EmployeeRepository interface {
 	CountOtherActiveRoleAdmins(ctx context.Context, userID uuid.UUID) (int, error)
 	CountDirectReports(ctx context.Context, tenantID, userID uuid.UUID) (int, error)
 	Offboard(ctx context.Context, in OffboardWrite) (*models.EmployeeProfile, error)
+	Reactivate(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (*models.EmployeeProfile, error)
 }
 
 // OffboardWrite is the resolved input of the exit cascade. Everything in it has

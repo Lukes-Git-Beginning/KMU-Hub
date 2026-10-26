@@ -62,6 +62,7 @@ service HRService {
   rpc GetEmployee(GetEmployeeReq) returns (GetEmployeeResp);
   rpc UpdateEmployee(UpdateEmployeeReq) returns (UpdateEmployeeResp);
   rpc OffboardEmployee(OffboardEmployeeReq) returns (OffboardEmployeeResp);
+  rpc ReactivateEmployee(ReactivateEmployeeReq) returns (ReactivateEmployeeResp);
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc ListPersonnelDocuments(ListPersonnelDocumentsReq) returns (ListPersonnelDocumentsResp);
@@ -664,8 +665,8 @@ message OffboardEmployeeReq {
   string last_work_day = 2;          // YYYY-MM-DD
   string exit_date = 3;              // YYYY-MM-DD
   // resignation | termination | fixed_term_expired | mutual_termination |
-  // retirement. String, not an enum: the gateway marshals enums as numbers
-  // (UseEnumNumbers) and the desktop dialog types this as a string union.
+  // retirement | other. String, not an enum: the gateway marshals enums as
+  // numbers (UseEnumNumbers) and the desktop dialog types this as a string union.
   string exit_type = 4;
   string reason = 5;
   // Whether the position is to be refilled. Recorded for the audit trail; it
@@ -676,6 +677,15 @@ message OffboardEmployeeReq {
 }
 
 message OffboardEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
+message ReactivateEmployeeReq {
+  // The employee profile id from the route, not the user id.
+  string employee_id = 1;
+}
+
+message ReactivateEmployeeResp {
   EmployeeProfile employee = 1;
 }
 

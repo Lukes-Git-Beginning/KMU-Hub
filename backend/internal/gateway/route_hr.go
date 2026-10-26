@@ -199,6 +199,8 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		// team:employee:offboard is in the catalogue since 000256 and assigned
 		// to admin and hr_admin, so no seed migration is needed here.
 		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/offboard", h.HandleOffboardEmployee)
+		// Reactivating is the reverse of the offboard and needs the same key.
+		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/reactivate", h.HandleReactivateEmployee)
 		// Self-service: an employee reaching their OWN Akte. Needed because
 		// /{id}/documents below is guarded by "hr:read", which migration 000129
 		// assigns to admin alone — a member could never open their own file
@@ -1396,9 +1398,10 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 type offboardEmployeeHTTPReq struct {
 	LastWorkDay string `json:"lastWorkDay"                validate:"omitempty,datetime=2006-01-02"`
 	ExitDate    string `json:"exitDate"                   validate:"required,datetime=2006-01-02"`
-	// The five values the offboard dialog offers; the service checks the set
-	// again, this only keeps a typo out of the service.
-	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement"`
+	// The five values the offboard dialog offers plus "other", which the team
+	// page's deactivate button sends; the service checks the set again, this
+	// only keeps a typo out of the service.
+	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement other"`
 	Reason          string `json:"reason"`
 	Backfill        bool   `json:"backfill"`
 	SuccessorUserID string `json:"successorUserId"    validate:"omitempty,uuid"`
@@ -1436,6 +1439,27 @@ func (h *HRRoutes) HandleOffboardEmployee(w http.ResponseWriter, r *http.Request
 	}
 
 	// The whole response, not resp.Employee: the client reads `{employee}`.
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleReactivateEmployee reverses an offboard: active record, login unlocked,
+// base role member. No body.
+func (h *HRRoutes) HandleReactivateEmployee(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	resp, err := client.ReactivateEmployee(r.Context(), &hrv1.ReactivateEmployeeReq{
+		EmployeeId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// `{employee}`, the same shape the offboard route answers with.
 	response.Proto(w, http.StatusOK, resp)
 }
 

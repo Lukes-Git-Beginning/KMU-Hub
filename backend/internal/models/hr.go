@@ -142,13 +142,16 @@ const (
 	ExitTypeFixedTermExpired  = "fixed_term_expired"
 	ExitTypeMutualTermination = "mutual_termination"
 	ExitTypeRetirement        = "retirement"
+	// ExitTypeOther is what the team page's "deactivate" button records: it is
+	// an offboard without the dialog that asks for the reason (migration 000362).
+	ExitTypeOther = "other"
 )
 
-// ValidExitType reports whether t is one of the five accepted exit types.
+// ValidExitType reports whether t is one of the six accepted exit types.
 func ValidExitType(t string) bool {
 	switch t {
 	case ExitTypeResignation, ExitTypeTermination, ExitTypeFixedTermExpired,
-		ExitTypeMutualTermination, ExitTypeRetirement:
+		ExitTypeMutualTermination, ExitTypeRetirement, ExitTypeOther:
 		return true
 	}
 	return false

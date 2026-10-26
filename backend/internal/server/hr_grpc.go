@@ -910,6 +910,31 @@ func (s *HRGRPCServer) OffboardEmployee(ctx context.Context, req *hrv1.OffboardE
 	}, nil
 }
 
+func (s *HRGRPCServer) ReactivateEmployee(ctx context.Context, req *hrv1.ReactivateEmployeeReq) (*hrv1.ReactivateEmployeeResp, error) {
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+	// Tenant and actor from the context, as in OffboardEmployee.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	updated, err := s.employeeService.ReactivateEmployee(ctx, tenantID, employeeID, actorID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.ReactivateEmployeeResp{
+		Employee: toProtoEmployeeProfile(updated),
+	}, nil
+}
+
 func (s *HRGRPCServer) UpdateSelfProfile(ctx context.Context, req *hrv1.UpdateSelfProfileReq) (*hrv1.UpdateSelfProfileResp, error) {
 	userID, err := uuid.Parse(req.GetUserId())
 	if err != nil {
@@ -2227,7 +2252,9 @@ func mapHRError(err error) error {
 	case errors.Is(err, employee.ErrSelfOffboard):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrLastRoleAdmin),
-		errors.Is(err, employee.ErrAlreadyOffboarded):
+		errors.Is(err, employee.ErrAlreadyOffboarded),
+		errors.Is(err, employee.ErrNotOffboarded),
+		errors.Is(err, employee.ErrSeatLimitReached):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	// 422, not 400: the body is well-formed, but an employee with reports
 	// cannot leave without naming who takes them over.

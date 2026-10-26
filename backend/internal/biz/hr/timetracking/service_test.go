@@ -254,6 +254,10 @@ func (m *mockEmployeeRepo) Offboard(_ context.Context, _ employee.OffboardWrite)
 	return nil, nil
 }
 
+func (m *mockEmployeeRepo) Reactivate(_ context.Context, _, _, _ uuid.UUID) (*models.EmployeeProfile, error) {
+	return nil, nil
+}
+
 type mockSettingsRepo struct {
 	settings *models.HRCompanySettings
 }
