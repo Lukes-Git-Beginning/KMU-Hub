@@ -1469,3 +1469,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: POST /api/v1/finance/invoices/import -> kein Desktop-Aufrufer (grep in `desktop/src/renderer/src` ohne Treffer außer generierter `types.ts`) -> passt; Antwort bekommt additiv `warnings`, Rechnungsfelder unverändert flach.
 - offen: (1) Länder- und USt-ID-Präfix-Prüfung bewusst nicht enthalten (`lean:`-Marker in `inbound_warnings.go`). (2) Nur Header-Steuerkategorien, keine Zeilenebene. (3) Warnungen werden nicht am Beleg gespeichert (kein Notizfeld vorhanden, keine Migration); Detail- und Listenansicht kennen sie nicht, nur die Import-Antwort. (4) FE-Anzeige der Warnungen ist FE-Arbeit; `desktop/src/renderer/src/api/types.ts` regenerieren.
+
+## Iteration 76 — refactor-dunning-drop-calculate-interest — done — 2026-10-26 05:06
+- commit: siehe Commit `refactor(dunning): drop the unused CalculateInterest` (git log)
+- gebaut: `Service.CalculateInterest` samt fünf Tests entfernt (null Aufrufer, grep über `backend/` leer außer Binaries). Der alte `lean:`-Kommentar am `Interest: decimal.Zero` und der Paketkommentar sagen jetzt, dass Verzugszinsen bewusst kein Feature sind (Entscheidung 2026-10-25). Die Spalte `interest` und `CompanySettings.Basiszinssatz` bleiben unberührt (Schema/API, nicht Teil der Unit).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/biz/dunning`: 80 PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/biz/dunning 92,2 % -> 91,9 % (toter, voll getesteter Code entfernt; kein Coverage-Ziel)
+- mutations-probe: n.a. (reine Löschung)
+- verify vorgaenger: sauber (`41f36b18`: Handler über gRPC-Client-Antwort, Proto mit `biz.pb.go`-Regen, keine neue Route, OpenAPI-Texte vorhanden, kein Stub)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: `CompanySettings.Basiszinssatz` ist weiterhin ein persistiertes, aber von nichts gelesenes Feld; ob es aus Schema/API fliegt, ist nicht entschieden.
