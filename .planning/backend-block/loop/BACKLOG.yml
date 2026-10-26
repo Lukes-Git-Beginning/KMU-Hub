@@ -2998,7 +2998,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/biz/invoice von 62,2 % auf ≥ 78 %
     coverage_start: internal/biz/invoice 62,2 %
     scope: >
