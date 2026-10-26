@@ -17153,6 +17153,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update a helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted (any other answers 404), and a change of
+        assignee_id is refused with 403.
       tags: [helpdesk-tickets]
       operationId: updateHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17186,6 +17190,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -17195,6 +17200,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/close:
     post:
       summary: Close a helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: closeHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17218,6 +17226,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/reopen:
     post:
       summary: Reopen a closed helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: reopenHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17241,6 +17252,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/csat:
     post:
       summary: Submit a customer-satisfaction rating for a ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: submitHelpdeskTicketCsat
       security: [{ bearerAuth: [] }]
@@ -17340,6 +17354,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/assign:
     post:
       summary: Assign a helpdesk ticket to an agent
+      description: >
+        Assigning stays with agents holding helpdesk:ticket:edit (or legacy
+        helpdesk:write) beyond scope own; a member answers 403.
       tags: [helpdesk-tickets]
       operationId: assignHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17362,6 +17379,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -17371,6 +17389,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/merge:
     post:
       summary: Merge a ticket into another ticket
+      description: >
+        Merging stays with agents holding helpdesk:ticket:edit (or legacy
+        helpdesk:write) beyond scope own; a member answers 403.
       tags: [helpdesk-tickets]
       operationId: mergeHelpdeskTickets
       security: [{ bearerAuth: [] }]
@@ -17393,6 +17414,7 @@ paths:
               schema: { type: object, properties: { status: { type: string } } }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"

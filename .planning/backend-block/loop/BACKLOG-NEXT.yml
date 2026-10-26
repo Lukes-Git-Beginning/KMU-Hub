@@ -1652,3 +1652,29 @@ units:
       - backend/internal/gateway/route_schichten_swap_own_identity_db_test.go
     done_when:
       - member mit Raster-Zuweisung legt einen Tauschantrag an und sieht ihn im Tausch-Tab (Playwright-Screenshot)
+
+  - id: fe-helpdesk-own-scope-hide-agent-actions
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht am zugewiesenen Ticket nur die Aktionen, die das Backend ihm erlaubt
+    scope: >
+      Fund aus `feat-helpdesk-assigned-tickets-edit-for-members` (Lauf 17, Iteration 46). member hält seit Migration
+      356 `helpdesk:ticket:edit` mit Scope `own`. Das Desktop (`HelpdeskPage.tsx:1336-1338`) blendet mit
+      `canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)` das ganze Agenten-Panel ein:
+      Status, Eskalieren (PUT priority) und Schließen/Wiedereröffnen funktionieren (200), aber Zuweisen-Select
+      (`POST /assign`) und Zusammenführen (`POST /merge`) antworten einem member 403. Außerdem zeigt
+      `canEditInternal = useHasCapability('helpdesk:ticket:edit')` (ohne Scope) den Interne-Notiz-Toggle jetzt jedem
+      member; ein internes Senden ist 403, die Nachrichtenliste blendet interne Notizen für member weiter aus. Fix im
+      Desktop (Loop darf `desktop/` nicht ändern): Zuweisen, Zusammenführen und den Interne-Notiz-Toggle nur bei
+      `helpdesk:ticket:edit` mit Scope ≠ own zeigen. Entscheidungsfrage für Luke vorab: soll der zugewiesene member
+      interne Notizen sehen und schreiben? Dann ist es eine Backend-Unit (Assignee-Bedingung im Service statt
+      Scope-Prüfung in `canWriteInternalNotes`), und nur Zuweisen/Zusammenführen werden im Desktop ausgeblendet.
+    sources:
+      - desktop/src/renderer/src/modules/helpdesk/HelpdeskPage.tsx
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/gateway/route_helpdesk_assigned_edit_db_test.go
+    done_when:
+      - member öffnet ein ihm zugewiesenes Ticket und sieht Status/Eskalieren/Schließen, aber weder Zuweisen noch Zusammenführen noch den Interne-Notiz-Toggle (Playwright-Screenshot)

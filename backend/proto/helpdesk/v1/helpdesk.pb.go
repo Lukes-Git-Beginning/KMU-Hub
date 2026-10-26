@@ -1064,7 +1064,12 @@ type UpdateTicketRequest struct {
 	// custom_fields is a MERGE patch, not a replace: the module sends only the
 	// one field it changed, and a replace here would delete every other one on
 	// the next unrelated edit.
-	CustomFields  *structpb.Struct `protobuf:"bytes,9,opt,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	CustomFields *structpb.Struct `protobuf:"bytes,9,opt,name=custom_fields,json=customFields,proto3" json:"custom_fields,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:edit grant is scoped
+	// to "own": the ticket must be assigned to this user, otherwise NotFound.
+	// Never taken from the request body.
+	// At this scope a change of assignee_id is refused (PermissionDenied).
+	EditorId      *string `protobuf:"bytes,10,opt,name=editor_id,json=editorId,proto3,oneof" json:"editor_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1162,9 +1167,20 @@ func (x *UpdateTicketRequest) GetCustomFields() *structpb.Struct {
 	return nil
 }
 
+func (x *UpdateTicketRequest) GetEditorId() string {
+	if x != nil && x.EditorId != nil {
+		return *x.EditorId
+	}
+	return ""
+}
+
 type CloseTicketRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TicketId string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:edit grant is scoped
+	// to "own": the ticket must be assigned to this user, otherwise NotFound.
+	// Never taken from the request body.
+	EditorId      *string `protobuf:"bytes,2,opt,name=editor_id,json=editorId,proto3,oneof" json:"editor_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1206,9 +1222,20 @@ func (x *CloseTicketRequest) GetTicketId() string {
 	return ""
 }
 
+func (x *CloseTicketRequest) GetEditorId() string {
+	if x != nil && x.EditorId != nil {
+		return *x.EditorId
+	}
+	return ""
+}
+
 type ReopenTicketRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TicketId string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:edit grant is scoped
+	// to "own": the ticket must be assigned to this user, otherwise NotFound.
+	// Never taken from the request body.
+	EditorId      *string `protobuf:"bytes,2,opt,name=editor_id,json=editorId,proto3,oneof" json:"editor_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1250,13 +1277,24 @@ func (x *ReopenTicketRequest) GetTicketId() string {
 	return ""
 }
 
+func (x *ReopenTicketRequest) GetEditorId() string {
+	if x != nil && x.EditorId != nil {
+		return *x.EditorId
+	}
+	return ""
+}
+
 // Tenant is taken from the call context, never from the request body.
 type SubmitCsatRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	TicketId string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
 	// 1..5, validated server-side.
-	Rating        int32   `protobuf:"varint,2,opt,name=rating,proto3" json:"rating,omitempty"`
-	Comment       *string `protobuf:"bytes,3,opt,name=comment,proto3,oneof" json:"comment,omitempty"`
+	Rating  int32   `protobuf:"varint,2,opt,name=rating,proto3" json:"rating,omitempty"`
+	Comment *string `protobuf:"bytes,3,opt,name=comment,proto3,oneof" json:"comment,omitempty"`
+	// Set by the gateway when the caller's helpdesk:ticket:edit grant is scoped
+	// to "own": the ticket must be assigned to this user, otherwise NotFound.
+	// Never taken from the request body.
+	EditorId      *string `protobuf:"bytes,4,opt,name=editor_id,json=editorId,proto3,oneof" json:"editor_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1308,6 +1346,13 @@ func (x *SubmitCsatRequest) GetRating() int32 {
 func (x *SubmitCsatRequest) GetComment() string {
 	if x != nil && x.Comment != nil {
 		return *x.Comment
+	}
+	return ""
+}
+
+func (x *SubmitCsatRequest) GetEditorId() string {
+	if x != nil && x.EditorId != nil {
+		return *x.EditorId
 	}
 	return ""
 }
@@ -4116,7 +4161,7 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\a_org_id\"Z\n" +
 	"\x13ListTicketsResponse\x12-\n" +
 	"\atickets\x18\x01 \x03(\v2\x13.helpdesk.v1.TicketR\atickets\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\xae\x03\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xde\x03\n" +
 	"\x13UpdateTicketRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x1d\n" +
 	"\asubject\x18\x02 \x01(\tH\x00R\asubject\x88\x01\x01\x12\x1f\n" +
@@ -4128,7 +4173,9 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"contact_id\x18\x06 \x01(\tH\x04R\tcontactId\x88\x01\x01\x12\x1a\n" +
 	"\x06org_id\x18\a \x01(\tH\x05R\x05orgId\x88\x01\x01\x12\x1b\n" +
 	"\x06status\x18\b \x01(\tH\x06R\x06status\x88\x01\x01\x12<\n" +
-	"\rcustom_fields\x18\t \x01(\v2\x17.google.protobuf.StructR\fcustomFieldsB\n" +
+	"\rcustom_fields\x18\t \x01(\v2\x17.google.protobuf.StructR\fcustomFields\x12 \n" +
+	"\teditor_id\x18\n" +
+	" \x01(\tH\aR\beditorId\x88\x01\x01B\n" +
 	"\n" +
 	"\b_subjectB\v\n" +
 	"\t_priorityB\x0e\n" +
@@ -4136,17 +4183,28 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\t_queue_idB\r\n" +
 	"\v_contact_idB\t\n" +
 	"\a_org_idB\t\n" +
-	"\a_status\"1\n" +
+	"\a_statusB\f\n" +
+	"\n" +
+	"_editor_id\"a\n" +
 	"\x12CloseTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"2\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12 \n" +
+	"\teditor_id\x18\x02 \x01(\tH\x00R\beditorId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_editor_id\"b\n" +
 	"\x13ReopenTicketRequest\x12\x1b\n" +
-	"\tticket_id\x18\x01 \x01(\tR\bticketId\"s\n" +
+	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12 \n" +
+	"\teditor_id\x18\x02 \x01(\tH\x00R\beditorId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_editor_id\"\xa3\x01\n" +
 	"\x11SubmitCsatRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\x16\n" +
 	"\x06rating\x18\x02 \x01(\x05R\x06rating\x12\x1d\n" +
-	"\acomment\x18\x03 \x01(\tH\x00R\acomment\x88\x01\x01B\n" +
+	"\acomment\x18\x03 \x01(\tH\x00R\acomment\x88\x01\x01\x12 \n" +
+	"\teditor_id\x18\x04 \x01(\tH\x01R\beditorId\x88\x01\x01B\n" +
 	"\n" +
-	"\b_comment\"s\n" +
+	"\b_commentB\f\n" +
+	"\n" +
+	"_editor_id\"s\n" +
 	"\x18SubmitCsatByTokenRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x16\n" +
 	"\x06rating\x18\x02 \x01(\x05R\x06rating\x12\x1d\n" +
@@ -4607,6 +4665,8 @@ func file_proto_helpdesk_v1_helpdesk_proto_init() {
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[6].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[7].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[9].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[11].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[12].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[13].OneofWrappers = []any{}
 	file_proto_helpdesk_v1_helpdesk_proto_msgTypes[19].OneofWrappers = []any{}

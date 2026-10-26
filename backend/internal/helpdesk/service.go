@@ -222,6 +222,22 @@ func (s *Service) loadVisibleTicket(ctx context.Context, id, tenantID uuid.UUID,
 	return t, nil
 }
 
+// loadEditableTicket loads a ticket the caller may change. A non-nil editorID
+// is the own-scope of helpdesk:ticket:edit: the ticket must be assigned to that
+// user. Raising a ticket is not enough -- a requester reads and replies, the
+// assignee works it. Anything else answers ErrTicketNotFound, like
+// loadVisibleTicket.
+func (s *Service) loadEditableTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if editorID != nil && (t.AssigneeID == nil || *t.AssigneeID != *editorID) {
+		return nil, ErrTicketNotFound
+	}
+	return t, nil
+}
+
 func isParticipant(t *Ticket, userID uuid.UUID) bool {
 	return (t.RequesterID != nil && *t.RequesterID == userID) ||
 		(t.AssigneeID != nil && *t.AssigneeID == userID)
@@ -278,9 +294,14 @@ func (s *Service) checkContactOrgTenant(ctx context.Context, tenantID uuid.UUID,
 // send only the one field they changed (see handleCustomFieldCommit in
 // HelpdeskPage.tsx), and overwriting the whole map would delete every other
 // custom field on the next unrelated edit.
+//
+// A non-nil editorID (own-scope, see loadEditableTicket) limits the edit to
+// tickets assigned to that user and refuses a change of assignee: handing a
+// ticket on stays with tenant-wide agents.
 func (s *Service) UpdateTicket(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
+	editorID *uuid.UUID,
 	subject *string,
 	statusVal *string,
 	priority *string,
@@ -290,9 +311,12 @@ func (s *Service) UpdateTicket(
 	orgID *uuid.UUID,
 	customFields map[string]any,
 ) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("update ticket – load: %w", err)
+	}
+	if editorID != nil && assigneeID != nil {
+		return nil, ErrReassignNotAllowed
 	}
 	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
 		return nil, err
@@ -355,9 +379,10 @@ func (s *Service) UpdateTicket(
 	return t, nil
 }
 
-// CloseTicket transitions a ticket to closed status.
-func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// CloseTicket transitions a ticket to closed status. editorID: see
+// loadEditableTicket.
+func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("close ticket – load: %w", err)
 	}
@@ -381,9 +406,11 @@ func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Tic
 //
 // Rating a ticket twice updates the existing response instead of failing --
 // the unique index per ticket would otherwise turn a mind change into a 500.
+// editorID: see loadEditableTicket.
 func (s *Service) SubmitCsat(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
+	editorID *uuid.UUID,
 	rating int16,
 	comment *string,
 ) (*Ticket, error) {
@@ -391,7 +418,7 @@ func (s *Service) SubmitCsat(
 		return nil, ErrInvalidCsatRating
 	}
 
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("submit csat – load: %w", err)
 	}
@@ -409,9 +436,10 @@ func (s *Service) SubmitCsat(
 	return t, nil
 }
 
-// ReopenTicket transitions a closed or solved ticket back to open.
-func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// ReopenTicket transitions a closed or solved ticket back to open. editorID:
+// see loadEditableTicket.
+func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("reopen ticket – load: %w", err)
 	}

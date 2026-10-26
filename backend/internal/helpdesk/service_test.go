@@ -515,7 +515,7 @@ func TestCloseTicket_SetsResolvedAt(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Billing issue", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	closed, err := h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
+	closed, err := h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -531,9 +531,9 @@ func TestReopenTicket_FromClosed(t *testing.T) {
 	h := newTestHarness()
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Feature request", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
-	h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID)
+	h.svc.CloseTicket(context.Background(), ticket.ID, ticket.TenantID, nil)
 
-	reopened, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
+	reopened, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -550,7 +550,7 @@ func TestReopenTicket_FromOpenFails(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Still open", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	_, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID)
+	_, err := h.svc.ReopenTicket(context.Background(), ticket.ID, ticket.TenantID, nil)
 	if err == nil {
 		t.Error("expected error when reopening non-closed ticket")
 	}
@@ -907,7 +907,7 @@ func TestUpdateTicket_PriorityChange(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	newPriority := TicketPriorityUrgent
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &newPriority, nil, nil, nil, nil, nil)
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, &newPriority, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -922,7 +922,7 @@ func TestUpdateTicket_InvalidPriority(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Priority test", TicketPriorityLow, nil, nil, "", "", nil, nil, TicketIntake{})
 	bad := "supercritical"
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &bad, nil, nil, nil, nil, nil)
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, &bad, nil, nil, nil, nil, nil)
 	if !errors.Is(err, ErrInvalidPriority) {
 		t.Errorf("expected ErrInvalidPriority, got %v", err)
 	}
@@ -934,7 +934,7 @@ func TestUpdateTicket_StatusChange(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	newStatus := TicketStatusPending
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &newStatus, nil, nil, nil, nil, nil, nil)
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &newStatus, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -955,7 +955,7 @@ func TestUpdateTicket_RejectsClosedAndMergedStatus(t *testing.T) {
 		ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 		status := blocked
 
-		_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &status, nil, nil, nil, nil, nil, nil)
+		_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &status, nil, nil, nil, nil, nil, nil)
 		if !errors.Is(err, ErrInvalidStatus) {
 			t.Errorf("status=%s: expected ErrInvalidStatus, got %v", blocked, err)
 		}
@@ -968,7 +968,7 @@ func TestUpdateTicket_InvalidStatus(t *testing.T) {
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Status test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 	bad := "vaporized"
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, &bad, nil, nil, nil, nil, nil, nil)
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, &bad, nil, nil, nil, nil, nil, nil)
 	if !errors.Is(err, ErrInvalidStatus) {
 		t.Errorf("expected ErrInvalidStatus, got %v", err)
 	}
@@ -982,7 +982,7 @@ func TestUpdateTicket_CustomFieldsMergeAcrossUpdates(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+	updated, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil, nil,
 		map[string]any{"standort": "Bern"})
 	if err != nil {
 		t.Fatalf("first update: %v", err)
@@ -991,7 +991,7 @@ func TestUpdateTicket_CustomFieldsMergeAcrossUpdates(t *testing.T) {
 		t.Fatalf("custom_fields[standort] = %v, want Bern", updated.CustomFields["standort"])
 	}
 
-	updated, err = h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+	updated, err = h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil, nil,
 		map[string]any{"garantie": true})
 	if err != nil {
 		t.Fatalf("second update: %v", err)
@@ -1012,7 +1012,7 @@ func TestUpdateTicket_CustomFieldsRejectsNested(t *testing.T) {
 
 	ticket, _ := h.svc.CreateTicket(context.Background(), uuid.New(), uuidPtr(uuid.New()), "Custom fields test", TicketPriorityNormal, nil, nil, "", "", nil, nil, TicketIntake{})
 
-	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil,
+	_, err := h.svc.UpdateTicket(context.Background(), ticket.ID, ticket.TenantID, nil, nil, nil, nil, nil, nil, nil, nil,
 		map[string]any{"nested": map[string]any{"a": 1}})
 	if !errors.Is(err, ErrInvalidCustomFields) {
 		t.Errorf("expected ErrInvalidCustomFields, got %v", err)
@@ -1767,4 +1767,77 @@ func TestGetSLAStatus_PolicyNotFound(t *testing.T) {
 	if !errors.Is(err, ErrSLAPolicyNotFound) {
 		t.Errorf("expected ErrSLAPolicyNotFound, got %v", err)
 	}
+}
+
+// An editor at own scope of helpdesk:ticket:edit works the tickets assigned to
+// them: edit, close, reopen and CSAT. Having raised a ticket is not enough, a
+// stranger gets ErrTicketNotFound, and handing the ticket on is refused.
+func TestOwnScope_EditAssignedTicket(t *testing.T) {
+	h := newTestHarness()
+	ctx := context.Background()
+	tenantID, requester, assignee := uuid.New(), uuid.New(), uuid.New()
+
+	ticket, err := h.svc.CreateTicket(ctx, tenantID, &requester, "Printer jam", TicketPriorityNormal, &assignee, nil, "", "", nil, nil, TicketIntake{})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	t.Run("the assignee edits, closes, reopens and records CSAT", func(t *testing.T) {
+		low := TicketPriorityLow
+		updated, err := h.svc.UpdateTicket(ctx, ticket.ID, tenantID, &assignee, nil, nil, &low, nil, nil, nil, nil, nil)
+		if err != nil || updated.Priority != TicketPriorityLow {
+			t.Fatalf("update: %v, priority %v", err, updated)
+		}
+		if _, err := h.svc.CloseTicket(ctx, ticket.ID, tenantID, &assignee); err != nil {
+			t.Fatalf("close: %v", err)
+		}
+		if _, err := h.svc.SubmitCsat(ctx, ticket.ID, tenantID, &assignee, 4, nil); err != nil {
+			t.Fatalf("csat: %v", err)
+		}
+		reopened, err := h.svc.ReopenTicket(ctx, ticket.ID, tenantID, &assignee)
+		if err != nil || reopened.Status != TicketStatusOpen {
+			t.Fatalf("reopen: %v", err)
+		}
+	})
+
+	t.Run("requester and stranger at own scope get not found and change nothing", func(t *testing.T) {
+		urgent := TicketPriorityUrgent
+		for name, editor := range map[string]uuid.UUID{"requester": requester, "stranger": uuid.New()} {
+			if _, err := h.svc.UpdateTicket(ctx, ticket.ID, tenantID, &editor, nil, nil, &urgent, nil, nil, nil, nil, nil); !errors.Is(err, ErrTicketNotFound) {
+				t.Errorf("%s update: want ErrTicketNotFound, got %v", name, err)
+			}
+			if _, err := h.svc.CloseTicket(ctx, ticket.ID, tenantID, &editor); !errors.Is(err, ErrTicketNotFound) {
+				t.Errorf("%s close: want ErrTicketNotFound, got %v", name, err)
+			}
+			if _, err := h.svc.ReopenTicket(ctx, ticket.ID, tenantID, &editor); !errors.Is(err, ErrTicketNotFound) {
+				t.Errorf("%s reopen: want ErrTicketNotFound, got %v", name, err)
+			}
+			if _, err := h.svc.SubmitCsat(ctx, ticket.ID, tenantID, &editor, 1, nil); !errors.Is(err, ErrTicketNotFound) {
+				t.Errorf("%s csat: want ErrTicketNotFound, got %v", name, err)
+			}
+		}
+		got, _ := h.svc.GetTicket(ctx, ticket.ID, tenantID, nil)
+		if got.Priority != TicketPriorityLow || got.Status != TicketStatusOpen {
+			t.Errorf("refused edits changed the ticket: priority %q, status %q", got.Priority, got.Status)
+		}
+	})
+
+	t.Run("the assignee cannot hand the ticket on, a wide editor can", func(t *testing.T) {
+		other := uuid.New()
+		if _, err := h.svc.UpdateTicket(ctx, ticket.ID, tenantID, &assignee, nil, nil, nil, &other, nil, nil, nil, nil); !errors.Is(err, ErrReassignNotAllowed) {
+			t.Fatalf("own reassign: want ErrReassignNotAllowed, got %v", err)
+		}
+		got, _ := h.svc.GetTicket(ctx, ticket.ID, tenantID, nil)
+		if got.AssigneeID == nil || *got.AssigneeID != assignee {
+			t.Fatalf("refused reassign changed the assignee: %v", got.AssigneeID)
+		}
+		moved, err := h.svc.UpdateTicket(ctx, ticket.ID, tenantID, nil, nil, nil, nil, &other, nil, nil, nil, nil)
+		if err != nil || moved.AssigneeID == nil || *moved.AssigneeID != other {
+			t.Fatalf("wide reassign: %v", err)
+		}
+		// Reassigned away, the former assignee no longer edits it.
+		if _, err := h.svc.CloseTicket(ctx, ticket.ID, tenantID, &assignee); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("former assignee close: want ErrTicketNotFound, got %v", err)
+		}
+	})
 }

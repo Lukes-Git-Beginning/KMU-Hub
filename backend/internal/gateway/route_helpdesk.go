@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -471,8 +472,13 @@ func (h *HelpdeskRoutes) HandleUpdateTicket(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	editorID, ok := ticketEditorScope(w, r)
+	if !ok {
+		return
+	}
 
 	grpcReq := &helpdeskv1.UpdateTicketRequest{
+		EditorId:   editorID,
 		TicketId:   ticketID,
 		Subject:    req.Subject,
 		Status:     req.Status,
@@ -512,7 +518,12 @@ func (h *HelpdeskRoutes) HandleCloseTicket(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resp, err := client.CloseTicket(r.Context(), &helpdeskv1.CloseTicketRequest{TicketId: ticketID})
+	editorID, ok := ticketEditorScope(w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.CloseTicket(r.Context(), &helpdeskv1.CloseTicketRequest{TicketId: ticketID, EditorId: editorID})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -533,7 +544,12 @@ func (h *HelpdeskRoutes) HandleReopenTicket(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	resp, err := client.ReopenTicket(r.Context(), &helpdeskv1.ReopenTicketRequest{TicketId: ticketID})
+	editorID, ok := ticketEditorScope(w, r)
+	if !ok {
+		return
+	}
+
+	resp, err := client.ReopenTicket(r.Context(), &helpdeskv1.ReopenTicketRequest{TicketId: ticketID, EditorId: editorID})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -558,11 +574,16 @@ func (h *HelpdeskRoutes) HandleSubmitCsat(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	editorID, ok := ticketEditorScope(w, r)
+	if !ok {
+		return
+	}
 
 	grpcReq := &helpdeskv1.SubmitCsatRequest{
 		TicketId: ticketID,
 		Rating:   req.Rating,
 		Comment:  req.Comment,
+		EditorId: editorID,
 	}
 
 	resp, err := client.SubmitCsat(r.Context(), grpcReq)
@@ -651,6 +672,10 @@ func (h *HelpdeskRoutes) HandleAssignTicket(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	if !isTenantWideTicketAgent(r) {
+		response.Error(w, http.StatusForbidden, "assigning tickets requires helpdesk:ticket:edit beyond own scope")
+		return
+	}
 
 	resp, err := client.AssignTicket(r.Context(), &helpdeskv1.AssignTicketRequest{
 		TicketId:   ticketID,
@@ -678,6 +703,12 @@ func (h *HelpdeskRoutes) HandleMergeTickets(w http.ResponseWriter, r *http.Reque
 
 	req, ok := decodeAndValidate[mergeTicketsRequest](w, r)
 	if !ok {
+		return
+	}
+	// Merging closes the source and moves its thread into a second ticket the
+	// caller may not be assigned to: an agent tool, like assigning.
+	if !isTenantWideTicketAgent(r) {
+		response.Error(w, http.StatusForbidden, "merging tickets requires helpdesk:ticket:edit beyond own scope")
 		return
 	}
 
@@ -775,10 +806,31 @@ func (h *HelpdeskRoutes) HandleListMessages(w http.ResponseWriter, r *http.Reque
 	response.Proto(w, http.StatusOK, resp)
 }
 
-// canWriteInternalNotes reports whether the caller holds the agent key that
-// unlocks internal notes (hdTicketEdit's pair, legacy helpdesk:write included).
+// canWriteInternalNotes reports whether the caller may read and write internal
+// notes: a tenant-wide agent. A member whose helpdesk:ticket:edit is scoped to
+// "own" also raises tickets, and internal notes are not for the requester.
 func canWriteInternalNotes(r *http.Request) bool {
-	return middleware.HoldsAnyPermission(r.Context(), [2]string{"helpdesk", "write"}, [2]string{"helpdesk:ticket", "edit"})
+	return isTenantWideTicketAgent(r)
+}
+
+// isTenantWideTicketAgent reports whether the caller holds hdTicketEdit's
+// pair (legacy helpdesk:write included) at a scope other than own.
+func isTenantWideTicketAgent(r *http.Request) bool {
+	ctx := r.Context()
+	for _, p := range [][2]string{{"helpdesk", "write"}, {"helpdesk:ticket", "edit"}} {
+		if middleware.HoldsAnyPermission(ctx, p) && middleware.PermissionScope(ctx, p[0], p[1]) != auth.ScopeOwn {
+			return true
+		}
+	}
+	return false
+}
+
+// ticketEditorScope is the own-scope of the ticket write routes: at scope own
+// of helpdesk:ticket:edit the service accepts only tickets assigned to the
+// caller (404 otherwise). Legacy helpdesk:write beyond own keeps them
+// tenant-wide.
+func ticketEditorScope(w http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(w, r, [2]string{"helpdesk", "write"}, "helpdesk:ticket", "edit")
 }
 
 // ============================================================================

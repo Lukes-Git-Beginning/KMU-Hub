@@ -20,13 +20,14 @@ import (
 // IST of the seed that the test pins and does not judge:
 //   - member holds `helpdesk:ticket:create|reply` at scope all, `helpdesk:ticket:read` at scope own and the
 //     legacy coarse `helpdesk:read` (000234): lists, queues, canned responses, KB, SLA, routing rules, business
-//     hours and stats are readable, every write on a ticket (edit, close, reopen, assign, merge, CSAT) and every
-//     configuration write is 403; manager has the whole module;
-//   - editing a ticket assigned to the member is 403 today (feat-helpdesk-assigned-tickets-edit-for-members);
+//     hours and stats are readable, every configuration write is 403; manager has the whole module;
+//   - member holds `helpdesk:ticket:edit` at scope own (000356, feat-helpdesk-assigned-tickets-edit-for-members):
+//     edit, close, reopen and CSAT work on a ticket ASSIGNED to the member and answer 404 on one they only
+//     raised; assigning, merging and a change of `assignee_id` stay 403;
 //   - own scope (raised by or assigned to the caller) narrows the list, `GET /tickets/{id}` and
 //     `GET|POST /tickets/{id}/messages`: any other ticket answers 404 (fix-helpdesk-own-scope-ticket-detail-and-messages);
-//   - internal notes need `helpdesk:ticket:edit` (or legacy `helpdesk:write`) to write and to read: a member's
-//     message list leaves them out, a member's internal note is 403;
+//   - internal notes need `helpdesk:ticket:edit` (or legacy `helpdesk:write`) beyond scope own to write and to
+//     read: a member's message list leaves them out, a member's internal note is 403;
 //   - the requester is always the caller: a `requester_id` in the desktop's body is dropped.
 //
 // There is no second tenant in the stack, so a foreign-tenant read is not part of this flow.
@@ -235,24 +236,38 @@ func TestHelpdeskMemberTicketFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("member is turned away from every ticket write and from configuration", func(t *testing.T) {
-		// Editing the assigned ticket is 403 today: feat-helpdesk-assigned-tickets-edit-for-members flips this.
-		resp, b := putJSON(t, hd+"/tickets/"+assignedID, map[string]interface{}{"priority": "low"}, memberAToken)
-		requireStatus(t, resp, b, http.StatusForbidden)
-		resp, b = putJSON(t, hd+"/tickets/"+ownAID, map[string]interface{}{"subject": "umbenannt"}, memberAToken)
-		requireStatus(t, resp, b, http.StatusForbidden)
-		for _, path := range []string{"/close", "/reopen"} {
-			resp, b = postJSON(t, hd+"/tickets/"+assignedID+path, nil, memberAToken)
-			requireStatus(t, resp, b, http.StatusForbidden)
+	t.Run("member works the assigned ticket, not one they only raised, and stays out of configuration", func(t *testing.T) {
+		// The desktop's status dropdown, escalate button and close/reopen, as member A on the assigned ticket.
+		resp, b := putJSON(t, hd+"/tickets/"+assignedID, map[string]interface{}{"priority": "low", "status": "pending"}, memberAToken)
+		requireStatus(t, resp, b, http.StatusOK)
+		if tk := obj(t, b); str(tk, "priority") != "low" || str(tk, "status") != "pending" {
+			t.Fatalf("member edit not applied: %s", string(b))
 		}
-		resp, b = postJSON(t, hd+"/tickets/"+assignedID+"/csat", map[string]interface{}{"rating": 5, "comment": "top"}, memberAToken)
-		requireStatus(t, resp, b, http.StatusForbidden)
+		resp, b = postJSON(t, hd+"/tickets/"+assignedID+"/close", nil, memberAToken)
+		requireStatus(t, resp, b, http.StatusOK)
+		resp, b = postJSON(t, hd+"/tickets/"+assignedID+"/reopen", nil, memberAToken)
+		requireStatus(t, resp, b, http.StatusOK)
+		resp, b = putJSON(t, hd+"/tickets/"+assignedID, map[string]interface{}{"priority": "high"}, memberAToken)
+		requireStatus(t, resp, b, http.StatusOK)
+
+		// Raising a ticket is not working it: 404, like a ticket outside the read scope.
+		resp, b = putJSON(t, hd+"/tickets/"+ownAID, map[string]interface{}{"subject": "umbenannt"}, memberAToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
+		for _, path := range []string{"/close", "/reopen"} {
+			resp, b = postJSON(t, hd+"/tickets/"+ownAID+path, nil, memberAToken)
+			requireStatus(t, resp, b, http.StatusNotFound)
+		}
+		resp, b = postJSON(t, hd+"/tickets/"+ownAID+"/csat", map[string]interface{}{"rating": 5, "comment": "top"}, memberAToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
+		// Handing a ticket on stays with tenant-wide agents.
 		resp, b = postJSON(t, hd+"/tickets/"+ownAID+"/merge", map[string]string{"target_ticket_id": assignedID}, memberAToken)
+		requireStatus(t, resp, b, http.StatusForbidden)
+		resp, b = putJSON(t, hd+"/tickets/"+assignedID, map[string]interface{}{"assignee_id": memberBID}, memberAToken)
 		requireStatus(t, resp, b, http.StatusForbidden)
 
 		tk := readTicket(t, assignedID, managerToken)
-		if str(tk, "priority") != "high" || str(tk, "status") != "open" {
-			t.Fatalf("refused writes must leave the ticket alone, got %v", tk)
+		if str(tk, "priority") != "high" || str(tk, "status") != "open" || str(tk, "assignee_id") != memberAID {
+			t.Fatalf("the ticket must be back to high/open and still with member A, got %v", tk)
 		}
 		if str(readTicket(t, ownAID, managerToken), "subject") != fmt.Sprintf("E2E Tastatur A %d", suffix) {
 			t.Fatalf("the subject must be unchanged")
