@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -826,6 +827,13 @@ func damageReporter(ctx context.Context, reportedBy, notes *string) (*string, *s
 	return nil, &note
 }
 
+// damageEditorTenantWide reports whether the caller holds fuhrpark:damage:write at a scope other
+// than own, the key that updates and resolves any damage.
+func damageEditorTenantWide(ctx context.Context) bool {
+	return middleware.HoldsAnyPermission(ctx, [2]string{"fuhrpark:damage", "write"}) &&
+		middleware.PermissionScope(ctx, "fuhrpark:damage", "write") != auth.ScopeOwn
+}
+
 // derefString is the owner id for the proto's owner_user_id: empty means the caller is unrestricted.
 func derefString(s *string) string {
 	if s == nil {
@@ -854,13 +862,16 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	reportedBy, notes := damageReporter(r.Context(), req.ReportedBy, req.Notes)
-	// A caller who may only read their own damages is also only ever the reporter of their own:
-	// the id in the body must not file a damage under a colleague (it would show up in that
-	// colleague's own-scope list).
-	if owner, scopeOK := ownerFilterForScope(w, r, "fuhrpark:damage", "read"); !scopeOK {
-		return
-	} else if owner != nil {
-		reportedBy = owner
+	// Only a caller who may edit any damage (damage:write beyond own, admin) files one under
+	// someone else. Everyone else is the reporter: damage:read is tenant-wide for member since
+	// migration 360, so the read scope no longer tells who may name a colleague in the body.
+	if !damageEditorTenantWide(r.Context()) {
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			response.Error(w, http.StatusUnauthorized, "missing user in token")
+			return
+		}
+		reportedBy = &userID
 	}
 	resp, err := client.ReportDamage(r.Context(), &fuhrparkv1.ReportDamageRequest{
 		TenantId:    tenantID.String(),

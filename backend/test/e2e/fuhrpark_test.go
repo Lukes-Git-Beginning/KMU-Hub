@@ -19,9 +19,11 @@ import (
 // follows fuhrpark-types.ts (ReportDamageInput). Needs the fuhrpark service in the stack.
 //
 // IST of the seed that the test pins and does not judge:
-//   - booking:read|write, license:read|write and damage:read are held by member AND manager at
-//     scope own (migration 339): the gateway rewrites the body's user_id/driver_id/reported_by to
-//     the caller and narrows every list to the caller, whatever the query names;
+//   - booking:read|write and license:read|write are held by member AND manager at scope own
+//     (migration 339): the gateway rewrites the body's user_id/driver_id to the caller and narrows
+//     every list to the caller, whatever the query names;
+//   - damage:read is held by member at scope all (migration 360) and by manager at scope own;
+//     reported_by is the caller for everyone without damage:write;
 //   - a foreign booking/license is NotFound (404) rather than forbidden, so its existence does not
 //     leak; damage update/resolve needs damage:write, which only admin holds (member 403);
 //   - vehicle create is vehicle:manage (manager, admin), a member only reads vehicles;
@@ -200,7 +202,7 @@ func TestFuhrparkMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
-	t.Run("member reports a damage, only the reporter and admin see it", func(t *testing.T) {
+	t.Run("member reports a damage, every member and admin see it", func(t *testing.T) {
 		// ReportDamageInput: description, severity, reported_by, photo_keys, cost_cents, notes.
 		// reported_by names member B; the gateway files it under the caller.
 		resp, body := postJSON(t, fp+"/vehicles/"+vehicleID+"/damages", map[string]interface{}{
@@ -230,8 +232,8 @@ func TestFuhrparkMemberFlow(t *testing.T) {
 			if !has(list(t, url, memberAToken, "damages"), damageID) {
 				t.Fatalf("member A must see the own damage in the %s list", name)
 			}
-			if has(list(t, url, memberBToken, "damages"), damageID) {
-				t.Fatalf("member B must not see a colleague's damage in the %s list", name)
+			if !has(list(t, url, memberBToken, "damages"), damageID) {
+				t.Fatalf("member B must see a colleague's damage in the %s list (damage:read all)", name)
 			}
 			if has(list(t, url, managerToken, "damages"), damageID) {
 				t.Fatalf("IST: the manager is narrowed to own damages as well (%s list)", name)

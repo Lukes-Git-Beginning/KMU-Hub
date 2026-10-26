@@ -1780,3 +1780,25 @@ units:
       - desktop/src/renderer/src/modules/fuhrpark/
     done_when:
       - member sieht die belegten Zeiten eines Poolfahrzeugs und bucht ein freies Fenster (Playwright-Screenshot)
+
+  - id: decide-fuhrpark-damage-read-scope-for-managers
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    target: manager liest Schäden mindestens so weit wie member
+    scope: >
+      Fund aus `seed-fuhrpark-damage-read-all-for-members` (Lauf 17, Iteration 51). Migration 000360 hebt
+      `fuhrpark:damage:read` nur für member auf Scope all, so wie die Entscheidung vom 2026-10-25 lautet. manager
+      hält denselben Key seit 000339 weiter mit Scope own und sieht in `/fuhrpark/damages` und
+      `/fuhrpark/vehicles/{id}/damages` jetzt WENIGER als ein member (nur eigene Meldungen). FRAGE AN LUKE: manager
+      ebenfalls auf all heben (eine UPDATE-Zeile wie 000360, Down zurück auf own)? Die Melder-Bindung hängt seit
+      Iteration 51 an `fuhrpark:damage:write`, nicht mehr am Lese-Scope — das Heben ist ohne weitere Grenze sicher.
+      E2E `TestFuhrparkMemberFlow` pinnt den manager-IST-Stand (`IST: the manager is narrowed …`) und müsste mit.
+    sources:
+      - backend/migrations/000360_fuhrpark_damage_read_all_for_members.up.sql
+      - backend/internal/gateway/route_fuhrpark_damage_read_db_test.go
+      - backend/test/e2e/fuhrpark_test.go
+    done_when:
+      - 'Entscheidung Luke: manager auf all ja/nein; bei ja Router-Test als manager gegen den echten Seed'
