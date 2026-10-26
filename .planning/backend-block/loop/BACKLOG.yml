@@ -3124,7 +3124,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/advisoryprotocol von 65,9 % auf ≥ 78 %
     coverage_start: internal/crm/advisoryprotocol 65,9 %
     scope: >
