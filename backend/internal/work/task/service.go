@@ -639,11 +639,16 @@ func (s *Service) MoveTask(ctx context.Context, tenantID, taskID uuid.UUID, newS
 	return nil
 }
 
-// Delete removes a task
-func (s *Service) Delete(ctx context.Context, tenantID, taskID uuid.UUID, actorID uuid.UUID) error {
+// Delete removes a task. A non-nil ownerID is the own scope of
+// work:task:delete: only a task ownerID created is deleted, any other answers
+// ErrNotFound so a member cannot probe foreign task ids.
+func (s *Service) Delete(ctx context.Context, tenantID, taskID uuid.UUID, actorID uuid.UUID, ownerID *uuid.UUID) error {
 	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
 	if err != nil {
 		return err
+	}
+	if ownerID != nil && existing.CreatedBy != *ownerID {
+		return ErrNotFound
 	}
 
 	// Check project membership

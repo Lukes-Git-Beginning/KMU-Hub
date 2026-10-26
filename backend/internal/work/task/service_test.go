@@ -916,7 +916,7 @@ func TestService_Delete(t *testing.T) {
 		CreatedBy: userID,
 	})
 
-	err := svc.Delete(ctx, uuid.Nil, task1.ID, userID)
+	err := svc.Delete(ctx, uuid.Nil, task1.ID, userID, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -925,6 +925,32 @@ func TestService_Delete(t *testing.T) {
 	_, err = svc.GetByID(ctx, uuid.Nil, task1.ID)
 	if err != ErrNotFound {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
+	}
+}
+
+// At the own scope of work:task:delete only the creator deletes; a foreign
+// task answers ErrNotFound and stays.
+func TestService_DeleteOwnScopeOnlyCreator(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+
+	projectID := uuid.New()
+	creator, colleague := uuid.New(), uuid.New()
+	projRepo.addMember(projectID, creator, models.ProjectRoleMember)
+	projRepo.addMember(projectID, colleague, models.ProjectRoleMember)
+
+	created, _ := svc.Create(ctx, CreateInput{ProjectID: &projectID, Title: "Mine", CreatedBy: creator})
+
+	if err := svc.Delete(ctx, uuid.Nil, created.ID, colleague, &colleague); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("colleague at own scope: want ErrNotFound, got %v", err)
+	}
+	if _, err := svc.GetByID(ctx, uuid.Nil, created.ID); err != nil {
+		t.Fatalf("task must survive a refused delete: %v", err)
+	}
+	if err := svc.Delete(ctx, uuid.Nil, created.ID, creator, &creator); err != nil {
+		t.Fatalf("creator at own scope: %v", err)
 	}
 }
 
@@ -946,7 +972,7 @@ func TestService_DeleteViewerCannotDelete(t *testing.T) {
 		CreatedBy: ownerID,
 	})
 
-	err := svc.Delete(ctx, uuid.Nil, task1.ID, viewerID)
+	err := svc.Delete(ctx, uuid.Nil, task1.ID, viewerID, nil)
 	if err != ErrViewerCannotEdit {
 		t.Errorf("expected ErrViewerCannotEdit, got %v", err)
 	}
@@ -1177,7 +1203,7 @@ func TestService_OpenProjects_NonMemberWorksOnTasks(t *testing.T) {
 	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); err != nil {
 		t.Fatalf("move as non-member: %v", err)
 	}
-	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); err != nil {
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember, nil); err != nil {
 		t.Fatalf("delete as non-member: %v", err)
 	}
 }
@@ -1236,7 +1262,7 @@ func TestService_ClosedProjects_NonMemberStillRefused(t *testing.T) {
 	if err := svc.MoveTask(ctx, tenantID, created.ID, uuid.New(), 1, nonMember); !errors.Is(err, ErrNotProjectMember) {
 		t.Errorf("move: want ErrNotProjectMember, got %v", err)
 	}
-	if err := svc.Delete(ctx, tenantID, created.ID, nonMember); !errors.Is(err, ErrNotProjectMember) {
+	if err := svc.Delete(ctx, tenantID, created.ID, nonMember, nil); !errors.Is(err, ErrNotProjectMember) {
 		t.Errorf("delete: want ErrNotProjectMember, got %v", err)
 	}
 }

@@ -1000,7 +1000,16 @@ func (s *WorkGRPCServer) DeleteTask(ctx context.Context, req *workv1.DeleteTaskR
 		return nil, err
 	}
 
-	if err := s.taskService.Delete(ctx, tenantID, id, actorID); err != nil {
+	var ownerID *uuid.UUID
+	if req.OwnerId != nil {
+		parsed, parseErr := uuid.Parse(req.GetOwnerId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+		}
+		ownerID = &parsed
+	}
+
+	if err := s.taskService.Delete(ctx, tenantID, id, actorID, ownerID); err != nil {
 		return nil, mapWorkError(err)
 	}
 

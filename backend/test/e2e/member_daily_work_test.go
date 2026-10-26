@@ -219,12 +219,28 @@ func TestMemberDailyWorkFlow(t *testing.T) {
 			t.Fatalf("move did not arrive: status_id = %v, want %s", task.Task["status_id"], doneID)
 		}
 
-		// Delete: tasks:delete / work:task:delete are not in the member preset (manager and admin
-		// have them). Open product question: BACKLOG-NEXT decide-member-manager-module-defaults.
-		resp, body = deleteJSON(t, base+"/api/v1/tasks/"+taskID, memberToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
-		resp, body = deleteJSON(t, base+"/api/v1/tasks/"+taskID, adminToken)
+		// Delete: member holds work:task:delete at scope own (decision 2026-10-25, migration
+		// 000357) and deletes only tasks they created; the admin's task answers 404 and stays.
+		resp, body = postJSON(t, base+"/api/v1/tasks", map[string]interface{}{
+			"title":      "E2E admin task",
+			"project_id": projectID,
+			"status_id":  todoID,
+		}, adminToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		var adminTask struct {
+			Task map[string]interface{} `json:"task"`
+		}
+		decodeBody(t, body, &adminTask)
+		adminTaskID, _ := adminTask.Task["id"].(string)
+		resp, body = deleteJSON(t, base+"/api/v1/tasks/"+adminTaskID, memberToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = deleteJSON(t, base+"/api/v1/tasks/"+adminTaskID, adminToken)
 		requireStatus(t, resp, body, http.StatusOK)
+
+		resp, body = deleteJSON(t, base+"/api/v1/tasks/"+taskID, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = getJSON(t, base+"/api/v1/tasks/"+taskID, memberToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
 	t.Run("documents: member loads the virtual file view", func(t *testing.T) {

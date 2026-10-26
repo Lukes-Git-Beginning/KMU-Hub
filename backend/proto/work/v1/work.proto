@@ -510,6 +510,10 @@ message UpdateTaskResponse {
 
 message DeleteTaskRequest {
   string id = 1;
+  // Set by the gateway when the caller holds work:task:delete only at scope
+  // own: the service then deletes the task only if owner_id created it
+  // (NotFound otherwise). Empty keeps the delete tenant-wide.
+  optional string owner_id = 2;
 }
 
 message DeleteTaskResponse {}

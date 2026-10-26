@@ -1678,3 +1678,25 @@ units:
       - backend/internal/gateway/route_helpdesk_assigned_edit_db_test.go
     done_when:
       - member öffnet ein ihm zugewiesenes Ticket und sieht Status/Eskalieren/Schließen, aber weder Zuweisen noch Zusammenführen noch den Interne-Notiz-Toggle (Playwright-Screenshot)
+
+  - id: fe-work-task-delete-own-means-creator
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht den Löschen-Knopf nur an Aufgaben, die er selbst angelegt hat
+    scope: >
+      Fund aus `feat-work-own-task-delete-for-members` (Lauf 17, Iteration 47). member hält seit Migration 357
+      `work:task:delete` mit Scope `own`; das Backend löscht dann nur Aufgaben mit `created_by` = Aufrufer (sonst
+      404, Entscheidung 2026-10-25 "own über created_by"). Das Desktop (`modules/work/useWorkPermissions.ts:30-32`)
+      rechnet für `delete` dieselben Owner wie für `edit`: `useScopedCapability('work:task:delete', assignee_id,
+      created_by, reporter_id)`. Ein member sieht den Löschen-Knopf also auch an Aufgaben, die ihm nur zugewiesen
+      sind, und bekommt dort 404 (Fehler-Toast). Fix im Desktop (Loop darf `desktop/` nicht ändern): `delete` nur
+      gegen `task?.created_by` prüfen. Der Rest der Task-Rechte bleibt unverändert.
+    sources:
+      - desktop/src/renderer/src/modules/work/useWorkPermissions.ts
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/gateway/route_work_own_task_delete_db_test.go
+    done_when:
+      - member sieht Löschen an einer selbst angelegten Aufgabe, nicht an einer nur zugewiesenen (Playwright-Screenshot)
