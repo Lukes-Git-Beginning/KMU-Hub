@@ -24,6 +24,11 @@ const (
 	// service that needs a capability decision (not just a gateway guard)
 	// opts in by adding its key below.
 	gRPCPermsHeader = "x-user-perms"
+	// gRPCRolesHeader carries the caller's roles listed in forwardedRoles.
+	// RLS policy hr_document_access (000128) reads them via app.user_roles,
+	// which internal/database sets from GetUserRoles — without the header that
+	// GUC is empty in every backend service.
+	gRPCRolesHeader = "x-user-roles"
 	// gRPCClientIPHeader and gRPCClientUAHeader carry the originating client's
 	// IP and user agent (see internal/clientctx). Unlike the two above they are
 	// also present on pre-JWT calls — login has no tenant yet but still needs
@@ -58,6 +63,16 @@ const (
 // itself, so they must cross the gateway->service hop.
 var forwardedPermissions = []string{PermTeamInboxManage, PermRecordingsAdmin, PermEmailWrite, PermEmailDelete}
 
+// forwardedRoles are the role names a backend decides on through RLS
+// (hr_document_access: admin and hr_admin read every tier and may write).
+//
+// lean: manager is deliberately missing. The policy grants the manager role
+// the manager AND employee tier of the whole tenant, so forwarding it would
+// open every colleague's file (gehaltsabrechnung included) through
+// /hr/personnel-documents. Add it together with the reporting-line limit of
+// feat-hr-team-documents-for-managers.
+var forwardedRoles = []string{"admin", "hr_admin"}
+
 // TenantOutboundUnaryInterceptor is a gRPC client interceptor that copies the
 // tenant_id and user_id values from the HTTP request context (already populated
 // by the Auth middleware) into the outgoing gRPC metadata. The corresponding
@@ -81,6 +96,9 @@ func TenantOutboundUnaryInterceptor() grpc.UnaryClientInterceptor {
 		}
 		if fwd := forwardedOf(GetUserPermissions(ctx)); len(fwd) > 0 {
 			ctx = metadata.AppendToOutgoingContext(ctx, gRPCPermsHeader, strings.Join(fwd, ","))
+		}
+		if roles := allowedOf(GetUserRoles(ctx), forwardedRoles); len(roles) > 0 {
+			ctx = metadata.AppendToOutgoingContext(ctx, gRPCRolesHeader, strings.Join(roles, ","))
 		}
 		if client := clientctx.From(ctx); client.IP != "" || client.UserAgent != "" {
 			// Metadata values must be valid HTTP/2 header values; a user agent
@@ -125,6 +143,9 @@ func TenantInboundUnaryInterceptor() grpc.UnaryServerInterceptor {
 		if vals := md.Get(gRPCPermsHeader); len(vals) > 0 && vals[0] != "" {
 			ctx = context.WithValue(ctx, UserPermsKey, forwardedOf(strings.Split(vals[0], ",")))
 		}
+		if vals := md.Get(gRPCRolesHeader); len(vals) > 0 && vals[0] != "" {
+			ctx = context.WithValue(ctx, UserRolesKey, allowedOf(strings.Split(vals[0], ","), forwardedRoles))
+		}
 
 		var client clientctx.Info
 		if vals := md.Get(gRPCClientIPHeader); len(vals) > 0 {
@@ -146,10 +167,15 @@ func TenantInboundUnaryInterceptor() grpc.UnaryServerInterceptor {
 
 // forwardedOf keeps the keys of perms that are in forwardedPermissions.
 func forwardedOf(perms []string) []string {
+	return allowedOf(perms, forwardedPermissions)
+}
+
+// allowedOf keeps the values of vals that are in allowed, without duplicates.
+func allowedOf(vals, allowed []string) []string {
 	var out []string
-	for _, p := range perms {
-		if slices.Contains(forwardedPermissions, p) && !slices.Contains(out, p) {
-			out = append(out, p)
+	for _, v := range vals {
+		if slices.Contains(allowed, v) && !slices.Contains(out, v) {
+			out = append(out, v)
 		}
 	}
 	return out

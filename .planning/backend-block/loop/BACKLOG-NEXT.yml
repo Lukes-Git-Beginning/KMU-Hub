@@ -1843,6 +1843,11 @@ units:
       `RequirePermissionAny(hr:read, team:documents:view)`, Reichweite im Handler (hr:read/all -> alles, team ->
       Proto-Flag `restrict_to_reporting_line` an ListEmployeeDocumentsReq, Prüfung im employee-Service wie
       `GetReportingLineLeaveBalance`, own -> nur eigene ID sonst 403).
+      Stand nach Iteration 55: `fix-hr-document-rls-roles-over-grpc` ist done, reicht aber NUR admin und hr_admin über den
+      Hop (`middleware.forwardedRoles`). Diese Unit muss `manager` dort ergänzen — erst zusammen mit der Berichtslinien-Grenze
+      und einer Einengung von `/hr/personnel-documents` auf die eigenen Dokumente für manager, sonst öffnet die Policy jedem
+      manager die manager- und employee-Stufe des ganzen Mandanten. `TestHRDocuments_RolesReachTheDocumentPolicy` pinnt das
+      heutige Verhalten (manager sieht über /personnel-documents nur sich selbst).
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die

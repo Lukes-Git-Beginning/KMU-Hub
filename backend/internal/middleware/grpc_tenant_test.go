@@ -223,3 +223,53 @@ func TestPermissionForwarding_CoarseEmailKeysCrossTheHop(t *testing.T) {
 		t.Fatalf("x-user-perms = %v; want only %q", got, want)
 	}
 }
+
+// ─── Forwarded roles ──────────────────────────────────────────────────────────
+
+// hr_document_access reads the caller's roles from app.user_roles, which the
+// service-side pool sets from GetUserRoles. admin and hr_admin must arrive;
+// manager must not, or every manager would read the whole tenant's files.
+func TestRoleForwarding_AdminAndHRAdminCrossTheHop(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserRolesKey, []string{"manager", "hr_admin", "admin", "Büro"})
+
+	var outgoingCtx context.Context
+	if err := TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx)); err != nil {
+		t.Fatalf("outbound: %v", err)
+	}
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	got := md.Get(gRPCRolesHeader)
+	if len(got) != 1 || got[0] != "hr_admin,admin" {
+		t.Fatalf("x-user-roles = %v; want only %q", got, "hr_admin,admin")
+	}
+
+	res, err := TenantInboundUnaryInterceptor()(metadata.NewIncomingContext(context.Background(), md), nil,
+		&grpc.UnaryServerInfo{}, fakeUnaryHandler)
+	if err != nil {
+		t.Fatalf("inbound: %v", err)
+	}
+	roles := GetUserRoles(res.(context.Context))
+	if len(roles) != 2 || roles[0] != "hr_admin" || roles[1] != "admin" {
+		t.Fatalf("GetUserRoles = %v; want [hr_admin admin]", roles)
+	}
+
+	// The receiving side filters again: a hand-built header cannot smuggle a role in.
+	in := metadata.NewIncomingContext(context.Background(), metadata.Pairs(gRPCRolesHeader, "manager,platform_admin"))
+	res, err = TenantInboundUnaryInterceptor()(in, nil, &grpc.UnaryServerInfo{}, fakeUnaryHandler)
+	if err != nil {
+		t.Fatalf("inbound: %v", err)
+	}
+	if roles := GetUserRoles(res.(context.Context)); len(roles) != 0 {
+		t.Fatalf("GetUserRoles = %v; want none", roles)
+	}
+}
+
+func TestRoleForwarding_MemberSendsNoHeader(t *testing.T) {
+	ctx := context.WithValue(context.Background(), UserRolesKey, []string{"member", "manager"})
+
+	var outgoingCtx context.Context
+	_ = TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx))
+	md, _ := metadata.FromOutgoingContext(outgoingCtx)
+	if got := md.Get(gRPCRolesHeader); len(got) != 0 {
+		t.Fatalf("unexpected x-user-roles header: %v", got)
+	}
+}

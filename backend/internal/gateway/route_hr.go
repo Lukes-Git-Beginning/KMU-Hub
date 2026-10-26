@@ -1515,7 +1515,9 @@ func (h *HRRoutes) HandleListEmployeeDocumentCategories(w http.ResponseWriter, r
 // the tenant the caller may see, across employees. The visibility tiers
 // (hr_only / manager / employee) are applied by RLS policy hr_document_access
 // against the caller's roles, so this handler adds no filter of its own — and
-// must not, or the two would drift apart.
+// must not, or the two would drift apart. Only admin and hr_admin cross the
+// gRPC hop (middleware.forwardedRoles), so manager and member get their own
+// employee-tier documents here.
 func (h *HRRoutes) HandleListPersonnelDocuments(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {

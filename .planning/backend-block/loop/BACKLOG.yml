@@ -1727,7 +1727,7 @@ units:
     service: hr
     model: opus
     deps: []
-    status: todo
+    status: done
     target: Personalakte zeigt HR und admin wieder die Dokumente, Upload geht wieder
     coverage_start: n.a.
     scope: >
