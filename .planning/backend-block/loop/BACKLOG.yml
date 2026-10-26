@@ -3040,7 +3040,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/customfield von 65,0 % auf ≥ 78 %
     coverage_start: internal/crm/customfield 65,0 %
     scope: >

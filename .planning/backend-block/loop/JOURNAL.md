@@ -1832,3 +1832,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) CI-Vorher-Wert 64,2 % deckt sich mit der lokalen Messung. (2) `Update`/`Delete` des Repositories haben keinen `RowsAffected`-Check, unbekannte ID wirkt still als No-op (bestehender Test `TestTagWrites_LandInCallerTenant` pinnt nur das Tenant-Verhalten). (3) `gofmt -l` meldet die zwei bestehenden Testdateien (CRLF), nicht angefasst.
+
+## Iteration 108 — cov-crm-customfield — done — 2026-10-26 09:07
+- commit: siehe Commit `test(crm): cover the custom field repository read paths and round trip against the app-role database` (git log)
+- gebaut: `internal/crm/customfield/postgres_repository_db_test.go` (3 Tests mit Subtests, DB als `kmuhub_app`, je Test frische Tenants): `GetByEntityAndName` (Entity/Name-Treffer, gleicher Name in anderem Tenant getrennt, Fremd-Session, abgebrochener Kontext), `List` (Sortierung `sort_order, created_at` gefiltert bzw. `entity_type` zuerst ungefiltert, Paging behält Gesamt-Total, Offset hinter dem Ende, Tenant-Isolation, beide Zweige bei abgebrochenem Kontext), Roundtrip von Options/Default/Pflichtfeld/Sortierung über `Create`/`GetByID`/`Update` (Identität bleibt, `updated_at` läuft vor), Update/Delete unbekannter ID = NotFound, Unique-Verstoß, defektes `options`-jsonb meldet Fehler in `GetByID` und `List`, expliziter `tenant_id`-Filter von Update/Delete/GetByID unter System-Kontext (RLS ausgeschaltet).
+- gate: build n.a. (nur Test-Datei) | vet ok | lint ok (0 issues) | test ok (`internal/crm/...` alle ok, `internal/crm/customfield` 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Cross-Tenant in den Tests)
+- coverage: internal/crm/customfield 65,0 % -> 91,9 %
+- mutations-probe: 17 Proben auf `postgres_repository.go`, alle rot: Tenant- und Entity-Prädikat in `GetByEntityAndName`, Sortierung (`sort_order` DESC, `created_at` DESC, `entity_type` entfernt), LIMIT/OFFSET vertauscht (beide Zweige), Count ohne Tenant bzw. Entity, Listenfilter ohne Entity, `sort_order` im Update entfernt, `RowsAffected`-Prüfung abgeschaltet, Options-Unmarshal übersprungen, Tenant-Prädikat in Update/Delete/GetByID. Eine überlebte zuerst (Tenant-Prädikat im Update, weil RLS die Zeile schon verbirgt); neuer Subtest unter System-Kontext macht sie rot. Datei zurück, `git status` zeigt nur die neue Testdatei plus Loop-Doku.
+- verify vorgaenger: sauber (`d8b1a0f5`: nur Test-Datei plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) CI-Vorher-Wert 65,0 % deckt sich mit der lokalen Messung. (2) Das Repository ist über Tenant-Prädikat UND RLS doppelt gesichert; der alte Test `TestCustomFieldWrites_LandInCallerTenant` konnte das Prädikat allein nicht belegen, der neue Subtest tut es.
