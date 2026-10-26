@@ -3166,7 +3166,7 @@ units:
     service: chat
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/chat/file von 68,6 % auf ≥ 78 %
     coverage_start: internal/chat/file 68,6 %
     scope: >
