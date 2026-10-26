@@ -1825,3 +1825,37 @@ units:
       - backend/internal/gateway/route_inventar_transfer_db_test.go
     done_when:
       - member bucht eine Umbuchung zwischen zwei Artikeln, beide Bestände ändern sich (Playwright-Screenshot)
+
+  - id: feat-hr-team-documents-for-managers
+    phase: 4
+    service: hr
+    model: opus
+    deps: [fix-hr-document-rls-roles-over-grpc]
+    status: blocked
+    blocked_reason: >
+      Wartet auf Luke (Lauf 17, Iteration 54). Zwei Funde: (1) Die Rollen überqueren den gRPC-Hop nicht, die
+      RLS-Stufen der Akte greifen im HR-Service nie — selbst hr_admin/admin sehen `[]`; Fix-Unit
+      `fix-hr-document-rls-roles-over-grpc` steht am Kopf von BACKLOG.yml und ist Voraussetzung. (2) Nach dem Fix sieht
+      der manager laut Policy die manager- UND employee-Stufe, und `gehaltsabrechnung` (000310) liegt in der
+      employee-Stufe — manager hält aber `team:salary:view` nicht. Frage an Luke: Sieht ein manager die
+      Gehaltsabrechnungen seiner Berichte (ja / nein = Kategorie gehaltsabrechnung für Aufrufer ohne
+      team:salary:view ausfiltern)? Bauplan liegt fertig vor (Journal Iteration 54): Guard additiv
+      `RequirePermissionAny(hr:read, team:documents:view)`, Reichweite im Handler (hr:read/all -> alles, team ->
+      Proto-Flag `restrict_to_reporting_line` an ListEmployeeDocumentsReq, Prüfung im employee-Service wie
+      `GetReportingLineLeaveBalance`, own -> nur eigene ID sonst 403).
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
+      Personalakte seiner Berichtslinie.
+    target: Personalakte für Teamleiter
+    coverage_start: n.a.
+    scope: >
+      `GET /hr/employees/{id}/documents` (und Upload) kennt nur `hr:read`/`hr:write`. manager hält `team:documents:view|team`,
+      bekommt aber 403. GET additiv auf `team:documents:view` mit Berichtslinien-Grenze (Muster `feat-hr-reporting-line-and-team-time-scope`,
+      Lauf 16). Upload bleibt HR/admin.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/
+    done_when:
+      - >
+        Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403

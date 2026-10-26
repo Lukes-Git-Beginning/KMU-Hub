@@ -1722,28 +1722,52 @@ units:
       - Migration up/down/up sauber
       - 'DB-Test oder Router-Probe: manager-Token trägt finance:module:view'
 
-  - id: feat-hr-team-documents-for-managers
+  - id: fix-hr-document-rls-roles-over-grpc
     phase: 4
     service: hr
     model: opus
     deps: []
     status: todo
-    decided: '2026-10-25'
-    decision: >
-      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
-      Personalakte seiner Berichtslinie.
-    target: Personalakte für Teamleiter
+    target: Personalakte zeigt HR und admin wieder die Dokumente, Upload geht wieder
     coverage_start: n.a.
     scope: >
-      `GET /hr/employees/{id}/documents` (und Upload) kennt nur `hr:read`/`hr:write`. manager hält `team:documents:view|team`,
-      bekommt aber 403. GET additiv auf `team:documents:view` mit Berichtslinien-Grenze (Muster `feat-hr-reporting-line-and-team-time-scope`,
-      Lauf 16). Upload bleibt HR/admin.
+      TOTALAUSFALL, reproduziert in Lauf 17, Iteration 54 (Router-DB-Test über echten Seed, echte Auth-Middleware,
+      echten HR-gRPC-Server hinter TenantInboundUnaryInterceptor, Postgres als kmuhub_app): hr_admin und admin
+      bekommen für `GET /api/v1/hr/employees/{id}/documents` eines Mitarbeiters mit Dokumenten in allen drei Stufen
+      (hr_only/manager/employee) `200 {"documents":[]}`. Ursache: RLS-Policy `hr_document_access` (000127/000128)
+      prüft die Rolle über `current_user_has_hr_role()` = GUC `app.user_roles`, den `internal/database/postgres.go:73`
+      bzw. `transaction.go:65` aus `middleware.GetUserRoles(ctx)` setzt. Die Rollen überqueren den gRPC-Hop aber
+      NICHT: `internal/middleware/grpc_tenant.go` trägt nur `x-tenant-id`, `x-user-id`, `x-user-perms`, Client-IP/UA;
+      `UserRolesKey` wird nur in `middleware/auth.go:53` (Gateway) gesetzt. Im biz-Service ist `app.user_roles`
+      deshalb immer leer — jeder sieht nur seine eigenen employee-Dokumente. Per Code-Lesung (nicht separat
+      reproduziert) scheitert auch jeder Upload (`POST /hr/employees/{id}/documents`, `POST /hr/personnel-documents`)
+      an `WITH CHECK` (verlangt admin/hr_admin), also 500 für alle. `app.user_roles` hat außer dieser Policy keinen
+      Verbraucher (grep `current_user_has_hr_role` nur in 000127/000128; `middleware.IsAdmin` nur im Gateway).
+      Fix: Rollen als eigenen Metadata-Header (z. B. `x-user-roles`) im Outbound-Interceptor mitsenden und im
+      Inbound-Interceptor unter `UserRolesKey` ablegen (Muster `x-user-perms`). ACHTUNG Datengrenze: sobald die
+      Rolle ankommt, sieht jeder manager über `GET /hr/personnel-documents` (Guard `team:documents:view`) die
+      manager- UND employee-Stufe des GANZEN Mandanten — darunter `gehaltsabrechnung` (000310, employee-Stufe),
+      obwohl manager `team:salary:view` nicht hält. Deshalb im selben Commit: für Aufrufer ohne `hr:read` und ohne
+      `team:documents:view` auf Scope all liefert `/hr/personnel-documents` nur die eigenen Dokumente
+      (employee_id = Aufrufer), sodass sich für manager/member gegenüber heute NICHTS ändert; die
+      Berichtslinien-Freigabe ist `feat-hr-team-documents-for-managers` (BACKLOG-NEXT, wartet auf Luke).
+      `/{id}/documents` bleibt hr:read-only.
     sources:
+      - backend/internal/middleware/grpc_tenant.go
+      - backend/internal/database/postgres.go
+      - backend/migrations/000128_fix_hr_document_policy_sysctx.up.sql
       - backend/internal/gateway/route_hr.go
-      - backend/internal/biz/hr/
+      - backend/internal/gateway/route_hr_leave_balance_reach_db_test.go
+    notes: >
+      Testvorlage: `route_hr_leave_balance_reach_db_test.go` mit `employee.NewService(NewPostgresEmployeeRepo,
+      NewPostgresDocCategoryRepo, NewPostgresEmployeeDocRepo)` und `server.NewHRGRPCServer(nil, nil, employeeSvc, nil,
+      nil, nil)`; drei Kategorien je Stufe im Testmandanten, Dokumente per SeedRow (`uploaded_by` = admin). Die
+      Interceptor-Änderung betrifft jeden Service — grpc_tenant-Unit-Tests mitziehen.
     done_when:
       - >
-        Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
+        Router-DB-Test: hr_admin und admin lesen die Akte eines Mitarbeiters mit allen drei Stufen; admin lädt ein
+        Dokument hoch (201); manager und member sehen über /hr/personnel-documents nur ihre eigenen Dokumente
+      - 'Unit-Test grpc_tenant: Rollen kommen über den Hop an'
 
   - id: feat-hr-team-profile-full-fields-for-managers
     phase: 4
