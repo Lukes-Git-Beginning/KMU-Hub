@@ -2686,7 +2686,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/holiday von 52,2 % auf ≥ 70 %
     coverage_start: internal/work/holiday 52,2 %
     scope: >
