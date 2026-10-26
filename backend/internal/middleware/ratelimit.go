@@ -77,7 +77,9 @@ func (rl *RateLimiter) allow(ctx context.Context, key string) (bool, error) {
 
 	pipe := rl.redis.Pipeline()
 	incr := pipe.Incr(ctx, redisKey)
-	pipe.Expire(ctx, redisKey, rl.window)
+	// NX: only the first request of a window sets the TTL. A plain EXPIRE on every request
+	// pushes the expiry out again and the counter never resets under sustained traffic.
+	pipe.ExpireNX(ctx, redisKey, rl.window)
 
 	_, err := pipe.Exec(ctx)
 	if err != nil {

@@ -2862,7 +2862,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Der globale Redis-Limiter zählt je Sekunde, statt unter Dauerlast endlos aufzulaufen
     coverage_start: internal/middleware (vor dem Fix selbst messen)
     scope: >
