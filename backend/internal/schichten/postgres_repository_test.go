@@ -5,7 +5,7 @@ package schichten
 // filter, which already exercises the repository, not just the service):
 // Update/Delete/Get/List across shifts, assignments and templates,
 // PublishShifts, the ArbZG rest-period lookups, ShiftExistsForTemplate,
-// GetStats, the swap-request Get/UpdateStatus/atomic-swap trio, and
+// GetStats, the swap-request Get/UpdateStatus/handover trio, and
 // IsMinorEmployee. Runs against the real schema, not a mock, so a forgotten
 // WHERE clause, wrong ORDER BY, or mismatched column shows up as a genuine
 // query failure or wrong row count/order instead of passing silently.
@@ -13,6 +13,7 @@ package schichten
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -634,71 +635,125 @@ func TestUpdateSwapRequestStatus_UpdatesAndRejectsUnknownID(t *testing.T) {
 	}
 }
 
-// TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift documents the
-// fixed behavior for the case where the swap partner has no prior
-// assignment on the shift. Per the product decision (2026-08-11, see
-// fix-schichten-swap-assignments-unique-violation in
-// .planning/backend-block/loop/BACKLOG.yml), a swap is only valid between
-// two employees already assigned to the shift -- this is now a rejected
-// request, not a silent no-op that ApproveSwapRequest would mark approved.
-func TestSwapAssignmentsForRequest_RejectsPartnerNotYetOnShift(t *testing.T) {
+// TestApproveSwapRequest_HandsOverToPartner_RealRepository: an approved swap
+// hands the requester's seat to a partner who is not on the shift yet (decision
+// 2026-10-25, feat-schichten-swap-as-handover). Same row, new employee.
+func TestApproveSwapRequest_HandsOverToPartner_RealRepository(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
-	now := time.Now().UTC()
+	svc := NewService(repo)
+	start := time.Now().UTC().Truncate(time.Second).Add(200 * time.Hour)
 
-	shift := newTestShift(t, repo, ctx, pool, tenantID, "Swap Shift", ShiftStatusPublished, now, now.Add(8*time.Hour))
+	shift := newTestShift(t, repo, ctx, pool, tenantID, "Handover", ShiftStatusPublished, start, start.Add(8*time.Hour))
 	requester, partner := uuid.New(), uuid.New()
-	assignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, now)
-	req := newTestSwapRequest(t, repo, ctx, pool, tenantID, assignment.ID, shift.ID, requester, partner, "schichten-repo-test-swap-move")
+	seat := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, start)
+	req := newTestSwapRequest(t, repo, ctx, pool, tenantID, seat.ID, shift.ID, requester, partner, "schichten-repo-test-handover")
 
-	if err := repo.SwapAssignmentsForRequest(ctx, req); !errors.Is(err, ErrSwapPartnerNotAssigned) {
-		t.Fatalf("expected ErrSwapPartnerNotAssigned, got %v", err)
+	// Another tenant cannot approve it.
+	if _, err := svc.ApproveSwapRequest(ctx, uuid.New(), req.ID); !errors.Is(err, ErrSwapRequestNotFound) {
+		t.Fatalf("foreign tenant: expected ErrSwapRequestNotFound, got %v", err)
 	}
 
-	// Nothing must have changed -- the transaction rolled back.
-	stillRequester, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
-	if err != nil || stillRequester.ID != assignment.ID {
-		t.Fatalf("expected the requester's assignment to be unchanged, got %+v / %v", stillRequester, err)
+	approved, err := svc.ApproveSwapRequest(ctx, tenantID, req.ID)
+	if err != nil {
+		t.Fatalf("ApproveSwapRequest: %v", err)
 	}
-	if _, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner); !errors.Is(err, ErrAssignmentNotFound) {
-		t.Fatalf("expected no assignment for the partner, got %v", err)
+	if approved.Status != SwapRequestStatusApproved {
+		t.Fatalf("expected approved, got %q", approved.Status)
+	}
+
+	nowPartner, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner)
+	if err != nil || nowPartner.ID != seat.ID {
+		t.Fatalf("expected the requester's row to carry the partner now: %+v / %v", nowPartner, err)
+	}
+	if _, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("expected the requester off the shift, got %v", err)
+	}
+	if n, err := repo.CountAssignments(ctx, tenantID, shift.ID); err != nil || n != 1 {
+		t.Fatalf("a handover keeps the head count: n=%d err=%v", n, err)
+	}
+	reloaded, err := repo.GetSwapRequest(ctx, tenantID, req.ID)
+	if err != nil || reloaded.Status != SwapRequestStatusApproved {
+		t.Fatalf("expected the stored request approved: %+v / %v", reloaded, err)
+	}
+
+	// Deciding twice is refused and hands nothing over again.
+	if _, err := svc.ApproveSwapRequest(ctx, tenantID, req.ID); !errors.Is(err, ErrSwapAlreadyProcessed) {
+		t.Fatalf("second approval: expected ErrSwapAlreadyProcessed, got %v", err)
 	}
 }
 
-// TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift
-// documents the fixed behavior for the primary, intended meaning of a
-// "shift swap": both the requester and the swap partner already hold an
-// assignment on the SAME shift. Before the fix, the two-step UPDATE hit
-// uq_shift_assignments_tenant's UNIQUE(tenant_id, shift_id, employee_id)
-// (migration 000102) because it validated immediately after the first
-// UPDATE, while the second UPDATE re-matched the row the first one had just
-// moved. Migration 000311 makes that constraint DEFERRABLE so the swap
-// transaction can defer the check to COMMIT, and both UPDATEs are now
-// scoped by assignment row id instead of (shift_id, employee_id).
-func TestSwapAssignmentsForRequest_SwapsBothEmployeesAlreadyAssignedToShift(t *testing.T) {
+// TestApproveSwapRequest_PartnerCannotTakeTheShift_RealRepository: the partner
+// gets the checks AssignEmployee runs. A refused handover writes nothing.
+func TestApproveSwapRequest_PartnerCannotTakeTheShift_RealRepository(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
+	svc := NewService(repo)
+	start := time.Now().UTC().Truncate(time.Second).Add(400 * time.Hour)
+
+	cases := []struct {
+		name  string
+		setup func(shift *Shift, partner uuid.UUID)
+		want  error
+	}{
+		{"partner already on the shift", func(shift *Shift, partner uuid.UUID) {
+			newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, partner, start)
+		}, ErrAlreadyAssigned},
+		{"partner works an overlapping shift", func(shift *Shift, partner uuid.UUID) {
+			other := newTestShift(t, repo, ctx, pool, tenantID, "Overlap", ShiftStatusPublished, shift.StartTime.Add(4*time.Hour), shift.EndTime.Add(4*time.Hour))
+			newTestAssignment(t, repo, ctx, pool, tenantID, other.ID, partner, start)
+		}, ErrShiftOverlap},
+		{"partner's previous shift ends 5 h before", func(shift *Shift, partner uuid.UUID) {
+			prev := newTestShift(t, repo, ctx, pool, tenantID, "Late", ShiftStatusPublished, shift.StartTime.Add(-9*time.Hour), shift.StartTime.Add(-5*time.Hour))
+			newTestAssignment(t, repo, ctx, pool, tenantID, prev.ID, partner, start)
+		}, ErrArbzgViolation},
+	}
+	for i, tc := range cases {
+		// Each case on its own day, so the cases do not see each other's shifts.
+		day := start.Add(time.Duration(i) * 72 * time.Hour)
+		shift := newTestShift(t, repo, ctx, pool, tenantID, tc.name, ShiftStatusPublished, day, day.Add(8*time.Hour))
+		requester, partner := uuid.New(), uuid.New()
+		seat := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, day)
+		req := newTestSwapRequest(t, repo, ctx, pool, tenantID, seat.ID, shift.ID, requester, partner, fmt.Sprintf("schichten-repo-test-refused-%d", i))
+		tc.setup(shift, partner)
+
+		if _, err := svc.ApproveSwapRequest(ctx, tenantID, req.ID); !errors.Is(err, tc.want) {
+			t.Fatalf("%s: expected %v, got %v", tc.name, tc.want, err)
+		}
+		still, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
+		if err != nil || still.ID != seat.ID {
+			t.Fatalf("%s: the requester's seat must be unchanged: %+v / %v", tc.name, still, err)
+		}
+		reloaded, err := repo.GetSwapRequest(ctx, tenantID, req.ID)
+		if err != nil || reloaded.Status != SwapRequestStatusPending {
+			t.Fatalf("%s: the request must stay pending: %+v / %v", tc.name, reloaded, err)
+		}
+	}
+}
+
+// TestHandOverAssignment_MatchesOnlyTheCurrentOwner: the row moves only while it
+// still belongs to the requester on that shift.
+func TestHandOverAssignment_MatchesOnlyTheCurrentOwner(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
 	now := time.Now().UTC()
 
-	shift := newTestShift(t, repo, ctx, pool, tenantID, "Swap Shift", ShiftStatusPublished, now, now.Add(8*time.Hour))
+	shift := newTestShift(t, repo, ctx, pool, tenantID, "Owner", ShiftStatusPublished, now, now.Add(8*time.Hour))
 	requester, partner := uuid.New(), uuid.New()
-	requesterAssignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, now)
-	partnerAssignment := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, partner, now)
-	req := newTestSwapRequest(t, repo, ctx, pool, tenantID, requesterAssignment.ID, shift.ID, requester, partner, "schichten-repo-test-swap-conflict")
+	seat := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, requester, now)
 
-	if err := repo.SwapAssignmentsForRequest(ctx, req); err != nil {
-		t.Fatalf("SwapAssignmentsForRequest: %v", err)
+	if err := repo.HandOverAssignment(ctx, tenantID, shift.ID, seat.ID, uuid.New(), partner); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("wrong owner: expected ErrAssignmentNotFound, got %v", err)
 	}
-
-	// The requester's original row now belongs to the partner, and vice
-	// versa -- row identities swap along with employee_id.
-	nowPartner, err := repo.GetAssignment(ctx, tenantID, shift.ID, partner)
-	if err != nil || nowPartner.ID != requesterAssignment.ID {
-		t.Fatalf("expected the requester's row to now carry the partner's employee_id: %+v / %v", nowPartner, err)
+	if err := repo.HandOverAssignment(ctx, tenantID, uuid.New(), seat.ID, requester, partner); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("wrong shift: expected ErrAssignmentNotFound, got %v", err)
 	}
-	nowRequester, err := repo.GetAssignment(ctx, tenantID, shift.ID, requester)
-	if err != nil || nowRequester.ID != partnerAssignment.ID {
-		t.Fatalf("expected the partner's row to now carry the requester's employee_id: %+v / %v", nowRequester, err)
+	if err := repo.HandOverAssignment(ctx, uuid.New(), shift.ID, seat.ID, requester, partner); !errors.Is(err, ErrAssignmentNotFound) {
+		t.Fatalf("wrong tenant: expected ErrAssignmentNotFound, got %v", err)
+	}
+	other := newTestAssignment(t, repo, ctx, pool, tenantID, shift.ID, partner, now)
+	if err := repo.HandOverAssignment(ctx, tenantID, shift.ID, seat.ID, requester, other.EmployeeID); !errors.Is(err, ErrAlreadyAssigned) {
+		t.Fatalf("partner on shift: expected ErrAlreadyAssigned, got %v", err)
 	}
 }
 

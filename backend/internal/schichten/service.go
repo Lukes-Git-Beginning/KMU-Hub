@@ -721,7 +721,17 @@ func (s *Service) ListSwapRequests(ctx context.Context, input ListSwapRequestsIn
 	return s.repo.ListSwapRequests(ctx, input.TenantID, filter, offset, input.PageSize)
 }
 
-// ApproveSwapRequest approves a swap request and atomically swaps the two assignments.
+// ApproveSwapRequest approves a swap request by handing the requester's
+// assignment over to the swap partner: the same row now carries the partner,
+// the requester is off the shift. The partner gets the same checks as
+// AssignEmployee (overlap, ArbZG rest period, JArbSchG); capacity is not
+// re-checked because a handover leaves the head count unchanged.
+//
+// Checks, handover and status change run in one transaction under
+// WithAssignmentLock on (shift, partner), so a concurrent assignment of the
+// partner or a second approval of the same request queues up behind it. The
+// queued approval then finds the partner on the shift (ErrAlreadyAssigned) and
+// the seat no longer the requester's, so nothing is handed over twice.
 func (s *Service) ApproveSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
 	req, err := s.repo.GetSwapRequest(ctx, tenantID, requestID)
 	if err != nil {
@@ -732,19 +742,43 @@ func (s *Service) ApproveSwapRequest(ctx context.Context, tenantID, requestID uu
 		return nil, ErrSwapAlreadyProcessed
 	}
 
-	// Atomically: update status + swap assignments in one transaction.
-	if err := s.repo.SwapAssignmentsForRequest(ctx, req); err != nil {
-		return nil, fmt.Errorf("approve swap request (swap assignments): %w", err)
-	}
-	if err := s.repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusApproved); err != nil {
-		return nil, fmt.Errorf("approve swap request (update status): %w", err)
+	err = s.repo.WithAssignmentLock(ctx, tenantID, req.ShiftID, req.SwapWithEmployeeID, func(repo Repository) error {
+		shift, err := repo.GetShift(ctx, tenantID, req.ShiftID)
+		if err != nil {
+			return err
+		}
+
+		if err := validateNoOverlap(ctx, repo, tenantID, req.SwapWithEmployeeID, req.ShiftID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+		if err := validateRestPeriod(ctx, repo, tenantID, req.SwapWithEmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+		if err := validateMinorProtection(ctx, repo, tenantID, req.SwapWithEmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		// A partner already on this shift trips the unique constraint: ErrAlreadyAssigned.
+		if err := repo.HandOverAssignment(ctx, tenantID, req.ShiftID, req.AssignmentID, req.RequestedByEmployeeID, req.SwapWithEmployeeID); err != nil {
+			return fmt.Errorf("approve swap request (hand over): %w", err)
+		}
+		if err := repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusApproved); err != nil {
+			return fmt.Errorf("approve swap request (update status): %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	req.Status = SwapRequestStatusApproved
 	req.UpdatedAt = time.Now()
 
-	slog.Info("swap request approved",
+	slog.Info("swap request approved, assignment handed over",
 		"swap_request_id", requestID,
+		"assignment_id", req.AssignmentID,
+		"from_employee_id", req.RequestedByEmployeeID,
+		"to_employee_id", req.SwapWithEmployeeID,
 		"tenant_id", tenantID,
 	)
 	return req, nil

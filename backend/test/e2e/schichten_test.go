@@ -371,48 +371,49 @@ func TestSchichtenMemberFlow(t *testing.T) {
 	})
 
 	t.Run("manager: decides", func(t *testing.T) {
-		// Partner B is on the shift: approved. Both stay on it, the swap exchanges the two rows.
+		// An approved swap hands the requester's seat over (decision 2026-10-25). Partner B
+		// already holds a seat on this shift and cannot take a second one: refused, nothing changes.
 		resp, body := postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToB), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusOK)
-		var out swapOut
-		decodeBody(t, body, &out)
-		if out.SwapRequest["status"] != "approved" {
-			t.Fatalf("expected an approved swap request, got %s", string(body))
-		}
-		if st := swapStatus(t, swapToB); st != "approved" {
-			t.Fatalf("expected the list to show approved, got %q", st)
-		}
-		ids := assignmentIDs(t)
-		if _, ok := ids[memberAID]; !ok {
-			t.Fatalf("A must still be on the shift after swapping with B: %v", ids)
-		}
-		if _, ok := ids[memberBID]; !ok || len(ids) != 2 {
-			t.Fatalf("B must still be on the shift after swapping with A: %v", ids)
-		}
-
-		// A decided request cannot be decided again.
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToB), nil, managerToken)
 		requireStatus(t, resp, body, http.StatusConflict)
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToB), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusConflict)
-
-		// Partner C is not on the shift: the approval is refused and nothing changes.
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusConflict)
-		if st := swapStatus(t, swapToC); st != "pending" {
+		if st := swapStatus(t, swapToB); st != "pending" {
 			t.Fatalf("a refused approval changed the request to %q", st)
 		}
-		if ids := assignmentIDs(t); len(ids) != 2 {
+		if ids := assignmentIDs(t); len(ids) != 2 || ids[memberAID] != assignmentA || ids[memberBID] != assignmentB {
 			t.Fatalf("a refused approval changed the roster: %v", ids)
 		}
 
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToC), nil, managerToken)
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToB), nil, managerToken)
 		requireStatus(t, resp, body, http.StatusOK)
-		out.SwapRequest = nil
+		var out swapOut
 		decodeBody(t, body, &out)
 		if out.SwapRequest["status"] != "rejected" {
 			t.Fatalf("expected a rejected swap request, got %s", string(body))
 		}
+
+		// Partner C is not on the shift: approved, C takes over A's assignment row, A is off.
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		out.SwapRequest = nil
+		decodeBody(t, body, &out)
+		if out.SwapRequest["status"] != "approved" {
+			t.Fatalf("expected an approved swap request, got %s", string(body))
+		}
+		if st := swapStatus(t, swapToC); st != "approved" {
+			t.Fatalf("expected the list to show approved, got %q", st)
+		}
+		ids := assignmentIDs(t)
+		if _, ok := ids[memberAID]; ok {
+			t.Fatalf("A must be off the shift after handing it over to C: %v", ids)
+		}
+		if ids[memberCID] != assignmentA || ids[memberBID] != assignmentB || len(ids) != 2 {
+			t.Fatalf("C must hold A's former assignment %s, B keeps theirs: %v", assignmentA, ids)
+		}
+
+		// A decided request cannot be decided again.
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusConflict)
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusConflict)
 	})
 
 	t.Run("manager: publishes, unassigns and removes the shift", func(t *testing.T) {

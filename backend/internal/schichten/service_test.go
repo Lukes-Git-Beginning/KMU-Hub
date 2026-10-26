@@ -358,25 +358,17 @@ func (m *mockRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, 
 	return nil
 }
 
-func (m *mockRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
-	// Swap employee_id on the requester's assignment.
-	assignKey1 := assignKey(req.ShiftID, req.RequestedByEmployeeID)
-	assignKey2 := assignKey(req.ShiftID, req.SwapWithEmployeeID)
-
-	a1, ok1 := m.assignments[assignKey1]
-	a2, ok2 := m.assignments[assignKey2]
-
-	// Best-effort: update what exists (mirrors DB ON CONFLICT DO NOTHING style).
-	if ok1 {
-		delete(m.assignments, assignKey1)
-		a1.EmployeeID = req.SwapWithEmployeeID
-		m.assignments[assignKey(req.ShiftID, req.SwapWithEmployeeID)] = a1
+func (m *mockRepository) HandOverAssignment(_ context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error {
+	a, ok := m.assignments[assignKey(shiftID, from)]
+	if !ok || a.ID != assignmentID || a.TenantID != tenantID {
+		return ErrAssignmentNotFound
 	}
-	if ok2 {
-		delete(m.assignments, assignKey2)
-		a2.EmployeeID = req.RequestedByEmployeeID
-		m.assignments[assignKey(req.ShiftID, req.RequestedByEmployeeID)] = a2
+	if _, taken := m.assignments[assignKey(shiftID, to)]; taken {
+		return ErrAlreadyAssigned
 	}
+	delete(m.assignments, assignKey(shiftID, from))
+	a.EmployeeID = to
+	m.assignments[assignKey(shiftID, to)] = a
 	return nil
 }
 
@@ -1510,42 +1502,69 @@ func TestService_ListSwapRequests_Success(t *testing.T) {
 	assert.Len(t, reqs, 3)
 }
 
-func TestService_ApproveSwapRequest_Success(t *testing.T) {
-	repo := newMockRepository()
-	svc := NewService(repo)
-
-	tenantID := uuid.New()
-	shiftID := uuid.New()
-	empA := uuid.New()
-	empB := uuid.New()
-	assignID := uuid.New()
-
-	// Pre-seed assignments so swap has something to work with.
-	repo.assignments[assignKey(shiftID, empA)] = &ShiftAssignment{
-		ID: assignID, TenantID: tenantID, ShiftID: shiftID, EmployeeID: empA, AssignedAt: time.Now(),
-	}
-	repo.assignments[assignKey(shiftID, empB)] = &ShiftAssignment{
-		ID: uuid.New(), TenantID: tenantID, ShiftID: shiftID, EmployeeID: empB, AssignedAt: time.Now(),
-	}
-
+// seedSwap puts a shift, the requester's assignment on it and a pending swap
+// request to partner into the mock repository.
+func seedSwap(repo *mockRepository, tenantID, requester, partner uuid.UUID, start time.Time) (*Shift, *ShiftAssignment, uuid.UUID) {
+	shift := addShift(repo, tenantID, "Swap", start, start.Add(8*time.Hour), ShiftStatusPublished)
+	a := &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shift.ID, EmployeeID: requester, AssignedAt: time.Now()}
+	repo.assignments[assignKey(shift.ID, requester)] = a
 	reqID := uuid.New()
 	repo.swapRequests[reqID] = &SwapRequest{
-		ID:                    reqID,
-		TenantID:              tenantID,
-		AssignmentID:          assignID,
-		RequestedByEmployeeID: empA,
-		SwapWithEmployeeID:    empB,
-		ShiftID:               shiftID,
-		Status:                SwapRequestStatusPending,
-		IdempotencyKey:        "idem-key-approve",
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
+		ID: reqID, TenantID: tenantID, AssignmentID: a.ID, ShiftID: shift.ID,
+		RequestedByEmployeeID: requester, SwapWithEmployeeID: partner,
+		Status: SwapRequestStatusPending, IdempotencyKey: "idem-" + reqID.String(),
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
+	return shift, a, reqID
+}
+
+func TestService_ApproveSwapRequest_HandsTheSeatOverToThePartner(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	shift, seat, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 8, 0, 0, 0, time.UTC))
 
 	approved, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
 
 	require.NoError(t, err)
 	assert.Equal(t, SwapRequestStatusApproved, approved.Status)
+	got, err := repo.GetAssignment(context.Background(), tenantID, shift.ID, empB)
+	require.NoError(t, err)
+	assert.Equal(t, seat.ID, got.ID, "the partner takes over the requester's row")
+	_, err = repo.GetAssignment(context.Background(), tenantID, shift.ID, empA)
+	assert.ErrorIs(t, err, ErrAssignmentNotFound, "the requester is off the shift")
+}
+
+func TestService_ApproveSwapRequest_PartnerAlreadyOnShift(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	shift, seat, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 8, 0, 0, 0, time.UTC))
+	repo.assignments[assignKey(shift.ID, empB)] = &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shift.ID, EmployeeID: empB}
+
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+
+	assert.ErrorIs(t, err, ErrAlreadyAssigned)
+	assert.Equal(t, SwapRequestStatusPending, repo.swapRequests[reqID].Status)
+	got, gErr := repo.GetAssignment(context.Background(), tenantID, shift.ID, empA)
+	require.NoError(t, gErr)
+	assert.Equal(t, seat.ID, got.ID)
+}
+
+func TestService_ApproveSwapRequest_MinorPartnerAtNight(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	// 22:00 on a weekday: night work for a minor (JArbSchG §14).
+	shift, _, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 22, 0, 0, 0, time.UTC))
+	repo.minorEmployees[minorKey(tenantID, empB)] = true
+
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+
+	assert.ErrorIs(t, err, ErrJArbSchGNightWork)
+	assert.Equal(t, SwapRequestStatusPending, repo.swapRequests[reqID].Status)
+	_, err = repo.GetAssignment(context.Background(), tenantID, shift.ID, empB)
+	assert.ErrorIs(t, err, ErrAssignmentNotFound)
 }
 
 func TestService_ApproveSwapRequest_AlreadyProcessed(t *testing.T) {

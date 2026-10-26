@@ -19193,6 +19193,10 @@ paths:
   /api/v1/schichten/swap-requests/{id}/approve:
     post:
       summary: Approve a shift swap request
+      description: >
+        Hands the requester's assignment over to the swap partner: the same assignment row now
+        carries the partner, the requester is off the shift. The partner gets the checks an
+        assignment gets.
       tags: [schichten]
       operationId: approveSwapRequest
       security: [{ bearerAuth: [] }]
@@ -19212,7 +19216,15 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >
+            Approval refused: the request is already decided, the requester no longer holds the
+            seat, or the swap partner cannot take the shift (already on it, overlapping shift,
+            ArbZG rest period or JArbSchG limit). Nothing is handed over.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

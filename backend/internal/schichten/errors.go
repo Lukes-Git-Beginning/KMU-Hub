@@ -13,7 +13,6 @@ var (
 	ErrShiftOverlap           = errors.New("employee is already assigned to an overlapping shift")
 	ErrSwapRequestNotFound    = errors.New("swap request not found")
 	ErrSwapAlreadyProcessed   = errors.New("swap request has already been processed")
-	ErrSwapPartnerNotAssigned = errors.New("swap partner is not assigned to this shift")
 	ErrSwapRequesterNotCaller = errors.New("requested_by_employee_id must be the caller")
 
 	// JArbSchG (Jugendarbeitsschutzgesetz) violations. They only ever apply to

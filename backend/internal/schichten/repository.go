@@ -84,10 +84,11 @@ type Repository interface {
 	// IsOwnEmployeeID reports whether employeeID is one of userID's identities
 	// in the tenant: the user id itself or the user's HR profile id.
 	IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error)
-	// UpdateSwapRequestStatus sets the status of a swap request and (on approval) atomically
-	// swaps the two assignments within the same transaction.
+	// UpdateSwapRequestStatus sets the status of a swap request.
 	UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error
-	// SwapAssignmentsForRequest atomically swaps the employee of two assignments identified
-	// by the swap request's assignment data. Called inside ApproveSwapRequest.
-	SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error
+	// HandOverAssignment moves assignment assignmentID on shiftID from employee
+	// from to employee to, keeping the row (and its id). ErrAssignmentNotFound
+	// when the row no longer belongs to from on that shift. Called by
+	// ApproveSwapRequest inside WithAssignmentLock.
+	HandOverAssignment(ctx context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error
 }
