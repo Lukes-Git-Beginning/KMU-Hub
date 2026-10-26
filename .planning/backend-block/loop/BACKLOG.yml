@@ -2905,7 +2905,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/biz/pdf von 60,8 % auf ≥ 78 %
     coverage_start: internal/biz/pdf 60,8 %
     scope: >
@@ -3573,3 +3573,33 @@ units:
     done_when:
       - 'Test: Update mit leerer Farbe -> kein 500 (Farbe bleibt bzw. ErrColorInvalid), gegen echte DB als kmuhub_app'
       - go test -count=1 ./internal/work/... ./internal/server/ ./internal/gateway/ grün, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-dunning-pdf-level1-duplicate-eur
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: Mahnung Stufe 1 druckt den Betrag nicht mehr als "238.00 EUR EUR"
+    scope: >
+      Fund aus `cov-biz-pdf` (Lauf 17, Iteration 102), per Test-Render verifiziert: `buildDunningBody`
+      (`internal/biz/pdf/templates.go`, Fall `level == 1`) formatiert den Text mit
+      `"ueber %s EUR noch nicht beglichen"` und übergibt `formatEUR(invoiceGrossTotal)`. `formatEUR` hängt
+      selbst " EUR" an, der gerenderte Satz lautet also "ueber 238.00 EUR EUR noch nicht beglichen". Betrifft
+      jede Zahlungserinnerung (Stufe 1), die über `GET /api/v1/biz/dunning/{id}/pdf` bzw. den Dunning-Versand
+      an Kunden geht. Kein Totalausfall, aber ein sichtbarer Fehler auf einem Geschäftsbrief.
+      Zweite Beobachtung, gleiche Funktion: für `level` außerhalb 1..3 bleiben Titel und Fließtext leer, das
+      PDF enthält dann nur Betragszeilen; die Aufrufer übergeben `record.Level` (DB-seitig 1..3 geprüft zu
+      verifizieren), ein Guard am Eingang wäre billig.
+    sources:
+      - backend/internal/biz/pdf/templates.go
+      - backend/internal/biz/pdf/generator_documents_test.go
+      - backend/internal/biz/dunning/service.go
+    notes: >
+      Lean: " EUR" aus dem Format-String streichen (`formatEUR` liefert die Einheit schon). Der Test
+      `TestDunningPDF_Level1NamesTheOpenAmount` prüft bewusst nur "ueber 238.00 EUR" (Contains) und ist
+      danach auf die exakte Wendung "ueber 238.00 EUR noch nicht" zu verschärfen, plus Gegenprobe gegen
+      "EUR EUR". Level-Guard nur, wenn die DB-Prüfung zeigt, dass andere Werte erreichbar sind.
+    done_when:
+      - 'Test: gerenderter Level-1-Text enthält "238.00 EUR noch nicht beglichen" und kein "EUR EUR"'
+      - go test -count=1 ./internal/biz/pdf/ ./internal/biz/dunning/ grün, DATABASE_URL gesetzt, 0 Skips
