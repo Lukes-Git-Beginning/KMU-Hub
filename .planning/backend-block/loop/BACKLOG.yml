@@ -2926,7 +2926,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/comment von 60,8 % auf ≥ 78 %
     coverage_start: internal/work/comment 60,8 %
     scope: >
@@ -2941,6 +2941,36 @@ units:
       - '`internal/work/comment` ≥ 78 % (go test -cover, Wert im Journal)'
       - Mutationsprobe dokumentiert
       - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: fix-work-comment-on-standalone-task-rls
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: Kommentare auf Aufgaben ohne Projekt (standalone) lassen sich anlegen statt mit RLS-Fehler zu scheitern
+    scope: >
+      Fund aus `cov-work-comment` (Lauf 17, Iteration 103), per DB-Test als `kmuhub_app` reproduziert:
+      `PostgresRepository.Create` (`internal/work/comment/postgres_repository.go`) leitet `tenant_id` des
+      Kommentars aus `tasks JOIN projects` ab. Eine eigenständige Aufgabe (`tasks.project_id IS NULL`, seit
+      der Standalone-Funktion und `move_to_project` mit "none" möglich) hat keinen Projekt-Join, die Subselect
+      liefert NULL, und der INSERT scheitert mit `new row violates row-level security policy for table
+      "task_comments" (SQLSTATE 42501)`. Das ist ein 500 beim Kommentieren JEDER standalone-Aufgabe, für jeden
+      Nutzer. `tasks` trägt selbst `tenant_id NOT NULL`, der Join über `projects` ist unnötig und falsch.
+    sources:
+      - backend/internal/work/comment/postgres_repository.go
+      - backend/internal/work/comment/postgres_repository_db_test.go
+      - backend/internal/work/task/standalone_db_test.go
+    notes: >
+      Lean: Subselect auf `SELECT t.tenant_id FROM tasks t WHERE t.id = $2` umstellen (kein Join). Ein
+      Alternativweg ist `middleware.GetTenantID(ctx)`, aber die Subselect-Form lässt den Kommentar zwangsläufig
+      im Tenant seiner Aufgabe. Test in `postgres_repository_db_test.go`: Kommentar auf standalone-Aufgabe
+      anlegen und lesen (heute rot), plus der bestehende Fremd-Tenant-Test bleibt grün. Gateway-Aufrufer
+      (`POST /api/v1/tasks/{id}/comments`) und FE-Verhalten bei 500 prüfen, keine neue Route.
+    done_when:
+      - 'Test: Kommentar auf Aufgabe ohne Projekt wird angelegt, `tenant_id` = Tenant der Aufgabe, gegen echte DB als kmuhub_app'
+      - 'Test: Kommentar durch fremden Tenant auf fremde Aufgabe weiterhin abgelehnt'
+      - go test -count=1 ./internal/work/comment/ grün, DATABASE_URL gesetzt, 0 Skips
 
   - id: cov-plugin-repository
     phase: 4
