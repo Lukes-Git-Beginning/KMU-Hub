@@ -1147,6 +1147,22 @@ func (s *Service) DeleteVehicleBooking(ctx context.Context, tenantID, bookingID 
 	return s.repo.DeleteBooking(ctx, tenantID, bookingID)
 }
 
+// GetVehicleAvailability returns the occupied windows of one vehicle within
+// [from, to). The vehicle must exist in the tenant (ErrVehicleNotFound
+// otherwise), the window must be ordered and at most MaxAvailabilityWindow long.
+func (s *Service) GetVehicleAvailability(ctx context.Context, tenantID, vehicleID uuid.UUID, from, to time.Time) ([]BusySlot, error) {
+	if !to.After(from) {
+		return nil, fmt.Errorf("%w: to must be after from", ErrInvalidInput)
+	}
+	if to.Sub(from) > MaxAvailabilityWindow {
+		return nil, fmt.Errorf("%w: availability window exceeds %d days", ErrInvalidInput, int(MaxAvailabilityWindow.Hours()/24))
+	}
+	if _, err := s.repo.GetVehicle(ctx, tenantID, vehicleID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListBusySlots(ctx, tenantID, vehicleID, from, to)
+}
+
 // ListVehicleBookings returns bookings with optional filtering and pagination.
 func (s *Service) ListVehicleBookings(ctx context.Context, params ListVehicleBookingsParams) ([]*VehicleBooking, int, error) {
 	if params.Page < 1 {

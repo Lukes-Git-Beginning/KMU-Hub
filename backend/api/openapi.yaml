@@ -19801,6 +19801,49 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
+  /api/v1/fuhrpark/vehicles/{id}/availability:
+    get:
+      summary: Occupied time windows of a vehicle
+      description: >
+        Returns the intervals of the vehicle's active bookings (booked, in_use) that overlap
+        [from, to), ordered by start. The answer carries no booking id, user or purpose, so it is
+        not narrowed to the caller's own bookings: anyone holding fuhrpark:booking:read (member
+        at scope own included) sees when a pool vehicle is taken before booking it. Window at
+        most 93 days.
+      tags: [fuhrpark]
+      operationId: getVehicleAvailability
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Occupied windows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vehicle_id, from, to, items, total]
+                properties:
+                  vehicle_id: { type: string, format: uuid }
+                  from: { type: string, format: date-time }
+                  to: { type: string, format: date-time }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [starts_at, ends_at]
+                      properties:
+                        starts_at: { type: string, format: date-time }
+                        ends_at: { type: string, format: date-time }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
   /api/v1/fuhrpark/vehicles/{id}/services:
     get:
       summary: List services for a vehicle

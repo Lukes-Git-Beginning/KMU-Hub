@@ -1048,6 +1048,46 @@ func (s *FuhrparkGRPCServer) ListVehicleBookings(ctx context.Context, req *fuhrp
 	return &fuhrparkv1.ListVehicleBookingsResponse{Bookings: pb, Total: int32(total)}, nil
 }
 
+// GetVehicleAvailability answers with the occupied windows only; the booking
+// rows themselves (user, purpose) stay behind ListVehicleBookings and its scope.
+func (s *FuhrparkGRPCServer) GetVehicleAvailability(ctx context.Context, req *fuhrparkv1.GetVehicleAvailabilityRequest) (*fuhrparkv1.GetVehicleAvailabilityResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing tenant")
+	}
+	vehicleID, err := uuid.Parse(req.VehicleId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid vehicle_id: %v", err)
+	}
+	from, err := time.Parse(time.RFC3339, req.From)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid from: %v", err)
+	}
+	to, err := time.Parse(time.RFC3339, req.To)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid to: %v", err)
+	}
+
+	slots, err := s.svc.GetVehicleAvailability(ctx, tenantID, vehicleID, from, to)
+	if err != nil {
+		return nil, mapFuhrparkError(err)
+	}
+	items := make([]*fuhrparkv1.VehicleBusySlot, len(slots))
+	for i, sl := range slots {
+		items[i] = &fuhrparkv1.VehicleBusySlot{
+			StartsAt: sl.StartsAt.Format(time.RFC3339),
+			EndsAt:   sl.EndsAt.Format(time.RFC3339),
+		}
+	}
+	return &fuhrparkv1.GetVehicleAvailabilityResponse{
+		VehicleId: vehicleID.String(),
+		From:      from.Format(time.RFC3339),
+		To:        to.Format(time.RFC3339),
+		Items:     items,
+		Total:     int32(len(items)),
+	}, nil
+}
+
 func (s *FuhrparkGRPCServer) CreateVehicleBooking(ctx context.Context, req *fuhrparkv1.CreateVehicleBookingRequest) (*fuhrparkv1.VehicleBookingResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {

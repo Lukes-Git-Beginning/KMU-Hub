@@ -289,6 +289,18 @@ type VehicleBooking struct {
 	UpdatedAt time.Time     `json:"updated_at"`
 }
 
+// BusySlot is an interval in which a vehicle is booked. It deliberately carries
+// no booking id, user or purpose: availability is readable for every caller who
+// may book, while the bookings themselves stay scoped to their owner.
+type BusySlot struct {
+	StartsAt time.Time
+	EndsAt   time.Time
+}
+
+// MaxAvailabilityWindow bounds one availability query; a calendar asks for a
+// week or a month, never for years of bookings at once.
+const MaxAvailabilityWindow = 93 * 24 * time.Hour
+
 // ListVehicleBookingsParams holds filtering and pagination for booking queries.
 type ListVehicleBookingsParams struct {
 	TenantID  uuid.UUID

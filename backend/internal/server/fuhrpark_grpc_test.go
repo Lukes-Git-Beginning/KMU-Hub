@@ -325,6 +325,10 @@ func (r *stubFuhrparkRepo) ListBookings(_ context.Context, _ fuhrpark.ListVehicl
 	return nil, 0, nil
 }
 
+func (r *stubFuhrparkRepo) ListBusySlots(_ context.Context, _, _ uuid.UUID, _, _ time.Time) ([]fuhrpark.BusySlot, error) {
+	return nil, r.err
+}
+
 func (r *stubFuhrparkRepo) FindConflictingBooking(_ context.Context, _, _ uuid.UUID, _, _ time.Time, _ *uuid.UUID) (*uuid.UUID, error) {
 	return nil, r.err
 }

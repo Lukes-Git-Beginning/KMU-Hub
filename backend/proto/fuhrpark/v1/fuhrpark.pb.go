@@ -6079,6 +6079,196 @@ func (*DeleteVehicleBookingResponse) Descriptor() ([]byte, []int) {
 	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{84}
 }
 
+// Availability is readable for anyone who may book: it carries only the time
+// windows of active bookings (booked, in_use) -- never user, purpose or id.
+type GetVehicleAvailabilityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"` // RFC3339, required
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`     // RFC3339, required, after from
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVehicleAvailabilityRequest) Reset() {
+	*x = GetVehicleAvailabilityRequest{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVehicleAvailabilityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVehicleAvailabilityRequest) ProtoMessage() {}
+
+func (x *GetVehicleAvailabilityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVehicleAvailabilityRequest.ProtoReflect.Descriptor instead.
+func (*GetVehicleAvailabilityRequest) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *GetVehicleAvailabilityRequest) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *GetVehicleAvailabilityRequest) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetVehicleAvailabilityRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+type VehicleBusySlot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StartsAt      string                 `protobuf:"bytes,1,opt,name=starts_at,json=startsAt,proto3" json:"starts_at,omitempty"` // RFC3339
+	EndsAt        string                 `protobuf:"bytes,2,opt,name=ends_at,json=endsAt,proto3" json:"ends_at,omitempty"`       // RFC3339
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VehicleBusySlot) Reset() {
+	*x = VehicleBusySlot{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VehicleBusySlot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VehicleBusySlot) ProtoMessage() {}
+
+func (x *VehicleBusySlot) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VehicleBusySlot.ProtoReflect.Descriptor instead.
+func (*VehicleBusySlot) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *VehicleBusySlot) GetStartsAt() string {
+	if x != nil {
+		return x.StartsAt
+	}
+	return ""
+}
+
+func (x *VehicleBusySlot) GetEndsAt() string {
+	if x != nil {
+		return x.EndsAt
+	}
+	return ""
+}
+
+type GetVehicleAvailabilityResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	From          string                 `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
+	Items         []*VehicleBusySlot     `protobuf:"bytes,4,rep,name=items,proto3" json:"items,omitempty"`
+	Total         int32                  `protobuf:"varint,5,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetVehicleAvailabilityResponse) Reset() {
+	*x = GetVehicleAvailabilityResponse{}
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetVehicleAvailabilityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetVehicleAvailabilityResponse) ProtoMessage() {}
+
+func (x *GetVehicleAvailabilityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetVehicleAvailabilityResponse.ProtoReflect.Descriptor instead.
+func (*GetVehicleAvailabilityResponse) Descriptor() ([]byte, []int) {
+	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *GetVehicleAvailabilityResponse) GetVehicleId() string {
+	if x != nil {
+		return x.VehicleId
+	}
+	return ""
+}
+
+func (x *GetVehicleAvailabilityResponse) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *GetVehicleAvailabilityResponse) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *GetVehicleAvailabilityResponse) GetItems() []*VehicleBusySlot {
+	if x != nil {
+		return x.Items
+	}
+	return nil
+}
+
+func (x *GetVehicleAvailabilityResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
 var File_proto_fuhrpark_v1_fuhrpark_proto protoreflect.FileDescriptor
 
 const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
@@ -6740,7 +6930,22 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x1bDeleteVehicleBookingRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
 	"\rowner_user_id\x18\x02 \x01(\tR\vownerUserId\"\x1e\n" +
-	"\x1cDeleteVehicleBookingResponse2\x86\x1e\n" +
+	"\x1cDeleteVehicleBookingResponse\"b\n" +
+	"\x1dGetVehicleAvailabilityRequest\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\"G\n" +
+	"\x0fVehicleBusySlot\x12\x1b\n" +
+	"\tstarts_at\x18\x01 \x01(\tR\bstartsAt\x12\x17\n" +
+	"\aends_at\x18\x02 \x01(\tR\x06endsAt\"\xad\x01\n" +
+	"\x1eGetVehicleAvailabilityResponse\x12\x1d\n" +
+	"\n" +
+	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12\x12\n" +
+	"\x04from\x18\x02 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x03 \x01(\tR\x02to\x122\n" +
+	"\x05items\x18\x04 \x03(\v2\x1c.fuhrpark.v1.VehicleBusySlotR\x05items\x12\x14\n" +
+	"\x05total\x18\x05 \x01(\x05R\x05total2\xf9\x1e\n" +
 	"\x0fFuhrparkService\x12P\n" +
 	"\rCreateVehicle\x12!.fuhrpark.v1.CreateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12P\n" +
 	"\rUpdateVehicle\x12!.fuhrpark.v1.UpdateVehicleRequest\x1a\x1c.fuhrpark.v1.VehicleResponse\x12V\n" +
@@ -6783,7 +6988,8 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x13ListVehicleBookings\x12'.fuhrpark.v1.ListVehicleBookingsRequest\x1a(.fuhrpark.v1.ListVehicleBookingsResponse\x12e\n" +
 	"\x14CreateVehicleBooking\x12(.fuhrpark.v1.CreateVehicleBookingRequest\x1a#.fuhrpark.v1.VehicleBookingResponse\x12e\n" +
 	"\x14UpdateVehicleBooking\x12(.fuhrpark.v1.UpdateVehicleBookingRequest\x1a#.fuhrpark.v1.VehicleBookingResponse\x12k\n" +
-	"\x14DeleteVehicleBooking\x12(.fuhrpark.v1.DeleteVehicleBookingRequest\x1a).fuhrpark.v1.DeleteVehicleBookingResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
+	"\x14DeleteVehicleBooking\x12(.fuhrpark.v1.DeleteVehicleBookingRequest\x1a).fuhrpark.v1.DeleteVehicleBookingResponse\x12q\n" +
+	"\x16GetVehicleAvailability\x12*.fuhrpark.v1.GetVehicleAvailabilityRequest\x1a+.fuhrpark.v1.GetVehicleAvailabilityResponseB7Z5github.com/kmuhub/kmuhub/proto/fuhrpark/v1;fuhrparkv1b\x06proto3"
 
 var (
 	file_proto_fuhrpark_v1_fuhrpark_proto_rawDescOnce sync.Once
@@ -6797,111 +7003,114 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_rawDescGZIP() []byte {
 	return file_proto_fuhrpark_v1_fuhrpark_proto_rawDescData
 }
 
-var file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 85)
+var file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes = make([]protoimpl.MessageInfo, 88)
 var file_proto_fuhrpark_v1_fuhrpark_proto_goTypes = []any{
-	(*Vehicle)(nil),                       // 0: fuhrpark.v1.Vehicle
-	(*VehicleService)(nil),                // 1: fuhrpark.v1.VehicleService
-	(*Damage)(nil),                        // 2: fuhrpark.v1.Damage
-	(*CreateVehicleRequest)(nil),          // 3: fuhrpark.v1.CreateVehicleRequest
-	(*UpdateVehicleRequest)(nil),          // 4: fuhrpark.v1.UpdateVehicleRequest
-	(*DeleteVehicleRequest)(nil),          // 5: fuhrpark.v1.DeleteVehicleRequest
-	(*DeleteVehicleResponse)(nil),         // 6: fuhrpark.v1.DeleteVehicleResponse
-	(*GetVehicleRequest)(nil),             // 7: fuhrpark.v1.GetVehicleRequest
-	(*VehicleResponse)(nil),               // 8: fuhrpark.v1.VehicleResponse
-	(*ListVehiclesRequest)(nil),           // 9: fuhrpark.v1.ListVehiclesRequest
-	(*ListVehiclesResponse)(nil),          // 10: fuhrpark.v1.ListVehiclesResponse
-	(*ScheduleServiceRequest)(nil),        // 11: fuhrpark.v1.ScheduleServiceRequest
-	(*UpdateServiceRequest)(nil),          // 12: fuhrpark.v1.UpdateServiceRequest
-	(*DeleteServiceRequest)(nil),          // 13: fuhrpark.v1.DeleteServiceRequest
-	(*DeleteServiceResponse)(nil),         // 14: fuhrpark.v1.DeleteServiceResponse
-	(*CompleteServiceRequest)(nil),        // 15: fuhrpark.v1.CompleteServiceRequest
-	(*ListServicesRequest)(nil),           // 16: fuhrpark.v1.ListServicesRequest
-	(*VehicleServiceResponse)(nil),        // 17: fuhrpark.v1.VehicleServiceResponse
-	(*ListServicesResponse)(nil),          // 18: fuhrpark.v1.ListServicesResponse
-	(*ReportDamageRequest)(nil),           // 19: fuhrpark.v1.ReportDamageRequest
-	(*UpdateDamageRequest)(nil),           // 20: fuhrpark.v1.UpdateDamageRequest
-	(*ResolveDamageRequest)(nil),          // 21: fuhrpark.v1.ResolveDamageRequest
-	(*ListDamagesRequest)(nil),            // 22: fuhrpark.v1.ListDamagesRequest
-	(*DamageResponse)(nil),                // 23: fuhrpark.v1.DamageResponse
-	(*ListDamagesResponse)(nil),           // 24: fuhrpark.v1.ListDamagesResponse
-	(*GetVehicleHistoryRequest)(nil),      // 25: fuhrpark.v1.GetVehicleHistoryRequest
-	(*VehicleHistoryEntry)(nil),           // 26: fuhrpark.v1.VehicleHistoryEntry
-	(*VehicleHistoryResponse)(nil),        // 27: fuhrpark.v1.VehicleHistoryResponse
-	(*CheckTuevDueRequest)(nil),           // 28: fuhrpark.v1.CheckTuevDueRequest
-	(*CheckTuevDueResponse)(nil),          // 29: fuhrpark.v1.CheckTuevDueResponse
-	(*ListUpcomingServicesRequest)(nil),   // 30: fuhrpark.v1.ListUpcomingServicesRequest
-	(*ExportVehicleReportRequest)(nil),    // 31: fuhrpark.v1.ExportVehicleReportRequest
-	(*ExportVehicleReportResponse)(nil),   // 32: fuhrpark.v1.ExportVehicleReportResponse
-	(*FuelLog)(nil),                       // 33: fuhrpark.v1.FuelLog
-	(*ListFuelLogsRequest)(nil),           // 34: fuhrpark.v1.ListFuelLogsRequest
-	(*ListFuelLogsResponse)(nil),          // 35: fuhrpark.v1.ListFuelLogsResponse
-	(*CreateFuelLogRequest)(nil),          // 36: fuhrpark.v1.CreateFuelLogRequest
-	(*CreateFuelLogResponse)(nil),         // 37: fuhrpark.v1.CreateFuelLogResponse
-	(*UpdateFuelLogRequest)(nil),          // 38: fuhrpark.v1.UpdateFuelLogRequest
-	(*UpdateFuelLogResponse)(nil),         // 39: fuhrpark.v1.UpdateFuelLogResponse
-	(*DeleteFuelLogRequest)(nil),          // 40: fuhrpark.v1.DeleteFuelLogRequest
-	(*DeleteFuelLogResponse)(nil),         // 41: fuhrpark.v1.DeleteFuelLogResponse
-	(*TripLog)(nil),                       // 42: fuhrpark.v1.TripLog
-	(*ListTripLogsRequest)(nil),           // 43: fuhrpark.v1.ListTripLogsRequest
-	(*ListTripLogsResponse)(nil),          // 44: fuhrpark.v1.ListTripLogsResponse
-	(*CreateTripLogRequest)(nil),          // 45: fuhrpark.v1.CreateTripLogRequest
-	(*CreateTripLogResponse)(nil),         // 46: fuhrpark.v1.CreateTripLogResponse
-	(*UpdateTripLogRequest)(nil),          // 47: fuhrpark.v1.UpdateTripLogRequest
-	(*UpdateTripLogResponse)(nil),         // 48: fuhrpark.v1.UpdateTripLogResponse
-	(*DeleteTripLogRequest)(nil),          // 49: fuhrpark.v1.DeleteTripLogRequest
-	(*DeleteTripLogResponse)(nil),         // 50: fuhrpark.v1.DeleteTripLogResponse
-	(*ExportTripLogsRequest)(nil),         // 51: fuhrpark.v1.ExportTripLogsRequest
-	(*ExportTripLogsResponse)(nil),        // 52: fuhrpark.v1.ExportTripLogsResponse
-	(*VehicleDocument)(nil),               // 53: fuhrpark.v1.VehicleDocument
-	(*ListVehicleDocumentsRequest)(nil),   // 54: fuhrpark.v1.ListVehicleDocumentsRequest
-	(*ListVehicleDocumentsResponse)(nil),  // 55: fuhrpark.v1.ListVehicleDocumentsResponse
-	(*CreateVehicleDocumentRequest)(nil),  // 56: fuhrpark.v1.CreateVehicleDocumentRequest
-	(*CreateVehicleDocumentResponse)(nil), // 57: fuhrpark.v1.CreateVehicleDocumentResponse
-	(*DeleteVehicleDocumentRequest)(nil),  // 58: fuhrpark.v1.DeleteVehicleDocumentRequest
-	(*DeleteVehicleDocumentResponse)(nil), // 59: fuhrpark.v1.DeleteVehicleDocumentResponse
-	(*GpsPosition)(nil),                   // 60: fuhrpark.v1.GpsPosition
-	(*VehicleRoute)(nil),                  // 61: fuhrpark.v1.VehicleRoute
-	(*IngestGpsPositionsRequest)(nil),     // 62: fuhrpark.v1.IngestGpsPositionsRequest
-	(*IngestGpsPositionsResponse)(nil),    // 63: fuhrpark.v1.IngestGpsPositionsResponse
-	(*GetVehicleRoutesRequest)(nil),       // 64: fuhrpark.v1.GetVehicleRoutesRequest
-	(*GetVehicleRoutesResponse)(nil),      // 65: fuhrpark.v1.GetVehicleRoutesResponse
-	(*GetGpsPositionsRequest)(nil),        // 66: fuhrpark.v1.GetGpsPositionsRequest
-	(*GetGpsPositionsResponse)(nil),       // 67: fuhrpark.v1.GetGpsPositionsResponse
-	(*DriverLicense)(nil),                 // 68: fuhrpark.v1.DriverLicense
-	(*ListDriverLicensesRequest)(nil),     // 69: fuhrpark.v1.ListDriverLicensesRequest
-	(*ListDriverLicensesResponse)(nil),    // 70: fuhrpark.v1.ListDriverLicensesResponse
-	(*CreateDriverLicenseRequest)(nil),    // 71: fuhrpark.v1.CreateDriverLicenseRequest
-	(*CreateDriverLicenseResponse)(nil),   // 72: fuhrpark.v1.CreateDriverLicenseResponse
-	(*UpdateDriverLicenseRequest)(nil),    // 73: fuhrpark.v1.UpdateDriverLicenseRequest
-	(*UpdateDriverLicenseResponse)(nil),   // 74: fuhrpark.v1.UpdateDriverLicenseResponse
-	(*DeleteDriverLicenseRequest)(nil),    // 75: fuhrpark.v1.DeleteDriverLicenseRequest
-	(*DeleteDriverLicenseResponse)(nil),   // 76: fuhrpark.v1.DeleteDriverLicenseResponse
-	(*VehicleBooking)(nil),                // 77: fuhrpark.v1.VehicleBooking
-	(*ListVehicleBookingsRequest)(nil),    // 78: fuhrpark.v1.ListVehicleBookingsRequest
-	(*ListVehicleBookingsResponse)(nil),   // 79: fuhrpark.v1.ListVehicleBookingsResponse
-	(*CreateVehicleBookingRequest)(nil),   // 80: fuhrpark.v1.CreateVehicleBookingRequest
-	(*UpdateVehicleBookingRequest)(nil),   // 81: fuhrpark.v1.UpdateVehicleBookingRequest
-	(*VehicleBookingResponse)(nil),        // 82: fuhrpark.v1.VehicleBookingResponse
-	(*DeleteVehicleBookingRequest)(nil),   // 83: fuhrpark.v1.DeleteVehicleBookingRequest
-	(*DeleteVehicleBookingResponse)(nil),  // 84: fuhrpark.v1.DeleteVehicleBookingResponse
-	(*timestamppb.Timestamp)(nil),         // 85: google.protobuf.Timestamp
+	(*Vehicle)(nil),                        // 0: fuhrpark.v1.Vehicle
+	(*VehicleService)(nil),                 // 1: fuhrpark.v1.VehicleService
+	(*Damage)(nil),                         // 2: fuhrpark.v1.Damage
+	(*CreateVehicleRequest)(nil),           // 3: fuhrpark.v1.CreateVehicleRequest
+	(*UpdateVehicleRequest)(nil),           // 4: fuhrpark.v1.UpdateVehicleRequest
+	(*DeleteVehicleRequest)(nil),           // 5: fuhrpark.v1.DeleteVehicleRequest
+	(*DeleteVehicleResponse)(nil),          // 6: fuhrpark.v1.DeleteVehicleResponse
+	(*GetVehicleRequest)(nil),              // 7: fuhrpark.v1.GetVehicleRequest
+	(*VehicleResponse)(nil),                // 8: fuhrpark.v1.VehicleResponse
+	(*ListVehiclesRequest)(nil),            // 9: fuhrpark.v1.ListVehiclesRequest
+	(*ListVehiclesResponse)(nil),           // 10: fuhrpark.v1.ListVehiclesResponse
+	(*ScheduleServiceRequest)(nil),         // 11: fuhrpark.v1.ScheduleServiceRequest
+	(*UpdateServiceRequest)(nil),           // 12: fuhrpark.v1.UpdateServiceRequest
+	(*DeleteServiceRequest)(nil),           // 13: fuhrpark.v1.DeleteServiceRequest
+	(*DeleteServiceResponse)(nil),          // 14: fuhrpark.v1.DeleteServiceResponse
+	(*CompleteServiceRequest)(nil),         // 15: fuhrpark.v1.CompleteServiceRequest
+	(*ListServicesRequest)(nil),            // 16: fuhrpark.v1.ListServicesRequest
+	(*VehicleServiceResponse)(nil),         // 17: fuhrpark.v1.VehicleServiceResponse
+	(*ListServicesResponse)(nil),           // 18: fuhrpark.v1.ListServicesResponse
+	(*ReportDamageRequest)(nil),            // 19: fuhrpark.v1.ReportDamageRequest
+	(*UpdateDamageRequest)(nil),            // 20: fuhrpark.v1.UpdateDamageRequest
+	(*ResolveDamageRequest)(nil),           // 21: fuhrpark.v1.ResolveDamageRequest
+	(*ListDamagesRequest)(nil),             // 22: fuhrpark.v1.ListDamagesRequest
+	(*DamageResponse)(nil),                 // 23: fuhrpark.v1.DamageResponse
+	(*ListDamagesResponse)(nil),            // 24: fuhrpark.v1.ListDamagesResponse
+	(*GetVehicleHistoryRequest)(nil),       // 25: fuhrpark.v1.GetVehicleHistoryRequest
+	(*VehicleHistoryEntry)(nil),            // 26: fuhrpark.v1.VehicleHistoryEntry
+	(*VehicleHistoryResponse)(nil),         // 27: fuhrpark.v1.VehicleHistoryResponse
+	(*CheckTuevDueRequest)(nil),            // 28: fuhrpark.v1.CheckTuevDueRequest
+	(*CheckTuevDueResponse)(nil),           // 29: fuhrpark.v1.CheckTuevDueResponse
+	(*ListUpcomingServicesRequest)(nil),    // 30: fuhrpark.v1.ListUpcomingServicesRequest
+	(*ExportVehicleReportRequest)(nil),     // 31: fuhrpark.v1.ExportVehicleReportRequest
+	(*ExportVehicleReportResponse)(nil),    // 32: fuhrpark.v1.ExportVehicleReportResponse
+	(*FuelLog)(nil),                        // 33: fuhrpark.v1.FuelLog
+	(*ListFuelLogsRequest)(nil),            // 34: fuhrpark.v1.ListFuelLogsRequest
+	(*ListFuelLogsResponse)(nil),           // 35: fuhrpark.v1.ListFuelLogsResponse
+	(*CreateFuelLogRequest)(nil),           // 36: fuhrpark.v1.CreateFuelLogRequest
+	(*CreateFuelLogResponse)(nil),          // 37: fuhrpark.v1.CreateFuelLogResponse
+	(*UpdateFuelLogRequest)(nil),           // 38: fuhrpark.v1.UpdateFuelLogRequest
+	(*UpdateFuelLogResponse)(nil),          // 39: fuhrpark.v1.UpdateFuelLogResponse
+	(*DeleteFuelLogRequest)(nil),           // 40: fuhrpark.v1.DeleteFuelLogRequest
+	(*DeleteFuelLogResponse)(nil),          // 41: fuhrpark.v1.DeleteFuelLogResponse
+	(*TripLog)(nil),                        // 42: fuhrpark.v1.TripLog
+	(*ListTripLogsRequest)(nil),            // 43: fuhrpark.v1.ListTripLogsRequest
+	(*ListTripLogsResponse)(nil),           // 44: fuhrpark.v1.ListTripLogsResponse
+	(*CreateTripLogRequest)(nil),           // 45: fuhrpark.v1.CreateTripLogRequest
+	(*CreateTripLogResponse)(nil),          // 46: fuhrpark.v1.CreateTripLogResponse
+	(*UpdateTripLogRequest)(nil),           // 47: fuhrpark.v1.UpdateTripLogRequest
+	(*UpdateTripLogResponse)(nil),          // 48: fuhrpark.v1.UpdateTripLogResponse
+	(*DeleteTripLogRequest)(nil),           // 49: fuhrpark.v1.DeleteTripLogRequest
+	(*DeleteTripLogResponse)(nil),          // 50: fuhrpark.v1.DeleteTripLogResponse
+	(*ExportTripLogsRequest)(nil),          // 51: fuhrpark.v1.ExportTripLogsRequest
+	(*ExportTripLogsResponse)(nil),         // 52: fuhrpark.v1.ExportTripLogsResponse
+	(*VehicleDocument)(nil),                // 53: fuhrpark.v1.VehicleDocument
+	(*ListVehicleDocumentsRequest)(nil),    // 54: fuhrpark.v1.ListVehicleDocumentsRequest
+	(*ListVehicleDocumentsResponse)(nil),   // 55: fuhrpark.v1.ListVehicleDocumentsResponse
+	(*CreateVehicleDocumentRequest)(nil),   // 56: fuhrpark.v1.CreateVehicleDocumentRequest
+	(*CreateVehicleDocumentResponse)(nil),  // 57: fuhrpark.v1.CreateVehicleDocumentResponse
+	(*DeleteVehicleDocumentRequest)(nil),   // 58: fuhrpark.v1.DeleteVehicleDocumentRequest
+	(*DeleteVehicleDocumentResponse)(nil),  // 59: fuhrpark.v1.DeleteVehicleDocumentResponse
+	(*GpsPosition)(nil),                    // 60: fuhrpark.v1.GpsPosition
+	(*VehicleRoute)(nil),                   // 61: fuhrpark.v1.VehicleRoute
+	(*IngestGpsPositionsRequest)(nil),      // 62: fuhrpark.v1.IngestGpsPositionsRequest
+	(*IngestGpsPositionsResponse)(nil),     // 63: fuhrpark.v1.IngestGpsPositionsResponse
+	(*GetVehicleRoutesRequest)(nil),        // 64: fuhrpark.v1.GetVehicleRoutesRequest
+	(*GetVehicleRoutesResponse)(nil),       // 65: fuhrpark.v1.GetVehicleRoutesResponse
+	(*GetGpsPositionsRequest)(nil),         // 66: fuhrpark.v1.GetGpsPositionsRequest
+	(*GetGpsPositionsResponse)(nil),        // 67: fuhrpark.v1.GetGpsPositionsResponse
+	(*DriverLicense)(nil),                  // 68: fuhrpark.v1.DriverLicense
+	(*ListDriverLicensesRequest)(nil),      // 69: fuhrpark.v1.ListDriverLicensesRequest
+	(*ListDriverLicensesResponse)(nil),     // 70: fuhrpark.v1.ListDriverLicensesResponse
+	(*CreateDriverLicenseRequest)(nil),     // 71: fuhrpark.v1.CreateDriverLicenseRequest
+	(*CreateDriverLicenseResponse)(nil),    // 72: fuhrpark.v1.CreateDriverLicenseResponse
+	(*UpdateDriverLicenseRequest)(nil),     // 73: fuhrpark.v1.UpdateDriverLicenseRequest
+	(*UpdateDriverLicenseResponse)(nil),    // 74: fuhrpark.v1.UpdateDriverLicenseResponse
+	(*DeleteDriverLicenseRequest)(nil),     // 75: fuhrpark.v1.DeleteDriverLicenseRequest
+	(*DeleteDriverLicenseResponse)(nil),    // 76: fuhrpark.v1.DeleteDriverLicenseResponse
+	(*VehicleBooking)(nil),                 // 77: fuhrpark.v1.VehicleBooking
+	(*ListVehicleBookingsRequest)(nil),     // 78: fuhrpark.v1.ListVehicleBookingsRequest
+	(*ListVehicleBookingsResponse)(nil),    // 79: fuhrpark.v1.ListVehicleBookingsResponse
+	(*CreateVehicleBookingRequest)(nil),    // 80: fuhrpark.v1.CreateVehicleBookingRequest
+	(*UpdateVehicleBookingRequest)(nil),    // 81: fuhrpark.v1.UpdateVehicleBookingRequest
+	(*VehicleBookingResponse)(nil),         // 82: fuhrpark.v1.VehicleBookingResponse
+	(*DeleteVehicleBookingRequest)(nil),    // 83: fuhrpark.v1.DeleteVehicleBookingRequest
+	(*DeleteVehicleBookingResponse)(nil),   // 84: fuhrpark.v1.DeleteVehicleBookingResponse
+	(*GetVehicleAvailabilityRequest)(nil),  // 85: fuhrpark.v1.GetVehicleAvailabilityRequest
+	(*VehicleBusySlot)(nil),                // 86: fuhrpark.v1.VehicleBusySlot
+	(*GetVehicleAvailabilityResponse)(nil), // 87: fuhrpark.v1.GetVehicleAvailabilityResponse
+	(*timestamppb.Timestamp)(nil),          // 88: google.protobuf.Timestamp
 }
 var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
-	85, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
-	85, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
-	85, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
-	85, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
-	85, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
-	85, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
-	85, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
-	85, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
+	88, // 0: fuhrpark.v1.Vehicle.created_at:type_name -> google.protobuf.Timestamp
+	88, // 1: fuhrpark.v1.Vehicle.updated_at:type_name -> google.protobuf.Timestamp
+	88, // 2: fuhrpark.v1.VehicleService.completed_at:type_name -> google.protobuf.Timestamp
+	88, // 3: fuhrpark.v1.VehicleService.created_at:type_name -> google.protobuf.Timestamp
+	88, // 4: fuhrpark.v1.VehicleService.updated_at:type_name -> google.protobuf.Timestamp
+	88, // 5: fuhrpark.v1.Damage.resolved_at:type_name -> google.protobuf.Timestamp
+	88, // 6: fuhrpark.v1.Damage.created_at:type_name -> google.protobuf.Timestamp
+	88, // 7: fuhrpark.v1.Damage.updated_at:type_name -> google.protobuf.Timestamp
 	0,  // 8: fuhrpark.v1.VehicleResponse.vehicle:type_name -> fuhrpark.v1.Vehicle
 	0,  // 9: fuhrpark.v1.ListVehiclesResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	1,  // 10: fuhrpark.v1.VehicleServiceResponse.service:type_name -> fuhrpark.v1.VehicleService
 	1,  // 11: fuhrpark.v1.ListServicesResponse.services:type_name -> fuhrpark.v1.VehicleService
 	2,  // 12: fuhrpark.v1.DamageResponse.damage:type_name -> fuhrpark.v1.Damage
 	2,  // 13: fuhrpark.v1.ListDamagesResponse.damages:type_name -> fuhrpark.v1.Damage
-	85, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
+	88, // 14: fuhrpark.v1.VehicleHistoryEntry.occurred_at:type_name -> google.protobuf.Timestamp
 	26, // 15: fuhrpark.v1.VehicleHistoryResponse.entries:type_name -> fuhrpark.v1.VehicleHistoryEntry
 	0,  // 16: fuhrpark.v1.CheckTuevDueResponse.vehicles:type_name -> fuhrpark.v1.Vehicle
 	33, // 17: fuhrpark.v1.ListFuelLogsResponse.fuel_logs:type_name -> fuhrpark.v1.FuelLog
@@ -6921,93 +7130,96 @@ var file_proto_fuhrpark_v1_fuhrpark_proto_depIdxs = []int32{
 	68, // 31: fuhrpark.v1.UpdateDriverLicenseResponse.license:type_name -> fuhrpark.v1.DriverLicense
 	77, // 32: fuhrpark.v1.ListVehicleBookingsResponse.bookings:type_name -> fuhrpark.v1.VehicleBooking
 	77, // 33: fuhrpark.v1.VehicleBookingResponse.booking:type_name -> fuhrpark.v1.VehicleBooking
-	3,  // 34: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
-	4,  // 35: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
-	5,  // 36: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
-	7,  // 37: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
-	9,  // 38: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
-	11, // 39: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
-	12, // 40: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
-	13, // 41: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
-	15, // 42: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
-	16, // 43: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
-	19, // 44: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
-	20, // 45: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
-	21, // 46: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
-	22, // 47: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
-	25, // 48: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
-	28, // 49: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
-	30, // 50: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
-	31, // 51: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
-	34, // 52: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
-	36, // 53: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
-	38, // 54: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
-	40, // 55: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
-	43, // 56: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
-	45, // 57: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
-	47, // 58: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
-	49, // 59: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
-	51, // 60: fuhrpark.v1.FuhrparkService.ExportTripLogs:input_type -> fuhrpark.v1.ExportTripLogsRequest
-	54, // 61: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
-	56, // 62: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
-	58, // 63: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
-	62, // 64: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
-	64, // 65: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
-	66, // 66: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
-	69, // 67: fuhrpark.v1.FuhrparkService.ListDriverLicenses:input_type -> fuhrpark.v1.ListDriverLicensesRequest
-	71, // 68: fuhrpark.v1.FuhrparkService.CreateDriverLicense:input_type -> fuhrpark.v1.CreateDriverLicenseRequest
-	73, // 69: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:input_type -> fuhrpark.v1.UpdateDriverLicenseRequest
-	75, // 70: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:input_type -> fuhrpark.v1.DeleteDriverLicenseRequest
-	78, // 71: fuhrpark.v1.FuhrparkService.ListVehicleBookings:input_type -> fuhrpark.v1.ListVehicleBookingsRequest
-	80, // 72: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:input_type -> fuhrpark.v1.CreateVehicleBookingRequest
-	81, // 73: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:input_type -> fuhrpark.v1.UpdateVehicleBookingRequest
-	83, // 74: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:input_type -> fuhrpark.v1.DeleteVehicleBookingRequest
-	8,  // 75: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	8,  // 76: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	6,  // 77: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
-	8,  // 78: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
-	10, // 79: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
-	17, // 80: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	17, // 81: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	14, // 82: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
-	17, // 83: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
-	18, // 84: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
-	23, // 85: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 86: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
-	23, // 87: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
-	24, // 88: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
-	27, // 89: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
-	29, // 90: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
-	18, // 91: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
-	32, // 92: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
-	35, // 93: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
-	37, // 94: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
-	39, // 95: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
-	41, // 96: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
-	44, // 97: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
-	46, // 98: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
-	48, // 99: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
-	50, // 100: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
-	52, // 101: fuhrpark.v1.FuhrparkService.ExportTripLogs:output_type -> fuhrpark.v1.ExportTripLogsResponse
-	55, // 102: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
-	57, // 103: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
-	59, // 104: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
-	63, // 105: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
-	65, // 106: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
-	67, // 107: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
-	70, // 108: fuhrpark.v1.FuhrparkService.ListDriverLicenses:output_type -> fuhrpark.v1.ListDriverLicensesResponse
-	72, // 109: fuhrpark.v1.FuhrparkService.CreateDriverLicense:output_type -> fuhrpark.v1.CreateDriverLicenseResponse
-	74, // 110: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:output_type -> fuhrpark.v1.UpdateDriverLicenseResponse
-	76, // 111: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:output_type -> fuhrpark.v1.DeleteDriverLicenseResponse
-	79, // 112: fuhrpark.v1.FuhrparkService.ListVehicleBookings:output_type -> fuhrpark.v1.ListVehicleBookingsResponse
-	82, // 113: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
-	82, // 114: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
-	84, // 115: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:output_type -> fuhrpark.v1.DeleteVehicleBookingResponse
-	75, // [75:116] is the sub-list for method output_type
-	34, // [34:75] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	86, // 34: fuhrpark.v1.GetVehicleAvailabilityResponse.items:type_name -> fuhrpark.v1.VehicleBusySlot
+	3,  // 35: fuhrpark.v1.FuhrparkService.CreateVehicle:input_type -> fuhrpark.v1.CreateVehicleRequest
+	4,  // 36: fuhrpark.v1.FuhrparkService.UpdateVehicle:input_type -> fuhrpark.v1.UpdateVehicleRequest
+	5,  // 37: fuhrpark.v1.FuhrparkService.DeleteVehicle:input_type -> fuhrpark.v1.DeleteVehicleRequest
+	7,  // 38: fuhrpark.v1.FuhrparkService.GetVehicle:input_type -> fuhrpark.v1.GetVehicleRequest
+	9,  // 39: fuhrpark.v1.FuhrparkService.ListVehicles:input_type -> fuhrpark.v1.ListVehiclesRequest
+	11, // 40: fuhrpark.v1.FuhrparkService.ScheduleService:input_type -> fuhrpark.v1.ScheduleServiceRequest
+	12, // 41: fuhrpark.v1.FuhrparkService.UpdateService:input_type -> fuhrpark.v1.UpdateServiceRequest
+	13, // 42: fuhrpark.v1.FuhrparkService.DeleteService:input_type -> fuhrpark.v1.DeleteServiceRequest
+	15, // 43: fuhrpark.v1.FuhrparkService.CompleteService:input_type -> fuhrpark.v1.CompleteServiceRequest
+	16, // 44: fuhrpark.v1.FuhrparkService.ListServices:input_type -> fuhrpark.v1.ListServicesRequest
+	19, // 45: fuhrpark.v1.FuhrparkService.ReportDamage:input_type -> fuhrpark.v1.ReportDamageRequest
+	20, // 46: fuhrpark.v1.FuhrparkService.UpdateDamage:input_type -> fuhrpark.v1.UpdateDamageRequest
+	21, // 47: fuhrpark.v1.FuhrparkService.ResolveDamage:input_type -> fuhrpark.v1.ResolveDamageRequest
+	22, // 48: fuhrpark.v1.FuhrparkService.ListDamages:input_type -> fuhrpark.v1.ListDamagesRequest
+	25, // 49: fuhrpark.v1.FuhrparkService.GetVehicleHistory:input_type -> fuhrpark.v1.GetVehicleHistoryRequest
+	28, // 50: fuhrpark.v1.FuhrparkService.CheckTuevDue:input_type -> fuhrpark.v1.CheckTuevDueRequest
+	30, // 51: fuhrpark.v1.FuhrparkService.ListUpcomingServices:input_type -> fuhrpark.v1.ListUpcomingServicesRequest
+	31, // 52: fuhrpark.v1.FuhrparkService.ExportVehicleReport:input_type -> fuhrpark.v1.ExportVehicleReportRequest
+	34, // 53: fuhrpark.v1.FuhrparkService.ListFuelLogs:input_type -> fuhrpark.v1.ListFuelLogsRequest
+	36, // 54: fuhrpark.v1.FuhrparkService.CreateFuelLog:input_type -> fuhrpark.v1.CreateFuelLogRequest
+	38, // 55: fuhrpark.v1.FuhrparkService.UpdateFuelLog:input_type -> fuhrpark.v1.UpdateFuelLogRequest
+	40, // 56: fuhrpark.v1.FuhrparkService.DeleteFuelLog:input_type -> fuhrpark.v1.DeleteFuelLogRequest
+	43, // 57: fuhrpark.v1.FuhrparkService.ListTripLogs:input_type -> fuhrpark.v1.ListTripLogsRequest
+	45, // 58: fuhrpark.v1.FuhrparkService.CreateTripLog:input_type -> fuhrpark.v1.CreateTripLogRequest
+	47, // 59: fuhrpark.v1.FuhrparkService.UpdateTripLog:input_type -> fuhrpark.v1.UpdateTripLogRequest
+	49, // 60: fuhrpark.v1.FuhrparkService.DeleteTripLog:input_type -> fuhrpark.v1.DeleteTripLogRequest
+	51, // 61: fuhrpark.v1.FuhrparkService.ExportTripLogs:input_type -> fuhrpark.v1.ExportTripLogsRequest
+	54, // 62: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:input_type -> fuhrpark.v1.ListVehicleDocumentsRequest
+	56, // 63: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:input_type -> fuhrpark.v1.CreateVehicleDocumentRequest
+	58, // 64: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:input_type -> fuhrpark.v1.DeleteVehicleDocumentRequest
+	62, // 65: fuhrpark.v1.FuhrparkService.IngestGpsPositions:input_type -> fuhrpark.v1.IngestGpsPositionsRequest
+	64, // 66: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:input_type -> fuhrpark.v1.GetVehicleRoutesRequest
+	66, // 67: fuhrpark.v1.FuhrparkService.GetGpsPositions:input_type -> fuhrpark.v1.GetGpsPositionsRequest
+	69, // 68: fuhrpark.v1.FuhrparkService.ListDriverLicenses:input_type -> fuhrpark.v1.ListDriverLicensesRequest
+	71, // 69: fuhrpark.v1.FuhrparkService.CreateDriverLicense:input_type -> fuhrpark.v1.CreateDriverLicenseRequest
+	73, // 70: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:input_type -> fuhrpark.v1.UpdateDriverLicenseRequest
+	75, // 71: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:input_type -> fuhrpark.v1.DeleteDriverLicenseRequest
+	78, // 72: fuhrpark.v1.FuhrparkService.ListVehicleBookings:input_type -> fuhrpark.v1.ListVehicleBookingsRequest
+	80, // 73: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:input_type -> fuhrpark.v1.CreateVehicleBookingRequest
+	81, // 74: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:input_type -> fuhrpark.v1.UpdateVehicleBookingRequest
+	83, // 75: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:input_type -> fuhrpark.v1.DeleteVehicleBookingRequest
+	85, // 76: fuhrpark.v1.FuhrparkService.GetVehicleAvailability:input_type -> fuhrpark.v1.GetVehicleAvailabilityRequest
+	8,  // 77: fuhrpark.v1.FuhrparkService.CreateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	8,  // 78: fuhrpark.v1.FuhrparkService.UpdateVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	6,  // 79: fuhrpark.v1.FuhrparkService.DeleteVehicle:output_type -> fuhrpark.v1.DeleteVehicleResponse
+	8,  // 80: fuhrpark.v1.FuhrparkService.GetVehicle:output_type -> fuhrpark.v1.VehicleResponse
+	10, // 81: fuhrpark.v1.FuhrparkService.ListVehicles:output_type -> fuhrpark.v1.ListVehiclesResponse
+	17, // 82: fuhrpark.v1.FuhrparkService.ScheduleService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	17, // 83: fuhrpark.v1.FuhrparkService.UpdateService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	14, // 84: fuhrpark.v1.FuhrparkService.DeleteService:output_type -> fuhrpark.v1.DeleteServiceResponse
+	17, // 85: fuhrpark.v1.FuhrparkService.CompleteService:output_type -> fuhrpark.v1.VehicleServiceResponse
+	18, // 86: fuhrpark.v1.FuhrparkService.ListServices:output_type -> fuhrpark.v1.ListServicesResponse
+	23, // 87: fuhrpark.v1.FuhrparkService.ReportDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 88: fuhrpark.v1.FuhrparkService.UpdateDamage:output_type -> fuhrpark.v1.DamageResponse
+	23, // 89: fuhrpark.v1.FuhrparkService.ResolveDamage:output_type -> fuhrpark.v1.DamageResponse
+	24, // 90: fuhrpark.v1.FuhrparkService.ListDamages:output_type -> fuhrpark.v1.ListDamagesResponse
+	27, // 91: fuhrpark.v1.FuhrparkService.GetVehicleHistory:output_type -> fuhrpark.v1.VehicleHistoryResponse
+	29, // 92: fuhrpark.v1.FuhrparkService.CheckTuevDue:output_type -> fuhrpark.v1.CheckTuevDueResponse
+	18, // 93: fuhrpark.v1.FuhrparkService.ListUpcomingServices:output_type -> fuhrpark.v1.ListServicesResponse
+	32, // 94: fuhrpark.v1.FuhrparkService.ExportVehicleReport:output_type -> fuhrpark.v1.ExportVehicleReportResponse
+	35, // 95: fuhrpark.v1.FuhrparkService.ListFuelLogs:output_type -> fuhrpark.v1.ListFuelLogsResponse
+	37, // 96: fuhrpark.v1.FuhrparkService.CreateFuelLog:output_type -> fuhrpark.v1.CreateFuelLogResponse
+	39, // 97: fuhrpark.v1.FuhrparkService.UpdateFuelLog:output_type -> fuhrpark.v1.UpdateFuelLogResponse
+	41, // 98: fuhrpark.v1.FuhrparkService.DeleteFuelLog:output_type -> fuhrpark.v1.DeleteFuelLogResponse
+	44, // 99: fuhrpark.v1.FuhrparkService.ListTripLogs:output_type -> fuhrpark.v1.ListTripLogsResponse
+	46, // 100: fuhrpark.v1.FuhrparkService.CreateTripLog:output_type -> fuhrpark.v1.CreateTripLogResponse
+	48, // 101: fuhrpark.v1.FuhrparkService.UpdateTripLog:output_type -> fuhrpark.v1.UpdateTripLogResponse
+	50, // 102: fuhrpark.v1.FuhrparkService.DeleteTripLog:output_type -> fuhrpark.v1.DeleteTripLogResponse
+	52, // 103: fuhrpark.v1.FuhrparkService.ExportTripLogs:output_type -> fuhrpark.v1.ExportTripLogsResponse
+	55, // 104: fuhrpark.v1.FuhrparkService.ListVehicleDocuments:output_type -> fuhrpark.v1.ListVehicleDocumentsResponse
+	57, // 105: fuhrpark.v1.FuhrparkService.CreateVehicleDocument:output_type -> fuhrpark.v1.CreateVehicleDocumentResponse
+	59, // 106: fuhrpark.v1.FuhrparkService.DeleteVehicleDocument:output_type -> fuhrpark.v1.DeleteVehicleDocumentResponse
+	63, // 107: fuhrpark.v1.FuhrparkService.IngestGpsPositions:output_type -> fuhrpark.v1.IngestGpsPositionsResponse
+	65, // 108: fuhrpark.v1.FuhrparkService.GetVehicleRoutes:output_type -> fuhrpark.v1.GetVehicleRoutesResponse
+	67, // 109: fuhrpark.v1.FuhrparkService.GetGpsPositions:output_type -> fuhrpark.v1.GetGpsPositionsResponse
+	70, // 110: fuhrpark.v1.FuhrparkService.ListDriverLicenses:output_type -> fuhrpark.v1.ListDriverLicensesResponse
+	72, // 111: fuhrpark.v1.FuhrparkService.CreateDriverLicense:output_type -> fuhrpark.v1.CreateDriverLicenseResponse
+	74, // 112: fuhrpark.v1.FuhrparkService.UpdateDriverLicense:output_type -> fuhrpark.v1.UpdateDriverLicenseResponse
+	76, // 113: fuhrpark.v1.FuhrparkService.DeleteDriverLicense:output_type -> fuhrpark.v1.DeleteDriverLicenseResponse
+	79, // 114: fuhrpark.v1.FuhrparkService.ListVehicleBookings:output_type -> fuhrpark.v1.ListVehicleBookingsResponse
+	82, // 115: fuhrpark.v1.FuhrparkService.CreateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
+	82, // 116: fuhrpark.v1.FuhrparkService.UpdateVehicleBooking:output_type -> fuhrpark.v1.VehicleBookingResponse
+	84, // 117: fuhrpark.v1.FuhrparkService.DeleteVehicleBooking:output_type -> fuhrpark.v1.DeleteVehicleBookingResponse
+	87, // 118: fuhrpark.v1.FuhrparkService.GetVehicleAvailability:output_type -> fuhrpark.v1.GetVehicleAvailabilityResponse
+	77, // [77:119] is the sub-list for method output_type
+	35, // [35:77] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_proto_fuhrpark_v1_fuhrpark_proto_init() }
@@ -7040,7 +7252,7 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc), len(file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   85,
+			NumMessages:   88,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -1754,3 +1754,29 @@ units:
       - backend/internal/gateway/route_wiki_own_delete_share_db_test.go
     done_when:
       - member sieht Teilen/Widerrufen an der eigenen Seite, nicht an einer fremden (Playwright-Screenshot)
+
+  - id: fe-fuhrpark-pool-booking-with-availability
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member bucht ein Poolfahrzeug im Desktop und sieht vorher die belegten Zeiten
+    scope: >
+      Fund aus `feat-fuhrpark-vehicle-availability-route` (Lauf 17, Iteration 50). Das Backend liefert seit dieser
+      Unit `GET /api/v1/fuhrpark/vehicles/{id}/availability?from&to` (RFC3339, Fenster höchstens 93 Tage) mit
+      `{vehicle_id, from, to, items: [{starts_at, ends_at}], total}` — nur aktive Buchungen (booked, in_use), ohne
+      Nutzer und Zweck, Guard `fuhrpark:booking:read` (member hält ihn mit Scope own, der Scope greift hier bewusst
+      nicht). Desktop-Teil (Loop darf `desktop/` nicht ändern): das Fuhrpark-Modul hat KEINEN Aufrufer für
+      `/fuhrpark/bookings` und keinen für die neue Route — `grep -rln booking desktop/src/renderer/src/modules/fuhrpark`
+      ist leer, nur `api/types.ts` kennt die Buchungspfade. Weder Buchen noch die Verfügbarkeit sind also für
+      irgendeinen Nutzer erreichbar. Gebraucht: Buchungsdialog am Fahrzeug (POST `/fuhrpark/bookings`, `user_id` wird
+      bei Scope own vom Gateway überschrieben), davor die belegten Fenster aus der neuen Route anzeigen, 409 als
+      "bereits belegt" statt Fehler-Toast. `api/types.ts` nach `openapi.yaml`-Regen neu erzeugen.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_availability_db_test.go
+      - desktop/src/renderer/src/modules/fuhrpark/
+    done_when:
+      - member sieht die belegten Zeiten eines Poolfahrzeugs und bucht ein freies Fenster (Playwright-Screenshot)

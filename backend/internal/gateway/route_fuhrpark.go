@@ -71,6 +71,12 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("fuhrpark:vehicle", "write")).Delete("/", fr.HandleDeleteVehicle)
 
 				r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/history", fr.HandleGetVehicleHistory)
+				// Occupied windows without user or purpose, so a member with an
+				// own-scoped booking key sees when a pool vehicle is free before
+				// booking instead of learning it from a 409. The scope of
+				// fuhrpark:booking:read is deliberately not applied: nothing in the
+				// answer belongs to a person.
+				r.With(middleware.RequirePermission("fuhrpark:booking", "read")).Get("/availability", fr.HandleGetVehicleAvailability)
 
 				// Services sub-resource
 				r.With(middleware.RequirePermission("fuhrpark:service", "read")).Get("/services", fr.HandleListVehicleServices)
@@ -1884,6 +1890,40 @@ func (fr *FuhrparkRoutes) HandleListVehicleBookings(w http.ResponseWriter, r *ht
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleGetVehicleAvailability serves GET /vehicles/{id}/availability?from&to.
+func (fr *FuhrparkRoutes) HandleGetVehicleAvailability(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	from, to := q.Get("from"), q.Get("to")
+	if from == "" || to == "" {
+		response.Error(w, http.StatusBadRequest, "from and to are required (RFC3339)")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	resp, err := client.GetVehicleAvailability(r.Context(), &fuhrparkv1.GetVehicleAvailabilityRequest{
+		VehicleId: id,
+		From:      from,
+		To:        to,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateVehicleBooking(w http.ResponseWriter, r *http.Request) {
