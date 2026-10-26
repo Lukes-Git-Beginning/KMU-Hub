@@ -2812,7 +2812,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/video von 59,7 % auf ≥ 75 %
     coverage_start: internal/work/video 59,7 %
     scope: >
