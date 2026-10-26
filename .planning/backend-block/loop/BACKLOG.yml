@@ -2833,7 +2833,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     target: Rechte-Commits seit dem letzten Review gegen den echten Seed abgenommen
     coverage_start: n.a.
     scope: >
@@ -2856,6 +2856,49 @@ units:
         Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit); ein belegender Test bleibt als
         dauerhafter Test im Repo
       - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: fix-gateway-rate-limit-window-never-resets
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: Der globale Redis-Limiter zählt je Sekunde, statt unter Dauerlast endlos aufzulaufen
+    coverage_start: internal/middleware (vor dem Fix selbst messen)
+    scope: >
+      Gefunden in review-run17-r6 (Iteration 100), reproduziert. `RateLimiter.allow`
+      (`backend/internal/middleware/ratelimit.go`) schickt bei JEDEM Request `INCR` plus `EXPIRE key 1s`.
+      Das EXPIRE setzt die Lebensdauer jedes Mal neu, also läuft der Schlüssel nie ab, solange zwischen zwei
+      Requests weniger als eine Sekunde liegt: Der Zähler steigt monoton, und ab Request Nummer
+      `RATE_LIMIT_RPS + 1` bekommt jeder Aufrufer dieses Schlüssels 429, bis einmal eine volle Sekunde Ruhe ist.
+      Belege: (1) Redis 7, 600× INCR+EXPIRE 1 über 3 s ergibt Zähler 600 (erwartet ≤ Anfragen je Sekunde);
+      (2) volle lokale E2E-Suite (`e2e-local.sh` ohne Regex, RATE_LIMIT_RPS=1000 wie im CI-Job `e2e`):
+      368 PASS, `TestRapporteMemberFlow` alle 7 Subtests 429 "rate limit exceeded", derselbe Flow allein
+      8/8 PASS. Der CI-Job `e2e` fährt dieselbe volle Suite, also ist er rot, sobald sie mehr als 1000
+      Requests ohne Sekundenpause schickt (Totalausfall des E2E-Gates). Produktion: der Limiter hängt global
+      VOR der Auth-Gruppe (`cmd/gateway/main.go:161`), `GetUserID` ist dort immer leer, der Schlüssel ist also
+      die Client-IP hinter Caddy. Ein KMU-Büro hinter einer NAT-IP teilt sich damit EINEN Zähler, und bei
+      `RATE_LIMIT_RPS=100` (Default) sperrt Dauerverkehr ab dem 101. Request das ganze Büro. Fix: das Ablaufen
+      nur beim ersten Zählen setzen (z. B. `ExpireNX`, oder EXPIRE nur wenn `INCR` = 1), damit das Fenster
+      fest eine Sekunde ab dem ersten Request ist, wie im In-Memory-Fallback (`resetAt`). Der Public-Limiter
+      (`NewRateLimiterWithPrefix`, gleiche `allow`) ist mit abgedeckt.
+    notes: >
+      Nicht Teil dieser Unit, nur als Hinweis an Luke: der Zweig "authenticated user ID first" in
+      `Middleware` ist am globalen Limiter tot, weil die Auth später läuft. Ob pro Nutzer statt pro IP
+      gezählt werden soll, ist eine Entscheidung (Platzierung des Limiters), kein Bugfix. Keine neue Config,
+      kein `config.RequireX`. miniredis ist schon Dependency (`go.mod`), damit lässt sich das Fenster
+      im Test mit `FastForward` prüfen.
+    sources:
+      - backend/internal/middleware/ratelimit.go
+      - backend/internal/middleware/ratelimit_test.go
+      - backend/cmd/gateway/main.go
+      - .planning/backend-block/loop/hooks/e2e-local.sh
+    done_when:
+      - >
+        Dauerhafter Test mit miniredis (oder echtem Redis): mehr als `rps` Requests verteilt über mehrere
+        Fenster werden je Fenster bis `rps` zugelassen; der Test ist gegen den alten Code rot (Mutationsprobe)
+      - go test -count=1 ./internal/middleware/ grün, 0 Skips
+      - volle lokale E2E-Suite (`bash .planning/backend-block/loop/hooks/e2e-local.sh` ohne Regex) grün, 0 SKIP, 0 FAIL
 
   - id: cov-biz-pdf
     phase: 4
