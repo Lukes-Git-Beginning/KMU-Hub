@@ -2602,7 +2602,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/search von 59,4 % auf ≥ 75 %
     coverage_start: internal/crm/search 59,4 %
     scope: >

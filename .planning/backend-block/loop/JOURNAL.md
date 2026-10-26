@@ -1620,3 +1620,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) `gofmt -l` listet in diesem Paket alle Dateien (auch unveränderte) — vermutlich CRLF-Checkout unter Windows, vorbestehend, nicht angefasst; golangci-lint meldet 0 Issues. (2) Der CI-Wert 58,8 % deckt sich mit der lokalen Vorher-Messung.
+
+## Iteration 89 — cov-crm-search — done — 2026-10-26 06:33
+- commit: siehe Commit `test(crm): cover the search repository against the app-role database` (git log)
+- gebaut: `internal/crm/search/postgres_repository_test.go` (DB als kmuhub_app, Fixture mit eigenem Tenant/User/Pipeline-Stage): alle vier Suchen (Kontakte, Firmen, Deals, Aktivitäten) mit Titel-/Subtitle-Mapping inkl. NULL-Felder, Gewichtung (Name A vor Notizen D, Betreff vor Beschreibung), LIMIT behält den besten Treffer, leeres Ergebnis ohne Fehler, Tenant-Isolation je Entität in drei Konstellationen (eigener Kontext, fremder Kontext, Kontext/Argument-Mismatch), Fehlerpfad bei geschlossenem Pool.
+- gate: build n.a. (nur Test-Datei) | vet ok | lint ok (0 issues) | test ok (`internal/crm/search` 24 PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: internal/crm/search 59,4 % -> 98,6 %
+- mutations-probe: 11 Proben, 10 rot: `WHERE tenant_id = $1` je Entität (vier Proben, ersetzt durch `$1::uuid IS NOT NULL`, rot im Mismatch-Fall, weil RLS allein dort eigene Zeilen liefern würde), `ORDER BY score ASC`, `LIMIT` aufgeweitet, Deal-Subtitle ohne Währung, Aktivitäts-Subtitle statt `activity_type`, Firmen-Subtitle fest, Kontakt-Titel nur Nachname. Überlebt: `return results, rows.Err()` -> `nil` in `scanSearchResults` (Iterationsfehler nach dem letzten Row lassen sich mit echter DB nicht auslösen). Datei aus Backup zurück, `git diff` auf Produktivcode leer.
+- verify vorgaenger: sauber (`229af4fd`: nur Test-Dateien in `internal/inbox/thread` plus Loop-Doku, kein Produktivcode, keine Route/Tabelle/Guard)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) CI-Vorher-Wert 59,4 % deckt sich mit der lokalen Messung. (2) Beobachtung ohne Änderung: die Suche filtert nur auf `tenant_id`, nicht auf `contacts.visibility`/Owner; ob private Kontakte in der Globalsuche auftauchen dürfen, ist eine Produktfrage und nicht Teil dieser Coverage-Unit. (3) Zwei Diagnostics der IDE (`searchResultAlias`, go.mod `client_model` indirect) sind nicht reproduzierbar bzw. vorbestehend; Build/Vet/Lint grün.
