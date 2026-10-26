@@ -2770,7 +2770,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/notification/integration/slack von 59,5 % auf ≥ 75 %
     coverage_start: internal/notification/integration/slack 59,5 %
     scope: >
