@@ -2539,7 +2539,7 @@ units:
     service: validation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/validation von 57,8 % auf ≥ 80 %
     coverage_start: internal/validation 57,8 %
     scope: >

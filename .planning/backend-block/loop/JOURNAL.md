@@ -1587,3 +1587,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Der Unreachable-Redis-Test nutzt einen abgebrochenen Kontext, damit der Ping sofort scheitert (sonst ~4 s Retry-Budget); er prüft damit den Warn-Zweig, nicht eine echte Netzwerk-Verweigerung. (2) LOCAL-Scope von `set_config` ist wegen des AfterRelease-Resets nicht einzeln beweisbar.
+
+## Iteration 86 — cov-validation — done — 2026-10-26 06:24
+- commit: siehe Commit `test(validation): cover the custom rules and error descriptions` (git log)
+- gebaut: `internal/validation/rules_test.go`: Tabellentest über alle benutzerdefinierten Regeln (bic, plz_dach mit/ohne Land, ustid_dach/eu, steuernr, phone_dach, decimal_gt0/gte0, max_2dp, rate_fraction, clearable_date/oneof/phone_dach) gegen die geteilte Validator-Instanz, dazu `describe` für alle Regelzweige, JSON-Feldnamen-Fallback (`json:"-"`/ohne Tag -> Go-Name) und Nicht-Struct-Eingabe (roher Validator-Fehler statt `*Errors`).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/validation`, kein DB-Zugriff im Paket, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: internal/validation 56,1 % (lokal gemessen, CI-Wert im Backlog 57,8 %) -> 99,1 %
+- mutations-probe: 8 Proben, 7 rot: `GreaterThan` -> `GreaterThanOrEqual` (decimal_gt0), `Exponent() >= -2` -> `-3`, Obergrenze 1 aus `rate_fraction` entfernt, Datumsformat `2006-01-02` -> `2006-01`, `slices.Contains` -> `strings.Contains` (clearable_oneof), Dash-Prüfung im Feldnamen, Text `at least` -> `at most`. Eine überlebte: Default-Land `"DE"` -> `"CH"` in `phone_dach` ist ein äquivalenter Mutant, weil der Validator nur `err == nil` auswertet und DE/AT/CH alle ein zweistelliges Präfix haben (Längenprüfung identisch). Stattdessen belegt `phone_dach=US` (rot, wenn der Param nicht durchgereicht wird; Probe `country := fl.Param()` -> `""` rot), dass das Land-Argument ankommt. Dateien aus Backup zurück, Diff auf Produktivcode leer.
+- verify vorgaenger: sauber (`6a9634ce`: nur Test-Dateien in `internal/database` plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Der Default-Land-Zweig in `phone_dach`/`clearable_phone_dach` ist für den Validator ohne Wirkung (nur die Normalisierung nutzt das Land); dort kein weiterer Test sinnvoll.
