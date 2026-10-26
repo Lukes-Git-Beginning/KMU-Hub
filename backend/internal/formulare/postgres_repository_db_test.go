@@ -1048,7 +1048,8 @@ func TestPostgresRevokeShareLink_CrossTenantReturnsErrShareLinkNotFound(t *testi
 	}
 	defer testutil.CleanupRow(t, pool, "form_schemas", schema.ID)
 
-	link := &FormShareLink{ID: uuid.New(), TenantID: tenantA, FormSchemaID: schema.ID, Token: uuid.New().String(), CreatedAt: now}
+	expiresAt := now.Add(time.Hour)
+	link := &FormShareLink{ID: uuid.New(), TenantID: tenantA, FormSchemaID: schema.ID, Token: uuid.New().String(), ExpiresAt: &expiresAt, CreatedAt: now}
 	if err := repo.CreateShareLink(ctxA, link); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}

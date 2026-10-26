@@ -286,6 +286,18 @@ func (r *PostgresEmployeeRepo) Offboard(ctx context.Context, in OffboardWrite) (
 		return nil, err
 	}
 
+	// CalDAV/CardDAV app passwords are long-lived credentials that outlive the
+	// login lock above in the data: FindActiveByUser refuses inactive users
+	// today, but a stored, unrevoked password would work again the moment
+	// someone flips is_active. Revoke them in the same transaction.
+	if _, err := tx.Exec(ctx,
+		`UPDATE app_specific_passwords SET revoked_at = NOW()
+		  WHERE user_id = $1 AND tenant_id = $2 AND revoked_at IS NULL`,
+		in.UserID, in.TenantID,
+	); err != nil {
+		return nil, err
+	}
+
 	if in.SuccessorUserID != nil {
 		if err := reassignReports(ctx, tx, in); err != nil {
 			return nil, err
@@ -296,6 +308,88 @@ func (r *PostgresEmployeeRepo) Offboard(ctx context.Context, in OffboardWrite) (
 		return nil, err
 	}
 	return r.GetByID(ctx, in.EmployeeID)
+}
+
+// Reactivate reverses the offboard cascade in one transaction: the personnel
+// record is active again with its exit data cleared, the account can log in,
+// and it gets the "member" base role back — the offboard deleted every role,
+// and an active account without any role sees nothing. Wider roles are not
+// restored; whoever reactivates hands them out again.
+//
+// Not reversed: revoked app passwords stay revoked (long-lived credentials are
+// re-issued, not revived) and the reports moved to the successor stay there.
+func (r *PostgresEmployeeRepo) Reactivate(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (*models.EmployeeProfile, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Same concurrency guard as Offboard, mirrored: a second reactivation
+	// finds no inactive row.
+	tag, err := tx.Exec(ctx,
+		`UPDATE hr_employee_profiles
+		    SET status = 'active', last_work_day = NULL, exit_date = NULL,
+		        exit_type = NULL, exit_reason = NULL, updated_at = NOW()
+		  WHERE id = $1 AND tenant_id = $2 AND status = 'inactive'`,
+		employeeID, tenantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotOffboarded
+	}
+
+	// The seat check counts the way auth.CountSeatsInUse does (active users
+	// plus pending invitations) and runs before the account is unlocked, so
+	// the account being reactivated is not counted yet.
+	// lean: no lock on the tenant row, the same race auth's seat check has;
+	// serialize both once seat limits are actually booked.
+	var used int
+	var limit *int
+	if err := tx.QueryRow(ctx,
+		`SELECT t.seat_limit,
+		        (SELECT COUNT(*) FROM users u
+		          WHERE u.tenant_id = t.id AND u.is_active)
+		      + (SELECT COUNT(*) FROM invitations i
+		          WHERE i.tenant_id = t.id
+		            AND i.accepted_at IS NULL
+		            AND i.expires_at > NOW())
+		 FROM tenants t WHERE t.id = $1`, tenantID,
+	).Scan(&limit, &used); err != nil {
+		return nil, err
+	}
+	if limit != nil && used >= *limit {
+		return nil, ErrSeatLimitReached
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE users SET is_active = true, updated_at = NOW()
+		  WHERE id = $1 AND tenant_id = $2`,
+		userID, tenantID,
+	); err != nil {
+		return nil, err
+	}
+
+	// The system preset (tenant_id IS NULL), never a same-named custom role —
+	// the restriction auth.AssignRole keeps for the same reason.
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id, tenant_id)
+		 SELECT u.id, r.id, u.tenant_id
+		   FROM users u, roles r
+		  WHERE u.id = $1 AND u.tenant_id = $2
+		    AND r.name = 'member' AND r.tenant_id IS NULL
+		 ON CONFLICT DO NOTHING`,
+		userID, tenantID,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return r.GetByID(ctx, employeeID)
 }
 
 // reassignReports moves the leaver's direct reports to the successor without

@@ -2766,6 +2766,7 @@ paths:
   /api/v1/deals:
     post:
       summary: Create deal
+      description: "Scope team of crm:deal:create (member) creates deals only for the caller or one of their direct reports as owner_id; another owner answers 403. The legacy deals:write and scope all create for anyone."
       tags: [deals]
       operationId: createDeal
       security:
@@ -2892,6 +2893,7 @@ paths:
 
     put:
       summary: Update deal
+      description: "Scope team of crm:deal:edit (member) writes only deals whose owner (owner_id, else the creator) is the caller or one of their direct reports; any other deal answers 403. The legacy deals:write and scope all write tenant-wide. A scoped caller cannot hand the deal to an owner outside their scope (403)."
       tags: [deals]
       operationId: updateDeal
       security:
@@ -2955,7 +2957,7 @@ paths:
   /api/v1/deals/{id}/stage:
     post:
       summary: Move deal to stage
-      description: Automatically sets closed_at when moving to Won/Lost stages
+      description: "Automatically sets closed_at when moving to Won/Lost stages. Scope team of crm:deal:edit (member) writes only deals whose owner (owner_id, else the creator) is the caller or one of their direct reports; any other deal answers 403. The legacy deals:write and scope all write tenant-wide."
       tags: [deals]
       operationId: moveDealToStage
       security:
@@ -2979,6 +2981,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -3012,6 +3016,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -3042,6 +3048,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -4114,7 +4122,13 @@ paths:
 
   /api/v1/channels/dm:
     post:
-      summary: Get or create a direct message channel with another user
+      summary: Get or create a direct message channel (1:1 or group)
+      description: >
+        Send exactly one of `other_user_id` (1:1 DM) or `participant_ids` (group DM).
+        The caller is always a member and may be omitted from `participant_ids`; a
+        single other participant resolves to the 1:1 DM. The same member set always
+        returns the same channel (200), a new set creates one (201). Up to 50 members,
+        caller included.
       tags: [chat-channels]
       operationId: getOrCreateDM
       requestBody:
@@ -4123,11 +4137,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [other_user_id]
               properties:
                 other_user_id:
                   type: string
                   format: uuid
+                participant_ids:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                    format: uuid
+                name:
+                  type: string
+                  maxLength: 100
+                  description: Label of a newly created group DM (defaults to "DM"); ignored for 1:1 DMs and existing groups.
       responses:
         "200":
           description: Existing DM channel found
@@ -5272,6 +5295,38 @@ paths:
         "500":
           description: Failed to reset dashboard layout
 
+  /api/v1/dashboard/team-worktime:
+    get:
+      summary: This week's worked minutes per team member for the team-worktime widget
+      description: >
+        Same reach as GET /api/v1/hr/time/team: the whole tenant when hr:read or
+        zeiterfassung:team:view reaches all, the caller's reporting line otherwise. A caller
+        holding neither grant (member) gets an empty list, not 403.
+      tags: [dashboard]
+      operationId: getDashboardTeamWorktime
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Worked minutes of the current week per employee (empty list without a team grant)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, minutes]
+                      properties:
+                        id: { type: string, format: uuid, description: Employee user ID }
+                        name: { type: string }
+                        minutes: { type: integer, description: Minutes worked in the current week }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/dashboard/defaults/{role}:
     get:
       summary: Get default dashboard layout for a role (admin only)
@@ -6269,8 +6324,8 @@ paths:
         "409":
           description: >-
             Either the Idempotency-Key request is still in flight, or is_closed
-            asks for a state the task cannot reach (a project-less task, or a
-            project without a closed/open status), or project_id asks for a move
+            asks for a state the task cannot reach (a project without a
+            closed/open status), or project_id asks for a move
             the task cannot make (it already has a project, a parent or subtasks,
             or the target project has no open status).
           content:
@@ -6281,6 +6336,11 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete task
+      description: >
+        Requires tasks:delete or work:task:delete. At scope own of work:task:delete (member preset)
+        only a task the caller created is deleted; any other task answers 404. tasks:delete beyond
+        own (manager, admin) deletes tenant-wide. In a project the caller must also be allowed to
+        edit it (403 for viewers).
       tags: [tasks]
       operationId: deleteTask
       security:
@@ -6297,6 +6357,12 @@ paths:
           description: Task deleted
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -8580,6 +8646,10 @@ paths:
   /api/v1/calendar/events/{id}/join-token:
     post:
       summary: Generate a LiveKit join token for a video call event
+      description: >
+        Only the event's organiser and its attendees get a token, issued in the
+        caller's own name. Anyone else receives 404, the same as for a missing
+        event.
       tags: [events]
       operationId: generateJoinToken
       security:
@@ -8881,6 +8951,11 @@ paths:
       summary: Start recording a call or meeting
       tags: [recordings]
       operationId: startRecording
+      description: >-
+        Creates the recording in status pending (RECORDING_STATUS_PENDING). Nothing
+        is recorded yet: the LiveKit egress starts only when the initiator confirms
+        via POST /api/v1/video/recordings/{id}/initiator-consent. A pending
+        recording that is never confirmed records nothing.
       security:
         - bearerAuth: []
       requestBody:
@@ -8891,7 +8966,7 @@ paths:
               $ref: "#/components/schemas/StartRecordingRequest"
       responses:
         "201":
-          description: Recording started
+          description: Recording created, pending the initiator's confirmation
           content:
             application/json:
               schema:
@@ -10686,7 +10761,8 @@ paths:
         "400":
           description: >-
             The invoice id in the path is not a valid UUID, or the body is
-            malformed or fails validation. Also returned when the
+            malformed or fails validation, or `currency` names another
+            currency than the invoice's. Also returned when the
             Idempotency-Key header is missing on this mutating request: that
             only applies while the gateway runs in IDEMPOTENCY_MODE=hard, but
             every shipped compose file (dev and prod) hard-sets it, so it is
@@ -11386,7 +11462,9 @@ paths:
         "409":
           description: >
             Already reconciled, or the entry is a debit — money leaving the
-            account cannot settle a receivable.
+            account cannot settle a receivable. Also returned when the credit
+            is in another currency than the invoice (no exchange rate is
+            stored, the payment is not booked).
             Also returned when a request carrying the same
             Idempotency-Key is still in flight; retry after the delay in
             Retry-After with the same key and body.
@@ -13215,6 +13293,14 @@ paths:
   /api/v1/hr/absences/calendar:
     get:
       summary: Get absence calendar for team view
+      description: >
+        Requires hr:read or team:absence:read. Where the caller's absence-data reach is tenant-wide
+        (hr:read, or team:absence_data:view at scope all as for hr_admin) the entries are the full
+        AbsenceEntry. Below that every entry is the projection AbsenceCalendarEntry: who is away
+        when as absence_class "absent" with a neutral colour, no total_days, and leave_type_name plus
+        its colour only for the caller's own absences and, at scope team (manager), for their direct
+        reports (manager_user_id = caller). The leave type is withheld because 'Krankheit' is a
+        health datum (Art. 9 GDPR).
       tags: [hr-absence]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -13233,9 +13319,15 @@ paths:
                   entries:
                     type: array
                     items:
-                      $ref: "#/components/schemas/AbsenceEntry"
+                      oneOf:
+                        - $ref: "#/components/schemas/AbsenceEntry"
+                        - $ref: "#/components/schemas/AbsenceCalendarEntry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -13402,14 +13494,17 @@ paths:
       description: >
         Requires hr:read or team:employee:read. A caller without hr:read gets the team directory
         projection of this one employee (id, user_id, user_name, user_email, department,
-        position_title, manager_user_id, manager_name, status), same as the list.
+        position_title, manager_user_id, manager_name, status), same as the list — unless the
+        caller holds team:data_personal:view and team:data_job:view and they reach this employee:
+        at scope all every employee, at scope team (manager) the direct reports
+        (manager_user_id = caller). Those callers get the full profile.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Employee profile (full with hr:read, directory projection otherwise), wrapped as `{employee}`
+          description: Employee profile (full with hr:read or the reaching data keys, directory projection otherwise), wrapped as `{employee}`
           content:
             application/json:
               schema:
@@ -13495,6 +13590,43 @@ paths:
           description: Employee has already left, or is the last active account carrying role administration
         "422":
           description: The employee still has direct reports and no successor was named
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/hr/employees/{id}/reactivate:
+    post:
+      summary: Reactivate an offboarded employee
+      description: >
+        Reverses an offboard in one transaction: the personnel record is active
+        again with its exit data cleared, the account can log in, and it gets
+        the base role "member" back (the offboard removed every role; wider
+        roles have to be assigned again). Revoked app passwords stay revoked and
+        reports moved to a successor stay there. Takes a seat, so it is refused
+        when the tenant's booked seats are all in use. No request body.
+      tags: [hr-employee]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Employee reactivated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  employee:
+                    $ref: "#/components/schemas/EmployeeProfile"
+        "400":
+          description: Malformed employee id
+        "401":
+          description: Missing or invalid tenant
+        "403":
+          description: Missing team:employee:offboard
+        "404":
+          description: Employee profile not found
+        "409":
+          description: Employee is still active, or no seat is left
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -16506,11 +16638,30 @@ paths:
                   description: PDF with embedded ZUGFeRD XML, or raw XML (CII/UBL)
       responses:
         "201":
-          description: Invoice imported successfully
+          description: |
+            Invoice imported successfully. `warnings` lists deviations from the
+            supported currency and VAT category codes (BR-CL-04, BR-CL-17); the
+            invoice is stored regardless, and `warnings` is `[]` when there are none.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/IncomingInvoice"
+                allOf:
+                  - $ref: "#/components/schemas/IncomingInvoice"
+                  - type: object
+                    properties:
+                      warnings:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rule:
+                              type: string
+                              example: BR-CL-04
+                            term:
+                              type: string
+                              example: BT-5
+                            message:
+                              type: string
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -17144,6 +17295,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update a helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted (any other answers 404), and a change of
+        assignee_id is refused with 403.
       tags: [helpdesk-tickets]
       operationId: updateHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17177,6 +17332,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -17186,6 +17342,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/close:
     post:
       summary: Close a helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: closeHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17209,6 +17368,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/reopen:
     post:
       summary: Reopen a closed helpdesk ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: reopenHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17232,6 +17394,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/csat:
     post:
       summary: Submit a customer-satisfaction rating for a ticket
+      description: >
+        At scope own of helpdesk:ticket:edit (member) only a ticket assigned to
+        the caller is accepted; any other answers 404.
       tags: [helpdesk-tickets]
       operationId: submitHelpdeskTicketCsat
       security: [{ bearerAuth: [] }]
@@ -17331,6 +17496,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/assign:
     post:
       summary: Assign a helpdesk ticket to an agent
+      description: >
+        Assigning stays with agents holding helpdesk:ticket:edit (or legacy
+        helpdesk:write) beyond scope own; a member answers 403.
       tags: [helpdesk-tickets]
       operationId: assignHelpdeskTicket
       security: [{ bearerAuth: [] }]
@@ -17353,6 +17521,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -17362,6 +17531,9 @@ paths:
   /api/v1/helpdesk/tickets/{id}/merge:
     post:
       summary: Merge a ticket into another ticket
+      description: >
+        Merging stays with agents holding helpdesk:ticket:edit (or legacy
+        helpdesk:write) beyond scope own; a member answers 403.
       tags: [helpdesk-tickets]
       operationId: mergeHelpdeskTickets
       security: [{ bearerAuth: [] }]
@@ -17384,6 +17556,7 @@ paths:
               schema: { type: object, properties: { status: { type: string } } }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -17426,7 +17599,7 @@ paths:
               required: [body]
               properties:
                 body: { type: string }
-                internal: { type: boolean, description: Internal note (not visible to requester) }
+                internal: { type: boolean, description: "Internal note (not visible to requester); requires helpdesk:ticket:edit or helpdesk:write, else 403" }
                 attachments: { type: array, items: { type: string } }
       responses:
         "201":
@@ -17436,6 +17609,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
@@ -18116,6 +18290,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete a wiki article
+      description: >
+        Holding wiki:article:delete at scope own (member) deletes only articles
+        the caller wrote; any other article answers 404. wiki:articles:write
+        (manager) and scope all (admin) delete tenant-wide.
       tags: [wiki-articles]
       operationId: deleteWikiArticle
       security: [{ bearerAuth: [] }]
@@ -18127,6 +18305,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
@@ -18221,6 +18400,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
@@ -18228,6 +18408,9 @@ paths:
   /api/v1/wiki/articles/{id}/attachments/{attachmentId}:
     delete:
       summary: Delete a wiki article attachment
+      description: >
+        Holding wiki:article:delete at scope own (member) deletes only
+        attachments of articles the caller wrote; any other answers 404.
       tags: [wiki-articles]
       operationId: deleteWikiArticleAttachment
       security: [{ bearerAuth: [] }]
@@ -18240,6 +18423,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
@@ -18248,7 +18432,9 @@ paths:
   /api/v1/wiki/attachments/{attachmentId}:
     delete:
       summary: Delete a wiki attachment by its own ID
-      description: Same effect as the article-scoped route; the article ID is not needed.
+      description: >
+        Same effect as the article-scoped route, including the own scope of
+        wiki:article:delete; the article ID is not needed.
       tags: [wiki-articles]
       operationId: deleteWikiAttachment
       security: [{ bearerAuth: [] }]
@@ -18399,6 +18585,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Create a share token for a wiki article
+      description: >
+        Holding wiki:share_token:create at scope own (member) shares only
+        articles the caller wrote; any other article answers 404.
       tags: [wiki-articles]
       operationId: createWikiShareToken
       security: [{ bearerAuth: [] }]
@@ -18410,7 +18599,10 @@ paths:
             schema:
               type: object
               properties:
-                expires_at: { type: string, format: date-time }
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: Absent = 365 days from now. Must lie in the future and at most 365 days ahead, else 400.
                 permissions: { type: array, items: { type: string } }
       responses:
         "201":
@@ -18420,6 +18612,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
@@ -18434,6 +18627,8 @@ paths:
         can tell a revoked link from one that never existed. Redeeming a
         revoked token answers the same 404 as an invented one. Repeating the
         call is idempotent and does not move the original revocation time.
+        Holding wiki:share_token:create at scope own (member) revokes only
+        links of articles the caller wrote; any other answers 404.
       tags: [wiki-articles]
       operationId: revokeWikiShareToken
       security: [{ bearerAuth: [] }]
@@ -18445,6 +18640,7 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/IdempotencyInFlight" }
         "503":
@@ -18546,7 +18742,7 @@ paths:
         - { name: from, in: query, description: "Only shifts from this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: to, in: query, description: "Only shifts up to this instant (RFC3339)", schema: { type: string, format: date-time } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated shift list
@@ -18713,6 +18909,10 @@ paths:
   /api/v1/schichten/shifts/{id}/assignments:
     get:
       summary: List employee assignments for a shift
+      description: >
+        Requires `schichten:assignment:read`. At scope `own` (member) the list holds only the
+        caller's own assignments, matched by user id or by the caller's HR profile id; a shift
+        without one answers 200 with an empty list. Wider scopes see the whole roster.
       tags: [schichten]
       operationId: listShiftAssignments
       security: [{ bearerAuth: [] }]
@@ -18765,7 +18965,14 @@ paths:
                     $ref: '#/components/schemas/SchichtenAssignment'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >
+            Assignment refused: shift full, employee already assigned, ArbZG rest period
+            or JArbSchG limit violated, or the employee already works an overlapping shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -18797,7 +19004,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Template list
@@ -19001,7 +19208,7 @@ paths:
         - { name: shift_id, in: query, schema: { type: string, format: uuid } }
         - { name: status, in: query, schema: { type: string } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Swap request list
@@ -19060,6 +19267,10 @@ paths:
   /api/v1/schichten/swap-requests/{id}/approve:
     post:
       summary: Approve a shift swap request
+      description: >
+        Hands the requester's assignment over to the swap partner: the same assignment row now
+        carries the partner, the requester is off the shift. The partner gets the checks an
+        assignment gets.
       tags: [schichten]
       operationId: approveSwapRequest
       security: [{ bearerAuth: [] }]
@@ -19079,7 +19290,15 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >
+            Approval refused: the request is already decided, the requester no longer holds the
+            seat, or the swap partner cannot take the shift (already on it, overlapping shift,
+            ArbZG rest period or JArbSchG limit). Nothing is handed over.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -19566,7 +19785,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: fuel_type, in: query, schema: { type: string, enum: [petrol, diesel, electric, hybrid, other] } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated vehicle list
@@ -19713,7 +19932,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Vehicle history
@@ -19722,6 +19941,49 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+
+  /api/v1/fuhrpark/vehicles/{id}/availability:
+    get:
+      summary: Occupied time windows of a vehicle
+      description: >
+        Returns the intervals of the vehicle's active bookings (booked, in_use) that overlap
+        [from, to), ordered by start. The answer carries no booking id, user or purpose, so it is
+        not narrowed to the caller's own bookings: anyone holding fuhrpark:booking:read (member
+        at scope own included) sees when a pool vehicle is taken before booking it. Window at
+        most 93 days.
+      tags: [fuhrpark]
+      operationId: getVehicleAvailability
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Occupied windows
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [vehicle_id, from, to, items, total]
+                properties:
+                  vehicle_id: { type: string, format: uuid }
+                  from: { type: string, format: date-time }
+                  to: { type: string, format: date-time }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [starts_at, ends_at]
+                      properties:
+                        starts_at: { type: string, format: date-time }
+                        ends_at: { type: string, format: date-time }
+                  total: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 
   /api/v1/fuhrpark/vehicles/{id}/services:
@@ -19733,7 +19995,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Service list
@@ -19798,7 +20060,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Damage list
@@ -19862,7 +20124,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Fuel log list
@@ -19926,7 +20188,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Trip log list
@@ -19995,7 +20257,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Document list
@@ -20058,7 +20320,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Service list
@@ -20085,7 +20347,7 @@ paths:
       parameters:
         - { name: days_ahead, in: query, schema: { type: integer, minimum: 1, maximum: 3650, default: 30 }, description: "Look-ahead window in days; an invalid value falls back to the default" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Upcoming service list
@@ -20203,7 +20465,7 @@ paths:
         - { name: status, in: query, schema: { type: string } }
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Damage list
@@ -20302,7 +20564,7 @@ paths:
       parameters:
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Fuel log list
@@ -20383,7 +20645,7 @@ paths:
       parameters:
         - { name: vehicle_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Trip log list
@@ -20500,7 +20762,7 @@ paths:
           description: Upper bound of the window (RFC3339).
           schema: { type: string, format: date-time }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Booking list
@@ -20637,7 +20899,7 @@ paths:
       parameters:
         - { name: driver_id, in: query, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Driver license check list
@@ -21047,6 +21309,7 @@ paths:
                 expected_delivery_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 currency: { type: string, example: EUR }
                 notes: { type: string }
+                framework_contract_id: { type: string, format: uuid, description: "Binds the PO to a framework contract of the same tenant. A non-UUID value or a contract in another currency than the PO -> 400; an unknown or foreign-tenant contract -> 404." }
       responses:
         "201":
           description: Purchase order created
@@ -21055,6 +21318,7 @@ paths:
               schema: { type: object }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
@@ -21098,8 +21362,9 @@ paths:
                 po_number: { type: string }
                 order_date: { type: string, description: "YYYY-MM-DD or RFC3339. Malformed value -> 400." }
                 expected_delivery_date: { type: string, nullable: true, description: "YYYY-MM-DD or RFC3339. `null` or an empty string clears the date; an omitted key leaves it unchanged." }
-                currency: { type: string }
+                currency: { type: string, description: "On a PO bound to a framework contract a currency other than the contract's -> 400." }
                 notes: { type: string }
+                framework_contract_id: { type: string, format: uuid, nullable: true, description: "`null` or an empty string unbinds the PO, an omitted key leaves the binding unchanged. A non-UUID value or a contract in another currency than the PO -> 400; an unknown or foreign-tenant contract -> 404." }
       responses:
         "200":
           description: Purchase order updated
@@ -21198,7 +21463,7 @@ paths:
           description: Goods received
           content:
             application/json:
-              schema: { type: object }
+              schema: { $ref: "#/components/schemas/EinkaufGoodsReceiptResponse" }
         "400":
           $ref: "#/components/responses/BadRequest"
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -21236,7 +21501,7 @@ paths:
           description: Partial receipt recorded
           content:
             application/json:
-              schema: { type: object }
+              schema: { $ref: "#/components/schemas/EinkaufGoodsReceiptResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -21284,7 +21549,7 @@ paths:
                 sku: { type: string }
                 quantity: { type: string }
                 unit_price: { type: string }
-                tax_rate: { type: string }
+                tax_rate: { type: string, description: "Fraction, 0.19 = 19 % (0..1, at most 4 decimals); otherwise 400 validation_failed" }
                 line_position: { type: integer }
       responses:
         "201":
@@ -21319,7 +21584,7 @@ paths:
                 sku: { type: string }
                 quantity: { type: string }
                 unit_price: { type: string }
-                tax_rate: { type: string }
+                tax_rate: { type: string, description: "Fraction, 0.19 = 19 % (0..1, at most 4 decimals); otherwise 400 validation_failed" }
                 line_position: { type: integer }
       responses:
         "200":
@@ -21945,7 +22210,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [draft, submitted, approved, rejected] }, description: "Filter by report status" }
         - { name: author_id, in: query, schema: { type: string, format: uuid }, description: "Filter by author UUID" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated report list
@@ -22506,7 +22771,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated list of submitted reports awaiting review
@@ -22533,7 +22798,7 @@ paths:
       parameters:
         - { name: report_id, in: query, schema: { type: string, format: uuid }, description: "Filter by report UUID" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated measurement list
@@ -22741,7 +23006,7 @@ paths:
       parameters:
         - { name: active_only, in: query, schema: { type: boolean, default: false }, description: "Return only active templates" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated template list
@@ -24596,8 +24861,9 @@ paths:
 
 
         The link may carry an expiry and a submission quota; both are enforced
-        server-side on every redemption, and both are optional (omitted =
-        never expires / unlimited).
+        server-side on every redemption. An omitted expiry means 365 days from
+        now; one further out than 365 days answers 400. An omitted quota means
+        unlimited.
       tags: [formulare]
       operationId: createFormShareLink
       security: [{ bearerAuth: [] }]
@@ -25461,6 +25727,15 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: >
+            Missing email:write and email:account:write, or a caller with the self-setup key
+            (scope own) names another user in user_id. Without the coarse key the account is
+            always the caller's own; an empty user_id becomes the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -26346,7 +26621,11 @@ paths:
 
   /api/v1/email/rules:
     get:
-      summary: List the tenant's email rules
+      summary: List the tenant-wide email rules plus the caller's own
+      description: >
+        Rules created before per-user rules (migration 000348) are tenant-wide
+        and run over every mailbox; every newer rule belongs to its creator and
+        runs over that user's mailboxes only. Colleagues' rules are not listed.
       tags: [mails]
       operationId: listEmailRules
       security:
@@ -26365,7 +26644,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:
-      summary: Create an email rule
+      summary: Create an email rule owned by the caller
       tags: [mails]
       operationId: createEmailRule
       security:
@@ -26390,7 +26669,7 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
-          description: Move action target is not a folder of this tenant
+          description: Move target is not a folder of the caller's own mailboxes, or label target is not a label of this tenant
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -26402,7 +26681,9 @@ paths:
       description: >
         Partial update: omitted fields keep their stored value. The merged rule
         is validated as a whole, so a patch cannot produce a combination a
-        create would have rejected.
+        create would have rejected. The caller's own rules only; a colleague's
+        rule answers 404, a tenant-wide rule 403 unless the caller holds the
+        coarse email:write key. Delete follows the same rule.
       tags: [mails]
       operationId: updateEmailRule
       security:
@@ -26467,10 +26748,13 @@ paths:
 
   /api/v1/email/rules/apply:
     post:
-      summary: Apply all rules to the tenant's stored messages
+      summary: Apply the rules to stored messages
       description: >
-        Runs every rule over the tenant's non-trashed messages, newest first,
-        capped at 2000 messages per run. Rules apply in creation order and
+        Runs the rules over non-trashed messages, newest first, capped at 2000
+        messages per run: across the tenant for a holder of the coarse
+        email:write key, over the caller's own mailboxes otherwise. A message
+        only meets the tenant-wide rules and the rules of the user holding its
+        mailbox. Rules apply in creation order and
         accumulate: labels add up, a later move overrides an earlier one.
       tags: [mails]
       operationId: applyEmailRules
@@ -26562,6 +26846,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update an email template
+      description: >
+        Without the coarse email:write key (admin) the caller changes their own personal templates
+        only: a shared template or a visibility change is 403, a colleague's personal template 404.
       tags: [mails]
       operationId: updateEmailTemplate
       security:
@@ -26585,6 +26872,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -26593,6 +26882,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     delete:
       summary: Delete an email template
+      description: >
+        Without the coarse email:delete key (admin) the caller removes their own personal templates
+        only: a shared template is 403, a colleague's personal template 404.
       tags: [mails]
       operationId: deleteEmailTemplate
       security:
@@ -26608,6 +26900,8 @@ paths:
                 type: object
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -26850,6 +27144,10 @@ paths:
   /api/v1/email/links/contact/{contactId}:
     get:
       summary: Get emails linked to a CRM contact (paginated)
+      description: >
+        Takes email:read or email:contact_history:read. At scope own (member) only messages of the
+        caller's own mailboxes are listed, and `total` counts only those; manager and admin see the
+        linked mail of every mailbox.
       tags: [mails]
       operationId: getContactEmails
       security:
@@ -26878,8 +27176,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GetContactEmailsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           description: Response could not be encoded
         "503":
@@ -27910,7 +28212,7 @@ paths:
         - { name: location, in: query, schema: { type: string } }
         - { name: low_stock, in: query, schema: { type: boolean }, description: "Filter to items below min_quantity" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated item list
@@ -28107,7 +28409,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated movement list
@@ -28176,7 +28478,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated stock history (movements)
@@ -28200,6 +28502,10 @@ paths:
   /api/v1/inventar/transfer:
     post:
       summary: Transfer stock between two items
+      description: >
+        Books an outbound movement on the source item and an inbound movement on the target item
+        in one transaction. Requires `inventar:item:write` or `inventar:movement:create`. The
+        actor of both movements is always the caller; `performed_by` is accepted but ignored.
       tags: [inventar]
       operationId: transferInventarStock
       security: [{ bearerAuth: [] }]
@@ -28240,7 +28546,7 @@ paths:
             enum: [active, acknowledged, resolved]
           description: "Filter by warning status"
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated warning list
@@ -28445,7 +28751,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated location list
@@ -28591,7 +28897,7 @@ paths:
             enum: [open, picking, completed]
           description: "Filter by picking list status"
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated picking list overview
@@ -28846,7 +29152,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated Inventur session list
@@ -29075,7 +29381,7 @@ paths:
         - { name: category, in: query, schema: { type: string } }
         - { name: active_only, in: query, schema: { type: boolean } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated rental object list
@@ -29259,7 +29565,7 @@ paths:
         - { name: from, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date >= from" }
         - { name: to, in: query, schema: { type: string }, description: "RFC3339 timestamp — filter start_date <= to" }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated rental list
@@ -29496,7 +29802,7 @@ paths:
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
       responses:
         "200":
           description: Paginated inspection list
@@ -29704,7 +30010,7 @@ paths:
         - { name: sort_desc, in: query, schema: { type: boolean } }
         - name: module
           in: query
-          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
           schema: { type: string }
         - name: kind
           in: query
@@ -29745,7 +30051,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 kind:
                   type: string
                   description: "system|custom (defaults to custom)"
@@ -29799,7 +30105,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     patch:
       summary: Update a report definition
-      description: Requires berichte:reports:write permission. Only present fields are changed.
+      description: >-
+        Requires berichte:reports:write or berichte:reports:edit. At edit scope own (member) only the
+        creator may change the definition; a foreign one answers 404. Only present fields are changed.
       tags: [berichte]
       operationId: updateBerichteDefinition
       security: [{ bearerAuth: [] }]
@@ -29816,7 +30124,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 query_config:
                   type: object
                   additionalProperties: true
@@ -30197,7 +30505,7 @@ paths:
         - { name: search, in: query, description: Case-insensitive title match, schema: { type: string } }
         - name: module
           in: query
-          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "Filter by module: finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
           schema: { type: string }
         - name: status
           in: query
@@ -30243,7 +30551,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross (defaults to cross)"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross (defaults to cross)"
                 template_id:
                   type: string
                   nullable: true
@@ -30298,7 +30606,10 @@ paths:
     patch:
       summary: Update a report document
       description: >
-        Requires berichte:reports:write permission. Only present fields are
+        Requires berichte:reports:write, edit or publish. At edit scope own (member)
+        only the creator may change the document; a foreign one answers 404. A
+        status change (the lifecycle) needs berichte:reports:publish or write,
+        otherwise 403. Only present fields are
         changed; omitted rows/settings keep their stored value. The first
         transition to status "released" stamps released_at, later edits leave
         it untouched.
@@ -30318,7 +30629,7 @@ paths:
                 description: { type: string }
                 module:
                   type: string
-                  description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+                  description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
                 status:
                   type: string
                   description: "draft|final|released|archived"
@@ -30438,7 +30749,7 @@ paths:
         POST /api/v1/public/berichte/reports/{token}. An optional password is
         bcrypt-hashed and never returned; the response only reports whether one
         is set. expires_in_days is capped at 365; omitting it or passing 0
-        creates a link that never expires.
+        creates a link that expires after 365 days.
       tags: [berichte]
       operationId: createBerichteDocumentShare
       security: [{ bearerAuth: [] }]
@@ -30456,7 +30767,7 @@ paths:
                   nullable: true
                   minimum: 0
                   maximum: 365
-                  description: "null or 0 = never expires"
+                  description: "null or 0 = 365 days"
                 password:
                   type: string
                   maxLength: 72
@@ -37905,7 +38216,12 @@ paths:
 
   /api/v1/video/recordings/{id}/initiator-consent:
     post:
-      summary: Stamp initiator pre-recording consent before StartRecording (requires recording:write or meetings:write)
+      summary: Confirm the initiator's pre-recording consent and start the recording (requires recording:write or meetings:write)
+      description: >-
+        Stamps the initiator's confirmation on a pending recording, moves it to
+        active and starts the LiveKit egress. Only the stamp that moves the
+        recording out of pending starts an egress; repeating the call answers
+        200 and starts nothing.
       tags: [recordings]
       operationId: confirmInitiatorConsent
       security:
@@ -37947,6 +38263,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: The egress could not be started; the recording is marked failed
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
@@ -44289,10 +44607,12 @@ components:
             Absent or 0 takes the tenant default (company settings, else 30).
         currency:
           type: string
-          example: CHF
+          example: EUR
           description: >
             ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
-            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400. An
+            ad-hoc invoice (no `source_quote_id`) is always billed in the tenant currency: any other
+            code is a 400. An invoice created from a quote keeps the requested currency.
             An `exchange_rate` in the body is ignored: no rate is stored.
         notes:
           type: string
@@ -44338,10 +44658,12 @@ components:
             a changed invoice_date without terms or due_date moves the due date by the same distance.
         currency:
           type: string
-          example: CHF
+          example: EUR
           description: >
             ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
-            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
+            not an ISO 4217 code is a 400. On an ad-hoc draft (not from a quote, not from a recurring
+            schedule) a change to any currency but the tenant's is a 400; repeating the stored
+            currency is accepted. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 
@@ -44420,6 +44742,12 @@ components:
           format: uuid
         amount:
           type: string
+        currency:
+          type: string
+          description: >-
+            ISO 4217 code the payment was booked in. Always the invoice
+            currency (no exchange rate is stored).
+          example: EUR
         payment_date:
           type: string
           format: date
@@ -44457,6 +44785,13 @@ components:
           type: string
         notes:
           type: string
+        currency:
+          type: string
+          description: >-
+            Optional ISO 4217 code. Omitted or empty books the payment in
+            the invoice currency; any other code than the invoice's is
+            rejected with 400 (no exchange rate is stored).
+          example: EUR
 
     BankStatement:
       type: object
@@ -45357,6 +45692,23 @@ components:
         end_date: { type: string, format: date }
         leave_type_name: { type: string }
         leave_type_color: { type: string }
+        manager_user_id: { type: string, description: "Manager of the absent employee, empty without one" }
+
+    AbsenceCalendarEntry:
+      type: object
+      description: >
+        Absence calendar row below the full calendar. leave_type_name is omitted where the caller's
+        absence-data reach does not cover the employee; leave_type_color is then neutral.
+      required: [employee_id, employee_name, department, start_date, end_date, absence_class, leave_type_color]
+      properties:
+        employee_id: { type: string, format: uuid }
+        employee_name: { type: string }
+        department: { type: string }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        absence_class: { type: string, enum: [absent] }
+        leave_type_name: { type: string }
+        leave_type_color: { type: string }
 
     ProfileChangeRequest:
       type: object
@@ -45410,7 +45762,7 @@ components:
         status: { type: string, enum: [active, inactive] }
         last_work_day: { type: string, format: date }
         exit_date: { type: string, format: date }
-        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exit_type: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement, other] }
         exit_reason: { type: string }
         is_minor:
           type: boolean
@@ -45426,7 +45778,10 @@ components:
       properties:
         lastWorkDay: { type: string, format: date }
         exitDate: { type: string, format: date }
-        exitType: { type: string, enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement] }
+        exitType:
+          type: string
+          enum: [resignation, termination, fixed_term_expired, mutual_termination, retirement, other]
+          description: "\"other\" is what the team page's deactivate button records."
         reason: { type: string }
         backfill:
           type: boolean
@@ -49889,6 +50244,34 @@ components:
         updated_at:
           $ref: "#/components/schemas/ProtoTimestamp"
 
+    EinkaufGoodsReceiptResponse:
+      type: object
+      description: >-
+        Result of a (partial) goods receipt. `contract_call_off` is present only
+        when the PO is bound to a framework contract and the delivery added value:
+        the receipt then books a call-off for the net value of the newly received
+        quantities. The budget is soft — a call-off above the remaining value is
+        booked anyway and reported with `budget_exceeded`; an inactive or
+        other-currency contract skips the call-off (`call_id` empty, `warning` set).
+        The receipt itself never fails on the contract.
+      properties:
+        po:
+          type: object
+        contract_call_off:
+          type: object
+          properties:
+            contract_id: { type: string, format: uuid }
+            call_id:
+              type: string
+              description: "Booked call-off; absent when the call-off was skipped"
+            amount:
+              type: string
+              description: "Net value of the newly received quantities, numeric string"
+            budget_exceeded: { type: boolean }
+            remaining:
+              type: string
+              description: "Remaining contract value before this call-off"
+            warning: { type: string }
     EinkaufContractCall:
       type: object
       description: >-
@@ -50505,7 +50888,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         kind:
           type: string
           description: "system|custom"
@@ -50553,7 +50936,7 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: null = never expires
+          description: Always set since 000352, at most 365 days after creation.
         has_password:
           type: boolean
         view_count:
@@ -50579,7 +50962,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         rows:
           type: array
           description: Block tree (rows -> columns -> blocks), opaque JSONB.
@@ -50619,7 +51002,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         status:
           type: string
           description: "draft|final|released|archived"
@@ -50672,7 +51055,7 @@ components:
           type: string
         module:
           type: string
-          description: "finanzen|crm|helpdesk|inventar|produktion|cross"
+          description: "finanzen|crm|helpdesk|inventar|produktion|work|kommunikation|hr|zeiterfassung|vertraege|einkauf|fuhrpark|rapporte|cross"
         icon:
           type: string
           nullable: true

@@ -265,7 +265,7 @@ func (r *stubLinkRepo) GetByMessageID(_ context.Context, messageID, tenantID uui
 	return out, nil
 }
 
-func (r *stubLinkRepo) GetByContactID(_ context.Context, contactID, tenantID uuid.UUID, _, _ int) ([]*models.EmailMessage, int, error) {
+func (r *stubLinkRepo) GetByContactID(_ context.Context, contactID, tenantID uuid.UUID, _ *uuid.UUID, _, _ int) ([]*models.EmailMessage, int, error) {
 	out := make([]*models.EmailMessage, 0)
 	for _, m := range r.contactMessages[contactID] {
 		if m.TenantID == tenantID {
@@ -409,7 +409,7 @@ func newEmailMessagesFixture() *testEmailMessagesFixture {
 	linkRepo := newStubLinkRepo()
 
 	msgSvc := message.NewService(msgRepo, folderRepo)
-	sendSvc := send.NewService(accounts, msgSvc, nil)
+	sendSvc := send.NewService(accounts, msgSvc, nil).WithDialGuard(loopbackDialGuard())
 	attSvc := attachment.NewService(attRepo, stubObjectStore{})
 
 	srv := NewEmailGRPCServer(nil, msgSvc, sendSvc, nil, attSvc, nil, linkRepo, nil, nil, nil, nil, nil)

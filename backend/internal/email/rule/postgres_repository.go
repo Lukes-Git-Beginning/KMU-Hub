@@ -12,7 +12,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
-const ruleColumns = `id, tenant_id, name, field, op, value, action_type, action_target, created_at, updated_at`
+const ruleColumns = `id, tenant_id, user_id, name, field, op, value, action_type, action_target, created_at, updated_at`
 
 // PostgresRepository implements Repository using PostgreSQL.
 type PostgresRepository struct {
@@ -26,7 +26,7 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 func scanRule(row pgx.Row) (*models.EmailRule, error) {
 	var r models.EmailRule
-	if err := row.Scan(&r.ID, &r.TenantID, &r.Name, &r.Field, &r.Op, &r.Value,
+	if err := row.Scan(&r.ID, &r.TenantID, &r.UserID, &r.Name, &r.Field, &r.Op, &r.Value,
 		&r.ActionType, &r.ActionTarget, &r.CreatedAt, &r.UpdatedAt); err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func scanRule(row pgx.Row) (*models.EmailRule, error) {
 func (p *PostgresRepository) Create(ctx context.Context, r *models.EmailRule) error {
 	_, err := p.pool.Exec(ctx,
 		`INSERT INTO email_rules (`+ruleColumns+`)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		r.ID, r.TenantID, r.Name, r.Field, r.Op, r.Value, r.ActionType, r.ActionTarget,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+		r.ID, r.TenantID, r.UserID, r.Name, r.Field, r.Op, r.Value, r.ActionType, r.ActionTarget,
 		r.CreatedAt, r.UpdatedAt,
 	)
 	return err
@@ -114,6 +114,19 @@ func (p *PostgresRepository) FolderBelongsToTenant(ctx context.Context, folderID
 	return exists, err
 }
 
+// FolderBelongsToUser checks a personal rule's move target against the
+// owner's accounts: the folder has to lie in one of userID's mailboxes.
+func (p *PostgresRepository) FolderBelongsToUser(ctx context.Context, folderID, tenantID, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := p.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		    SELECT 1 FROM email_folders f
+		      JOIN email_accounts a ON a.id = f.account_id AND a.tenant_id = f.tenant_id
+		     WHERE f.id = $1 AND f.tenant_id = $2 AND a.user_id = $3)`,
+		folderID, tenantID, userID).Scan(&exists)
+	return exists, err
+}
+
 // LabelBelongsToTenant checks the label action's target against
 // email_labels.tenant_id.
 func (p *PostgresRepository) LabelBelongsToTenant(ctx context.Context, labelID, tenantID uuid.UUID) (bool, error) {
@@ -124,16 +137,18 @@ func (p *PostgresRepository) LabelBelongsToTenant(ctx context.Context, labelID, 
 	return exists, err
 }
 
-func (p *PostgresRepository) ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
+func (p *PostgresRepository) ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, ownerID *uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error) {
 	rows, err := p.pool.Query(ctx,
-		`SELECT m.id, COALESCE(m.from_name, ''), m.from_email, COALESCE(m.subject, ''),
+		`SELECT m.id, a.user_id, COALESCE(m.from_name, ''), m.from_email, COALESCE(m.subject, ''),
 		        m.folder_id, m.label_ids
 		   FROM email_messages m
+		   JOIN email_accounts a ON a.id = m.account_id AND a.tenant_id = m.tenant_id
 		   LEFT JOIN email_folders f ON f.id = m.folder_id
 		  WHERE m.tenant_id = $1
+		    AND ($2::uuid IS NULL OR a.user_id = $2)
 		    AND COALESCE(f.folder_type, '') <> 'trash'
 		  ORDER BY m.date DESC
-		  LIMIT $2`, tenantID, limit)
+		  LIMIT $3`, tenantID, ownerID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +157,7 @@ func (p *PostgresRepository) ListApplyCandidates(ctx context.Context, tenantID u
 	out := make([]*models.EmailRuleCandidate, 0)
 	for rows.Next() {
 		var c models.EmailRuleCandidate
-		if err := rows.Scan(&c.ID, &c.FromName, &c.FromEmail, &c.Subject, &c.FolderID, &c.LabelIDs); err != nil {
+		if err := rows.Scan(&c.ID, &c.OwnerID, &c.FromName, &c.FromEmail, &c.Subject, &c.FolderID, &c.LabelIDs); err != nil {
 			return nil, err
 		}
 		out = append(out, &c)

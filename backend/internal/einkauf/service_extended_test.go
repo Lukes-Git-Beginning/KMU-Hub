@@ -1120,38 +1120,68 @@ func TestExtended_DeleteContractItem_Success(t *testing.T) {
 }
 
 // ============================================================================
-// Bug-Fund: ReceiveGoods/PartialReceive never record a framework-contract
-// call-off, even though PurchaseOrder.FrameworkContractID (models.go) and
-// migration 000208_einkauf_po_framework_ref carry the column specifically for
-// that purpose ("When set, ReceiveGoods will automatically record a contract
-// call-off."). Neither CreatePOInput nor UpdatePOInput exposes the field, so
-// the column can only be populated by hand-written SQL today — and even then,
-// service.go's ReceiveGoods/PartialReceive never read po.FrameworkContractID
-// or call CreateContractCall. Filed as
-// feat-einkauf-po-framework-contract-call-off-wiring in BACKLOG.yml.
+// Goods receipt call-off: the booking itself is proven against a real database
+// in po_receipt_call_off_db_test.go. Here: what the service hands the
+// repository and that the repository's call-off reaches the returned PO.
 // ============================================================================
 
-func TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff(t *testing.T) {
+func TestExtended_ReceiveGoods_ReturnsTheReceiptCallOff(t *testing.T) {
 	repo := newMockRepositoryExtended()
 	svc := NewServiceExtended(repo)
 
-	tenantID, supplierID := uuid.New(), uuid.New()
-	fc := addFrameworkContract(repo, tenantID, supplierID, "Frame Linked", "FC-LINK-001", ContractStatusActive)
+	tenantID := uuid.New()
 	s := addSupplier(repo.mockRepository, tenantID, "Linked Supplier")
 	po := addPO(repo.mockRepository, tenantID, s.ID, "PO-LINKED-001", POStatusSubmitted)
-	po.FrameworkContractID = &fc.ID
-	addPOLine(repo.mockRepository, tenantID, po.ID, "Bolt M6", "100")
+	line := addPOLine(repo.mockRepository, tenantID, po.ID, "Bolt M6", "100")
+	callID := uuid.New()
+	repo.receiptCallOff = &ReceiptCallOff{ContractID: uuid.New(), CallID: &callID, Amount: "250.0000", BudgetExceeded: true, Warning: "over"}
 
 	result, err := svc.ReceiveGoods(context.Background(), tenantID, po.ID)
 
-	require.NoError(t, err)
+	require.NoError(t, err, "an exceeded budget is a warning, never an error")
 	assert.Equal(t, POStatusReceived, result.Status)
+	assert.Same(t, repo.receiptCallOff, result.ReceiptCallOff)
+	require.Len(t, repo.receipts, 1)
+	assert.Equal(t, POStatusReceived, repo.receipts[0].Status)
+	assert.Equal(t, []PartialReceiveItem{{LineID: line.ID, ReceivedQuantity: "100"}}, repo.receipts[0].Lines)
+}
 
-	calls, err := svc.ListContractCalls(context.Background(), tenantID, fc.ID)
-	require.NoError(t, err)
-	assert.Empty(t, calls, "documents the gap: ReceiveGoods does not create a contract call-off despite the docstring promising it")
+func TestExtended_PartialReceive_HandsOverEachLineOnceWithItsLastQuantity(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
 
-	unchanged, err := svc.GetFrameworkContract(context.Background(), tenantID, fc.ID)
+	tenantID := uuid.New()
+	s := addSupplier(repo.mockRepository, tenantID, "Partial Supplier")
+	po := addPO(repo.mockRepository, tenantID, s.ID, "PO-PARTIAL-001", POStatusSent)
+	a := addPOLine(repo.mockRepository, tenantID, po.ID, "A", "10")
+	b := addPOLine(repo.mockRepository, tenantID, po.ID, "B", "5")
+
+	result, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: a.ID, ReceivedQuantity: "4"},
+		{LineID: b.ID, ReceivedQuantity: "5"},
+		{LineID: a.ID, ReceivedQuantity: "10"},
+	})
+
 	require.NoError(t, err)
-	assert.Equal(t, "0", unchanged.UsedValue, "documents the gap: used_value is never updated by a linked PO's goods receipt")
+	assert.Equal(t, POStatusReceived, result.Status, "the last quantity of a repeated line counts for the status")
+	assert.Nil(t, result.ReceiptCallOff)
+	require.Len(t, repo.receipts, 1)
+	assert.Equal(t, []PartialReceiveItem{{LineID: a.ID, ReceivedQuantity: "10"}, {LineID: b.ID, ReceivedQuantity: "5"}}, repo.receipts[0].Lines)
+}
+
+func TestExtended_PartialReceive_LineOfAnotherPOIsNotFound(t *testing.T) {
+	repo := newMockRepositoryExtended()
+	svc := NewServiceExtended(repo)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo.mockRepository, tenantID, "Partial Supplier")
+	po := addPO(repo.mockRepository, tenantID, s.ID, "PO-PARTIAL-002", POStatusSent)
+	other := addPO(repo.mockRepository, tenantID, s.ID, "PO-PARTIAL-003", POStatusSent)
+	addPOLine(repo.mockRepository, tenantID, po.ID, "A", "10")
+	foreign := addPOLine(repo.mockRepository, tenantID, other.ID, "X", "10")
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{{LineID: foreign.ID, ReceivedQuantity: "1"}})
+
+	require.ErrorIs(t, err, ErrPOLineNotFound)
+	assert.Empty(t, repo.receipts, "nothing is written for a line outside the PO")
 }

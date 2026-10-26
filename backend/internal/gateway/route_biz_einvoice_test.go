@@ -15,12 +15,15 @@ package gateway
 
 import (
 	"bytes"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
 	"strings"
 	"testing"
+
+	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
 
 // --- isEInvoiceMIME ---
@@ -325,4 +328,48 @@ func TestHandleUpdateIncomingInvoiceStatus_PermissionGuard(t *testing.T) {
 	req2 = withPermissions(req2, "finance:write")
 	r.ServeHTTP(rec2, req2)
 	assertStatus(t, rec2, http.StatusServiceUnavailable)
+}
+
+// --- importResponseBody ---
+
+func TestImportResponseBody_KeepsInvoiceFlatAndAddsWarnings(t *testing.T) {
+	resp := &bizv1.ImportIncomingInvoiceResponse{
+		Invoice: &bizv1.IncomingInvoice{Id: "inv-1", Currency: "GBP", InvoiceNumber: "R-1"},
+		Warnings: []*bizv1.IncomingInvoiceWarning{
+			{Rule: "BR-CL-04", Term: "BT-5", Message: `currency "GBP" is not one of the supported ISO 4217 codes`},
+		},
+	}
+	body, err := importResponseBody(resp)
+	if err != nil {
+		t.Fatalf("importResponseBody: %v", err)
+	}
+	raw, _ := json.Marshal(body)
+	var got struct {
+		ID       string `json:"id"`
+		Currency string `json:"currency"`
+		Warnings []struct {
+			Rule    string `json:"rule"`
+			Term    string `json:"term"`
+			Message string `json:"message"`
+		} `json:"warnings"`
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.ID != "inv-1" || got.Currency != "GBP" {
+		t.Errorf("invoice fields not flat at the top level: %s", raw)
+	}
+	if len(got.Warnings) != 1 || got.Warnings[0].Rule != "BR-CL-04" || got.Warnings[0].Term != "BT-5" || got.Warnings[0].Message == "" {
+		t.Errorf("warnings = %+v", got.Warnings)
+	}
+}
+
+func TestImportResponseBody_CleanImportHasEmptyWarningsArray(t *testing.T) {
+	body, err := importResponseBody(&bizv1.ImportIncomingInvoiceResponse{Invoice: &bizv1.IncomingInvoice{Id: "inv-2"}})
+	if err != nil {
+		t.Fatalf("importResponseBody: %v", err)
+	}
+	if string(body["warnings"]) != "[]" {
+		t.Errorf("warnings = %s, want []", body["warnings"])
+	}
 }

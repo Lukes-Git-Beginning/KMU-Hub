@@ -367,6 +367,52 @@ func TestRecord_RejectsCancelledInvoice(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot record payment on invoice with status cancelled")
 }
 
+// TestRecord_Currency pins the decision of 2026-10-25/24: a payment carries the
+// invoice currency, an explicit differing one is rejected before anything is
+// written, and a legacy invoice with a blank currency compares as the default.
+func TestRecord_Currency(t *testing.T) {
+	tests := []struct {
+		name            string
+		invoiceCurrency string
+		inputCurrency   string
+		wantErr         bool
+		wantCurrency    string
+	}{
+		{name: "omitted takes invoice currency", invoiceCurrency: "CHF", inputCurrency: "", wantCurrency: "CHF"},
+		{name: "same currency accepted", invoiceCurrency: "CHF", inputCurrency: "CHF", wantCurrency: "CHF"},
+		{name: "case-insensitive match", invoiceCurrency: "CHF", inputCurrency: "chf", wantCurrency: "CHF"},
+		{name: "differing currency rejected", invoiceCurrency: "CHF", inputCurrency: "EUR", wantErr: true},
+		{name: "blank invoice compares as default", invoiceCurrency: "", inputCurrency: models.DefaultCurrency, wantCurrency: ""},
+		{name: "blank invoice rejects non-default", invoiceCurrency: "", inputCurrency: "USD", wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, repo, reader, updater := newTestService()
+			tenantID := uuid.New()
+			inv := newSentInvoice(tenantID, decimal.NewFromInt(1000))
+			inv.Currency = tc.invoiceCurrency
+			reader.invoices[inv.ID] = inv
+
+			input := newRecordInput(tenantID, inv.ID, decimal.NewFromInt(1000))
+			input.Currency = tc.inputCurrency
+			p, err := svc.Record(context.Background(), input)
+
+			if tc.wantErr {
+				require.ErrorIs(t, err, ErrCurrencyMismatch)
+				assert.Empty(t, repo.payments, "a rejected payment must not be written")
+				assert.Empty(t, updater.updates, "a rejected payment must not move the invoice status")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantCurrency, p.Currency)
+			require.Len(t, repo.payments, 1)
+			for _, stored := range repo.payments {
+				assert.Equal(t, tc.wantCurrency, stored.Currency, "the stored row carries the invoice currency verbatim")
+			}
+		})
+	}
+}
+
 func TestRecord_RejectsZeroAmount(t *testing.T) {
 	svc, _, reader, _ := newTestService()
 

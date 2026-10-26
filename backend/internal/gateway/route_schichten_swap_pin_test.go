@@ -1,8 +1,10 @@
 package gateway
 
 // A swap request names its requester in the body. At scope "own" the requester must be the caller:
-// otherwise a member files a swap for a colleague's assignment. A real gRPC server on loopback
-// plays the schichten service.
+// otherwise a member files a swap for a colleague's assignment. The gateway forwards the caller's
+// user id as owner_user_id and the service decides (the requester may be the user id or the
+// caller's HR profile id, see route_schichten_swap_own_identity_db_test.go). A real gRPC server on
+// loopback plays the schichten service.
 
 import (
 	"context"
@@ -29,7 +31,7 @@ func (s *swapPinStub) CreateSwapRequest(_ context.Context, r *schichtenv1.Create
 	return &schichtenv1.SwapRequestResponse{SwapRequest: &schichtenv1.SwapRequest{Id: "s1"}}, nil
 }
 
-func TestHandleCreateSwapRequest_OwnScopePinsRequesterToCaller(t *testing.T) {
+func TestHandleCreateSwapRequest_OwnScopeForwardsCallerToService(t *testing.T) {
 	stub := &swapPinStub{}
 	sr := newSchichtenRoutes(registryFor(t, "schichten", func(s *grpc.Server) { schichtenv1.RegisterSchichtenServiceServer(s, stub) }))
 
@@ -46,15 +48,13 @@ func TestHandleCreateSwapRequest_OwnScopePinsRequesterToCaller(t *testing.T) {
 	}
 
 	rec := call(auth.ScopeOwn, leaveOtherID)
-	assert.Equal(t, http.StatusForbidden, rec.Code, "a member must not file a swap in a colleague's name")
-	assert.Nil(t, stub.created, "nothing may reach the service")
-
-	rec = call(auth.ScopeOwn, leaveCallerID)
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
-	assert.Equal(t, leaveCallerID, stub.created.GetRequestedByEmployeeId())
+	assert.Equal(t, leaveCallerID, stub.created.GetOwnerUserId(), "at scope own the service gets the caller to check against")
+	assert.Equal(t, leaveOtherID, stub.created.GetRequestedByEmployeeId(), "the requester is passed through, not rewritten")
 
 	stub.created = nil
 	rec = call(auth.ScopeAll, leaveOtherID)
 	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
-	assert.Equal(t, leaveOtherID, stub.created.GetRequestedByEmployeeId(), "a manager files on behalf of an employee")
+	assert.Nil(t, stub.created.OwnerUserId, "a manager files on behalf of an employee without an owner check")
+	assert.Equal(t, leaveOtherID, stub.created.GetRequestedByEmployeeId())
 }

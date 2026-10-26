@@ -51,11 +51,11 @@ func createPayment(ctx context.Context, db pgxExecutor, p *models.Payment) error
 	tag, err := db.Exec(ctx,
 		`INSERT INTO finance_payments (
 			id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at, idempotency_key
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			method, reference, notes, created_by, created_at, idempotency_key, currency
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (tenant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
 		p.ID, p.TenantID, p.InvoiceID, p.Amount, p.PaymentDate,
-		p.Method, p.Reference, p.Notes, p.CreatedBy, p.CreatedAt, keyArg,
+		p.Method, p.Reference, p.Notes, p.CreatedBy, p.CreatedAt, keyArg, p.Currency,
 	)
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func createPayment(ctx context.Context, db pgxExecutor, p *models.Payment) error
 func (r *PostgresRepository) List(ctx context.Context, tenantID, invoiceID uuid.UUID) ([]*models.Payment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at
+			method, reference, notes, created_by, created_at, currency
 		FROM finance_payments
 		WHERE tenant_id = $1 AND invoice_id = $2
 		ORDER BY payment_date DESC, created_at DESC`,
@@ -112,6 +112,8 @@ func (r *PostgresRepository) DeleteInTx(ctx context.Context, tx pgx.Tx, tenantID
 }
 
 // SumByInvoiceID returns the total of all payments for a given invoice.
+// Only payments in the invoice currency count: the service never books another
+// one, and a row that slipped past it must not settle the invoice by face value.
 // The sum is scanned as a string and parsed via decimal to avoid float64
 // precision loss on monetary values (ADR-0007). COALESCE keeps the result
 // non-NULL when no payments exist.
@@ -128,7 +130,10 @@ func (r *PostgresRepository) SumByInvoiceIDInTx(ctx context.Context, tx pgx.Tx, 
 func sumByInvoiceID(ctx context.Context, db pgxExecutor, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
 	var sumStr string
 	err := db.QueryRow(ctx,
-		`SELECT COALESCE(SUM(amount), 0)::text FROM finance_payments WHERE tenant_id = $1 AND invoice_id = $2`,
+		`SELECT COALESCE(SUM(p.amount), 0)::text
+		FROM finance_payments p
+		JOIN finance_invoices i ON i.tenant_id = p.tenant_id AND i.id = p.invoice_id AND i.currency = p.currency
+		WHERE p.tenant_id = $1 AND p.invoice_id = $2`,
 		tenantID, invoiceID,
 	).Scan(&sumStr)
 	if err != nil {
@@ -147,13 +152,13 @@ func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID
 	var amountStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at
+			method, reference, notes, created_by, created_at, currency
 		FROM finance_payments
 		WHERE tenant_id = $1 AND id = $2`,
 		tenantID, id,
 	).Scan(
 		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
-		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
+		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt, &p.Currency,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -179,13 +184,13 @@ func (r *PostgresRepository) GetByIdempotencyKey(ctx context.Context, tenantID u
 	var amountStr string
 	err := r.pool.QueryRow(ctx,
 		`SELECT id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at
+			method, reference, notes, created_by, created_at, currency
 		FROM finance_payments
 		WHERE tenant_id = $1 AND idempotency_key = $2`,
 		tenantID, key,
 	).Scan(
 		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
-		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
+		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt, &p.Currency,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -206,7 +211,7 @@ func (r *PostgresRepository) scanPaymentFromRows(rows pgx.Rows) (*models.Payment
 	var amountStr string
 	err := rows.Scan(
 		&p.ID, &p.TenantID, &p.InvoiceID, &amountStr, &p.PaymentDate,
-		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt,
+		&p.Method, &p.Reference, &p.Notes, &p.CreatedBy, &p.CreatedAt, &p.Currency,
 	)
 	if err != nil {
 		return nil, err

@@ -2,10 +2,7 @@ package wiki
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
-	"fmt"
 	"log/slog"
 	"slices"
 	"time"
@@ -16,11 +13,8 @@ import (
 )
 
 const (
-	// shareTokenBytes matches report_share_tokens (000252), form_share_tokens
-	// (000293) and the CSAT survey links: 32 bytes of crypto/rand, base64url-
-	// encoded to 43 URL-safe characters. The token IS the credential, so it is
-	// drawn the same way everywhere.
-	shareTokenBytes = 32
+	// Tokens are drawn by linksecret.New and stored only as linksecret.Hash
+	// (000351), like the form share links.
 
 	// shareTokenMaxLength is the longest token string worth a database round
 	// trip. Real tokens are 43 characters; anything past this is a probe, and
@@ -36,20 +30,6 @@ const (
 	// next to "read" so the token list can show the link as public.
 	sharePermissionPublic = "public"
 )
-
-// newShareToken draws a link secret from crypto/rand. base64url keeps it usable
-// as a URL path segment without escaping.
-//
-// Tokens minted before this existed were `uuid.New().String()`. Those stay
-// redeemable — the lookup is an exact match on the column, not on a format —
-// but every new link is drawn at full width.
-func newShareToken() (string, error) {
-	buf := make([]byte, shareTokenBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("generate wiki share token: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
 
 // withTenant attaches a tenant resolved from a share token to the context, so
 // the repository and the RLS session GUCs see it. This is the single place a

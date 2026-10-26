@@ -215,8 +215,12 @@ func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message
 	}
 
 	// Emit DM event
-	recipientID, err := s.repo.GetDMRecipient(ctx, message.ChannelID, *message.CreatedBy)
-	if err == nil && recipientID != nil {
+	recipientIDs, err := s.repo.GetDMRecipients(ctx, message.ChannelID, *message.CreatedBy)
+	if err == nil && len(recipientIDs) > 0 {
+		dmTargets := make([]string, 0, len(recipientIDs))
+		for _, id := range recipientIDs {
+			dmTargets = append(dmTargets, id.String())
+		}
 		_ = s.eventEmitter.EmitChatEvent(ctx, models.EventPayload{
 			Type:          "chat.dm.new",
 			Priority:      models.PriorityNormal,
@@ -227,7 +231,7 @@ func (s *Service) emitMessageEvents(ctx context.Context, message *models.Message
 			Body:          contentPreview,
 			DeepLink:      "/chat/dm/" + message.ChannelID.String(),
 			GroupKey:      "chat-dm:" + message.ChannelID.String(),
-			TargetUserIDs: []string{recipientID.String()},
+			TargetUserIDs: dmTargets,
 			Timestamp:     time.Now(),
 		})
 	}

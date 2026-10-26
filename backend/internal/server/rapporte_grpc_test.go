@@ -445,7 +445,7 @@ func (r *stubRapporteRepo) GetMeasurement(_ context.Context, tenantID, measureme
 	return &cp, nil
 }
 
-func (r *stubRapporteRepo) ListMeasurements(_ context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]rapporte.Measurement, int, error) {
+func (r *stubRapporteRepo) ListMeasurements(_ context.Context, tenantID uuid.UUID, reportID, authorID *uuid.UUID, page, pageSize int) ([]rapporte.Measurement, int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.err != nil {
@@ -458,6 +458,11 @@ func (r *stubRapporteRepo) ListMeasurements(_ context.Context, tenantID uuid.UUI
 		}
 		if reportID != nil && (m.ReportID == nil || *m.ReportID != *reportID) {
 			continue
+		}
+		if authorID != nil && m.ReportID != nil {
+			if rep, ok := r.reports[*m.ReportID]; !ok || rep.AuthorID != *authorID {
+				continue
+			}
 		}
 		out = append(out, *m)
 	}

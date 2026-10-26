@@ -174,6 +174,7 @@ func (w *Worker) syncCycle(ctx context.Context) error {
 
 	// Connect
 	client := NewIMAPClient(w.account.ID, w.logger)
+	client.guard = w.accountService.DialGuard()
 	if err := client.Connect(creds.IMAPHost, creds.IMAPPort, creds.UseSSL); err != nil {
 		return err
 	}

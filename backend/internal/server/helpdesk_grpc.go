@@ -215,7 +215,11 @@ func (s *HelpdeskGRPCServer) GetTicket(ctx context.Context, req *helpdeskv1.GetT
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.GetTicket(ctx, id, tenantID)
+	participantID, err := parseOptionalParticipant(req.ParticipantId)
+	if err != nil {
+		return nil, err
+	}
+	t, err := s.svc.GetTicket(ctx, id, tenantID, participantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -328,7 +332,12 @@ func (s *HelpdeskGRPCServer) UpdateTicket(ctx context.Context, req *helpdeskv1.U
 		orgID = &oid
 	}
 
-	t, err := s.svc.UpdateTicket(ctx, id, tenantID, req.Subject, req.Status, req.Priority, assigneeID, queueID, contactID, orgID, req.GetCustomFields().AsMap())
+	editorID, err := parseOptionalEditor(req.EditorId)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := s.svc.UpdateTicket(ctx, id, tenantID, editorID, req.Subject, req.Status, req.Priority, assigneeID, queueID, contactID, orgID, req.GetCustomFields().AsMap())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -344,7 +353,11 @@ func (s *HelpdeskGRPCServer) CloseTicket(ctx context.Context, req *helpdeskv1.Cl
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.CloseTicket(ctx, id, tenantID)
+	editorID, err := parseOptionalEditor(req.EditorId)
+	if err != nil {
+		return nil, err
+	}
+	t, err := s.svc.CloseTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -396,7 +409,12 @@ func (s *HelpdeskGRPCServer) SubmitCsat(ctx context.Context, req *helpdeskv1.Sub
 		}
 	}
 
-	t, err := s.svc.SubmitCsat(ctx, id, tenantID, int16(rating), comment)
+	editorID, err := parseOptionalEditor(req.EditorId)
+	if err != nil {
+		return nil, err
+	}
+
+	t, err := s.svc.SubmitCsat(ctx, id, tenantID, editorID, int16(rating), comment)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -446,7 +464,11 @@ func (s *HelpdeskGRPCServer) ReopenTicket(ctx context.Context, req *helpdeskv1.R
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	t, err := s.svc.ReopenTicket(ctx, id, tenantID)
+	editorID, err := parseOptionalEditor(req.EditorId)
+	if err != nil {
+		return nil, err
+	}
+	t, err := s.svc.ReopenTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -552,7 +574,12 @@ func (s *HelpdeskGRPCServer) AddMessage(ctx context.Context, req *helpdeskv1.Add
 		return nil, status.Errorf(codes.InvalidArgument, "invalid author_id: %v", err)
 	}
 
-	m, err := s.svc.AddMessage(ctx, ticketID, tenantID, authorID, req.GetBody(), req.GetInternal(), req.GetAttachments())
+	participantID, err := parseOptionalParticipant(req.ParticipantId)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := s.svc.AddMessage(ctx, ticketID, tenantID, authorID, req.GetBody(), req.GetInternal(), req.GetAttachments(), participantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -568,7 +595,11 @@ func (s *HelpdeskGRPCServer) ListMessages(ctx context.Context, req *helpdeskv1.L
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid ticket_id: %v", err)
 	}
-	msgs, err := s.svc.ListMessages(ctx, ticketID, tenantID)
+	participantID, err := parseOptionalParticipant(req.ParticipantId)
+	if err != nil {
+		return nil, err
+	}
+	msgs, err := s.svc.ListMessages(ctx, ticketID, tenantID, participantID, req.GetHideInternal())
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}
@@ -1353,6 +1384,30 @@ func businessHoursToProto(bh *helpdesk.BusinessHours) *helpdeskv1.BusinessHoursR
 // Error mapping
 // ============================================================================
 
+// parseOptionalParticipant parses the gateway-set own-scope participant_id.
+func parseOptionalParticipant(raw *string) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	pid, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid participant_id")
+	}
+	return &pid, nil
+}
+
+// parseOptionalEditor parses the gateway-set own-scope of helpdesk:ticket:edit.
+func parseOptionalEditor(raw *string) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	eid, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid editor_id")
+	}
+	return &eid, nil
+}
+
 func mapHelpdeskError(err error) error {
 	if err == nil {
 		return nil
@@ -1360,6 +1415,8 @@ func mapHelpdeskError(err error) error {
 	switch {
 	case errors.Is(err, helpdesk.ErrTicketNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, helpdesk.ErrReassignNotAllowed):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, helpdesk.ErrQueueNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, helpdesk.ErrSLAPolicyNotFound):

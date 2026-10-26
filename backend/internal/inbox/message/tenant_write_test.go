@@ -78,7 +78,7 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.MarkRead(ctxOther, tenantOwn, msg.ID); err == nil {
 		t.Fatalf("MarkRead (foreign ctx): expected an error, got nil")
 	}
-	got, err := repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, err := repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.MarkRead(ctxOwn, tenantOwn, msg.ID); err != nil {
 		t.Fatalf("MarkRead (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if !got.IsRead {
 		t.Fatalf("own-tenant MarkRead did not land")
 	}
@@ -97,14 +97,14 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.MarkUnread(ctxOther, tenantOwn, msg.ID); err == nil {
 		t.Fatalf("MarkUnread (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if !got.IsRead {
 		t.Fatalf("a foreign-tenant MarkUnread reached the message")
 	}
 	if err := repo.MarkUnread(ctxOwn, tenantOwn, msg.ID); err != nil {
 		t.Fatalf("MarkUnread (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.IsRead {
 		t.Fatalf("own-tenant MarkUnread did not land")
 	}
@@ -113,14 +113,14 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.ToggleStar(ctxOther, tenantOwn, msg.ID); err == nil {
 		t.Fatalf("ToggleStar (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.IsStarred {
 		t.Fatalf("a foreign-tenant ToggleStar reached the message")
 	}
 	if err := repo.ToggleStar(ctxOwn, tenantOwn, msg.ID); err != nil {
 		t.Fatalf("ToggleStar (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if !got.IsStarred {
 		t.Fatalf("own-tenant ToggleStar did not land")
 	}
@@ -129,14 +129,14 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.SetStatus(ctxOther, tenantOwn, msg.ID, "resolved"); err == nil {
 		t.Fatalf("SetStatus (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.Status == "resolved" {
 		t.Fatalf("a foreign-tenant SetStatus reached the message")
 	}
 	if err := repo.SetStatus(ctxOwn, tenantOwn, msg.ID, "resolved"); err != nil {
 		t.Fatalf("SetStatus (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.Status != "resolved" {
 		t.Fatalf("own-tenant SetStatus did not land: status=%q", got.Status)
 	}
@@ -145,28 +145,28 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.AddTag(ctxOther, tenantOwn, msg.ID, "urgent"); err == nil {
 		t.Fatalf("AddTag (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if len(got.Tags) != 0 {
 		t.Fatalf("a foreign-tenant AddTag reached the message: tags=%v", got.Tags)
 	}
 	if err := repo.AddTag(ctxOwn, tenantOwn, msg.ID, "urgent"); err != nil {
 		t.Fatalf("AddTag (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if len(got.Tags) != 1 || got.Tags[0] != "urgent" {
 		t.Fatalf("own-tenant AddTag did not land: tags=%v", got.Tags)
 	}
 	if err := repo.RemoveTag(ctxOther, tenantOwn, msg.ID, "urgent"); err == nil {
 		t.Fatalf("RemoveTag (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if len(got.Tags) != 1 {
 		t.Fatalf("a foreign-tenant RemoveTag reached the message: tags=%v", got.Tags)
 	}
 	if err := repo.RemoveTag(ctxOwn, tenantOwn, msg.ID, "urgent"); err != nil {
 		t.Fatalf("RemoveTag (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if len(got.Tags) != 0 {
 		t.Fatalf("own-tenant RemoveTag did not land: tags=%v", got.Tags)
 	}
@@ -175,28 +175,28 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.Archive(ctxOther, tenantOwn, msg.ID); err == nil {
 		t.Fatalf("Archive (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.IsArchived {
 		t.Fatalf("a foreign-tenant Archive reached the message")
 	}
 	if err := repo.Archive(ctxOwn, tenantOwn, msg.ID); err != nil {
 		t.Fatalf("Archive (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if !got.IsArchived {
 		t.Fatalf("own-tenant Archive did not land")
 	}
 	if err := repo.Unarchive(ctxOther, tenantOwn, msg.ID); err == nil {
 		t.Fatalf("Unarchive (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if !got.IsArchived {
 		t.Fatalf("a foreign-tenant Unarchive reached the message")
 	}
 	if err := repo.Unarchive(ctxOwn, tenantOwn, msg.ID); err != nil {
 		t.Fatalf("Unarchive (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.IsArchived {
 		t.Fatalf("own-tenant Unarchive did not land")
 	}
@@ -206,14 +206,14 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.Snooze(ctxOther, tenantOwn, msg.ID, until); err == nil {
 		t.Fatalf("Snooze (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.SnoozedUntil != nil {
 		t.Fatalf("a foreign-tenant Snooze reached the message")
 	}
 	if err := repo.Snooze(ctxOwn, tenantOwn, msg.ID, until); err != nil {
 		t.Fatalf("Snooze (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.SnoozedUntil == nil {
 		t.Fatalf("own-tenant Snooze did not land")
 	}
@@ -222,7 +222,7 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if assigned, err := repo.AssignMessage(ctxOther, tenantOwn, msg.ID, assigneeOwn); err == nil && assigned {
 		t.Fatalf("AssignMessage (foreign ctx): expected no assignment, got assigned=true err=nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.AssignedTo != nil {
 		t.Fatalf("a foreign-tenant AssignMessage reached the message")
 	}
@@ -233,7 +233,7 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if !assigned {
 		t.Fatalf("own-tenant AssignMessage did not report success")
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.AssignedTo == nil || *got.AssignedTo != assigneeOwn {
 		t.Fatalf("own-tenant AssignMessage did not land: assigned_to=%v", got.AssignedTo)
 	}
@@ -241,12 +241,12 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	// Update — msg carries its real TenantID from GetByID, mirroring how the
 	// routing package (routing.Service.actionRouteToTeam etc.) mutates a
 	// message and writes it back through the same Update method.
-	toUpdate, _ := repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	toUpdate, _ := repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	toUpdate.Subject = "Hacked Subject"
 	if err := repo.Update(ctxOther, toUpdate); err == nil {
 		t.Fatalf("Update (foreign ctx): expected an error, got nil")
 	}
-	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(sysCtx, msg.ID, tenantOwn, userOwn)
 	if got.Subject == "Hacked Subject" {
 		t.Fatalf("a foreign-tenant Update reached the message")
 	}
@@ -254,7 +254,7 @@ func TestMessageWrites_LandInCallerTenant(t *testing.T) {
 	if err := repo.Update(ctxOwn, toUpdate); err != nil {
 		t.Fatalf("Update (own ctx): %v", err)
 	}
-	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn)
+	got, _ = repo.GetByID(ctxOwn, msg.ID, tenantOwn, userOwn)
 	if got.Subject != "Updated Subject" {
 		t.Fatalf("own-tenant Update did not land: subject=%q", got.Subject)
 	}
@@ -306,11 +306,11 @@ func TestBulkMessageWrites_LandInCallerTenant(t *testing.T) {
 		ids = append(ids, msg.ID)
 	}
 
-	if err := repo.BulkMarkRead(ctxOther, tenantOwn, ids); err != nil {
+	if err := repo.BulkMarkRead(ctxOther, tenantOwn, userOwn, ids); err != nil {
 		t.Fatalf("BulkMarkRead (foreign ctx): %v", err)
 	}
 	for _, id := range ids {
-		got, err := repo.GetByID(sysCtx, id, tenantOwn)
+		got, err := repo.GetByID(sysCtx, id, tenantOwn, userOwn)
 		if err != nil {
 			t.Fatalf("GetByID: %v", err)
 		}
@@ -318,30 +318,30 @@ func TestBulkMessageWrites_LandInCallerTenant(t *testing.T) {
 			t.Fatalf("a foreign-tenant BulkMarkRead reached message %s", id)
 		}
 	}
-	if err := repo.BulkMarkRead(ctxOwn, tenantOwn, ids); err != nil {
+	if err := repo.BulkMarkRead(ctxOwn, tenantOwn, userOwn, ids); err != nil {
 		t.Fatalf("BulkMarkRead (own ctx): %v", err)
 	}
 	for _, id := range ids {
-		got, _ := repo.GetByID(ctxOwn, id, tenantOwn)
+		got, _ := repo.GetByID(ctxOwn, id, tenantOwn, userOwn)
 		if !got.IsRead {
 			t.Fatalf("own-tenant BulkMarkRead did not land for message %s", id)
 		}
 	}
 
-	if err := repo.BulkArchive(ctxOther, tenantOwn, ids); err != nil {
+	if err := repo.BulkArchive(ctxOther, tenantOwn, userOwn, ids); err != nil {
 		t.Fatalf("BulkArchive (foreign ctx): %v", err)
 	}
 	for _, id := range ids {
-		got, _ := repo.GetByID(sysCtx, id, tenantOwn)
+		got, _ := repo.GetByID(sysCtx, id, tenantOwn, userOwn)
 		if got.IsArchived {
 			t.Fatalf("a foreign-tenant BulkArchive reached message %s", id)
 		}
 	}
-	if err := repo.BulkArchive(ctxOwn, tenantOwn, ids); err != nil {
+	if err := repo.BulkArchive(ctxOwn, tenantOwn, userOwn, ids); err != nil {
 		t.Fatalf("BulkArchive (own ctx): %v", err)
 	}
 	for _, id := range ids {
-		got, _ := repo.GetByID(ctxOwn, id, tenantOwn)
+		got, _ := repo.GetByID(ctxOwn, id, tenantOwn, userOwn)
 		if !got.IsArchived {
 			t.Fatalf("own-tenant BulkArchive did not land for message %s", id)
 		}

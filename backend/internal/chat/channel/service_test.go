@@ -25,6 +25,10 @@ type MockRepository struct {
 	deleteErr    error
 	memberAddErr error
 	callSessions map[uuid.UUID]bool
+	groupKeys    map[string]uuid.UUID
+	// groupRace makes the next CreateGroupDMChannel lose a race: it stores the
+	// channel as if a concurrent request had, then returns ErrGroupDMExists.
+	groupRace bool
 }
 
 func NewMockRepository() *MockRepository {
@@ -217,6 +221,35 @@ func (m *MockRepository) CreateDMChannel(ctx context.Context, channel *models.Ch
 	m.channels[channel.ID] = channel
 	m.memberships[membershipKey(mem1.ChannelID, mem1.UserID)] = mem1
 	m.memberships[membershipKey(mem2.ChannelID, mem2.UserID)] = mem2
+	return nil
+}
+
+func (m *MockRepository) FindGroupDMChannel(_ context.Context, groupKey string, _ uuid.UUID) (*models.Channel, error) {
+	if id, ok := m.groupKeys[groupKey]; ok {
+		return m.channels[id], nil
+	}
+	return nil, ErrChannelNotFound
+}
+
+func (m *MockRepository) CreateGroupDMChannel(_ context.Context, channel *models.Channel, groupKey string, members []*models.ChannelMembership) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	if m.groupKeys == nil {
+		m.groupKeys = make(map[string]uuid.UUID)
+	}
+	if _, ok := m.groupKeys[groupKey]; ok {
+		return ErrGroupDMExists
+	}
+	m.channels[channel.ID] = channel
+	m.groupKeys[groupKey] = channel.ID
+	for _, mem := range members {
+		m.memberships[membershipKey(mem.ChannelID, mem.UserID)] = mem
+	}
+	if m.groupRace {
+		m.groupRace = false
+		return ErrGroupDMExists
+	}
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // PostgresRepository implements Repository using PostgreSQL (pgx v5).
@@ -824,16 +825,17 @@ func (r *PostgresRepository) GetFormStats(ctx context.Context, formSchemaID, ten
 // Share links (B8)
 // ============================================================================
 
-const shareLinkColumns = `id, tenant_id, form_schema_id, token, expires_at,
+// shareLinkColumns leaves the secret out: only its hash is stored (000351).
+const shareLinkColumns = `id, tenant_id, form_schema_id, expires_at,
 	revoked_at, max_submissions, submission_count, created_by, created_at`
 
 func (r *PostgresRepository) CreateShareLink(ctx context.Context, link *FormShareLink) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO form_share_tokens
-		    (id, tenant_id, form_schema_id, token, expires_at, max_submissions,
+		    (id, tenant_id, form_schema_id, token_hash, expires_at, max_submissions,
 		     submission_count, created_by, created_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		link.ID, link.TenantID, link.FormSchemaID, link.Token, link.ExpiresAt,
+		link.ID, link.TenantID, link.FormSchemaID, linksecret.Hash(link.Token), link.ExpiresAt,
 		link.MaxSubmissions, link.SubmissionCount, link.CreatedBy, link.CreatedAt,
 	)
 	if err != nil {
@@ -896,8 +898,8 @@ func (r *PostgresRepository) GetShareLinkByToken(ctx context.Context, token stri
 	link, err := scanShareLink(r.pool.QueryRow(database.WithSystemContext(ctx),
 		`SELECT `+shareLinkColumns+`
 		   FROM form_share_tokens
-		  WHERE token = $1`,
-		token,
+		  WHERE token_hash = $1`,
+		linksecret.Hash(token),
 	))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrShareLinkNotFound
@@ -956,7 +958,7 @@ func (r *PostgresRepository) RedeemShareLinkTx(
 func scanShareLink(row pgx.Row) (*FormShareLink, error) {
 	var l FormShareLink
 	err := row.Scan(
-		&l.ID, &l.TenantID, &l.FormSchemaID, &l.Token, &l.ExpiresAt,
+		&l.ID, &l.TenantID, &l.FormSchemaID, &l.ExpiresAt,
 		&l.RevokedAt, &l.MaxSubmissions, &l.SubmissionCount, &l.CreatedBy, &l.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {

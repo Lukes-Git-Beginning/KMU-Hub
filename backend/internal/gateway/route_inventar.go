@@ -88,9 +88,10 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Attachment deletion (keyed by attachment id, not item id)
 		r.With(attachmentManage).Delete("/attachments/{id}", ir.HandleDeleteItemAttachment)
 
-		// Transfer between items — no FE caller (dead endpoint, verified against
-		// inventar-client.ts); legacy guard stays as-is.
-		r.With(middleware.RequirePermission("inventar:item", "write")).Post("/transfer", ir.HandleTransferStock)
+		// Transfer between items: one "out" plus one "in" in a single transaction, so whoever may
+		// book a single movement (inventar:movement:create, member) may transfer too. The actor is
+		// pinned to the caller (callerIDPtr). No FE caller yet (inventar-client.ts).
+		r.With(middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:movement", "create"})).Post("/transfer", ir.HandleTransferStock)
 
 		// Warnings
 		r.Route("/warnings", func(r chi.Router) {
@@ -259,7 +260,7 @@ func (ir *InventarRoutes) HandleListItems(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &inventarv1.ListItemsRequest{
@@ -537,7 +538,7 @@ func (ir *InventarRoutes) HandleListMovements(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.ListMovements(r.Context(), &inventarv1.ListMovementsRequest{
 		TenantId: tenantID.String(),
@@ -569,7 +570,7 @@ func (ir *InventarRoutes) HandleGetStockHistory(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.GetStockHistory(r.Context(), &inventarv1.GetStockHistoryRequest{
 		TenantId: tenantID.String(),
@@ -639,7 +640,7 @@ func (ir *InventarRoutes) HandleListWarnings(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &inventarv1.ListWarningsRequest{
@@ -913,7 +914,7 @@ func (ir *InventarRoutes) HandleListLocations(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListLocations(r.Context(), &inventarv1.ListLocationsRequest{
 		TenantId: tenantID.String(),
 		Page:     int32(page),
@@ -1064,7 +1065,7 @@ func (ir *InventarRoutes) HandleListInventurSessions(w http.ResponseWriter, r *h
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListInventurSessions(r.Context(), &inventarv1.ListInventurSessionsRequest{
 		TenantId: tenantID.String(),
 		Page:     int32(page),
@@ -1293,7 +1294,7 @@ func (ir *InventarRoutes) HandleListPickingLists(w http.ResponseWriter, r *http.
 	}
 
 	grpcReq := &inventarv1.ListPickingListsRequest{TenantId: tenantID.String()}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq.Page = int32(page)
 	grpcReq.PageSize = int32(pageSize)
 	if raw := r.URL.Query().Get("status"); raw != "" {

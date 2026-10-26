@@ -50,8 +50,9 @@ func seedPayment(t *testing.T, pool *pgxpool.Pool, ctx context.Context, tenantID
 	_, err := pool.Exec(ctx,
 		`INSERT INTO finance_payments (
 			id, tenant_id, invoice_id, amount, payment_date,
-			method, reference, notes, created_by, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+			method, reference, notes, created_by, created_at, currency
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+			(SELECT currency FROM finance_invoices WHERE tenant_id = $2 AND id = $3))`,
 		id, tenantID, invoiceID, amount, paymentDate,
 		"bank_transfer", reference, "", uuid.New(), time.Now().UTC(),
 	)

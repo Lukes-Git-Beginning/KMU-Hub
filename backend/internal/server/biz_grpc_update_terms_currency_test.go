@@ -16,6 +16,8 @@ func TestUpdateInvoice_CarriesDatesTermsAndCurrency(t *testing.T) {
 	tenantID := uuid.New()
 	repo := newStubInvoiceRepo()
 	inv := draftInvoice(tenantID)
+	quoteID := uuid.New()
+	inv.SourceQuoteID = &quoteID // an ad-hoc draft is pinned to the tenant currency
 	repo.invoices[inv.ID] = inv
 	srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 
@@ -30,6 +32,20 @@ func TestUpdateInvoice_CarriesDatesTermsAndCurrency(t *testing.T) {
 	assert.Equal(t, "2026-05-15", got.GetDueDate())
 	assert.Equal(t, "14 Tage netto", got.GetPaymentTerms())
 	assert.Equal(t, "CHF", got.GetCurrency())
+}
+
+func TestUpdateInvoice_AdHocForeignCurrencyIs400(t *testing.T) {
+	tenantID := uuid.New()
+	repo := newStubInvoiceRepo()
+	inv := draftInvoice(tenantID)
+	repo.invoices[inv.ID] = inv
+	srv := newFinanceTestServer(repo, newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+
+	_, err := srv.UpdateInvoice(context.Background(), &bizv1.UpdateInvoiceRequest{
+		TenantId: tenantID.String(), Id: inv.ID.String(), Currency: "CHF",
+	})
+	requireGRPCCode(t, err, codes.InvalidArgument)
+	assert.NotEqual(t, "CHF", repo.invoices[inv.ID].Currency)
 }
 
 func TestUpdateInvoice_ExplicitDueDateAndBadDates(t *testing.T) {

@@ -19,47 +19,48 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	FuhrparkService_CreateVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateVehicle"
-	FuhrparkService_UpdateVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateVehicle"
-	FuhrparkService_DeleteVehicle_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteVehicle"
-	FuhrparkService_GetVehicle_FullMethodName            = "/fuhrpark.v1.FuhrparkService/GetVehicle"
-	FuhrparkService_ListVehicles_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListVehicles"
-	FuhrparkService_ScheduleService_FullMethodName       = "/fuhrpark.v1.FuhrparkService/ScheduleService"
-	FuhrparkService_UpdateService_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateService"
-	FuhrparkService_DeleteService_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteService"
-	FuhrparkService_CompleteService_FullMethodName       = "/fuhrpark.v1.FuhrparkService/CompleteService"
-	FuhrparkService_ListServices_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListServices"
-	FuhrparkService_ReportDamage_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ReportDamage"
-	FuhrparkService_UpdateDamage_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateDamage"
-	FuhrparkService_ResolveDamage_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ResolveDamage"
-	FuhrparkService_ListDamages_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListDamages"
-	FuhrparkService_GetVehicleHistory_FullMethodName     = "/fuhrpark.v1.FuhrparkService/GetVehicleHistory"
-	FuhrparkService_CheckTuevDue_FullMethodName          = "/fuhrpark.v1.FuhrparkService/CheckTuevDue"
-	FuhrparkService_ListUpcomingServices_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ListUpcomingServices"
-	FuhrparkService_ExportVehicleReport_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ExportVehicleReport"
-	FuhrparkService_ListFuelLogs_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListFuelLogs"
-	FuhrparkService_CreateFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateFuelLog"
-	FuhrparkService_UpdateFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateFuelLog"
-	FuhrparkService_DeleteFuelLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteFuelLog"
-	FuhrparkService_ListTripLogs_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ListTripLogs"
-	FuhrparkService_CreateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/CreateTripLog"
-	FuhrparkService_UpdateTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/UpdateTripLog"
-	FuhrparkService_DeleteTripLog_FullMethodName         = "/fuhrpark.v1.FuhrparkService/DeleteTripLog"
-	FuhrparkService_ExportTripLogs_FullMethodName        = "/fuhrpark.v1.FuhrparkService/ExportTripLogs"
-	FuhrparkService_ListVehicleDocuments_FullMethodName  = "/fuhrpark.v1.FuhrparkService/ListVehicleDocuments"
-	FuhrparkService_CreateVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/CreateVehicleDocument"
-	FuhrparkService_DeleteVehicleDocument_FullMethodName = "/fuhrpark.v1.FuhrparkService/DeleteVehicleDocument"
-	FuhrparkService_IngestGpsPositions_FullMethodName    = "/fuhrpark.v1.FuhrparkService/IngestGpsPositions"
-	FuhrparkService_GetVehicleRoutes_FullMethodName      = "/fuhrpark.v1.FuhrparkService/GetVehicleRoutes"
-	FuhrparkService_GetGpsPositions_FullMethodName       = "/fuhrpark.v1.FuhrparkService/GetGpsPositions"
-	FuhrparkService_ListDriverLicenses_FullMethodName    = "/fuhrpark.v1.FuhrparkService/ListDriverLicenses"
-	FuhrparkService_CreateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/CreateDriverLicense"
-	FuhrparkService_UpdateDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/UpdateDriverLicense"
-	FuhrparkService_DeleteDriverLicense_FullMethodName   = "/fuhrpark.v1.FuhrparkService/DeleteDriverLicense"
-	FuhrparkService_ListVehicleBookings_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ListVehicleBookings"
-	FuhrparkService_CreateVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/CreateVehicleBooking"
-	FuhrparkService_UpdateVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/UpdateVehicleBooking"
-	FuhrparkService_DeleteVehicleBooking_FullMethodName  = "/fuhrpark.v1.FuhrparkService/DeleteVehicleBooking"
+	FuhrparkService_CreateVehicle_FullMethodName          = "/fuhrpark.v1.FuhrparkService/CreateVehicle"
+	FuhrparkService_UpdateVehicle_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateVehicle"
+	FuhrparkService_DeleteVehicle_FullMethodName          = "/fuhrpark.v1.FuhrparkService/DeleteVehicle"
+	FuhrparkService_GetVehicle_FullMethodName             = "/fuhrpark.v1.FuhrparkService/GetVehicle"
+	FuhrparkService_ListVehicles_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListVehicles"
+	FuhrparkService_ScheduleService_FullMethodName        = "/fuhrpark.v1.FuhrparkService/ScheduleService"
+	FuhrparkService_UpdateService_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateService"
+	FuhrparkService_DeleteService_FullMethodName          = "/fuhrpark.v1.FuhrparkService/DeleteService"
+	FuhrparkService_CompleteService_FullMethodName        = "/fuhrpark.v1.FuhrparkService/CompleteService"
+	FuhrparkService_ListServices_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListServices"
+	FuhrparkService_ReportDamage_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ReportDamage"
+	FuhrparkService_UpdateDamage_FullMethodName           = "/fuhrpark.v1.FuhrparkService/UpdateDamage"
+	FuhrparkService_ResolveDamage_FullMethodName          = "/fuhrpark.v1.FuhrparkService/ResolveDamage"
+	FuhrparkService_ListDamages_FullMethodName            = "/fuhrpark.v1.FuhrparkService/ListDamages"
+	FuhrparkService_GetVehicleHistory_FullMethodName      = "/fuhrpark.v1.FuhrparkService/GetVehicleHistory"
+	FuhrparkService_CheckTuevDue_FullMethodName           = "/fuhrpark.v1.FuhrparkService/CheckTuevDue"
+	FuhrparkService_ListUpcomingServices_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ListUpcomingServices"
+	FuhrparkService_ExportVehicleReport_FullMethodName    = "/fuhrpark.v1.FuhrparkService/ExportVehicleReport"
+	FuhrparkService_ListFuelLogs_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListFuelLogs"
+	FuhrparkService_CreateFuelLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/CreateFuelLog"
+	FuhrparkService_UpdateFuelLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateFuelLog"
+	FuhrparkService_DeleteFuelLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/DeleteFuelLog"
+	FuhrparkService_ListTripLogs_FullMethodName           = "/fuhrpark.v1.FuhrparkService/ListTripLogs"
+	FuhrparkService_CreateTripLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/CreateTripLog"
+	FuhrparkService_UpdateTripLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/UpdateTripLog"
+	FuhrparkService_DeleteTripLog_FullMethodName          = "/fuhrpark.v1.FuhrparkService/DeleteTripLog"
+	FuhrparkService_ExportTripLogs_FullMethodName         = "/fuhrpark.v1.FuhrparkService/ExportTripLogs"
+	FuhrparkService_ListVehicleDocuments_FullMethodName   = "/fuhrpark.v1.FuhrparkService/ListVehicleDocuments"
+	FuhrparkService_CreateVehicleDocument_FullMethodName  = "/fuhrpark.v1.FuhrparkService/CreateVehicleDocument"
+	FuhrparkService_DeleteVehicleDocument_FullMethodName  = "/fuhrpark.v1.FuhrparkService/DeleteVehicleDocument"
+	FuhrparkService_IngestGpsPositions_FullMethodName     = "/fuhrpark.v1.FuhrparkService/IngestGpsPositions"
+	FuhrparkService_GetVehicleRoutes_FullMethodName       = "/fuhrpark.v1.FuhrparkService/GetVehicleRoutes"
+	FuhrparkService_GetGpsPositions_FullMethodName        = "/fuhrpark.v1.FuhrparkService/GetGpsPositions"
+	FuhrparkService_ListDriverLicenses_FullMethodName     = "/fuhrpark.v1.FuhrparkService/ListDriverLicenses"
+	FuhrparkService_CreateDriverLicense_FullMethodName    = "/fuhrpark.v1.FuhrparkService/CreateDriverLicense"
+	FuhrparkService_UpdateDriverLicense_FullMethodName    = "/fuhrpark.v1.FuhrparkService/UpdateDriverLicense"
+	FuhrparkService_DeleteDriverLicense_FullMethodName    = "/fuhrpark.v1.FuhrparkService/DeleteDriverLicense"
+	FuhrparkService_ListVehicleBookings_FullMethodName    = "/fuhrpark.v1.FuhrparkService/ListVehicleBookings"
+	FuhrparkService_CreateVehicleBooking_FullMethodName   = "/fuhrpark.v1.FuhrparkService/CreateVehicleBooking"
+	FuhrparkService_UpdateVehicleBooking_FullMethodName   = "/fuhrpark.v1.FuhrparkService/UpdateVehicleBooking"
+	FuhrparkService_DeleteVehicleBooking_FullMethodName   = "/fuhrpark.v1.FuhrparkService/DeleteVehicleBooking"
+	FuhrparkService_GetVehicleAvailability_FullMethodName = "/fuhrpark.v1.FuhrparkService/GetVehicleAvailability"
 )
 
 // FuhrparkServiceClient is the client API for FuhrparkService service.
@@ -117,6 +118,8 @@ type FuhrparkServiceClient interface {
 	CreateVehicleBooking(ctx context.Context, in *CreateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error)
 	UpdateVehicleBooking(ctx context.Context, in *UpdateVehicleBookingRequest, opts ...grpc.CallOption) (*VehicleBookingResponse, error)
 	DeleteVehicleBooking(ctx context.Context, in *DeleteVehicleBookingRequest, opts ...grpc.CallOption) (*DeleteVehicleBookingResponse, error)
+	// Occupied windows of one vehicle, without who booked it or why.
+	GetVehicleAvailability(ctx context.Context, in *GetVehicleAvailabilityRequest, opts ...grpc.CallOption) (*GetVehicleAvailabilityResponse, error)
 }
 
 type fuhrparkServiceClient struct {
@@ -537,6 +540,16 @@ func (c *fuhrparkServiceClient) DeleteVehicleBooking(ctx context.Context, in *De
 	return out, nil
 }
 
+func (c *fuhrparkServiceClient) GetVehicleAvailability(ctx context.Context, in *GetVehicleAvailabilityRequest, opts ...grpc.CallOption) (*GetVehicleAvailabilityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetVehicleAvailabilityResponse)
+	err := c.cc.Invoke(ctx, FuhrparkService_GetVehicleAvailability_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FuhrparkServiceServer is the server API for FuhrparkService service.
 // All implementations must embed UnimplementedFuhrparkServiceServer
 // for forward compatibility.
@@ -592,6 +605,8 @@ type FuhrparkServiceServer interface {
 	CreateVehicleBooking(context.Context, *CreateVehicleBookingRequest) (*VehicleBookingResponse, error)
 	UpdateVehicleBooking(context.Context, *UpdateVehicleBookingRequest) (*VehicleBookingResponse, error)
 	DeleteVehicleBooking(context.Context, *DeleteVehicleBookingRequest) (*DeleteVehicleBookingResponse, error)
+	// Occupied windows of one vehicle, without who booked it or why.
+	GetVehicleAvailability(context.Context, *GetVehicleAvailabilityRequest) (*GetVehicleAvailabilityResponse, error)
 	mustEmbedUnimplementedFuhrparkServiceServer()
 }
 
@@ -724,6 +739,9 @@ func (UnimplementedFuhrparkServiceServer) UpdateVehicleBooking(context.Context, 
 }
 func (UnimplementedFuhrparkServiceServer) DeleteVehicleBooking(context.Context, *DeleteVehicleBookingRequest) (*DeleteVehicleBookingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteVehicleBooking not implemented")
+}
+func (UnimplementedFuhrparkServiceServer) GetVehicleAvailability(context.Context, *GetVehicleAvailabilityRequest) (*GetVehicleAvailabilityResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetVehicleAvailability not implemented")
 }
 func (UnimplementedFuhrparkServiceServer) mustEmbedUnimplementedFuhrparkServiceServer() {}
 func (UnimplementedFuhrparkServiceServer) testEmbeddedByValue()                         {}
@@ -1484,6 +1502,24 @@ func _FuhrparkService_DeleteVehicleBooking_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FuhrparkService_GetVehicleAvailability_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetVehicleAvailabilityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FuhrparkServiceServer).GetVehicleAvailability(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FuhrparkService_GetVehicleAvailability_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FuhrparkServiceServer).GetVehicleAvailability(ctx, req.(*GetVehicleAvailabilityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FuhrparkService_ServiceDesc is the grpc.ServiceDesc for FuhrparkService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1654,6 +1690,10 @@ var FuhrparkService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteVehicleBooking",
 			Handler:    _FuhrparkService_DeleteVehicleBooking_Handler,
+		},
+		{
+			MethodName: "GetVehicleAvailability",
+			Handler:    _FuhrparkService_GetVehicleAvailability_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

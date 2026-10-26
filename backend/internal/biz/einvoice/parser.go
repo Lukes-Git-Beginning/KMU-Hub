@@ -48,6 +48,9 @@ type ParsedInvoice struct {
 	TotalTax        decimal.Decimal
 	GrossTotal      decimal.Decimal
 	SourceFormat    string // IncomingInvoiceFormatZUGFeRDCII | XRechnungUBL | XMLOnly
+	// TaxCategories are the distinct header-level VAT category codes (BT-118) the
+	// document states, upper-cased. Only read by CheckCodelists.
+	TaxCategories []string
 }
 
 // ============================================================================
@@ -167,6 +170,7 @@ type ciiMonetarySummation struct {
 
 type ciiApplicableTax struct {
 	TypeCode              string `xml:"TypeCode"`
+	CategoryCode          string `xml:"CategoryCode"`
 	RateApplicablePercent string `xml:"RateApplicablePercent"`
 	BasisAmount           string `xml:"BasisAmount"`
 	CalculatedAmount      string `xml:"CalculatedAmount"`
@@ -289,6 +293,10 @@ func ParseCII(xmlData []byte) (*ParsedInvoice, error) {
 			TaxAmount:  mustDecimal(tt.CalculatedAmount),
 		})
 	}
+	taxCategories := make([]string, 0, len(settlement.TradeTax))
+	for _, tt := range settlement.TradeTax {
+		taxCategories = append(taxCategories, tt.CategoryCode)
+	}
 	// If no header-level tax entries were provided, derive from line items
 	if len(taxBreakdown) == 0 {
 		taxBreakdown = deriveTaxBreakdown(lineItems)
@@ -312,6 +320,7 @@ func ParseCII(xmlData []byte) (*ParsedInvoice, error) {
 		TotalTax:        totalTax,
 		GrossTotal:      grossTotal,
 		SourceFormat:    "zugferd_cii",
+		TaxCategories:   distinctCategories(taxCategories),
 	}, nil
 }
 
@@ -384,6 +393,7 @@ type ublTaxSubtotal struct {
 }
 
 type ublTaxCategory struct {
+	ID      string `xml:"ID"`
 	Percent string `xml:"Percent"`
 }
 
@@ -488,6 +498,10 @@ func ParseUBL(xmlData []byte) (*ParsedInvoice, error) {
 			TaxAmount:  mustDecimal(ts.TaxAmount),
 		})
 	}
+	taxCategories := make([]string, 0, len(inv.TaxTotal.TaxSubtotals))
+	for _, ts := range inv.TaxTotal.TaxSubtotals {
+		taxCategories = append(taxCategories, ts.TaxCategory.ID)
+	}
 	if len(taxBreakdown) == 0 {
 		taxBreakdown = deriveTaxBreakdown(lineItems)
 	}
@@ -510,6 +524,7 @@ func ParseUBL(xmlData []byte) (*ParsedInvoice, error) {
 		TotalTax:        totalTax,
 		GrossTotal:      grossTotal,
 		SourceFormat:    "xrechnung_ubl",
+		TaxCategories:   distinctCategories(taxCategories),
 	}, nil
 }
 

@@ -138,6 +138,10 @@ func parsePaginationOrLimitOffset(r *http.Request, defaultPage, defaultPageSize 
 // activities, tasks) that the desktop fills with up to 200 rows at once.
 const listPageSizeMax = 200
 
+// listPageSizeMaxSmall is the ceiling of the branch lists whose service layer accepts at most 100 rows
+// per page (produktion, vertraege, einkauf); a larger page_size is clamped to it.
+const listPageSizeMaxSmall = 100
+
 // parsePaginationMax is parsePagination with a caller-chosen ceiling: a page_size above maxPageSize
 // is clamped to it (not silently replaced by the default), so a client that asks for 500 rows gets
 // the largest page the route serves.
@@ -233,6 +237,20 @@ func ownerFilterForScope(w http.ResponseWriter, r *http.Request, resource, actio
 	return &userID, true
 }
 
+// ownerFilterUnlessAltKey is ownerFilterForScope for an edit route whose guard
+// also lets a legacy key in (RequirePermissionAny(alt, resource:action)). Holding
+// alt at a scope other than own keeps the edit tenant-wide; otherwise the scope
+// of resource:action decides. Unlike ownerFilterForScopeAny, where the narrower
+// pair wins: the seed grants manager both keys, and narrowing there would take
+// away what the alt key gives.
+func ownerFilterUnlessAltKey(w http.ResponseWriter, r *http.Request, alt [2]string, resource, action string) (*string, bool) {
+	ctx := r.Context()
+	if middleware.HoldsAnyPermission(ctx, alt) && middleware.PermissionScope(ctx, alt[0], alt[1]) != auth.ScopeOwn {
+		return nil, true
+	}
+	return ownerFilterForScope(w, r, resource, action)
+}
+
 // ownerFilterForScopeAny is ownerFilterForScope for a route guarded by
 // middleware.RequirePermissionAny across more than one resource:action pair.
 // That guard grants access if EITHER key is present, so a caller can be
@@ -305,12 +323,68 @@ func callerMayDecideLeave(ctx context.Context) bool {
 	return false
 }
 
+var (
+	hrReadPerm            = [2]string{"hr", "read"}
+	hrSelfPerm            = [2]string{"hr", "self"}
+	correctionApprovePerm = [2]string{"zeiterfassung:corrections", "approve"}
+	zeitTeamViewPerm      = [2]string{"zeiterfassung:team", "view"}
+)
+
+// requireSelfReadOr guards an HR read on the self-service keys (hr:read | hr:self) or a
+// view key of a wider audience. Two separate checks on purpose: in one RequirePermissionAny a
+// denied view key would void the coarse hr:read/hr:self as well and lock the caller out of their
+// own data.
+func requireSelfReadOr(view ...[2]string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) ||
+				middleware.HoldsAnyPermission(ctx, view[0], view[1:]...) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			response.Error(w, http.StatusForbidden, "insufficient permissions")
+		})
+	}
+}
+
+// correctionReviewScope is the reach at which the caller reviews pending time corrections: the
+// narrower of zeiterfassung:corrections:approve and zeiterfassung:team:view, so a manager who
+// approves tenant-wide but views only the team reviews the team. "own" when the caller holds
+// neither key — a member never leaves their own entries.
+func correctionReviewScope(ctx context.Context) string {
+	if !middleware.HoldsAnyPermission(ctx, correctionApprovePerm, zeitTeamViewPerm) {
+		return auth.ScopeOwn
+	}
+	return narrowestScopeAny(ctx, correctionApprovePerm, zeitTeamViewPerm)
+}
+
+// absenceDataViewPerm opens an employee's absence data (leave balance) beyond the caller.
+var absenceDataViewPerm = [2]string{"team:absence_data", "view"}
+
+// leaveBalanceReach is the reach at which the caller reads another employee's leave balance: the
+// coarse HR grant counts as tenant-wide unless narrowed to "own" (as in restrictToOwnEmployee),
+// otherwise team:absence_data:view decides — team for a manager, all for hr_admin. "own" when the
+// caller holds neither beyond themselves.
+func leaveBalanceReach(ctx context.Context) string {
+	if middleware.HoldsAnyPermission(ctx, hrReadPerm, hrSelfPerm) &&
+		narrowestScopeAny(ctx, hrReadPerm, hrSelfPerm) != auth.ScopeOwn {
+		return auth.ScopeAll
+	}
+	if middleware.HoldsAnyPermission(ctx, absenceDataViewPerm) {
+		if scope := middleware.PermissionScope(ctx, absenceDataViewPerm[0], absenceDataViewPerm[1]); scope == auth.ScopeAll || scope == auth.ScopeTeam {
+			return scope
+		}
+	}
+	return auth.ScopeOwn
+}
+
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
 // to "own". An empty requested id becomes the caller's id (a list without a filter would
 // otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller
 // learns the view is not theirs. Wider scopes pass the requested id through unchanged.
 func restrictToOwnEmployee(w http.ResponseWriter, r *http.Request, requested string) (string, bool) {
-	ownerID, ok := ownerFilterForScopeAny(w, r, [2]string{"hr", "read"}, [2]string{"hr", "self"})
+	ownerID, ok := ownerFilterForScopeAny(w, r, hrReadPerm, hrSelfPerm)
 	if !ok {
 		return "", false
 	}

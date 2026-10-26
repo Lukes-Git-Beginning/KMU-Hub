@@ -137,6 +137,15 @@ func TestWikiWrites_LandInCallerTenant(t *testing.T) {
 	testutil.AssertRowCount(t, pool, ctxOwn, "wiki_attachments", attachment.ID, 1)
 	testutil.AssertRowCount(t, pool, ctxOther, "wiki_attachments", attachment.ID, 0)
 
+	// The own-scope lookup resolves the article only inside the tenant: a
+	// foreign session (even naming the victim's tenantID) sees no attachment.
+	if got, err := repo.GetAttachmentArticleID(ctxOwn, tenantOwn, attachment.ID); err != nil || got != article.ID {
+		t.Fatalf("GetAttachmentArticleID (own ctx) = %v, %v; want %v", got, err, article.ID)
+	}
+	if _, err := repo.GetAttachmentArticleID(ctxOther, tenantOwn, attachment.ID); !errors.Is(err, ErrAttachmentNotFound) {
+		t.Fatalf("GetAttachmentArticleID (foreign ctx): expected ErrAttachmentNotFound, got %v", err)
+	}
+
 	// A foreign session deleting the victim's real attachment ID (with the
 	// victim's real tenantID passed explicitly) must be refused: RLS hides
 	// the row from the DELETE entirely, and the repo must report
@@ -153,11 +162,13 @@ func TestWikiWrites_LandInCallerTenant(t *testing.T) {
 
 	// --- Share tokens --------------------------------------------------------
 
+	expiresAt := now.Add(time.Hour)
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    tenantOwn,
 		ArticleID:   article.ID,
 		Token:       uuid.New().String(),
+		ExpiresAt:   &expiresAt,
 		Permissions: []string{"read"},
 		CreatedAt:   now,
 	}
@@ -169,6 +180,13 @@ func TestWikiWrites_LandInCallerTenant(t *testing.T) {
 	}
 	testutil.AssertRowCount(t, pool, ctxOwn, "wiki_share_tokens", token.ID, 1)
 	testutil.AssertRowCount(t, pool, ctxOther, "wiki_share_tokens", token.ID, 0)
+
+	if got, err := repo.GetShareTokenArticleID(ctxOwn, tenantOwn, token.ID); err != nil || got != article.ID {
+		t.Fatalf("GetShareTokenArticleID (own ctx) = %v, %v; want %v", got, err, article.ID)
+	}
+	if _, err := repo.GetShareTokenArticleID(ctxOther, tenantOwn, token.ID); !errors.Is(err, ErrShareTokenNotFound) {
+		t.Fatalf("GetShareTokenArticleID (foreign ctx): expected ErrShareTokenNotFound, got %v", err)
+	}
 
 	tokens, err := repo.ListShareTokensByArticle(ctxOther, tenantOwn, article.ID)
 	if err != nil {

@@ -76,6 +76,8 @@ func TestMapHRError_AllSentinels(t *testing.T) {
 		{"SelfOffboard", employee.ErrSelfOffboard, codes.PermissionDenied},
 		{"LastRoleAdmin", employee.ErrLastRoleAdmin, codes.FailedPrecondition},
 		{"AlreadyOffboarded", employee.ErrAlreadyOffboarded, codes.FailedPrecondition},
+		{"NotOffboarded", employee.ErrNotOffboarded, codes.FailedPrecondition},
+		{"SeatLimitReached", employee.ErrSeatLimitReached, codes.FailedPrecondition},
 		{"SuccessorRequired", employee.ErrSuccessorRequired, codes.OutOfRange},
 		{"InvalidSuccessor", employee.ErrInvalidSuccessor, codes.InvalidArgument},
 		{"InvalidExitType", employee.ErrInvalidExitType, codes.InvalidArgument},

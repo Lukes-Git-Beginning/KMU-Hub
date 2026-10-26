@@ -30,6 +30,9 @@ type mockRepository struct {
 	createShiftErr      error
 	createAssignmentErr error
 	isMinorErr          error
+
+	// HR profile id -> user id (for the own-scope identity check)
+	profileUsers map[uuid.UUID]uuid.UUID
 }
 
 func newMockRepository() *mockRepository {
@@ -153,10 +156,10 @@ func (m *mockRepository) GetAssignment(ctx context.Context, tenantID, shiftID, e
 	return a, nil
 }
 
-func (m *mockRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+func (m *mockRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	var result []*ShiftAssignment
 	for _, a := range m.assignments {
-		if a.ShiftID == shiftID && a.TenantID == tenantID {
+		if a.ShiftID == shiftID && a.TenantID == tenantID && (ownUserID == nil || a.EmployeeID == *ownUserID) {
 			result = append(result, a)
 		}
 	}
@@ -199,6 +202,19 @@ func (m *mockRepository) EarliestShiftStartAfterForEmployee(ctx context.Context,
 		}
 	}
 	return earliest, nil
+}
+
+func (m *mockRepository) HasOverlappingAssignmentForEmployee(ctx context.Context, tenantID, employeeID, exceptShiftID uuid.UUID, start, end time.Time) (bool, error) {
+	for _, a := range m.assignments {
+		if a.TenantID != tenantID || a.EmployeeID != employeeID || a.ShiftID == exceptShiftID {
+			continue
+		}
+		s, ok := m.shifts[a.ShiftID]
+		if ok && s.StartTime.Before(end) && s.EndTime.After(start) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *mockRepository) IsMinorEmployee(ctx context.Context, tenantID, employeeID uuid.UUID) (bool, error) {
@@ -328,6 +344,10 @@ func (m *mockRepository) ListSwapRequests(ctx context.Context, tenantID uuid.UUI
 	return result[offset:end], total, nil
 }
 
+func (m *mockRepository) IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error) {
+	return employeeID == userID || m.profileUsers[employeeID] == userID, nil
+}
+
 func (m *mockRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error {
 	req, ok := m.swapRequests[requestID]
 	if !ok || req.TenantID != tenantID {
@@ -338,25 +358,17 @@ func (m *mockRepository) UpdateSwapRequestStatus(ctx context.Context, tenantID, 
 	return nil
 }
 
-func (m *mockRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
-	// Swap employee_id on the requester's assignment.
-	assignKey1 := assignKey(req.ShiftID, req.RequestedByEmployeeID)
-	assignKey2 := assignKey(req.ShiftID, req.SwapWithEmployeeID)
-
-	a1, ok1 := m.assignments[assignKey1]
-	a2, ok2 := m.assignments[assignKey2]
-
-	// Best-effort: update what exists (mirrors DB ON CONFLICT DO NOTHING style).
-	if ok1 {
-		delete(m.assignments, assignKey1)
-		a1.EmployeeID = req.SwapWithEmployeeID
-		m.assignments[assignKey(req.ShiftID, req.SwapWithEmployeeID)] = a1
+func (m *mockRepository) HandOverAssignment(_ context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error {
+	a, ok := m.assignments[assignKey(shiftID, from)]
+	if !ok || a.ID != assignmentID || a.TenantID != tenantID {
+		return ErrAssignmentNotFound
 	}
-	if ok2 {
-		delete(m.assignments, assignKey2)
-		a2.EmployeeID = req.RequestedByEmployeeID
-		m.assignments[assignKey(req.ShiftID, req.RequestedByEmployeeID)] = a2
+	if _, taken := m.assignments[assignKey(shiftID, to)]; taken {
+		return ErrAlreadyAssigned
 	}
+	delete(m.assignments, assignKey(shiftID, from))
+	a.EmployeeID = to
+	m.assignments[assignKey(shiftID, to)] = a
 	return nil
 }
 
@@ -631,7 +643,7 @@ func TestService_ListAssignments_ShiftNotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.ListAssignments(context.Background(), uuid.New(), uuid.New())
+	_, err := svc.ListAssignments(context.Background(), uuid.New(), uuid.New(), nil)
 	assert.ErrorIs(t, err, ErrShiftNotFound)
 }
 
@@ -1332,6 +1344,31 @@ func TestService_CreateSwapRequest_Success(t *testing.T) {
 	assert.Equal(t, tenantID, req.TenantID)
 }
 
+func TestService_CreateSwapRequest_OwnerMustBeRequester(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID, shiftID := uuid.New(), uuid.New()
+	caller, profile, colleague := uuid.New(), uuid.New(), uuid.New()
+	repo.profileUsers = map[uuid.UUID]uuid.UUID{profile: caller}
+	assignID := seedAssignment(repo, tenantID, shiftID, profile)
+	foreignAssign := seedAssignment(repo, tenantID, shiftID, colleague)
+
+	in := func(requestedBy, assignment uuid.UUID, key string) CreateSwapRequestInput {
+		return CreateSwapRequestInput{
+			TenantID: tenantID, AssignmentID: assignment, ShiftID: shiftID,
+			RequestedByEmployeeID: requestedBy, SwapWithEmployeeID: uuid.New(),
+			IdempotencyKey: key, OwnerUserID: &caller,
+		}
+	}
+
+	_, err := svc.CreateSwapRequest(context.Background(), in(profile, assignID, "own-profile"))
+	require.NoError(t, err, "the caller's HR profile id counts as the caller")
+
+	_, err = svc.CreateSwapRequest(context.Background(), in(colleague, foreignAssign, "foreign"))
+	assert.ErrorIs(t, err, ErrSwapRequesterNotCaller)
+}
+
 func TestService_CreateSwapRequest_MissingIdempotencyKey(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
@@ -1465,42 +1502,69 @@ func TestService_ListSwapRequests_Success(t *testing.T) {
 	assert.Len(t, reqs, 3)
 }
 
-func TestService_ApproveSwapRequest_Success(t *testing.T) {
-	repo := newMockRepository()
-	svc := NewService(repo)
-
-	tenantID := uuid.New()
-	shiftID := uuid.New()
-	empA := uuid.New()
-	empB := uuid.New()
-	assignID := uuid.New()
-
-	// Pre-seed assignments so swap has something to work with.
-	repo.assignments[assignKey(shiftID, empA)] = &ShiftAssignment{
-		ID: assignID, TenantID: tenantID, ShiftID: shiftID, EmployeeID: empA, AssignedAt: time.Now(),
-	}
-	repo.assignments[assignKey(shiftID, empB)] = &ShiftAssignment{
-		ID: uuid.New(), TenantID: tenantID, ShiftID: shiftID, EmployeeID: empB, AssignedAt: time.Now(),
-	}
-
+// seedSwap puts a shift, the requester's assignment on it and a pending swap
+// request to partner into the mock repository.
+func seedSwap(repo *mockRepository, tenantID, requester, partner uuid.UUID, start time.Time) (*Shift, *ShiftAssignment, uuid.UUID) {
+	shift := addShift(repo, tenantID, "Swap", start, start.Add(8*time.Hour), ShiftStatusPublished)
+	a := &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shift.ID, EmployeeID: requester, AssignedAt: time.Now()}
+	repo.assignments[assignKey(shift.ID, requester)] = a
 	reqID := uuid.New()
 	repo.swapRequests[reqID] = &SwapRequest{
-		ID:                    reqID,
-		TenantID:              tenantID,
-		AssignmentID:          assignID,
-		RequestedByEmployeeID: empA,
-		SwapWithEmployeeID:    empB,
-		ShiftID:               shiftID,
-		Status:                SwapRequestStatusPending,
-		IdempotencyKey:        "idem-key-approve",
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
+		ID: reqID, TenantID: tenantID, AssignmentID: a.ID, ShiftID: shift.ID,
+		RequestedByEmployeeID: requester, SwapWithEmployeeID: partner,
+		Status: SwapRequestStatusPending, IdempotencyKey: "idem-" + reqID.String(),
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
 	}
+	return shift, a, reqID
+}
+
+func TestService_ApproveSwapRequest_HandsTheSeatOverToThePartner(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	shift, seat, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 8, 0, 0, 0, time.UTC))
 
 	approved, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
 
 	require.NoError(t, err)
 	assert.Equal(t, SwapRequestStatusApproved, approved.Status)
+	got, err := repo.GetAssignment(context.Background(), tenantID, shift.ID, empB)
+	require.NoError(t, err)
+	assert.Equal(t, seat.ID, got.ID, "the partner takes over the requester's row")
+	_, err = repo.GetAssignment(context.Background(), tenantID, shift.ID, empA)
+	assert.ErrorIs(t, err, ErrAssignmentNotFound, "the requester is off the shift")
+}
+
+func TestService_ApproveSwapRequest_PartnerAlreadyOnShift(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	shift, seat, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 8, 0, 0, 0, time.UTC))
+	repo.assignments[assignKey(shift.ID, empB)] = &ShiftAssignment{ID: uuid.New(), TenantID: tenantID, ShiftID: shift.ID, EmployeeID: empB}
+
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+
+	assert.ErrorIs(t, err, ErrAlreadyAssigned)
+	assert.Equal(t, SwapRequestStatusPending, repo.swapRequests[reqID].Status)
+	got, gErr := repo.GetAssignment(context.Background(), tenantID, shift.ID, empA)
+	require.NoError(t, gErr)
+	assert.Equal(t, seat.ID, got.ID)
+}
+
+func TestService_ApproveSwapRequest_MinorPartnerAtNight(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, empA, empB := uuid.New(), uuid.New(), uuid.New()
+	// 22:00 on a weekday: night work for a minor (JArbSchG §14).
+	shift, _, reqID := seedSwap(repo, tenantID, empA, empB, time.Date(2030, 3, 4, 22, 0, 0, 0, time.UTC))
+	repo.minorEmployees[minorKey(tenantID, empB)] = true
+
+	_, err := svc.ApproveSwapRequest(context.Background(), tenantID, reqID)
+
+	assert.ErrorIs(t, err, ErrJArbSchGNightWork)
+	assert.Equal(t, SwapRequestStatusPending, repo.swapRequests[reqID].Status)
+	_, err = repo.GetAssignment(context.Background(), tenantID, shift.ID, empB)
+	assert.ErrorIs(t, err, ErrAssignmentNotFound)
 }
 
 func TestService_ApproveSwapRequest_AlreadyProcessed(t *testing.T) {
@@ -1644,27 +1708,16 @@ func TestService_ListSwapRequests_TenantIsolation(t *testing.T) {
 // AssignEmployee — double-booking gap
 // ============================================================================
 
-// TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected documents a
-// real gap noted in the schichten backlog unit: AssignEmployee only runs
-// validateRestPeriod, which finds the latest shift end BEFORE the new
-// shift's start and the earliest shift start AFTER the new shift's end
-// (ArbZG §5 rest-between-shifts). Neither direction catches a shift that is
-// fully nested inside — or otherwise overlaps — an existing assignment for
-// the same employee, because such a shift's end is not "before" the new
-// start and its start is not "after" the new end. An employee can therefore
-// be assigned to two shifts that run at the same time. This is a
-// Feststellung for the journal per the unit's done_when — whether a
-// dedicated overlap guard should be built is a product decision that
-// belongs in BACKLOG-NEXT.yml, not something a coverage unit fixes.
-func TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected(t *testing.T) {
+// TestService_AssignEmployee_RejectsOverlappingShift pins the overlap guard: an
+// employee cannot be assigned to a shift that runs (even partly) at the same
+// time as another shift of theirs. Rest-period math alone misses a nested shift.
+func TestService_AssignEmployee_RejectsOverlappingShift(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
 	employeeID := uuid.New()
 
-	// Existing shift: 09:00-17:00, far enough in the future to dodge any
-	// "now" edge effects in the rest-period math.
 	outerStart := time.Now().Add(72 * time.Hour)
 	outerEnd := outerStart.Add(8 * time.Hour)
 	outer := addShift(repo, tenantID, "Outer Shift", outerStart, outerEnd, ShiftStatusDraft)
@@ -1674,21 +1727,30 @@ func TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// New shift: 10:00-14:00, fully nested inside the outer shift above.
+	// Fully nested inside the outer shift.
 	innerStart := outerStart.Add(1 * time.Hour)
-	innerEnd := innerStart.Add(4 * time.Hour)
-	inner := addShift(repo, tenantID, "Inner Shift", innerStart, innerEnd, ShiftStatusDraft)
-
+	inner := addShift(repo, tenantID, "Inner Shift", innerStart, innerStart.Add(4*time.Hour), ShiftStatusDraft)
 	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
 		TenantID: tenantID, ShiftID: inner.ID, EmployeeID: employeeID,
 	})
+	assert.ErrorIs(t, err, ErrShiftOverlap)
 
-	// This documents the current (buggy) behaviour: the assignment succeeds
-	// even though the employee is now double-booked for four overlapping
-	// hours. A fixed AssignEmployee would reject this with a collision error.
-	assert.NoError(t, err, "BUG: AssignEmployee has no overlap guard — a nested shift is silently accepted")
+	// Overlaps only the tail of the outer shift.
+	tail := addShift(repo, tenantID, "Tail Shift", outerEnd.Add(-1*time.Hour), outerEnd.Add(5*time.Hour), ShiftStatusDraft)
+	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: tail.ID, EmployeeID: employeeID,
+	})
+	assert.ErrorIs(t, err, ErrShiftOverlap)
 
-	assignments, err := repo.ListAssignments(context.Background(), tenantID, inner.ID)
-	require.NoError(t, err)
-	assert.Len(t, assignments, 1, "the double-booked assignment was actually written")
+	for _, sh := range []*Shift{inner, tail} {
+		assignments, listErr := repo.ListAssignments(context.Background(), tenantID, sh.ID, nil)
+		require.NoError(t, listErr)
+		assert.Empty(t, assignments, "the rejected assignment was not written")
+	}
+
+	// A colleague is not affected by the employee's own shifts.
+	_, err = svc.AssignEmployee(context.Background(), AssignEmployeeInput{
+		TenantID: tenantID, ShiftID: inner.ID, EmployeeID: uuid.New(),
+	})
+	assert.NoError(t, err)
 }

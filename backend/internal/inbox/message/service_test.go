@@ -71,7 +71,7 @@ func (m *mockRepository) Create(_ context.Context, msg *models.InboxMessage) err
 	return nil
 }
 
-func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID) (*models.InboxMessage, error) {
+func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.UUID, userID uuid.UUID) (*models.InboxMessage, error) {
 	if m.getByIDErr != nil {
 		return nil, m.getByIDErr
 	}
@@ -83,6 +83,11 @@ func (m *mockRepository) GetByID(_ context.Context, id uuid.UUID, tenantID uuid.
 	}
 	// Enforce tenant isolation when a real tenantID is supplied.
 	if tenantID != uuid.Nil && msg.TenantID != uuid.Nil && msg.TenantID != tenantID {
+		return nil, ErrMessageNotFound
+	}
+	// Mirror the owner/assignee part of visibleToCaller when a real caller is supplied
+	// (team-inbox membership is covered by the Postgres test in internal/server).
+	if userID != uuid.Nil && msg.UserID != userID && (msg.AssignedTo == nil || *msg.AssignedTo != userID) {
 		return nil, ErrMessageNotFound
 	}
 	return msg, nil
@@ -280,7 +285,7 @@ func (m *mockRepository) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]mode
 	}, nil
 }
 
-func (m *mockRepository) BulkMarkRead(_ context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (m *mockRepository) BulkMarkRead(_ context.Context, tenantID uuid.UUID, _ uuid.UUID, ids []uuid.UUID) error {
 	if m.bulkMarkReadErr != nil {
 		return m.bulkMarkReadErr
 	}
@@ -294,7 +299,7 @@ func (m *mockRepository) BulkMarkRead(_ context.Context, tenantID uuid.UUID, ids
 	return nil
 }
 
-func (m *mockRepository) BulkArchive(_ context.Context, tenantID uuid.UUID, ids []uuid.UUID) error {
+func (m *mockRepository) BulkArchive(_ context.Context, tenantID uuid.UUID, _ uuid.UUID, ids []uuid.UUID) error {
 	if m.bulkArchiveErr != nil {
 		return m.bulkArchiveErr
 	}
@@ -360,7 +365,7 @@ func TestCreate_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, uuid.Nil, msg.ID)
 
-	stored, err := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, err := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	require.NoError(t, err)
 	assert.Equal(t, msg.Subject, stored.Subject)
 }
@@ -388,7 +393,7 @@ func TestCreate_DuplicateDetected(t *testing.T) {
 
 	require.ErrorIs(t, err, ErrDuplicateMessage)
 	// Existing message should have updated subject since dup is newer
-	stored, _ := repo.GetByID(context.Background(), existing.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), existing.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, "Updated Subject", stored.Subject)
 }
 
@@ -399,7 +404,7 @@ func TestGetByID_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	result, err := svc.GetByID(context.Background(), msg.ID, uuid.Nil)
+	result, err := svc.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, msg.ID, result.ID)
@@ -410,7 +415,7 @@ func TestGetByID_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil)
+	_, err := svc.GetByID(context.Background(), uuid.New(), uuid.Nil, uuid.Nil)
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -440,10 +445,10 @@ func TestMarkRead_Success(t *testing.T) {
 	msg.IsRead = false
 	seedMessage(repo, msg)
 
-	err := svc.MarkRead(context.Background(), msg.ID, uuid.Nil)
+	err := svc.MarkRead(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.True(t, stored.IsRead)
 }
 
@@ -455,10 +460,10 @@ func TestMarkUnread_Success(t *testing.T) {
 	msg.IsRead = true
 	seedMessage(repo, msg)
 
-	err := svc.MarkUnread(context.Background(), msg.ID, uuid.Nil)
+	err := svc.MarkUnread(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.False(t, stored.IsRead)
 }
 
@@ -470,10 +475,10 @@ func TestToggleStar_Success(t *testing.T) {
 	msg.IsStarred = false
 	seedMessage(repo, msg)
 
-	err := svc.ToggleStar(context.Background(), msg.ID, uuid.Nil)
+	err := svc.ToggleStar(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.True(t, stored.IsStarred)
 }
 
@@ -485,10 +490,10 @@ func TestSetStatus_Success(t *testing.T) {
 	msg.Status = "open"
 	seedMessage(repo, msg)
 
-	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, "resolved")
+	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "resolved")
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, "resolved", stored.Status)
 }
 
@@ -500,10 +505,10 @@ func TestSetStatus_InvalidValue(t *testing.T) {
 	msg.Status = "open"
 	seedMessage(repo, msg)
 
-	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, "archived")
+	err := svc.SetStatus(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "archived")
 
 	require.ErrorIs(t, err, ErrInvalidStatus)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, "open", stored.Status, "invalid status must not be persisted")
 }
 
@@ -511,7 +516,7 @@ func TestSetStatus_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	err := svc.SetStatus(context.Background(), uuid.New(), uuid.Nil, "closed")
+	err := svc.SetStatus(context.Background(), uuid.New(), uuid.Nil, uuid.Nil, "closed")
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -523,10 +528,10 @@ func TestAddTag_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "  Demo  ")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "  Demo  ")
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, []string{"Demo"}, stored.Tags, "tag must be trimmed")
 }
 
@@ -538,10 +543,10 @@ func TestAddTag_Idempotent(t *testing.T) {
 	msg.Tags = []string{"Demo"}
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "Demo")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "Demo")
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, []string{"Demo"}, stored.Tags, "adding an existing tag must not duplicate it")
 }
 
@@ -552,10 +557,10 @@ func TestAddTag_EmptyRejected(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, "   ")
+	err := svc.AddTag(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "   ")
 
 	require.ErrorIs(t, err, ErrInvalidTag)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Empty(t, stored.Tags, "an empty tag must not be persisted")
 }
 
@@ -567,10 +572,10 @@ func TestRemoveTag_Success(t *testing.T) {
 	msg.Tags = []string{"Demo", "Lead"}
 	seedMessage(repo, msg)
 
-	err := svc.RemoveTag(context.Background(), msg.ID, uuid.Nil, "Demo")
+	err := svc.RemoveTag(context.Background(), msg.ID, uuid.Nil, uuid.Nil, "Demo")
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.Equal(t, []string{"Lead"}, stored.Tags)
 }
 
@@ -578,7 +583,7 @@ func TestRemoveTag_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())
 
-	err := svc.RemoveTag(context.Background(), uuid.New(), uuid.Nil, "Demo")
+	err := svc.RemoveTag(context.Background(), uuid.New(), uuid.Nil, uuid.Nil, "Demo")
 
 	require.ErrorIs(t, err, ErrMessageNotFound)
 }
@@ -625,7 +630,7 @@ func TestForward_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "FYI")
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, msg.UserID, "colleague@example.com", "FYI")
 
 	require.NoError(t, err)
 	// The adapter must receive the message's origin-system id (SourceID), not
@@ -653,7 +658,7 @@ func TestReply_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, uuid.New(), "Danke!")
+	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, msg.UserID, "Danke!")
 
 	require.NoError(t, err)
 	assert.Equal(t, msg.SourceID, gotSourceID)
@@ -667,7 +672,7 @@ func TestReply_NoAdapter(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, uuid.New(), "Danke!")
+	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, msg.UserID, "Danke!")
 
 	require.ErrorIs(t, err, ErrAdapterNotFound)
 }
@@ -679,7 +684,7 @@ func TestForward_NoAdapter(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "")
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, msg.UserID, "colleague@example.com", "")
 
 	require.ErrorIs(t, err, ErrAdapterNotFound)
 }
@@ -698,7 +703,7 @@ func TestForward_NotSupportedByChannel(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, uuid.New(), "colleague@example.com", "")
+	err := svc.Forward(context.Background(), msg.ID, uuid.Nil, msg.UserID, "colleague@example.com", "")
 
 	require.ErrorIs(t, err, ErrForwardNotSupported)
 }
@@ -710,10 +715,10 @@ func TestArchive_Success(t *testing.T) {
 	msg := newTestMessage()
 	seedMessage(repo, msg)
 
-	err := svc.Archive(context.Background(), msg.ID, uuid.Nil)
+	err := svc.Archive(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	assert.True(t, stored.IsArchived)
 }
 
@@ -725,10 +730,10 @@ func TestSnooze_Success(t *testing.T) {
 	seedMessage(repo, msg)
 
 	until := time.Now().Add(1 * time.Hour)
-	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, until)
+	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, uuid.Nil, until)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	require.NotNil(t, stored.SnoozedUntil)
 	assert.WithinDuration(t, until, *stored.SnoozedUntil, time.Second)
 }
@@ -741,7 +746,7 @@ func TestSnooze_PastTime(t *testing.T) {
 	seedMessage(repo, msg)
 
 	pastTime := time.Now().Add(-1 * time.Hour)
-	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, pastTime)
+	err := svc.Snooze(context.Background(), msg.ID, uuid.Nil, uuid.Nil, pastTime)
 
 	require.ErrorIs(t, err, ErrInvalidSnoozeTime)
 }
@@ -767,10 +772,10 @@ func TestAssignMessage_Success(t *testing.T) {
 	seedMessage(repo, msg)
 
 	assigneeID := uuid.New()
-	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, assigneeID)
+	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, uuid.Nil, assigneeID)
 
 	require.NoError(t, err)
-	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil)
+	stored, _ := repo.GetByID(context.Background(), msg.ID, uuid.Nil, uuid.Nil)
 	require.NotNil(t, stored.AssignedTo)
 	assert.Equal(t, assigneeID, *stored.AssignedTo)
 }
@@ -785,7 +790,7 @@ func TestAssignMessage_AlreadyAssigned(t *testing.T) {
 	msg.AssignedTo = &existingAssignee
 	seedMessage(repo, msg)
 
-	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, uuid.New())
+	err := svc.AssignMessage(context.Background(), msg.ID, uuid.Nil, uuid.Nil, uuid.New())
 
 	require.ErrorIs(t, err, ErrAlreadyAssigned)
 }
@@ -799,11 +804,11 @@ func TestBulkMarkRead_Success(t *testing.T) {
 	seedMessage(repo, msg1)
 	seedMessage(repo, msg2)
 
-	err := svc.BulkMarkRead(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil)
+	err := svc.BulkMarkRead(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
-	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil)
+	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil, uuid.Nil)
+	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil, uuid.Nil)
 	assert.True(t, s1.IsRead)
 	assert.True(t, s2.IsRead)
 }
@@ -817,11 +822,11 @@ func TestBulkArchive_Success(t *testing.T) {
 	seedMessage(repo, msg1)
 	seedMessage(repo, msg2)
 
-	err := svc.BulkArchive(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil)
+	err := svc.BulkArchive(context.Background(), []uuid.UUID{msg1.ID, msg2.ID}, uuid.Nil, uuid.Nil)
 
 	require.NoError(t, err)
-	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil)
-	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil)
+	s1, _ := repo.GetByID(context.Background(), msg1.ID, uuid.Nil, uuid.Nil)
+	s2, _ := repo.GetByID(context.Background(), msg2.ID, uuid.Nil, uuid.Nil)
 	assert.True(t, s1.IsArchived)
 	assert.True(t, s2.IsArchived)
 }
@@ -843,7 +848,7 @@ func TestGetByID_CrossTenant(t *testing.T) {
 	msg.TenantID = tenantA
 	seedMessage(repo, msg)
 
-	result, err := svc.GetByID(context.Background(), msg.ID, tenantB)
+	result, err := svc.GetByID(context.Background(), msg.ID, tenantB, uuid.Nil)
 
 	assert.Nil(t, result)
 	assert.ErrorIs(t, err, ErrMessageNotFound)
@@ -863,9 +868,51 @@ func TestMarkRead_CrossTenant(t *testing.T) {
 	msg.IsRead = false
 	seedMessage(repo, msg)
 
-	err := svc.MarkRead(context.Background(), msg.ID, tenantB)
+	err := svc.MarkRead(context.Background(), msg.ID, tenantB, uuid.Nil)
 
 	assert.ErrorIs(t, err, ErrMessageNotFound)
 	// Read flag must remain unchanged.
 	assert.False(t, repo.messages[msg.ID].IsRead)
+}
+
+// Every single-message write checks the caller's visibility before it touches the row: a
+// colleague who is neither owner nor assignee gets ErrMessageNotFound and changes nothing.
+func TestSingleMessageWrites_RejectInvisibleCaller(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo, adapter.NewAdapterRegistry())
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+	ctx := context.Background()
+	colleague := uuid.New()
+
+	writes := map[string]func() error{
+		"MarkRead":   func() error { return svc.MarkRead(ctx, msg.ID, uuid.Nil, colleague) },
+		"MarkUnread": func() error { return svc.MarkUnread(ctx, msg.ID, uuid.Nil, colleague) },
+		"ToggleStar": func() error { return svc.ToggleStar(ctx, msg.ID, uuid.Nil, colleague) },
+		"SetStatus":  func() error { return svc.SetStatus(ctx, msg.ID, uuid.Nil, colleague, "closed") },
+		"AddTag":     func() error { return svc.AddTag(ctx, msg.ID, uuid.Nil, colleague, "x") },
+		"RemoveTag":  func() error { return svc.RemoveTag(ctx, msg.ID, uuid.Nil, colleague, "x") },
+		"Archive":    func() error { return svc.Archive(ctx, msg.ID, uuid.Nil, colleague) },
+		"Unarchive":  func() error { return svc.Unarchive(ctx, msg.ID, uuid.Nil, colleague) },
+		"Snooze":     func() error { return svc.Snooze(ctx, msg.ID, uuid.Nil, colleague, time.Now().Add(time.Hour)) },
+		"Assign":     func() error { return svc.AssignMessage(ctx, msg.ID, uuid.Nil, colleague, colleague) },
+		"Reply":      func() error { return svc.Reply(ctx, msg.ID, uuid.Nil, colleague, "hi") },
+		"Forward":    func() error { return svc.Forward(ctx, msg.ID, uuid.Nil, colleague, "a@example.com", "") },
+	}
+	for name, write := range writes {
+		require.ErrorIs(t, write(), ErrMessageNotFound, name)
+	}
+
+	stored, err := repo.GetByID(ctx, msg.ID, uuid.Nil, uuid.Nil)
+	require.NoError(t, err)
+	assert.False(t, stored.IsStarred)
+	assert.False(t, stored.IsArchived)
+	assert.Nil(t, stored.SnoozedUntil)
+	assert.Nil(t, stored.AssignedTo)
+	assert.Empty(t, stored.Tags)
+
+	// The assignee passes the same check.
+	assignee := uuid.New()
+	stored.AssignedTo = &assignee
+	require.NoError(t, svc.Archive(ctx, msg.ID, uuid.Nil, assignee))
 }

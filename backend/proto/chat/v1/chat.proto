@@ -27,6 +27,7 @@ service ChatService {
 
   // Direct Messages (Sprint 2)
   rpc GetOrCreateDM(GetOrCreateDMRequest) returns (GetOrCreateDMResponse);
+  rpc GetOrCreateGroupDM(GetOrCreateGroupDMRequest) returns (GetOrCreateDMResponse);
   rpc ListDMs(ListDMsRequest) returns (ListDMsResponse);
 
   // Threads (Sprint 2)
@@ -290,6 +291,15 @@ message GetOrCreateDMRequest {
 message GetOrCreateDMResponse {
   ChannelInfo channel = 1;
   bool created = 2;  // true if a new DM was created, false if existing
+}
+
+// A DM with several participants. The caller is always a member, whether or not
+// participant_ids lists them. The same participant set always yields the same
+// channel; a set of exactly two people is the plain 1:1 DM.
+message GetOrCreateGroupDMRequest {
+  string user_id = 1;                   // The requesting user
+  repeated string participant_ids = 2;  // The other participants
+  optional string name = 3;             // Only used when the channel is created
 }
 
 message ListDMsRequest {

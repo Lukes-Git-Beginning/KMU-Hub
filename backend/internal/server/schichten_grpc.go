@@ -249,7 +249,16 @@ func (s *SchichtenGRPCServer) ListAssignments(ctx context.Context, req *schichte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid shift_id: %v", err)
 	}
 
-	assignments, err := s.svc.ListAssignments(ctx, tenantID, shiftID)
+	var ownUserID *uuid.UUID
+	if oid := req.GetOwnUserId(); oid != "" {
+		id, err := uuid.Parse(oid)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid own_user_id: %v", err)
+		}
+		ownUserID = &id
+	}
+
+	assignments, err := s.svc.ListAssignments(ctx, tenantID, shiftID, ownUserID)
 	if err != nil {
 		return nil, mapSchichtenError(err)
 	}
@@ -489,6 +498,15 @@ func (s *SchichtenGRPCServer) CreateSwapRequest(ctx context.Context, req *schich
 		return nil, status.Errorf(codes.InvalidArgument, "invalid swap_with_employee_id: %v", err)
 	}
 
+	var ownerUserID *uuid.UUID
+	if oid := req.GetOwnerUserId(); oid != "" {
+		id, err := uuid.Parse(oid)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid owner_user_id: %v", err)
+		}
+		ownerUserID = &id
+	}
+
 	result, err := s.svc.CreateSwapRequest(ctx, schichten.CreateSwapRequestInput{
 		TenantID:              tenantID,
 		AssignmentID:          assignmentID,
@@ -497,6 +515,7 @@ func (s *SchichtenGRPCServer) CreateSwapRequest(ctx context.Context, req *schich
 		SwapWithEmployeeID:    swapWithID,
 		Reason:                req.GetReason(),
 		IdempotencyKey:        req.GetIdempotencyKey(),
+		OwnerUserID:           ownerUserID,
 	})
 	if err != nil {
 		return nil, mapSchichtenError(err)
@@ -680,10 +699,12 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapAlreadyProcessed):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, schichten.ErrSwapPartnerNotAssigned):
-		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrShiftFull):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrShiftOverlap):
+		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrSwapRequesterNotCaller):
+		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		slog.Error("unhandled schichten service error", "error", err)
 		return status.Error(codes.Internal, "internal error")

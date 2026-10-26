@@ -296,7 +296,16 @@ func (s *HRGRPCServer) GetEmployeeLeaveBalance(ctx context.Context, req *hrv1.Ge
 		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
 	}
 
-	balance, err := s.leaveService.GetLeaveBalance(ctx, tenantID, employeeID)
+	var balance *models.HRLeaveBalance
+	if req.GetRestrictToReportingLine() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		balance, err = s.leaveService.GetReportingLineLeaveBalance(ctx, tenantID, employeeID, caller)
+	} else {
+		balance, err = s.leaveService.GetLeaveBalance(ctx, tenantID, employeeID)
+	}
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -537,6 +546,14 @@ func (s *HRGRPCServer) ListWorkTimeEntries(ctx context.Context, req *hrv1.ListWo
 		filter.Status = &st
 	}
 
+	if req.GetRestrictToReportingLine() {
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		filter.ReportingLineOf = &caller
+	}
+
 	entries, total, err := s.timetrackingService.ListWorkTimeEntries(ctx, filter)
 	if err != nil {
 		return nil, mapHRError(err)
@@ -624,11 +641,11 @@ func (s *HRGRPCServer) SubmitTimeCorrection(ctx context.Context, req *hrv1.Submi
 	}
 
 	input := timetracking.CorrectionInput{
-		OriginalEntryID:      originalID,
-		CorrectedClockIn:     req.GetCorrectedClockIn().AsTime(),
-		CorrectedClockOut:    req.GetCorrectedClockOut().AsTime(),
+		OriginalEntryID:       originalID,
+		CorrectedClockIn:      req.GetCorrectedClockIn().AsTime(),
+		CorrectedClockOut:     req.GetCorrectedClockOut().AsTime(),
 		CorrectedBreakMinutes: int(req.GetCorrectedBreakMinutes()),
-		Reason:               req.GetReason(),
+		Reason:                req.GetReason(),
 	}
 
 	correction, err := s.timetrackingService.SubmitTimeCorrection(ctx, tenantID, userID, input)
@@ -702,13 +719,14 @@ func (s *HRGRPCServer) GetAbsenceCalendar(ctx context.Context, req *hrv1.GetAbse
 	protoEntries := make([]*hrv1.AbsenceEntry, 0, len(entries))
 	for _, e := range entries {
 		protoEntries = append(protoEntries, &hrv1.AbsenceEntry{
-			EmployeeId:    e.EmployeeID.String(),
-			EmployeeName:  e.EmployeeName,
-			Department:    e.Department,
-			StartDate:     e.StartDate.Format("2006-01-02"),
-			EndDate:       e.EndDate.Format("2006-01-02"),
-			LeaveTypeName: e.LeaveTypeName,
+			EmployeeId:     e.EmployeeID.String(),
+			EmployeeName:   e.EmployeeName,
+			Department:     e.Department,
+			StartDate:      e.StartDate.Format("2006-01-02"),
+			EndDate:        e.EndDate.Format("2006-01-02"),
+			LeaveTypeName:  e.LeaveTypeName,
 			LeaveTypeColor: e.Color,
+			ManagerUserId:  e.ManagerUserID,
 		})
 	}
 
@@ -888,6 +906,31 @@ func (s *HRGRPCServer) OffboardEmployee(ctx context.Context, req *hrv1.OffboardE
 	}
 
 	return &hrv1.OffboardEmployeeResp{
+		Employee: toProtoEmployeeProfile(updated),
+	}, nil
+}
+
+func (s *HRGRPCServer) ReactivateEmployee(ctx context.Context, req *hrv1.ReactivateEmployeeReq) (*hrv1.ReactivateEmployeeResp, error) {
+	employeeID, err := uuid.Parse(req.GetEmployeeId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid employee_id")
+	}
+	// Tenant and actor from the context, as in OffboardEmployee.
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+	actorID, err := uuid.Parse(middleware.GetUserID(ctx))
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "user_id missing from context")
+	}
+
+	updated, err := s.employeeService.ReactivateEmployee(ctx, tenantID, employeeID, actorID)
+	if err != nil {
+		return nil, mapHRError(err)
+	}
+
+	return &hrv1.ReactivateEmployeeResp{
 		Employee: toProtoEmployeeProfile(updated),
 	}, nil
 }
@@ -1747,18 +1790,18 @@ func toProtoWorkTimeEntry(e *models.HRWorkTimeEntry) *hrv1.WorkTimeEntry {
 		return nil
 	}
 	pe := &hrv1.WorkTimeEntry{
-		Id:               e.ID.String(),
-		TenantId:         e.TenantID.String(),
-		EmployeeId:       e.EmployeeID.String(),
-		ClockIn:          timestamppb.New(e.ClockIn),
-		BreakMinutes:     int32(e.BreakMinutes),
+		Id:                e.ID.String(),
+		TenantId:          e.TenantID.String(),
+		EmployeeId:        e.EmployeeID.String(),
+		ClockIn:           timestamppb.New(e.ClockIn),
+		BreakMinutes:      int32(e.BreakMinutes),
 		AutoBreakDeducted: int32(e.AutoBreakDeducted),
-		Status:           workTimeStatusToProto(e.Status),
-		IsCorrection:     e.IsCorrection,
-		CorrectionReason: e.CorrectionReason,
-		CreatedAt:        timestamppb.New(e.CreatedAt),
-		UpdatedAt:        timestamppb.New(e.UpdatedAt),
-		EmployeeName:     e.EmployeeName,
+		Status:            workTimeStatusToProto(e.Status),
+		IsCorrection:      e.IsCorrection,
+		CorrectionReason:  e.CorrectionReason,
+		CreatedAt:         timestamppb.New(e.CreatedAt),
+		UpdatedAt:         timestamppb.New(e.UpdatedAt),
+		EmployeeName:      e.EmployeeName,
 	}
 	if e.ClockOut != nil {
 		pe.ClockOut = timestamppb.New(*e.ClockOut)
@@ -1920,11 +1963,11 @@ func toProtoDailySummary(s *timetracking.DailySummary) *hrv1.DailySummary {
 		return nil
 	}
 	return &hrv1.DailySummary{
-		Date:             s.Date.Format("2006-01-02"),
-		TotalWorkMinutes: int32(s.TotalWorkedMinutes),
+		Date:              s.Date.Format("2006-01-02"),
+		TotalWorkMinutes:  int32(s.TotalWorkedMinutes),
 		TotalBreakMinutes: int32(s.TotalBreakMinutes),
-		NetWorkMinutes:   int32(s.NetWorkMinutes),
-		OvertimeMinutes:  int32(s.OvertimeMinutes),
+		NetWorkMinutes:    int32(s.NetWorkMinutes),
+		OvertimeMinutes:   int32(s.OvertimeMinutes),
 	}
 }
 
@@ -2147,6 +2190,8 @@ func mapHRError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, leave.ErrNotAuthorizedToApprove):
 		return status.Error(codes.PermissionDenied, err.Error())
+	case errors.Is(err, leave.ErrNotInReportingLine):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, leave.ErrInvalidDateRange):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, leave.ErrCannotCancelPastLeave):
@@ -2207,7 +2252,9 @@ func mapHRError(err error) error {
 	case errors.Is(err, employee.ErrSelfOffboard):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrLastRoleAdmin),
-		errors.Is(err, employee.ErrAlreadyOffboarded):
+		errors.Is(err, employee.ErrAlreadyOffboarded),
+		errors.Is(err, employee.ErrNotOffboarded),
+		errors.Is(err, employee.ErrSeatLimitReached):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	// 422, not 400: the body is well-formed, but an employee with reports
 	// cannot leave without naming who takes them over.

@@ -108,6 +108,62 @@ func TestSearchByQuery_UserVideoAndDialerParticipation_Integration(t *testing.T)
 	defer testutil.CleanupRow(t, pool, "meeting_action_items", mineItem)
 	defer testutil.CleanupRow(t, pool, "meeting_action_items", colleagueItem)
 
+	// --- meeting notes and chat -----------------------------------------------
+	for _, n := range []struct {
+		author  uuid.UUID
+		content string
+		private bool
+	}{
+		{subjectID, "Eigene geteilte Notiz", false},
+		{colleagueID, "Geteilte Notiz des Kollegen", false},
+	} {
+		id := testutil.SeedRow(t, pool, "meeting_notes", map[string]any{
+			"tenant_id": tenantOwn, "meeting_id": invited, "author_id": n.author,
+			"content": n.content, "is_private": n.private,
+		})
+		defer testutil.CleanupRow(t, pool, "meeting_notes", id)
+	}
+	// Private notes live in their own unique slot per meeting and author.
+	for _, n := range []struct {
+		author  uuid.UUID
+		content string
+	}{
+		{subjectID, "Eigene private Notiz"},
+		{colleagueID, "Private Notiz des Kollegen"},
+	} {
+		id := testutil.SeedRow(t, pool, "meeting_notes", map[string]any{
+			"tenant_id": tenantOwn, "meeting_id": invited, "author_id": n.author,
+			"content": n.content, "is_private": true,
+		})
+		defer testutil.CleanupRow(t, pool, "meeting_notes", id)
+	}
+	for _, c := range []struct {
+		tenant  uuid.UUID
+		meeting uuid.UUID
+		sender  uuid.UUID
+		message string
+	}{
+		{tenantOwn, invited, subjectID, "Bin gleich da"},
+		{tenantOwn, invited, colleagueID, "Folie 3 bitte"},
+	} {
+		id := testutil.SeedRow(t, pool, "meeting_chat", map[string]any{
+			"tenant_id": c.tenant, "meeting_id": c.meeting, "sender_id": c.sender,
+			"sender_name": "x", "message": c.message,
+		})
+		defer testutil.CleanupRow(t, pool, "meeting_chat", id)
+	}
+
+	foreignNote := testutil.SeedRow(t, pool, "meeting_notes", map[string]any{
+		"tenant_id": tenantOther, "meeting_id": foreignMeeting, "author_id": foreignUserID,
+		"content": "Fremde Notiz", "is_private": false,
+	})
+	foreignChat := testutil.SeedRow(t, pool, "meeting_chat", map[string]any{
+		"tenant_id": tenantOther, "meeting_id": foreignMeeting, "sender_id": foreignUserID,
+		"sender_name": "x", "message": "Fremde Nachricht",
+	})
+	defer testutil.CleanupRow(t, pool, "meeting_notes", foreignNote)
+	defer testutil.CleanupRow(t, pool, "meeting_chat", foreignChat)
+
 	// --- dialer ---------------------------------------------------------------
 	campaignID := testutil.SeedRow(t, pool, "dialer_campaigns", map[string]any{
 		"tenant_id": tenantOwn, "name": "Herbstaktion", "created_by": colleagueID,
@@ -170,6 +226,21 @@ func TestSearchByQuery_UserVideoAndDialerParticipation_Integration(t *testing.T)
 	assert.Equal(t, "Folien bis Freitag verschicken", items[0]["Aktionspunkt"])
 	assert.Equal(t, "Kundenworkshop", items[0]["Meeting"])
 
+	notes := recordMaps(dsarModule(t, person, "Meeting-Notizen"))
+	gotNotes := map[string]string{}
+	for _, n := range notes {
+		gotNotes[n["Notiz"]] = n["Privat"]
+	}
+	assert.Equal(t, map[string]string{
+		"Eigene geteilte Notiz": boolLabel(false),
+		"Eigene private Notiz":  boolLabel(true),
+	}, gotNotes, "own shared and own private notes; never the colleague's, private or shared")
+
+	chat := recordMaps(dsarModule(t, person, "Meeting-Chat"))
+	require.Len(t, chat, 1, "only the subject's own chat line")
+	assert.Equal(t, "Bin gleich da", chat[0]["Nachricht"])
+	assert.Equal(t, "Kundenworkshop", chat[0]["Meeting"])
+
 	statuses := recordMaps(dsarModule(t, person, "Dialer-Agent-Statushistorie"))
 	require.Len(t, statuses, 1, "only the subject's own status change")
 	assert.Equal(t, "on_call", statuses[0]["Status"])
@@ -195,6 +266,12 @@ func TestSearchByQuery_UserVideoAndDialerParticipation_Integration(t *testing.T)
 		assert.Equal(t, "Fremdes Meeting", m["Titel"])
 	}
 	assert.NotContains(t, moduleNames(foreign[0]), "Meeting-Aktionspunkte")
+	foreignNotes := recordMaps(dsarModule(t, foreign[0], "Meeting-Notizen"))
+	require.Len(t, foreignNotes, 1)
+	assert.Equal(t, "Fremde Notiz", foreignNotes[0]["Notiz"])
+	foreignChatLines := recordMaps(dsarModule(t, foreign[0], "Meeting-Chat"))
+	require.Len(t, foreignChatLines, 1)
+	assert.Equal(t, "Fremde Nachricht", foreignChatLines[0]["Nachricht"])
 	assert.NotContains(t, moduleNames(foreign[0]), "Dialer-Agent-Statushistorie")
 
 	// A forged tenant id must not reach the first tenant's rows either.

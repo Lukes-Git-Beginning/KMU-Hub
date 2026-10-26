@@ -15,11 +15,28 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 	"github.com/kmuhub/kmuhub/internal/berichte/export"
+	"github.com/kmuhub/kmuhub/internal/clientctx"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // Service handles fuhrpark business logic.
 type Service struct {
-	repo Repository
+	repo  Repository
+	audit AuditLogger
+}
+
+// AuditLogger appends one entry to the tamper-evident audit log.
+// *audit.Service satisfies it; nil disables auditing (tests, tools).
+type AuditLogger interface {
+	LogEvent(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID,
+		action, target, targetType string, details map[string]interface{},
+		ipAddress, userAgent, result string)
+}
+
+// WithAuditLogger wires the audit log used for destructive compliance records.
+func (s *Service) WithAuditLogger(l AuditLogger) *Service {
+	s.audit = l
+	return s
 }
 
 // NewService creates a new fuhrpark service.
@@ -730,7 +747,35 @@ func (s *Service) DeleteFuelLog(ctx context.Context, tenantID, id uuid.UUID) err
 
 // ListTripLogs retrieves trip log entries with optional filtering and pagination.
 func (s *Service) ListTripLogs(ctx context.Context, params ListTripLogsParams) ([]TripLog, int, error) {
-	return s.repo.ListTripLogs(ctx, params)
+	logs, total, err := s.repo.ListTripLogs(ctx, params)
+	if err != nil {
+		return nil, 0, err
+	}
+	maskPrivateTrips(logs, params.ViewerID)
+	return logs, total, nil
+}
+
+// privateTripLabel stands in for the purpose of a masked private trip.
+const privateTripLabel = "Privatfahrt"
+
+// maskPrivateTrips blanks destination, route, purpose, business partner and
+// notes of every private trip not driven by viewer (decision 2026-10-25). Date,
+// odometer readings, distance, vehicle and driver stay: the Fahrtenbuch must
+// list a private trip with its km, just not where it went. The purpose carries
+// the label so list and export read "Privatfahrt" instead of an empty cell.
+// A trip without a linked driver account is masked for everyone.
+func maskPrivateTrips(logs []TripLog, viewer uuid.UUID) {
+	for i := range logs {
+		l := &logs[i]
+		if !l.IsPrivate || (viewer != uuid.Nil && l.DriverUserID != nil && *l.DriverUserID == viewer) {
+			continue
+		}
+		l.StartLocation = ""
+		l.EndLocation = ""
+		l.Purpose = privateTripLabel
+		l.BusinessPartner = ""
+		l.Notes = ""
+	}
 }
 
 // CreateTripLog creates a new trip/logbook entry.
@@ -810,6 +855,7 @@ func (s *Service) ExportTripLogs(ctx context.Context, params ExportTripLogsParam
 	if err != nil {
 		return nil, "", "", err
 	}
+	maskPrivateTrips(logs, params.ViewerID)
 
 	rows := make([]map[string]any, 0, len(logs))
 	for i, l := range logs {
@@ -899,9 +945,45 @@ func (s *Service) UpdateDriverLicense(ctx context.Context, lic DriverLicense) (D
 	return s.repo.UpdateDriverLicense(ctx, lic)
 }
 
-// DeleteDriverLicense deletes a driver license check entry.
+// DeleteDriverLicense deletes a driver license check entry. Deleting stays
+// allowed (typo correction), but the row is the Halterpflicht proof, so every
+// delete leaves an audit event carrying the full control state that vanished.
 func (s *Service) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.repo.DeleteDriverLicense(ctx, tenantID, id)
+	lic, err := s.repo.GetDriverLicense(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.DeleteDriverLicense(ctx, tenantID, id); err != nil {
+		return err
+	}
+	s.auditDriverLicenseDeleted(ctx, lic)
+	return nil
+}
+
+func (s *Service) auditDriverLicenseDeleted(ctx context.Context, lic DriverLicense) {
+	if s.audit == nil {
+		return
+	}
+	var actor *uuid.UUID
+	if id, err := uuid.Parse(middleware.GetUserID(ctx)); err == nil {
+		actor = &id
+	}
+	details := map[string]interface{}{
+		"driver_id":           lic.DriverID.String(),
+		"license_classes":     lic.LicenseClasses,
+		"checked_at":          lic.CheckedAt.Format(time.RFC3339),
+		"next_check_due_date": lic.NextCheckDueDate.Format("2006-01-02"),
+		"created_at":          lic.CreatedAt.Format(time.RFC3339),
+	}
+	if lic.ExpiryDate != nil {
+		details["expiry_date"] = lic.ExpiryDate.Format("2006-01-02")
+	}
+	if lic.Notes != nil {
+		details["notes"] = *lic.Notes
+	}
+	client := clientctx.From(ctx)
+	s.audit.LogEvent(ctx, lic.TenantID, actor, "fuhrpark.driver_license_deleted",
+		lic.ID.String(), "driver_license", details, client.IP, client.UserAgent, "success")
 }
 
 // ============================================================================
@@ -1116,6 +1198,22 @@ func (s *Service) EnsureDriverLicenseOwner(ctx context.Context, tenantID, id, ow
 // DeleteVehicleBooking removes a booking.
 func (s *Service) DeleteVehicleBooking(ctx context.Context, tenantID, bookingID uuid.UUID) error {
 	return s.repo.DeleteBooking(ctx, tenantID, bookingID)
+}
+
+// GetVehicleAvailability returns the occupied windows of one vehicle within
+// [from, to). The vehicle must exist in the tenant (ErrVehicleNotFound
+// otherwise), the window must be ordered and at most MaxAvailabilityWindow long.
+func (s *Service) GetVehicleAvailability(ctx context.Context, tenantID, vehicleID uuid.UUID, from, to time.Time) ([]BusySlot, error) {
+	if !to.After(from) {
+		return nil, fmt.Errorf("%w: to must be after from", ErrInvalidInput)
+	}
+	if to.Sub(from) > MaxAvailabilityWindow {
+		return nil, fmt.Errorf("%w: availability window exceeds %d days", ErrInvalidInput, int(MaxAvailabilityWindow.Hours()/24))
+	}
+	if _, err := s.repo.GetVehicle(ctx, tenantID, vehicleID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListBusySlots(ctx, tenantID, vehicleID, from, to)
 }
 
 // ListVehicleBookings returns bookings with optional filtering and pagination.

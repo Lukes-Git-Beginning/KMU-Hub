@@ -148,6 +148,7 @@ func TestPostgresRepository_AggregatePaymentStats_PartialPaymentIsNettedFromOuts
 		InvoiceID:   inv.ID,
 		Amount:      decimal.RequireFromString("400.00"),
 		PaymentDate: when,
+		Currency:    inv.Currency,
 		Method:      "bank_transfer",
 		Reference:   "PARTIAL-1",
 		CreatedBy:   uuid.New(),
@@ -190,6 +191,7 @@ func TestPostgresRepository_AggregatePaymentStats_PaidAmountReflectsOverpayment(
 		InvoiceID:   inv.ID,
 		Amount:      decimal.RequireFromString("450.00"),
 		PaymentDate: when,
+		Currency:    inv.Currency,
 		Method:      "bank_transfer",
 		Reference:   "OVERPAY-1",
 		CreatedBy:   uuid.New(),
@@ -330,4 +332,96 @@ func TestPostgresRepository_AggregatePaymentStats_SumsOnlyTenantDefaultCurrency(
 	assert.Equal(t, 4, s.TotalInvoices)
 	assert.True(t, decimal.RequireFromString("7000").Equal(s.TotalPaidAmount), "got %s", s.TotalPaidAmount)
 	assert.True(t, decimal.RequireFromString("9000").Equal(s.TotalOutstandingAmount), "got %s", s.TotalOutstandingAmount)
+}
+
+// seedCurrencyPayment books a payment row straight through the repository,
+// bypassing the service guard, so a row in a foreign currency can stand in for
+// one that slipped past it (import, manual SQL).
+func seedCurrencyPayment(t *testing.T, pool *pgxpool.Pool, ctx context.Context, tenantID, invoiceID uuid.UUID, amount, currency string, when time.Time) {
+	t.Helper()
+	p := &models.Payment{
+		ID:          uuid.New(),
+		TenantID:    tenantID,
+		InvoiceID:   invoiceID,
+		Amount:      decimal.RequireFromString(amount),
+		Currency:    currency,
+		PaymentDate: when,
+		Method:      "bank_transfer",
+		Reference:   "CUR-" + currency,
+		CreatedBy:   uuid.New(),
+		CreatedAt:   time.Now(),
+	}
+	require.NoError(t, payment.NewPostgresRepository(pool).Create(ctx, p))
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_payments", p.ID) })
+}
+
+// TestPostgresRepository_AggregatePaymentStats_NetsOnlyPaymentsInInvoiceCurrency
+// (feat-finance-payments-currency-column): finance_payments.currency is now its
+// own column, and only payments in the invoice currency net the outstanding or
+// count as collected. No exchange rate is stored, so a USD amount against a EUR
+// invoice must not be taken at face value.
+func TestPostgresRepository_AggregatePaymentStats_NetsOnlyPaymentsInInvoiceCurrency(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Payment Stats Payment Currency Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	when := time.Date(2045, 3, 5, 0, 0, 0, 0, time.UTC)
+
+	sent := newPaymentStatsTestInvoice(t, repo, pool, ctx, tenantID, models.InvoiceStatusSent, "1000.00", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, sent.ID, "400.00", "EUR", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, sent.ID, "300.00", "USD", when)
+
+	paid := newPaymentStatsTestInvoice(t, repo, pool, ctx, tenantID, models.InvoiceStatusPaid, "400.00", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, paid.ID, "450.00", "EUR", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, paid.ID, "50.00", "USD", when)
+
+	stats, err := repo.AggregatePaymentStats(ctx, tenantID, when.AddDate(0, 0, -1), when.AddDate(0, 0, 1))
+	require.NoError(t, err)
+	assert.True(t, decimal.RequireFromString("600.00").Equal(stats.TotalOutstandingAmount),
+		"1000 - 400 EUR; the 300 USD payment must not be netted; got %s", stats.TotalOutstandingAmount)
+	assert.True(t, decimal.RequireFromString("450.00").Equal(stats.TotalPaidAmount),
+		"450 EUR collected; the 50 USD payment must not be added; got %s", stats.TotalPaidAmount)
+}
+
+// TestPostgresRepository_ListOpenItems_NetsOnlyPaymentsInInvoiceCurrency is the
+// open-items counterpart: paid_amount/open_amount fold only payments in the
+// invoice currency, and an invoice whose only payment is foreign stays fully open.
+func TestPostgresRepository_ListOpenItems_NetsOnlyPaymentsInInvoiceCurrency(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Open Items Payment Currency Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	repo := NewPostgresRepository(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	when := time.Date(2045, 7, 1, 0, 0, 0, 0, time.UTC)
+
+	mixed := newPaymentStatsTestInvoice(t, repo, pool, ctx, tenantID, models.InvoiceStatusSent, "1000.00", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, mixed.ID, "250.00", "EUR", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, mixed.ID, "700.00", "CHF", when)
+	foreignOnly := newPaymentStatsTestInvoice(t, repo, pool, ctx, tenantID, models.InvoiceStatusSent, "200.00", when)
+	seedCurrencyPayment(t, pool, ctx, tenantID, foreignOnly.ID, "200.00", "CHF", when)
+
+	items, total, err := repo.ListOpenItems(ctx, tenantID, models.OpenItemFilter{AsOf: when, Limit: 50})
+	require.NoError(t, err)
+	require.Equal(t, 2, total, "neither invoice is covered in its own currency")
+	byID := map[uuid.UUID]*models.OpenItem{}
+	for _, it := range items {
+		byID[it.InvoiceID] = it
+	}
+	require.Contains(t, byID, mixed.ID)
+	require.Contains(t, byID, foreignOnly.ID)
+	assert.True(t, decimal.RequireFromString("250.00").Equal(byID[mixed.ID].PaidAmount), "got %s", byID[mixed.ID].PaidAmount)
+	assert.True(t, decimal.RequireFromString("750.00").Equal(byID[mixed.ID].OpenAmount), "got %s", byID[mixed.ID].OpenAmount)
+	assert.True(t, decimal.Zero.Equal(byID[foreignOnly.ID].PaidAmount), "got %s", byID[foreignOnly.ID].PaidAmount)
+	assert.True(t, decimal.RequireFromString("200.00").Equal(byID[foreignOnly.ID].OpenAmount), "got %s", byID[foreignOnly.ID].OpenAmount)
 }

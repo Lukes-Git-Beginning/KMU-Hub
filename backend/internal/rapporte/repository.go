@@ -61,7 +61,9 @@ type Repository interface {
 	// Measurements
 	CreateMeasurement(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error)
 	GetMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID) (*Measurement, error)
-	ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID *uuid.UUID, page, pageSize int) ([]Measurement, int, error)
+	// ListMeasurements with a non-nil authorID keeps only measurements of that
+	// author's reports plus those without a report (they belong to no author).
+	ListMeasurements(ctx context.Context, tenantID uuid.UUID, reportID, authorID *uuid.UUID, page, pageSize int) ([]Measurement, int, error)
 	UpdateMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID, title, location, measuredBy, measuredAt, notes string) (*Measurement, error)
 	DeleteMeasurement(ctx context.Context, tenantID, measurementID uuid.UUID) error
 	// AddMeasurementPosition returns ErrMeasurementNotFound when measurementID

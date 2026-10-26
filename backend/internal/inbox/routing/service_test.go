@@ -139,7 +139,7 @@ func (m *mockMessageRepository) Create(_ context.Context, msg *models.InboxMessa
 	return nil
 }
 
-func (m *mockMessageRepository) GetByID(_ context.Context, id uuid.UUID, _ uuid.UUID) (*models.InboxMessage, error) {
+func (m *mockMessageRepository) GetByID(_ context.Context, id uuid.UUID, _ uuid.UUID, _ uuid.UUID) (*models.InboxMessage, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	msg, ok := m.messages[id]
@@ -183,8 +183,8 @@ func (m *mockMessageRepository) AssignMessage(_ context.Context, _, _ uuid.UUID,
 func (m *mockMessageRepository) GetUnreadCounts(_ context.Context, _ uuid.UUID) ([]models.UnreadCount, error) {
 	return nil, nil
 }
-func (m *mockMessageRepository) BulkMarkRead(_ context.Context, _ uuid.UUID, _ []uuid.UUID) error { return nil }
-func (m *mockMessageRepository) BulkArchive(_ context.Context, _ uuid.UUID, _ []uuid.UUID) error  { return nil }
+func (m *mockMessageRepository) BulkMarkRead(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ []uuid.UUID) error { return nil }
+func (m *mockMessageRepository) BulkArchive(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ []uuid.UUID) error  { return nil }
 func (m *mockMessageRepository) GetBySourceID(_ context.Context, _ uuid.UUID, _, _ string) (*models.InboxMessage, error) {
 	return nil, nil
 }

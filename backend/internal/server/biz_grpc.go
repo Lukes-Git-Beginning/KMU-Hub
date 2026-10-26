@@ -986,6 +986,7 @@ func (s *BizGRPCServer) RecordPayment(ctx context.Context, req *bizv1.RecordPaym
 		Reference:      req.GetReference(),
 		Notes:          req.GetNotes(),
 		UserID:         userID,
+		Currency:       req.GetCurrency(),
 		IdempotencyKey: req.GetIdempotencyKey(),
 	}
 
@@ -1779,6 +1780,7 @@ func toProtoPayment(p *models.Payment) *bizv1.Payment {
 		Id:          p.ID.String(),
 		InvoiceId:   p.InvoiceID.String(),
 		Amount:      p.Amount.String(),
+		Currency:    p.Currency,
 		PaymentDate: p.PaymentDate.Format("2006-01-02"),
 		Method:      paymentMethodToProto(p.Method),
 		Reference:   p.Reference,
@@ -2828,6 +2830,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, invoice.ErrCurrencyNotTenantCurrency):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, invoice.ErrQuoteNotAccepted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrQuoteAlreadyConverted):
@@ -2864,6 +2868,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, payment.ErrInvoiceLocked):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, payment.ErrCurrencyMismatch):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Dunning errors
 	case errors.Is(err, dunning.ErrDunningNotFound):

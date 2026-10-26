@@ -498,6 +498,11 @@ units:
       `organization_id` beim Connect und beim Verbindungstest in die Config-Metadata. Ohne
       diesen Wert ist DIESER Fix spaeter gar nicht baubar, deshalb wird er jetzt schon
       angelegt.
+    stand_2026_10_25: >-
+      Voraussetzung erfüllt: `Connect` speichert die `organization_id` (`lexware/service.go:94-106`,
+      Backfill :199-209). Der Auslöser (zweiter Lexware-Tenant) ist nicht erreicht, die Unit bleibt
+      geparkt. Der Kommentar `lexware/service.go:315` („No per-tenant identifier ... is captured
+      today“) ist veraltet und geht beim Fix mit.
     target: >-
       Zurueck nach BACKLOG.yml, sobald ein ZWEITER Lexware-Tenant aktiv ist. Voraussetzung:
       `feat-lexware-store-organization-id-on-connect` ist `done` und die Configs tragen den
@@ -576,7 +581,11 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: parked
+    status: resolved
+    resolved: >-
+      2026-10-25 gegen den Code geprüft: erledigt mit `fdbeab8a` (Deal- und Activity-Tags über
+      gRPC, `crm.proto:63,73`, `route_crm_activities.go:292-338`). Keine Route antwortet mehr 501.
+      Bleibt als Spur stehen.
     decided: 2026-08-24
     decision: >-
       DUBLETTE, aufgeloest durch Entscheidung Luke 2026-08-24 (A1). Diese Unit und
@@ -849,3 +858,26 @@ units:
         einem vollstaendig in eine Datei umgeleiteten Testlauf, nicht aus der Tool-Preview)
       - "swagger-cli validate gruen"
       - "go test -count=1 ./internal/gateway/ gruen, ohne neue Baseline-Eintraege"
+
+  - id: feat-automation-system-actor-for-unattended-triggers
+    phase: 4
+    service: automation
+    model: opus
+    deps: []
+    status: parked
+    decided: '2026-10-26'
+    decision: >-
+      GEPARKT, Entscheidung Luke 2026-10-26 (Morgen-Check Lauf 17): kein System-Akteur. Seit Lauf 17 Iteration 117
+      (`fix-work-create-task-action-created-by`) scheitert `work.create_task` ohne `actor_id` und ohne `created_by`
+      mit klarer Konfigurationsmeldung statt `invalid created_by`; das reicht vorerst.
+      Auslöser: Ein Zeitplan- oder System-Trigger soll Aufgaben anlegen. Dann einen festen System-Nutzer je Mandant
+      als Ersteller (Datenmodell-Entscheidung) bauen.
+    target: Automationen ohne Akteur können Aufgaben anlegen
+    scope: >-
+      Server setzt einen System-Akteur als `created_by`, wenn die Action keinen Akteur hat. Offene Fragen beim
+      Auslösen: eigener Nutzer je Mandant oder `uuid.Nil` mit Sonderfall in RLS/Audit.
+    sources:
+      - backend/internal/automation/action/work_actions.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - 'Test: Zeitplan-Trigger ohne Akteur legt eine Aufgabe mit dem System-Akteur an'

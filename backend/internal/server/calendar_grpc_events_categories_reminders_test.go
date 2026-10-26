@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	lkauth "github.com/livekit/protocol/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -937,6 +938,11 @@ func TestGenerateJoinToken(t *testing.T) {
 	// a freshly invented uuid.New() and still succeeded -- that was the bug, not
 	// a convenience: the room name is derived from the event ID alone, so any
 	// caller could mint a signed 24h LiveKit token for a foreign tenant's event.
+	//
+	// The event is organised by userID: since
+	// harden-calendar-join-token-participants-only only organiser and
+	// attendees get a token, the cases below that are about something else
+	// need a caller who may join.
 	seedEvent := func(repo *stubEventRepo, owner uuid.UUID) uuid.UUID {
 		id := uuid.New()
 		repo.events[id] = &models.CalendarEvent{
@@ -946,6 +952,7 @@ func TestGenerateJoinToken(t *testing.T) {
 			Title:      "Sprint Review",
 			StartTime:  time.Now(),
 			EndTime:    time.Now().Add(time.Hour),
+			CreatedBy:  userID,
 		}
 		return id
 	}
@@ -964,6 +971,39 @@ func TestGenerateJoinToken(t *testing.T) {
 		assert.Equal(t, livekit.RoomName(tenantID, eventID), resp.RoomName,
 			"room name must be derived from tenant AND event")
 		assert.NotEmpty(t, resp.WsUrl)
+	})
+
+	t.Run("attendee gets a token in their own name", func(t *testing.T) {
+		repo := newStubEventRepo()
+		eventID := seedEvent(repo, tenantID)
+		attendee := uuid.New()
+		require.NoError(t, repo.AddAttendee(context.Background(), &models.EventAttendee{
+			EventID: eventID, UserID: attendee, RSVPStatus: "pending",
+		}))
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, enabledLiveKit())
+		resp, err := srv.GenerateJoinToken(ctxWithActorAndTenant(attendee, tenantID), &calv1.GenerateJoinTokenRequest{
+			EventId: eventID.String(),
+			// A request naming someone else must not change whose token it is.
+			UserId:   userID.String(),
+			UserName: "Max Muster",
+		})
+		require.NoError(t, err)
+		verifier, err := lkauth.ParseAPIToken(resp.Token)
+		require.NoError(t, err)
+		assert.Equal(t, attendee.String(), verifier.Identity(), "the token identity is the checked caller")
+	})
+
+	t.Run("colleague without invitation gets NotFound", func(t *testing.T) {
+		repo := newStubEventRepo()
+		eventID := seedEvent(repo, tenantID)
+		srv := newTestCalendarServerWithEvents(newStubCalendarRepo(), repo, enabledLiveKit())
+		resp, err := srv.GenerateJoinToken(ctxWithActorAndTenant(uuid.New(), tenantID), &calv1.GenerateJoinTokenRequest{
+			EventId:  eventID.String(),
+			UserId:   userID.String(),
+			UserName: "Jane Doe",
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+		assert.Nil(t, resp, "calendars:write alone must not open every room of the tenant")
 	})
 
 	t.Run("event belongs to another tenant", func(t *testing.T) {

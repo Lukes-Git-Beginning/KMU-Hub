@@ -2,9 +2,12 @@ package account
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/mail"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 )
 
 // VaultEncryptor encrypts and decrypts email credentials at rest via the vault service.
@@ -63,7 +67,14 @@ type UpdateInput struct {
 type Service struct {
 	repo      Repository
 	encryptor VaultEncryptor
+	// dialGuard decides which IMAP/SMTP hosts may be stored and dialled. Nil
+	// allows public addresses only, so an unwired service fails closed.
+	dialGuard *safedial.Guard
 }
+
+// testConnectionDialTimeout bounds the TCP connect (and, for direct TLS, the
+// handshake) of TestConnection — the same value as the sync worker's dial.
+const testConnectionDialTimeout = 10 * time.Second
 
 // NewService creates a new email account service.
 func NewService(repo Repository, encryptor VaultEncryptor) *Service {
@@ -71,6 +82,27 @@ func NewService(repo Repository, encryptor VaultEncryptor) *Service {
 		repo:      repo,
 		encryptor: encryptor,
 	}
+}
+
+// WithDialGuard sets the allowlist that IMAP/SMTP hosts are checked against.
+func (s *Service) WithDialGuard(g *safedial.Guard) *Service {
+	s.dialGuard = g
+	return s
+}
+
+// DialGuard returns the guard every connection to an account's mail server
+// dials through — the sync worker and the send path take it from here.
+func (s *Service) DialGuard() *safedial.Guard {
+	return s.dialGuard
+}
+
+// checkHost rejects a mail server host that resolves to an internal address.
+func (s *Service) checkHost(ctx context.Context, kind, host string) error {
+	if err := s.dialGuard.Validate(ctx, host); err != nil {
+		slog.Warn("email server host rejected", "kind", kind, "host", host, "error", err)
+		return fmt.Errorf("%w: %s host %q", ErrHostNotAllowed, kind, host)
+	}
+	return nil
 }
 
 // Create creates a new email account with encrypted credentials.
@@ -101,6 +133,12 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, input CreateIn
 	}
 	if input.Password == "" {
 		return nil, fmt.Errorf("password is required")
+	}
+	if err := s.checkHost(ctx, "IMAP", input.IMAPHost); err != nil {
+		return nil, err
+	}
+	if err := s.checkHost(ctx, "SMTP", input.SMTPHost); err != nil {
+		return nil, err
 	}
 
 	// Encrypt password
@@ -246,13 +284,21 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, 
 		account.DisplayName = strings.TrimSpace(*input.DisplayName)
 	}
 	if input.IMAPHost != nil {
-		account.IMAPHost = strings.TrimSpace(*input.IMAPHost)
+		host := strings.TrimSpace(*input.IMAPHost)
+		if err := s.checkHost(ctx, "IMAP", host); err != nil {
+			return nil, err
+		}
+		account.IMAPHost = host
 	}
 	if input.IMAPPort != nil {
 		account.IMAPPort = *input.IMAPPort
 	}
 	if input.SMTPHost != nil {
-		account.SMTPHost = strings.TrimSpace(*input.SMTPHost)
+		host := strings.TrimSpace(*input.SMTPHost)
+		if err := s.checkHost(ctx, "SMTP", host); err != nil {
+			return nil, err
+		}
+		account.SMTPHost = host
 	}
 	if input.SMTPPort != nil {
 		account.SMTPPort = *input.SMTPPort
@@ -330,15 +376,32 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, tenantID uuid.UUID) 
 
 // TestConnection attempts an IMAP login with the provided credentials to verify they work.
 func (s *Service) TestConnection(ctx context.Context, input CreateInput) error {
-	addr := fmt.Sprintf("%s:%d", input.IMAPHost, input.IMAPPort)
+	if err := s.checkHost(ctx, "IMAP", input.IMAPHost); err != nil {
+		return err
+	}
+	if strings.TrimSpace(input.SMTPHost) != "" {
+		if err := s.checkHost(ctx, "SMTP", input.SMTPHost); err != nil {
+			return err
+		}
+	}
+
+	host := strings.Trim(strings.TrimSpace(input.IMAPHost), "[]")
+	addr := net.JoinHostPort(host, strconv.Itoa(input.IMAPPort))
+	opts := &imapclient.Options{Dialer: s.dialGuard.Dialer(host, testConnectionDialTimeout)}
 
 	var client *imapclient.Client
 	var err error
 
 	if input.UseSSL || input.IMAPPort == 993 {
-		client, err = imapclient.DialTLS(addr, nil)
+		client, err = imapclient.DialTLS(addr, opts)
 	} else {
-		client, err = imapclient.DialStartTLS(addr, nil)
+		client, err = imapclient.DialStartTLS(addr, opts)
+	}
+	if errors.Is(err, safedial.ErrBlockedAddress) {
+		// Validate passed but the dial landed on an internal address: the name
+		// resolved differently the second time (DNS rebinding).
+		slog.Warn("email server dial blocked", "host", input.IMAPHost, "error", err)
+		return fmt.Errorf("%w: IMAP host %q", ErrHostNotAllowed, input.IMAPHost)
 	}
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrConnectionFailed, err)

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/featureflag"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -71,6 +72,12 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 				r.With(middleware.RequirePermission("fuhrpark:vehicle", "write")).Delete("/", fr.HandleDeleteVehicle)
 
 				r.With(middleware.RequirePermission("fuhrpark:vehicle", "read")).Get("/history", fr.HandleGetVehicleHistory)
+				// Occupied windows without user or purpose, so a member with an
+				// own-scoped booking key sees when a pool vehicle is free before
+				// booking instead of learning it from a 409. The scope of
+				// fuhrpark:booking:read is deliberately not applied: nothing in the
+				// answer belongs to a person.
+				r.With(middleware.RequirePermission("fuhrpark:booking", "read")).Get("/availability", fr.HandleGetVehicleAvailability)
 
 				// Services sub-resource
 				r.With(middleware.RequirePermission("fuhrpark:service", "read")).Get("/services", fr.HandleListVehicleServices)
@@ -360,7 +367,7 @@ func (fr *FuhrparkRoutes) HandleListVehicles(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &fuhrparkv1.ListVehiclesRequest{
@@ -546,7 +553,7 @@ func (fr *FuhrparkRoutes) HandleGetVehicleHistory(w http.ResponseWriter, r *http
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.GetVehicleHistory(r.Context(), &fuhrparkv1.GetVehicleHistoryRequest{
 		TenantId:  tenantID.String(),
@@ -620,7 +627,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleServices(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListServices(r.Context(), &fuhrparkv1.ListServicesRequest{
 		TenantId:  tenantID.String(),
 		VehicleId: &id,
@@ -645,7 +652,7 @@ func (fr *FuhrparkRoutes) HandleListServices(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 	grpcReq := &fuhrparkv1.ListServicesRequest{
 		TenantId: tenantID.String(),
@@ -774,7 +781,7 @@ func (fr *FuhrparkRoutes) HandleListUpcomingServices(w http.ResponseWriter, r *h
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListUpcomingServices(r.Context(), &fuhrparkv1.ListUpcomingServicesRequest{
 		TenantId:  tenantID.String(),
 		DaysAhead: parseDaysAhead(r),
@@ -820,6 +827,13 @@ func damageReporter(ctx context.Context, reportedBy, notes *string) (*string, *s
 	return nil, &note
 }
 
+// damageEditorTenantWide reports whether the caller holds fuhrpark:damage:write at a scope other
+// than own, the key that updates and resolves any damage.
+func damageEditorTenantWide(ctx context.Context) bool {
+	return middleware.HoldsAnyPermission(ctx, [2]string{"fuhrpark:damage", "write"}) &&
+		middleware.PermissionScope(ctx, "fuhrpark:damage", "write") != auth.ScopeOwn
+}
+
 // derefString is the owner id for the proto's owner_user_id: empty means the caller is unrestricted.
 func derefString(s *string) string {
 	if s == nil {
@@ -848,13 +862,16 @@ func (fr *FuhrparkRoutes) HandleReportDamage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	reportedBy, notes := damageReporter(r.Context(), req.ReportedBy, req.Notes)
-	// A caller who may only read their own damages is also only ever the reporter of their own:
-	// the id in the body must not file a damage under a colleague (it would show up in that
-	// colleague's own-scope list).
-	if owner, scopeOK := ownerFilterForScope(w, r, "fuhrpark:damage", "read"); !scopeOK {
-		return
-	} else if owner != nil {
-		reportedBy = owner
+	// Only a caller who may edit any damage (damage:write beyond own, admin) files one under
+	// someone else. Everyone else is the reporter: damage:read is tenant-wide for member since
+	// migration 360, so the read scope no longer tells who may name a colleague in the body.
+	if !damageEditorTenantWide(r.Context()) {
+		userID := middleware.GetUserID(r.Context())
+		if userID == "" {
+			response.Error(w, http.StatusUnauthorized, "missing user in token")
+			return
+		}
+		reportedBy = &userID
 	}
 	resp, err := client.ReportDamage(r.Context(), &fuhrparkv1.ReportDamageRequest{
 		TenantId:    tenantID.String(),
@@ -892,7 +909,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDamages(w http.ResponseWriter, r *htt
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListDamages(r.Context(), &fuhrparkv1.ListDamagesRequest{
 		TenantId:   tenantID.String(),
 		VehicleId:  &id,
@@ -922,7 +939,7 @@ func (fr *FuhrparkRoutes) HandleListDamages(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 	grpcReq := &fuhrparkv1.ListDamagesRequest{
 		TenantId:   tenantID.String(),
@@ -1055,7 +1072,7 @@ func (fr *FuhrparkRoutes) HandleListFuelLogs(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq := &fuhrparkv1.ListFuelLogsRequest{
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -1087,7 +1104,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleFuelLogs(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListFuelLogs(r.Context(), &fuhrparkv1.ListFuelLogsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1223,7 +1240,7 @@ func (fr *FuhrparkRoutes) HandleListTripLogs(w http.ResponseWriter, r *http.Requ
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	grpcReq := &fuhrparkv1.ListTripLogsRequest{
 		Page:     int32(page),
 		PageSize: int32(pageSize),
@@ -1254,7 +1271,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleTripLogs(w http.ResponseWriter, r *ht
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListTripLogs(r.Context(), &fuhrparkv1.ListTripLogsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1459,7 +1476,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleDocuments(w http.ResponseWriter, r *h
 		respondServiceUnavailable(w, fr.ServiceName())
 		return
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListVehicleDocuments(r.Context(), &fuhrparkv1.ListVehicleDocumentsRequest{
 		VehicleId: vehicleID,
 		Page:      int32(page),
@@ -1555,7 +1572,7 @@ func (fr *FuhrparkRoutes) HandleListDriverLicenses(w http.ResponseWriter, r *htt
 	if owner != nil {
 		driverID = *owner
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListDriverLicenses(r.Context(), &fuhrparkv1.ListDriverLicensesRequest{
 		DriverId: driverID,
 		Page:     int32(page),
@@ -1869,7 +1886,7 @@ func (fr *FuhrparkRoutes) HandleListVehicleBookings(w http.ResponseWriter, r *ht
 	if owner != nil {
 		userID = *owner
 	}
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	resp, err := client.ListVehicleBookings(r.Context(), &fuhrparkv1.ListVehicleBookingsRequest{
 		VehicleId: q.Get("vehicle_id"),
 		UserId:    userID,
@@ -1884,6 +1901,40 @@ func (fr *FuhrparkRoutes) HandleListVehicleBookings(w http.ResponseWriter, r *ht
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleGetVehicleAvailability serves GET /vehicles/{id}/availability?from&to.
+func (fr *FuhrparkRoutes) HandleGetVehicleAvailability(w http.ResponseWriter, r *http.Request) {
+	_, err := middleware.GetTenantID(r.Context())
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	id, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	from, to := q.Get("from"), q.Get("to")
+	if from == "" || to == "" {
+		response.Error(w, http.StatusBadRequest, "from and to are required (RFC3339)")
+		return
+	}
+	client, err := fr.getClient()
+	if err != nil {
+		respondServiceUnavailable(w, fr.ServiceName())
+		return
+	}
+	resp, err := client.GetVehicleAvailability(r.Context(), &fuhrparkv1.GetVehicleAvailabilityRequest{
+		VehicleId: id,
+		From:      from,
+		To:        to,
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+	response.ProtoFull(w, http.StatusOK, resp)
 }
 
 func (fr *FuhrparkRoutes) HandleCreateVehicleBooking(w http.ResponseWriter, r *http.Request) {

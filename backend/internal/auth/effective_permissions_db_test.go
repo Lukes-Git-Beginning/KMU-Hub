@@ -631,3 +631,22 @@ func TestResolveTokenPermissions_DB_MemberHoldsNoDialerAgentManage(t *testing.T)
 	assert.NotContains(t, got.Permissions, "dialer:agent:manage")
 	assert.Contains(t, got.Permissions, "dialer:calls:write")
 }
+
+// manager sees the finance module tile (000361): finance:module:view at scope all. member keeps
+// no finance key at all, and the grant stays out of member's token.
+func TestResolveTokenPermissions_DB_ManagerHoldsFinanceModuleView(t *testing.T) {
+	pool, svc := effPermSetup(t)
+	sysCtx := testutil.WithSystemCtx(context.Background())
+
+	manager := effPermUser(t, pool, effPermTenant, "eff-finance-manager@test.local", "manager")
+	got, err := svc.ResolveTokenPermissions(sysCtx, effPermTenant, manager)
+	require.NoError(t, err)
+	assert.Contains(t, got.Permissions, "finance:module:view")
+	_, narrowed := got.Scopes["finance:module:view"]
+	assert.False(t, narrowed, "manager holds finance:module:view at all, absent from the scopes claim")
+
+	member := effPermUser(t, pool, effPermTenant, "eff-finance-member@test.local", "member")
+	got, err = svc.ResolveTokenPermissions(sysCtx, effPermTenant, member)
+	require.NoError(t, err)
+	assert.NotContains(t, got.Permissions, "finance:module:view")
+}

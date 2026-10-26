@@ -111,6 +111,7 @@ func TestConnect_ImmediateCloseWrapsError(t *testing.T) {
 		host, port := listenAndCloseImmediately(t)
 
 		c := NewIMAPClient(uuid.New(), slog.Default())
+		c.guard = loopbackGuard(t)
 		done := make(chan error, 1)
 		go func() { done <- c.Connect(host, port, true) }()
 
@@ -127,6 +128,7 @@ func TestConnect_ImmediateCloseWrapsError(t *testing.T) {
 		host, port := listenAndCloseImmediately(t)
 
 		c := NewIMAPClient(uuid.New(), slog.Default())
+		c.guard = loopbackGuard(t)
 		done := make(chan error, 1)
 		go func() { done <- c.Connect(host, port, false) }()
 

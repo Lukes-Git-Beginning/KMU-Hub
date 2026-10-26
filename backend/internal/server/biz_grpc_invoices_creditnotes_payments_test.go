@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/kmuhub/kmuhub/internal/biz/creditnote"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/timetracking"
@@ -435,7 +436,20 @@ func TestCreateInvoice(t *testing.T) {
 		assert.Equal(t, bizv1.InvoiceStatus_INVOICE_DRAFT, resp.GetInvoice().GetStatus())
 	})
 
-	t.Run("payment terms and currency from the request are stored", func(t *testing.T) {
+	t.Run("a currency other than the tenant currency is a 400", func(t *testing.T) {
+		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
+		_, err := srv.CreateInvoice(context.Background(), &bizv1.CreateInvoiceRequest{
+			TenantId:  tenantID.String(),
+			CreatedBy: uuid.New().String(),
+			Customer:  &bizv1.CustomerSnapshot{Name: "Acme GmbH"},
+			LineItems: []*bizv1.LineItem{lineItem()},
+			Currency:  "CHF",
+		})
+		require.Error(t, err)
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+	})
+
+	t.Run("payment terms and the tenant currency from the request are stored", func(t *testing.T) {
 		srv := newFinanceTestServer(newStubInvoiceRepo(), newStubCreditNoteRepo(), newStubPaymentRepo(), &stubCompanySettingsRepo{}, nil, nil)
 		resp, err := srv.CreateInvoice(context.Background(), &bizv1.CreateInvoiceRequest{
 			TenantId:     tenantID.String(),
@@ -444,10 +458,10 @@ func TestCreateInvoice(t *testing.T) {
 			LineItems:    []*bizv1.LineItem{lineItem()},
 			InvoiceDate:  "2026-03-01",
 			PaymentTerms: "14 Tage netto",
-			Currency:     "CHF",
+			Currency:     "EUR",
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "CHF", resp.GetInvoice().GetCurrency())
+		assert.Equal(t, "EUR", resp.GetInvoice().GetCurrency())
 		assert.Equal(t, "14 Tage netto", resp.GetInvoice().GetPaymentTerms())
 		assert.Equal(t, "2026-03-15", resp.GetInvoice().GetDueDate())
 	})

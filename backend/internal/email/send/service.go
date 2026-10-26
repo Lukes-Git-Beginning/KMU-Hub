@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/smtp"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 )
 
 // AccountProvider retrieves decrypted SMTP credentials.
@@ -124,6 +124,9 @@ type Service struct {
 	// It is nil-safe: if not injected, consent checks are skipped (development
 	// / legacy path). Production wiring must always inject an Asserter.
 	consentAsserter   *consent.Asserter
+	// dialGuard filters the SMTP server address. Nil allows public addresses
+	// only, so an unwired service fails closed.
+	dialGuard *safedial.Guard
 }
 
 // NewService creates a new send service.
@@ -152,6 +155,13 @@ func NewServiceWithConsent(
 	svc := NewService(accountProvider, messageCreator, signatureProvider)
 	svc.consentAsserter = asserter
 	return svc
+}
+
+// WithDialGuard sets the allowlist the SMTP dial is checked against — the
+// account service's guard, so storing and sending judge a host alike.
+func (s *Service) WithDialGuard(g *safedial.Guard) *Service {
+	s.dialGuard = g
+	return s
 }
 
 // Send composes and sends a new email via SMTP.
@@ -385,7 +395,7 @@ func (s *Service) sendSMTP(creds *Credentials, from string, to []string, msg []b
 // It mirrors net/smtp.SendMail (hello → STARTTLS if offered → auth → data) but
 // adds a net.DialTimeout and a connection deadline.
 func (s *Service) sendSMTPStartTLS(addr string, auth smtp.Auth, host, from string, to []string, msg []byte) error {
-	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
+	conn, err := s.dialGuard.Dialer(host, smtpDialTimeout).Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("SMTP dial failed: %w", err)
 	}
@@ -410,7 +420,7 @@ func (s *Service) sendSMTPStartTLS(addr string, auth smtp.Auth, host, from strin
 // sendSMTPTLS sends via direct TLS connection (port 465) with bounded dial +
 // exchange.
 func (s *Service) sendSMTPTLS(addr string, auth smtp.Auth, host, from string, to []string, msg []byte) error {
-	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: smtpDialTimeout}, "tcp", addr, &tls.Config{ServerName: host})
+	conn, err := tls.DialWithDialer(s.dialGuard.Dialer(host, smtpDialTimeout), "tcp", addr, &tls.Config{ServerName: host})
 	if err != nil {
 		return fmt.Errorf("TLS dial failed: %w", err)
 	}

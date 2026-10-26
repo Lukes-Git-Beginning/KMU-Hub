@@ -12,4 +12,7 @@ var (
 	ErrOwnerNotFound      = errors.New("owner not found")
 	ErrTagNotFound        = errors.New("tag not found")
 	ErrInvalidCustomField = errors.New("invalid custom field")
+	// ErrOutsideEditorScope: the deal's owner lies outside the caller's scope
+	// of crm:deal:create/edit (see Editor). The caller may still read the deal.
+	ErrOutsideEditorScope = errors.New("deal owner is outside the caller's scope")
 )

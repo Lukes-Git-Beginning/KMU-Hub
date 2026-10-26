@@ -197,7 +197,7 @@ func (vr *VertraegeRoutes) HandleListContracts(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 	q := r.URL.Query()
 
 	grpcReq := &vertraegev1.ListContractsRequest{
@@ -460,7 +460,7 @@ func (vr *VertraegeRoutes) HandleListContractEvents(w http.ResponseWriter, r *ht
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 20)
+	page, pageSize := parsePaginationMax(r, 1, 20, listPageSizeMaxSmall)
 
 	resp, err := client.ListContractEvents(r.Context(), &vertraegev1.ListContractEventsRequest{
 		TenantId:   tenantID.String(),

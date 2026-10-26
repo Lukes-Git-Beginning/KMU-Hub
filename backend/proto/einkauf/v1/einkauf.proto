@@ -178,6 +178,8 @@ message CreatePORequest {
   string currency = 6;
   string notes = 7;
   optional string created_by = 8;
+  // Binds the PO to a framework contract of the same tenant and currency; empty = unbound.
+  optional string framework_contract_id = 9;
 }
 
 message UpdatePORequest {
@@ -189,6 +191,7 @@ message UpdatePORequest {
   optional google.protobuf.Timestamp expected_delivery_date = 6; // send epoch to clear
   optional string currency = 7;
   optional string notes = 8;
+  optional string framework_contract_id = 9; // empty string to clear
 }
 
 message DeletePORequest {
@@ -205,6 +208,21 @@ message GetPORequest {
 
 message POResponse {
   PurchaseOrder po = 1;
+  // Set only by ReceiveGoods and PartialReceive, when the receipt touched the
+  // PO's framework contract.
+  ReceiptCallOff contract_call_off = 2;
+}
+
+// ReceiptCallOff reports the framework-contract call-off a goods receipt
+// booked. call_id is empty when it was skipped; warning is set when the
+// call-off exceeded the remaining value or was skipped.
+message ReceiptCallOff {
+  string contract_id = 1;
+  string call_id = 2;
+  string amount = 3;
+  bool budget_exceeded = 4;
+  string remaining = 5;
+  string warning = 6;
 }
 
 message ListPOsRequest {

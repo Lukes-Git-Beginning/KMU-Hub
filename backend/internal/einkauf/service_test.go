@@ -23,6 +23,10 @@ type mockRepository struct {
 	// tenant+poNumber -> poID for uniqueness checks
 	poNumbers map[string]uuid.UUID
 
+	// receipts records every ApplyGoodsReceipt call; receiptCallOff is what it returns.
+	receipts       []*GoodsReceipt
+	receiptCallOff *ReceiptCallOff
+
 	createSupplierErr error
 	getSupplierErr    error
 	createPOErr       error
@@ -219,6 +223,27 @@ func (m *mockRepository) UpdatePOLineReceivedQuantity(ctx context.Context, tenan
 	}
 	l.ReceivedQuantity = receivedQty
 	return nil
+}
+
+// ApplyGoodsReceipt applies quantities and status like the Postgres
+// transaction does; the contract call-off itself is proven against a real
+// database (po_receipt_call_off_db_test.go), here it is the canned
+// receiptCallOff so the service tests can see it reach the returned PO.
+func (m *mockRepository) ApplyGoodsReceipt(_ context.Context, rc *GoodsReceipt) (*ReceiptCallOff, error) {
+	m.receipts = append(m.receipts, rc)
+	po, ok := m.pos[rc.POID]
+	if !ok || po.TenantID != rc.TenantID {
+		return nil, ErrPONotFound
+	}
+	for _, item := range rc.Lines {
+		l, ok := m.lines[item.LineID]
+		if !ok || l.POID != rc.POID {
+			return nil, ErrPOLineNotFound
+		}
+		l.ReceivedQuantity = item.ReceivedQuantity
+	}
+	po.Status = rc.Status
+	return m.receiptCallOff, nil
 }
 
 func (m *mockRepository) CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error) {

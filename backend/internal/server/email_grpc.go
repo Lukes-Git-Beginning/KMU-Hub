@@ -52,7 +52,7 @@ type EmailGRPCServer struct {
 type EmailContactLinkRepository interface {
 	Create(ctx context.Context, link *models.EmailContactLink) error
 	GetByMessageID(ctx context.Context, messageID uuid.UUID, tenantID uuid.UUID) ([]*models.EmailContactLink, error)
-	GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
+	GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, ownerUserID *uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error)
 	Delete(ctx context.Context, messageID, contactID uuid.UUID, tenantID uuid.UUID) error
 }
 
@@ -119,6 +119,33 @@ func (s *EmailGRPCServer) ownAccount(ctx context.Context, accountID uuid.UUID) (
 		return nil, status.Error(codes.NotFound, account.ErrAccountNotFound.Error())
 	}
 	return acct, nil
+}
+
+// mayManageAccountOf allows setting up an account for userID: the caller's own,
+// or anyone's with the coarse provisioning key (forwarded from the gateway).
+func (s *EmailGRPCServer) mayManageAccountOf(ctx context.Context, userID uuid.UUID, provisionKey string) error {
+	if slices.Contains(middleware.GetUserPermissions(ctx), provisionKey) {
+		return nil
+	}
+	caller, err := callerID(ctx)
+	if err != nil {
+		return err
+	}
+	if userID != caller {
+		return status.Error(codes.PermissionDenied, "you can only set up your own email account")
+	}
+	return nil
+}
+
+// mayManageAccount allows changing or removing an account the caller holds, or
+// any account of the tenant with the coarse provisioning key. Someone else's
+// account answers NotFound, as in ownAccount.
+func (s *EmailGRPCServer) mayManageAccount(ctx context.Context, accountID uuid.UUID, provisionKey string) error {
+	if slices.Contains(middleware.GetUserPermissions(ctx), provisionKey) {
+		return nil
+	}
+	_, err := s.ownAccount(ctx, accountID)
+	return err
 }
 
 // ownAccountIDs lists the IDs of the caller's own accounts.
@@ -210,6 +237,9 @@ func (s *EmailGRPCServer) CreateEmailAccount(ctx context.Context, req *emailv1.C
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
+	if err := s.mayManageAccountOf(ctx, userID, middleware.PermEmailWrite); err != nil {
+		return nil, err
+	}
 
 	input := account.CreateInput{
 		UserID:       userID,
@@ -296,6 +326,9 @@ func (s *EmailGRPCServer) UpdateEmailAccount(ctx context.Context, req *emailv1.U
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
 	}
+	if err := s.mayManageAccount(ctx, id, middleware.PermEmailWrite); err != nil {
+		return nil, err
+	}
 
 	input := account.UpdateInput{}
 	if req.DisplayName != nil {
@@ -354,6 +387,9 @@ func (s *EmailGRPCServer) DeleteEmailAccount(ctx context.Context, req *emailv1.D
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid account id")
+	}
+	if err := s.mayManageAccount(ctx, id, middleware.PermEmailDelete); err != nil {
+		return nil, err
 	}
 
 	// Stop sync worker before deleting
@@ -1437,7 +1473,19 @@ func (s *EmailGRPCServer) GetContactEmails(ctx context.Context, req *emailv1.Get
 		perPage = 50
 	}
 
-	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, tenantID, page, perPage)
+	// The gateway sets OwnMailboxesOnly for a caller whose contact-history
+	// grant is scope own; the filter then sits in the query, so page and total
+	// only ever count the caller's own mail.
+	var owner *uuid.UUID
+	if req.OwnMailboxesOnly {
+		caller, err := callerID(ctx)
+		if err != nil {
+			return nil, err
+		}
+		owner = &caller
+	}
+
+	messages, total, err := s.linkRepo.GetByContactID(ctx, contactID, tenantID, owner, page, perPage)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -1907,6 +1955,8 @@ func mapEmailError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, account.ErrConnectionFailed):
 		return status.Error(codes.Unavailable, err.Error())
+	case errors.Is(err, account.ErrHostNotAllowed):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Message errors
 	case errors.Is(err, message.ErrMessageNotFound):
@@ -1949,6 +1999,8 @@ func mapEmailError(err error) error {
 	// Rule errors
 	case errors.Is(err, rule.ErrRuleNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, rule.ErrTenantWideRule):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, rule.ErrTargetNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, rule.ErrInvalidField),
@@ -1974,6 +2026,8 @@ func mapEmailError(err error) error {
 	// Template errors
 	case errors.Is(err, template.ErrTemplateNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, template.ErrSharedTemplate):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, template.ErrNameRequired),
 		errors.Is(err, template.ErrInvalidVisibility):
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -1996,13 +2050,32 @@ func mapEmailError(err error) error {
 // Rules (Regeln & Filter)
 // ============================================================================
 
+// ruleActor is the caller of a rule RPC. The coarse email:write key (forwarded
+// from the gateway, admin only) maintains the tenant-wide rules and applies the
+// rule set across every mailbox; everyone else works on their own rules and
+// mailboxes.
+func ruleActor(ctx context.Context) (rule.Actor, error) {
+	caller, err := callerID(ctx)
+	if err != nil {
+		return rule.Actor{}, err
+	}
+	return rule.Actor{
+		UserID: caller,
+		Admin:  slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailWrite),
+	}, nil
+}
+
 func (s *EmailGRPCServer) ListEmailRules(ctx context.Context, _ *emailv1.ListEmailRulesRequest) (*emailv1.ListEmailRulesResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	rules, err := s.ruleService.List(ctx, tenantID)
+	rules, err := s.ruleService.List(ctx, tenantID, actor)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -2019,8 +2092,12 @@ func (s *EmailGRPCServer) CreateEmailRule(ctx context.Context, req *emailv1.Crea
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	r, err := s.ruleService.Create(ctx, tenantID, rule.RuleInput{
+	r, err := s.ruleService.Create(ctx, tenantID, actor, rule.RuleInput{
 		Name:         &req.Name,
 		Field:        &req.Field,
 		Op:           &req.Op,
@@ -2039,13 +2116,17 @@ func (s *EmailGRPCServer) UpdateEmailRule(ctx context.Context, req *emailv1.Upda
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
 	}
 
-	r, err := s.ruleService.Update(ctx, id, tenantID, rule.RuleInput{
+	r, err := s.ruleService.Update(ctx, id, tenantID, actor, rule.RuleInput{
 		Name:         req.Name,
 		Field:        req.Field,
 		Op:           req.Op,
@@ -2064,13 +2145,17 @@ func (s *EmailGRPCServer) DeleteEmailRule(ctx context.Context, req *emailv1.Dele
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	id, err := uuid.Parse(req.Id)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid rule id")
 	}
 
-	if err := s.ruleService.Delete(ctx, id, tenantID); err != nil {
+	if err := s.ruleService.Delete(ctx, id, tenantID, actor); err != nil {
 		return nil, mapEmailError(err)
 	}
 	return &emailv1.DeleteEmailRuleResponse{Success: true}, nil
@@ -2081,8 +2166,12 @@ func (s *EmailGRPCServer) ApplyEmailRules(ctx context.Context, _ *emailv1.ApplyE
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "missing tenant context")
 	}
+	actor, err := ruleActor(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	res, err := s.ruleService.ApplyAll(ctx, tenantID)
+	res, err := s.ruleService.ApplyAll(ctx, tenantID, actor)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
@@ -2298,7 +2387,8 @@ func (s *EmailGRPCServer) UpdateEmailTemplate(ctx context.Context, req *emailv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	tpl, err := s.templateService.Update(ctx, id, tenantID, userID, req.IsAdmin,
+	maintainer := slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailWrite)
+	tpl, err := s.templateService.Update(ctx, id, tenantID, userID, req.IsAdmin, maintainer,
 		req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
 	if err != nil {
 		return nil, mapEmailError(err)
@@ -2322,7 +2412,8 @@ func (s *EmailGRPCServer) DeleteEmailTemplate(ctx context.Context, req *emailv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	if err := s.templateService.Delete(ctx, id, tenantID, userID, req.IsAdmin); err != nil {
+	maintainer := slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailDelete)
+	if err := s.templateService.Delete(ctx, id, tenantID, userID, req.IsAdmin, maintainer); err != nil {
 		return nil, mapEmailError(err)
 	}
 

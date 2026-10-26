@@ -85,13 +85,10 @@ func TestHandleListVehicleTripLogs_ReachesRPC(t *testing.T) {
 // ============================================================================
 // HandleExportTripLogs
 //
-// trip_logs.is_private (000193_create_trip_logs.up.sql) is scanned and
-// returned by both ListTripLogs and ListTripLogsForExport
-// (internal/fuhrpark/postgres_repository.go) but neither query filters on it —
-// a driver's private trip is indistinguishable from a business trip in the
-// employer-facing Fahrtenbuch export. Not fixable from this gateway-only
-// coverage unit (repo/service change, no test double for it here); documented
-// as a finding, filed as its own fix-unit at the end of BACKLOG.yml.
+// Private trips (trip_logs.is_private) are masked for everyone but their
+// driver in the fuhrpark service, for the list and this export alike; see
+// internal/fuhrpark/private_trip_mask_test.go and
+// internal/server/fuhrpark_triplog_private_test.go.
 // ============================================================================
 
 func TestHandleExportTripLogs_ServiceUnavailable(t *testing.T) {

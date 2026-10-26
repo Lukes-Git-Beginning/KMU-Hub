@@ -21,6 +21,7 @@ import (
 type mailbox struct {
 	tenant  uuid.UUID
 	message uuid.UUID
+	account uuid.UUID
 }
 
 func seedMailbox(t *testing.T, pool *pgxpool.Pool, name string) mailbox {
@@ -55,7 +56,7 @@ func seedMailbox(t *testing.T, pool *pgxpool.Pool, name string) mailbox {
 		"subject": "Rechnung", "date": time.Now().UTC(),
 	})
 
-	return mailbox{tenant: tenantID, message: messageID}
+	return mailbox{tenant: tenantID, message: messageID, account: accountID}
 }
 
 func newAttachment(box mailbox, filename, key string, createdAt time.Time) *models.EmailAttachment {

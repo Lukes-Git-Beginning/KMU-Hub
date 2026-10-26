@@ -572,6 +572,42 @@ func (s *ChatGRPCServer) GetOrCreateDM(ctx context.Context, req *chatv1.GetOrCre
 	}, nil
 }
 
+func (s *ChatGRPCServer) GetOrCreateGroupDM(ctx context.Context, req *chatv1.GetOrCreateGroupDMRequest) (*chatv1.GetOrCreateDMResponse, error) {
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "missing or invalid tenant")
+	}
+
+	userID, err := uuid.Parse(req.UserId)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+	}
+
+	participantIDs := make([]uuid.UUID, 0, len(req.ParticipantIds))
+	for _, raw := range req.ParticipantIds {
+		id, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid participant_ids")
+		}
+		participantIDs = append(participantIDs, id)
+	}
+
+	result, err := s.channelService.GetOrCreateGroupDM(ctx, channel.GetOrCreateGroupDMInput{
+		TenantID:       tenantID,
+		UserID:         userID,
+		ParticipantIDs: participantIDs,
+		Name:           req.Name,
+	})
+	if err != nil {
+		return nil, mapChatError(err)
+	}
+
+	return &chatv1.GetOrCreateDMResponse{
+		Channel: toChannelInfo(result.Channel),
+		Created: result.Created,
+	}, nil
+}
+
 func (s *ChatGRPCServer) ListDMs(ctx context.Context, req *chatv1.ListDMsRequest) (*chatv1.ListDMsResponse, error) {
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
@@ -1279,6 +1315,10 @@ func mapChatError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, channel.ErrChannelHasCallSessions):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, channel.ErrTooManyDMParticipants):
+		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, channel.ErrDMNameTooLong):
+		return status.Error(codes.InvalidArgument, err.Error())
 
 	// Message errors
 	case errors.Is(err, message.ErrMessageNotFound):

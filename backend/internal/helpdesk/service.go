@@ -196,13 +196,51 @@ func (s *Service) CreateTicketFromMessage(
 	return t, true, nil
 }
 
-// GetTicket retrieves a ticket by ID.
-func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// GetTicket retrieves a ticket by ID. A non-nil participantID is the
+// own-scope of helpdesk:ticket:read: the ticket must have been raised by or be
+// assigned to that user, otherwise it answers ErrTicketNotFound.
+func (s *Service) GetTicket(ctx context.Context, id, tenantID uuid.UUID, participantID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadVisibleTicket(ctx, id, tenantID, participantID)
 	if err != nil {
 		return nil, fmt.Errorf("get ticket: %w", err)
 	}
 	return t, nil
+}
+
+// loadVisibleTicket loads a ticket the caller may see. With a participantID a
+// ticket outside the caller's own scope is reported as not found, not as
+// forbidden, so its id is never confirmed to exist — the same rows
+// ListTickets narrows to (requester or assignee).
+func (s *Service) loadVisibleTicket(ctx context.Context, id, tenantID uuid.UUID, participantID *uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if participantID != nil && !isParticipant(t, *participantID) {
+		return nil, ErrTicketNotFound
+	}
+	return t, nil
+}
+
+// loadEditableTicket loads a ticket the caller may change. A non-nil editorID
+// is the own-scope of helpdesk:ticket:edit: the ticket must be assigned to that
+// user. Raising a ticket is not enough -- a requester reads and replies, the
+// assignee works it. Anything else answers ErrTicketNotFound, like
+// loadVisibleTicket.
+func (s *Service) loadEditableTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if editorID != nil && (t.AssigneeID == nil || *t.AssigneeID != *editorID) {
+		return nil, ErrTicketNotFound
+	}
+	return t, nil
+}
+
+func isParticipant(t *Ticket, userID uuid.UUID) bool {
+	return (t.RequesterID != nil && *t.RequesterID == userID) ||
+		(t.AssigneeID != nil && *t.AssigneeID == userID)
 }
 
 // ListTickets returns a paginated list of tickets for a tenant.
@@ -256,9 +294,14 @@ func (s *Service) checkContactOrgTenant(ctx context.Context, tenantID uuid.UUID,
 // send only the one field they changed (see handleCustomFieldCommit in
 // HelpdeskPage.tsx), and overwriting the whole map would delete every other
 // custom field on the next unrelated edit.
+//
+// A non-nil editorID (own-scope, see loadEditableTicket) limits the edit to
+// tickets assigned to that user and refuses a change of assignee: handing a
+// ticket on stays with tenant-wide agents.
 func (s *Service) UpdateTicket(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
+	editorID *uuid.UUID,
 	subject *string,
 	statusVal *string,
 	priority *string,
@@ -268,9 +311,12 @@ func (s *Service) UpdateTicket(
 	orgID *uuid.UUID,
 	customFields map[string]any,
 ) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("update ticket – load: %w", err)
+	}
+	if editorID != nil && assigneeID != nil {
+		return nil, ErrReassignNotAllowed
 	}
 	if err := s.checkContactOrgTenant(ctx, tenantID, contactID, orgID); err != nil {
 		return nil, err
@@ -333,9 +379,10 @@ func (s *Service) UpdateTicket(
 	return t, nil
 }
 
-// CloseTicket transitions a ticket to closed status.
-func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// CloseTicket transitions a ticket to closed status. editorID: see
+// loadEditableTicket.
+func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("close ticket – load: %w", err)
 	}
@@ -359,9 +406,11 @@ func (s *Service) CloseTicket(ctx context.Context, id, tenantID uuid.UUID) (*Tic
 //
 // Rating a ticket twice updates the existing response instead of failing --
 // the unique index per ticket would otherwise turn a mind change into a 500.
+// editorID: see loadEditableTicket.
 func (s *Service) SubmitCsat(
 	ctx context.Context,
 	id, tenantID uuid.UUID,
+	editorID *uuid.UUID,
 	rating int16,
 	comment *string,
 ) (*Ticket, error) {
@@ -369,7 +418,7 @@ func (s *Service) SubmitCsat(
 		return nil, ErrInvalidCsatRating
 	}
 
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("submit csat – load: %w", err)
 	}
@@ -387,9 +436,10 @@ func (s *Service) SubmitCsat(
 	return t, nil
 }
 
-// ReopenTicket transitions a closed or solved ticket back to open.
-func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID) (*Ticket, error) {
-	t, err := s.repo.GetTicketByID(ctx, id, tenantID)
+// ReopenTicket transitions a closed or solved ticket back to open. editorID:
+// see loadEditableTicket.
+func (s *Service) ReopenTicket(ctx context.Context, id, tenantID uuid.UUID, editorID *uuid.UUID) (*Ticket, error) {
+	t, err := s.loadEditableTicket(ctx, id, tenantID, editorID)
 	if err != nil {
 		return nil, fmt.Errorf("reopen ticket – load: %w", err)
 	}
@@ -457,12 +507,13 @@ func (s *Service) AddMessage(
 	body string,
 	internal bool,
 	attachments []string,
+	participantID *uuid.UUID,
 ) (*TicketMessage, error) {
 	if body == "" {
 		return nil, fmt.Errorf("message body must not be empty")
 	}
 
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
+	ticket, err := s.loadVisibleTicket(ctx, ticketID, tenantID, participantID)
 	if err != nil {
 		return nil, fmt.Errorf("add message – load ticket: %w", err)
 	}
@@ -509,12 +560,26 @@ func (s *Service) AddMessage(
 }
 
 // ListMessages returns all messages for a ticket ordered by created_at ASC.
-func (s *Service) ListMessages(ctx context.Context, ticketID, tenantID uuid.UUID) ([]*TicketMessage, error) {
+// The ticket has to exist and be visible to participantID (see GetTicket);
+// hideInternal drops internal notes for callers who may not write them.
+func (s *Service) ListMessages(ctx context.Context, ticketID, tenantID uuid.UUID, participantID *uuid.UUID, hideInternal bool) ([]*TicketMessage, error) {
+	if _, err := s.loadVisibleTicket(ctx, ticketID, tenantID, participantID); err != nil {
+		return nil, fmt.Errorf("list messages: %w", err)
+	}
 	messages, err := s.repo.ListMessagesByTicket(ctx, ticketID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("list messages: %w", err)
 	}
-	return messages, nil
+	if !hideInternal {
+		return messages, nil
+	}
+	public := make([]*TicketMessage, 0, len(messages))
+	for _, m := range messages {
+		if !m.Internal {
+			public = append(public, m)
+		}
+	}
+	return public, nil
 }
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -106,4 +107,60 @@ func TestHandleAddPOLine_MissingQuantity(t *testing.T) {
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleAddPOLine(rec, req)
 	assertValidationError(t, rec, "quantity")
+}
+
+// TestPOLineTaxRate_FractionOnly: po_lines.tax_rate is NUMERIC(5,4), a fraction. A percentage
+// ("19") used to overflow the column and surface as 500; the boundary now answers 400, while a
+// valid fraction passes validation and reaches the RPC (503 with the dummy connection).
+func TestPOLineTaxRate_FractionOnly(t *testing.T) {
+	cases := []struct {
+		rate    string
+		wantErr bool
+	}{
+		{"19", true},
+		{"1.0001", true},
+		{"-0.19", true},
+		{"0.19001", true},
+		{"abc", true},
+		{"", false},
+		{"0", false},
+		{"0.19", false},
+		{"0.0700", false},
+		{"1", false},
+	}
+	for _, tc := range cases {
+		t.Run("add_"+tc.rate, func(t *testing.T) {
+			routes := NewEinkaufRoutes(registryWithService("einkauf"), nil)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/api/v1/einkauf/pos/"+testEinkaufPOID+"/lines",
+				jsonBody(t, map[string]interface{}{
+					"product_name": "Widget", "quantity": "10", "unit_price": "9.99", "tax_rate": tc.rate,
+				}))
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", testEinkaufPOID)
+			routes.HandleAddPOLine(rec, req)
+			if tc.wantErr {
+				assertValidationError(t, rec, "tax_rate")
+			} else {
+				assertStatus(t, rec, http.StatusServiceUnavailable)
+			}
+		})
+		t.Run("update_"+tc.rate, func(t *testing.T) {
+			routes := NewEinkaufRoutes(registryWithService("einkauf"), nil)
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("PATCH", "/api/v1/einkauf/pos/"+testEinkaufPOID+"/lines/"+testEinkaufLineID,
+				jsonBody(t, map[string]interface{}{"tax_rate": tc.rate}))
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", testEinkaufPOID)
+			req = withChiURLParam(req, "lineId", testEinkaufLineID)
+			routes.HandleUpdatePOLine(rec, req)
+			// An empty string on the PATCH is a non-nil pointer to "": omitempty does not skip it
+			// but rate_fraction rejects it, same as any other clear signal on a numeric column.
+			if tc.wantErr || tc.rate == "" {
+				assertValidationError(t, rec, "tax_rate")
+			} else {
+				assertStatus(t, rec, http.StatusServiceUnavailable)
+			}
+		})
+	}
 }

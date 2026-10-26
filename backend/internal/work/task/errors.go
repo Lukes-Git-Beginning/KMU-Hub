@@ -20,8 +20,6 @@ var (
 	ErrInvalidDateRange      = errors.New("start_date must not be after due_date")
 	// ErrNoStatusForState: the project has no closed (or no open) status to move the task to.
 	ErrNoStatusForState = errors.New("project has no status for the requested state")
-	// ErrTaskWithoutProject: closing/reopening needs a project status, a project-less task has none.
-	ErrTaskWithoutProject = errors.New("task without a project cannot be completed")
 	// ErrCustomFieldNotFound is returned for a field_id that does not resolve to a
 	// custom field definition of the calling tenant. Deliberately identical for
 	// "belongs to another tenant" and "does not exist at all" so the write result

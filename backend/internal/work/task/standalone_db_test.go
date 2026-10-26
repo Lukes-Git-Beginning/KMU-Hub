@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -58,5 +59,62 @@ func TestStandaloneTask_RealSQL(t *testing.T) {
 	}
 	if foreignTotal != 0 || len(foreign) != 0 {
 		t.Fatalf("another tenant must not see the task, got total=%d", foreignTotal)
+	}
+}
+
+// TestStandaloneTask_Complete_RealSQL: is_closed on a project-less task sets and clears
+// completed_at through the real repository (no status exists to move to), and a foreign
+// tenant cannot complete it.
+func TestStandaloneTask_Complete_RealSQL(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Standalone Complete Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Standalone Complete Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	me := seedWorkUser(t, pool, tenantOwn)
+	defer testutil.CleanupRow(t, pool, "users", me)
+	other := seedWorkUser(t, pool, tenantOther)
+	defer testutil.CleanupRow(t, pool, "users", other)
+
+	svc := NewService(NewPostgresRepository(pool), project.NewPostgresRepository(pool))
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	created, err := svc.Create(ctxOwn, CreateInput{TenantID: tenantOwn, Title: "tick me", AssigneeID: &me, CreatedBy: me})
+	if err != nil {
+		t.Fatalf("create without project: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "tasks", created.ID)
+
+	yes, no := true, false
+	if _, err := svc.Update(ctxOther, tenantOther, created.ID, UpdateInput{IsClosed: &yes}, other); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign tenant want ErrNotFound, got %v", err)
+	}
+
+	got, err := svc.Update(ctxOwn, tenantOwn, created.ID, UpdateInput{IsClosed: &yes}, me)
+	if err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got.CompletedAt == nil || got.StatusID != nil {
+		t.Fatalf("want completed_at and still no status, got completed=%v status=%v", got.CompletedAt, got.StatusID)
+	}
+	stored, err := svc.GetByID(ctxOwn, tenantOwn, created.ID)
+	if err != nil || stored.CompletedAt == nil {
+		t.Fatalf("completed_at must be persisted: %v / %+v", err, stored)
+	}
+
+	got, err = svc.Update(ctxOwn, tenantOwn, created.ID, UpdateInput{IsClosed: &no}, me)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	if got.CompletedAt != nil {
+		t.Fatalf("reopen must clear completed_at, got %v", got.CompletedAt)
 	}
 }

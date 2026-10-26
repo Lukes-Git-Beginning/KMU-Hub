@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/cache"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
@@ -77,6 +78,14 @@ func main() {
 	savedFilterRepo := savedfilter.NewPostgresRepository(pool)
 	reportRepo := report.NewPostgresRepository(pool)
 	consentRepo := consent.NewPostgresRepository(pool)
+
+	// Object store for the rental inspection photos that go with a contact on
+	// anonymize/delete. Not fatal when MinIO is down at startup.
+	photoStore := chatfile.NewMinIOStoreOrUnavailable(
+		cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucket, cfg.MinIOUseSSL,
+	)
+	contactRepo.SetObjectDeleter(photoStore)
+	consentRepo.SetObjectDeleter(photoStore)
 
 	// Initialize services
 	customFieldService := customfield.NewService(customFieldRepo)

@@ -545,6 +545,9 @@ message GetContactEmailsRequest {
   string contact_id = 1;
   int32 page = 2;
   int32 per_page = 3;
+  // Set by the gateway when the caller's contact-history grant is scope own:
+  // only messages of the caller's own mailboxes are returned.
+  bool own_mailboxes_only = 4;
 }
 
 message GetContactEmailsResponse {

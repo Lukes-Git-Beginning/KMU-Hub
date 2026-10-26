@@ -22,13 +22,18 @@ type Repository interface {
 	// tenant's own accounts. Used to validate a move action's target.
 	FolderBelongsToTenant(ctx context.Context, folderID, tenantID uuid.UUID) (bool, error)
 
+	// FolderBelongsToUser reports whether a folder id lies in one of the
+	// user's own accounts. Used to validate a personal rule's move target.
+	FolderBelongsToUser(ctx context.Context, folderID, tenantID, userID uuid.UUID) (bool, error)
+
 	// LabelBelongsToTenant reports whether a label id belongs to the tenant.
 	// Used to validate a label action's target.
 	LabelBelongsToTenant(ctx context.Context, labelID, tenantID uuid.UUID) (bool, error)
 
 	// ListApplyCandidates returns up to limit messages of the tenant, newest
-	// first, excluding trashed ones.
-	ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error)
+	// first, excluding trashed ones, each with the user holding its account.
+	// A non-nil ownerID narrows them to that user's mailboxes.
+	ListApplyCandidates(ctx context.Context, tenantID uuid.UUID, ownerID *uuid.UUID, limit int) ([]*models.EmailRuleCandidate, error)
 
 	// ApplyToMessage writes the folder and label assignment computed for one
 	// message.

@@ -30,4 +30,9 @@ var (
 	// imported read-only from an external accounting system (source='bexio'). Such
 	// invoices mirror the external book of record and are never edited in Cosmi.
 	ErrExternalReadOnly = errors.New("invoice is imported read-only from an external system")
+	// ErrCurrencyNotTenantCurrency is returned when an ad-hoc invoice (one that is
+	// neither converted from a quote nor emitted by a recurring schedule) asks for
+	// a currency other than the tenant's. Cosmi stores no exchange rate, so such an
+	// invoice always bills in the tenant currency (decision 2026-10-25).
+	ErrCurrencyNotTenantCurrency = errors.New("ad-hoc invoices are billed in the tenant currency")
 )

@@ -153,11 +153,13 @@ func TestWikiShareRedeem_TokenCannotReachForeignArticle(t *testing.T) {
 
 	// The token belongs to tenantOwn but names tenantOther's article — the FK
 	// permits it, so only the tenant-scoped read stands in the way.
+	future := now.Add(time.Hour)
 	crossed := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    tenantOwn,
 		ArticleID:   foreign.ID,
 		Token:       uuid.New().String(),
+		ExpiresAt:   &future,
 		Permissions: []string{sharePermissionRead},
 		CreatedAt:   now,
 	}
@@ -226,14 +228,14 @@ func TestWikiShareRedeem_RevokedTokenIsRefused(t *testing.T) {
 
 	// A foreign tenant must not be able to cut somebody else's link, and the
 	// failed attempt must leave no mark.
-	if err := svc.RevokeShareToken(ctxOther, tenantOwn, share.ID); !errors.Is(err, ErrShareTokenNotFound) {
+	if err := svc.RevokeShareToken(ctxOther, tenantOwn, share.ID, nil); !errors.Is(err, ErrShareTokenNotFound) {
 		t.Fatalf("RevokeShareToken (foreign ctx): got %v, want ErrShareTokenNotFound", err)
 	}
 	if _, err := svc.RedeemShareToken(visitor, share.Token); err != nil {
 		t.Fatalf("a refused cross-tenant revoke killed the link anyway: %v", err)
 	}
 
-	if err := svc.RevokeShareToken(ctxOwn, tenantOwn, share.ID); err != nil {
+	if err := svc.RevokeShareToken(ctxOwn, tenantOwn, share.ID, nil); err != nil {
 		t.Fatalf("RevokeShareToken (own ctx): %v", err)
 	}
 

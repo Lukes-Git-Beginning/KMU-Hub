@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 )
@@ -21,10 +23,14 @@ type bizCreateStub struct {
 	bizv1.UnimplementedFinanceServiceServer
 	gotInvoice *bizv1.CreateInvoiceRequest
 	gotQuote   *bizv1.CreateQuoteRequest
+	invoiceErr error // returned by CreateInvoice when set
 }
 
 func (s *bizCreateStub) CreateInvoice(_ context.Context, r *bizv1.CreateInvoiceRequest) (*bizv1.CreateInvoiceResponse, error) {
 	s.gotInvoice = r
+	if s.invoiceErr != nil {
+		return nil, s.invoiceErr
+	}
 	return &bizv1.CreateInvoiceResponse{Invoice: &bizv1.Invoice{Id: uuid.NewString()}}, nil
 }
 
@@ -81,6 +87,20 @@ func TestHandleCreateInvoice_ForwardsPaymentTermsDaysAndCurrency(t *testing.T) {
 	require.NotNil(t, stub.gotInvoice)
 	assert.Equal(t, "14 Tage netto", stub.gotInvoice.GetPaymentTerms())
 	assert.Equal(t, "CHF", stub.gotInvoice.GetCurrency())
+}
+
+// The biz service pins an ad-hoc invoice to the tenant currency and answers
+// InvalidArgument for anything else; the handler must surface that as a 400
+// rather than swallowing or remapping it (decision 2026-10-25).
+func TestHandleCreateInvoice_ForeignCurrencyFromBizIs400(t *testing.T) {
+	routes, stub := newBizCreateStubRoutes(t)
+	stub.invoiceErr = status.Error(codes.InvalidArgument, "ad-hoc invoices are billed in the tenant currency: requested CHF, tenant EUR")
+
+	rec := postCreateDoc(t, routes.HandleCreateInvoice, "/api/v1/finance/invoices",
+		createDocBody(map[string]any{"currency": "CHF"}))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	assert.Contains(t, rec.Body.String(), "tenant currency")
 }
 
 func TestHandleCreateInvoice_WithoutTermsOrCurrencyKeepsTenantDefaults(t *testing.T) {

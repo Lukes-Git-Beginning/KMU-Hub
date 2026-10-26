@@ -26,6 +26,11 @@ var ErrNotFound = errors.New("payment not found")
 // auto-transition side, now also guarding the payment record itself.
 var ErrInvoiceLocked = errors.New("cannot delete payment: invoice is locked")
 
+// ErrCurrencyMismatch is returned by Record when the caller names a currency
+// other than the invoice's. No exchange rate is stored (decision 2026-10-24), so
+// such a payment could never be netted against the invoice correctly.
+var ErrCurrencyMismatch = errors.New("payment currency differs from invoice currency")
+
 // Repository defines the interface for payment persistence.
 type Repository interface {
 	Create(ctx context.Context, payment *models.Payment) error

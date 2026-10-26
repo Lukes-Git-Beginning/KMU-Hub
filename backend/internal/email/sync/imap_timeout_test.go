@@ -53,6 +53,7 @@ func TestConnect_HandshakeDeadline(t *testing.T) {
 	}
 
 	c := NewIMAPClient(uuid.New(), slog.Default())
+	c.guard = loopbackGuard(t)
 	done := make(chan error, 1)
 	go func() {
 		done <- c.Connect(host, port, false) // false -> STARTTLS path

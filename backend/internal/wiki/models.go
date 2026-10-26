@@ -56,9 +56,11 @@ type Category struct {
 
 // ShareToken represents a time-limited public share link for an article.
 type ShareToken struct {
-	ID          uuid.UUID  `json:"id"`
-	TenantID    uuid.UUID  `json:"tenant_id"`
-	ArticleID   uuid.UUID  `json:"article_id"`
+	ID        uuid.UUID `json:"id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+	ArticleID uuid.UUID `json:"article_id"`
+	// Token is the plain secret, set only on the token CreateShareToken just
+	// minted. The table keeps its hash (000351), so every read leaves it empty.
 	Token       string     `json:"token"`
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	Permissions []string   `json:"permissions"`

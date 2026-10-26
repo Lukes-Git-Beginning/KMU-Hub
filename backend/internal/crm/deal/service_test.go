@@ -25,6 +25,7 @@ type MockRepository struct {
 	companies    map[uuid.UUID]string // companyID -> name
 	owners       map[uuid.UUID]string // ownerID -> name
 	validTags    map[uuid.UUID]models.EntityType
+	managers     map[uuid.UUID]uuid.UUID // userID -> manager_user_id
 	createErr    error
 	getErr       error
 	updateErr    error
@@ -41,6 +42,7 @@ func NewMockRepository() *MockRepository {
 		companies:    make(map[uuid.UUID]string),
 		owners:       make(map[uuid.UUID]string),
 		validTags:    make(map[uuid.UUID]models.EntityType),
+		managers:     make(map[uuid.UUID]uuid.UUID),
 	}
 }
 
@@ -161,6 +163,11 @@ func (m *MockRepository) CompanyExists(ctx context.Context, companyID uuid.UUID)
 func (m *MockRepository) OwnerExists(ctx context.Context, ownerID uuid.UUID) (bool, error) {
 	_, exists := m.owners[ownerID]
 	return exists, nil
+}
+
+func (m *MockRepository) IsDirectReport(_ context.Context, _, managerID, userID uuid.UUID) (bool, error) {
+	mgr, ok := m.managers[userID]
+	return ok && mgr == managerID, nil
 }
 
 func (m *MockRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error) {
@@ -718,7 +725,7 @@ func TestService_MoveToStage_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, newStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, newStageID, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, newStageID, deal.StageID)
@@ -750,7 +757,7 @@ func TestService_MoveToStage_ToWon_SetsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, deal.ClosedAt)
@@ -782,7 +789,7 @@ func TestService_MoveToStage_FromWonToOpen_ClearsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, leadStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, leadStageID, nil)
 
 	require.NoError(t, err)
 	assert.Nil(t, deal.ClosedAt)
@@ -805,7 +812,7 @@ func TestService_MoveToStage_StageNotFound(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, uuid.New())
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, uuid.New(), nil)
 
 	assert.ErrorIs(t, err, ErrStageNotFound)
 }
@@ -834,7 +841,7 @@ func TestService_AddTags_Success(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeDeal)
 
-	deal, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{tagID})
+	deal, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{tagID}, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
@@ -857,7 +864,7 @@ func TestService_AddTags_TagNotFound(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()}, nil)
 
 	assert.ErrorIs(t, err, ErrTagNotFound)
 }
@@ -879,7 +886,7 @@ func TestService_RemoveTags_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.RemoveTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()})
+	deal, err := svc.RemoveTags(context.Background(), uuid.Nil, dealID, []uuid.UUID{uuid.New()}, nil)
 
 	require.NoError(t, err)
 	assert.Equal(t, dealID, deal.ID)
@@ -889,7 +896,7 @@ func TestService_RemoveTags_DealNotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	_, err := svc.RemoveTags(context.Background(), uuid.New(), uuid.Nil, []uuid.UUID{uuid.New()})
+	_, err := svc.RemoveTags(context.Background(), uuid.New(), uuid.Nil, []uuid.UUID{uuid.New()}, nil)
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1510,7 +1517,7 @@ func TestService_MoveToStage_ToLost_SetsClosedAt(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, lostStageID)
+	deal, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, lostStageID, nil)
 
 	require.NoError(t, err)
 	assert.NotNil(t, deal.ClosedAt)
@@ -1523,7 +1530,7 @@ func TestService_MoveToStage_DealNotFound(t *testing.T) {
 	stageID := uuid.New()
 	repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
 
-	_, err := svc.MoveToStage(context.Background(), uuid.Nil, uuid.New(), stageID)
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, uuid.New(), stageID, nil)
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1611,7 +1618,7 @@ func TestService_MoveToStage_EmitsEvent(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID)
+	_, err := svc.MoveToStage(context.Background(), uuid.Nil, dealID, wonStageID, nil)
 
 	require.NoError(t, err)
 	require.Len(t, emitter.events, 1)
@@ -1630,7 +1637,7 @@ func TestService_AddTags_DealNotFound(t *testing.T) {
 	tagID := uuid.New()
 	repo.AddValidTag(tagID, models.EntityTypeDeal)
 
-	_, err := svc.AddTags(context.Background(), uuid.Nil, uuid.New(), []uuid.UUID{tagID})
+	_, err := svc.AddTags(context.Background(), uuid.Nil, uuid.New(), []uuid.UUID{tagID}, nil)
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1755,4 +1762,94 @@ func TestService_GetByID_WithAllRelations(t *testing.T) {
 	assert.Equal(t, "John Doe", *deal.ContactName)
 	assert.Equal(t, "Test Corp", *deal.CompanyName)
 	assert.Equal(t, "Owner", *deal.OwnerName)
+}
+
+// TestService_EditorScope pins the team boundary of crm:deal:create/edit: a
+// scoped editor writes deals owned by themselves or a direct report, nothing else.
+func TestService_EditorScope(t *testing.T) {
+	ctx := context.Background()
+	tenantID := uuid.New()
+	lead, report, peer := uuid.New(), uuid.New(), uuid.New()
+
+	setup := func() (*Service, *MockRepository, uuid.UUID) {
+		repo := NewMockRepository()
+		svc := NewService(repo)
+		stageID := uuid.New()
+		repo.AddStage(&models.PipelineStage{ID: stageID, Name: "Lead"})
+		repo.owners[lead], repo.owners[report], repo.owners[peer] = "Lead", "Report", "Peer"
+		repo.managers[report] = lead
+		return svc, repo, stageID
+	}
+	addDeal := func(repo *MockRepository, stageID, createdBy uuid.UUID, owner *uuid.UUID) uuid.UUID {
+		id := uuid.New()
+		repo.deals[id] = &models.Deal{ID: id, Name: "Deal", StageID: stageID, CreatedBy: createdBy, OwnerID: owner, Currency: "EUR"}
+		return id
+	}
+	team := &Editor{UserID: lead, Team: true}
+	own := &Editor{UserID: lead}
+
+	t.Run("team editor writes own deals and deals of a direct report", func(t *testing.T) {
+		svc, repo, stageID := setup()
+		mine := addDeal(repo, stageID, lead, nil)
+		reports := addDeal(repo, stageID, peer, &report)
+		for _, id := range []uuid.UUID{mine, reports} {
+			name := "renamed"
+			_, err := svc.Update(ctx, tenantID, id, UpdateInput{Name: &name, Editor: team})
+			require.NoError(t, err)
+			_, err = svc.MoveToStage(ctx, tenantID, id, stageID, team)
+			require.NoError(t, err)
+			_, err = svc.AddTags(ctx, tenantID, id, nil, team)
+			require.NoError(t, err)
+			_, err = svc.RemoveTags(ctx, tenantID, id, nil, team)
+			require.NoError(t, err)
+		}
+	})
+
+	t.Run("deal of a peer is outside the team for every write", func(t *testing.T) {
+		svc, repo, stageID := setup()
+		// Created by the lead but owned by a peer: the owner decides, not the creator.
+		foreign := addDeal(repo, stageID, lead, &peer)
+		name := "renamed"
+		_, err := svc.Update(ctx, tenantID, foreign, UpdateInput{Name: &name, Editor: team})
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+		_, err = svc.MoveToStage(ctx, tenantID, foreign, stageID, team)
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+		_, err = svc.AddTags(ctx, tenantID, foreign, nil, team)
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+		_, err = svc.RemoveTags(ctx, tenantID, foreign, nil, team)
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+		assert.Equal(t, "Deal", repo.deals[foreign].Name)
+		// Unscoped (manager, admin) still writes it.
+		_, err = svc.Update(ctx, tenantID, foreign, UpdateInput{Name: &name})
+		require.NoError(t, err)
+	})
+
+	t.Run("own editor does not reach a direct report", func(t *testing.T) {
+		svc, repo, stageID := setup()
+		reports := addDeal(repo, stageID, report, nil)
+		_, err := svc.MoveToStage(ctx, tenantID, reports, stageID, own)
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+	})
+
+	t.Run("team editor cannot hand a deal out of the team", func(t *testing.T) {
+		svc, repo, stageID := setup()
+		mine := addDeal(repo, stageID, lead, nil)
+		_, err := svc.Update(ctx, tenantID, mine, UpdateInput{OwnerID: &peer, Editor: team})
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+		// The mock hands out its stored struct, so the refused write above left it
+		// mutated; the handover to a report gets a deal of its own.
+		other := addDeal(repo, stageID, lead, nil)
+		_, err = svc.Update(ctx, tenantID, other, UpdateInput{OwnerID: &report, Editor: team})
+		require.NoError(t, err)
+	})
+
+	t.Run("team editor creates for themselves or a report, not for a peer", func(t *testing.T) {
+		svc, _, stageID := setup()
+		_, err := svc.Create(ctx, CreateInput{TenantID: tenantID, Name: "A", StageID: stageID, CreatedBy: lead, Editor: team})
+		require.NoError(t, err)
+		_, err = svc.Create(ctx, CreateInput{TenantID: tenantID, Name: "B", StageID: stageID, CreatedBy: lead, OwnerID: &report, Editor: team})
+		require.NoError(t, err)
+		_, err = svc.Create(ctx, CreateInput{TenantID: tenantID, Name: "C", StageID: stageID, CreatedBy: lead, OwnerID: &peer, Editor: team})
+		assert.ErrorIs(t, err, ErrOutsideEditorScope)
+	})
 }

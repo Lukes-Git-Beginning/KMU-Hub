@@ -24,7 +24,8 @@ import (
 // openItemsBase is the common projection: sent or overdue invoices whose gross
 // total is not yet covered by recorded payments. Payments are folded per invoice
 // before the join so a second payment on the same invoice cannot duplicate the
-// invoice row. Both the invoice and the payment side are tenant-scoped: RLS
+// invoice row. Only payments in the invoice currency net the open amount (no
+// exchange rate is stored). Both the invoice and the payment side are tenant-scoped: RLS
 // already enforces it, but a read path that relies on RLS alone silently returns
 // nothing the day it runs under a system context.
 //
@@ -45,11 +46,11 @@ const openItemsBase = `
 	       i.contact_id
 	FROM finance_invoices i
 	LEFT JOIN (
-	    SELECT invoice_id, SUM(amount) AS paid
+	    SELECT invoice_id, currency, SUM(amount) AS paid
 	    FROM finance_payments
 	    WHERE tenant_id = $1
-	    GROUP BY invoice_id
-	) p ON p.invoice_id = i.id
+	    GROUP BY invoice_id, currency
+	) p ON p.invoice_id = i.id AND p.currency = i.currency
 	WHERE i.tenant_id = $1
 	  AND i.status IN ('sent', 'overdue')
 	  AND i.gross_total - COALESCE(p.paid, 0) > 0`

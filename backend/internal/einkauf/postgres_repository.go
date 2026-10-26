@@ -130,11 +130,11 @@ func (r *PostgresRepository) CreatePO(ctx context.Context, po *PurchaseOrder) er
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO purchase_orders
 		    (id, tenant_id, supplier_id, po_number, status, order_date, expected_delivery_date,
-		     total_amount, currency, notes, created_by, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		     total_amount, currency, notes, created_by, framework_contract_id, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
 		po.ID, po.TenantID, po.SupplierID, po.PONumber, po.Status, po.OrderDate,
 		po.ExpectedDeliveryDate, po.TotalAmount, po.Currency, po.Notes,
-		po.CreatedBy, po.CreatedAt, po.UpdatedAt,
+		po.CreatedBy, po.FrameworkContractID, po.CreatedAt, po.UpdatedAt,
 	)
 	return err
 }
@@ -144,11 +144,11 @@ func (r *PostgresRepository) UpdatePO(ctx context.Context, po *PurchaseOrder) er
 		`UPDATE purchase_orders
 		 SET supplier_id = $1, po_number = $2, status = $3, order_date = $4,
 		     expected_delivery_date = $5, total_amount = $6, currency = $7,
-		     notes = $8, updated_at = $9
-		 WHERE id = $10 AND tenant_id = $11`,
+		     notes = $8, framework_contract_id = $9, updated_at = $10
+		 WHERE id = $11 AND tenant_id = $12`,
 		po.SupplierID, po.PONumber, po.Status, po.OrderDate,
 		po.ExpectedDeliveryDate, po.TotalAmount, po.Currency,
-		po.Notes, po.UpdatedAt, po.ID, po.TenantID,
+		po.Notes, po.FrameworkContractID, po.UpdatedAt, po.ID, po.TenantID,
 	)
 	if err != nil {
 		return err

@@ -18,8 +18,9 @@ type ListShiftsFilter struct {
 type SwapRequestFilter struct {
 	ShiftID *uuid.UUID
 	Status  *SwapRequestStatus
-	// OwnEmployeeID, when set, narrows to swap requests where this employee
-	// is the requester or the swap partner (matched against both fields).
+	// OwnEmployeeID, when set, is the caller's user id and narrows to swap
+	// requests where the caller is the requester or the swap partner — by user
+	// id or by HR profile id (see IsOwnEmployeeID).
 	OwnEmployeeID *uuid.UUID
 }
 
@@ -37,7 +38,9 @@ type Repository interface {
 	CreateAssignment(ctx context.Context, a *ShiftAssignment) error
 	DeleteAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) error
 	GetAssignment(ctx context.Context, tenantID, shiftID, employeeID uuid.UUID) (*ShiftAssignment, error)
-	ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error)
+	// ListAssignments lists a shift's assignments; a non-nil ownUserID narrows
+	// them to that user's own (see PostgresRepository.ListAssignments).
+	ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error)
 	// CountAssignments returns the number of assignments for a shift (capacity guard).
 	CountAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) (int, error)
 
@@ -52,6 +55,11 @@ type Repository interface {
 	LatestShiftEndBeforeForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, before time.Time) (*time.Time, error)
 	// ArbZG: earliest shift that starts strictly after newEnd for the given employee (bidirectional check)
 	EarliestShiftStartAfterForEmployee(ctx context.Context, tenantID, employeeID uuid.UUID, after time.Time) (*time.Time, error)
+	// HasOverlappingAssignmentForEmployee reports whether the employee is assigned
+	// to another shift (not exceptShiftID) whose window overlaps [start, end).
+	// Windows are half-open, so a shift ending exactly when the next starts does
+	// not overlap.
+	HasOverlappingAssignmentForEmployee(ctx context.Context, tenantID, employeeID, exceptShiftID uuid.UUID, start, end time.Time) (bool, error)
 	// ShiftExistsForTemplate checks for an identical shift (idempotency for ApplyTemplate)
 	ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error)
 	// JArbSchG: whether the employee's HR profile is flagged as a minor. False
@@ -73,10 +81,14 @@ type Repository interface {
 	CreateSwapRequest(ctx context.Context, req *SwapRequest) error
 	GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error)
 	ListSwapRequests(ctx context.Context, tenantID uuid.UUID, filter SwapRequestFilter, offset, limit int) ([]*SwapRequest, int, error)
-	// UpdateSwapRequestStatus sets the status of a swap request and (on approval) atomically
-	// swaps the two assignments within the same transaction.
+	// IsOwnEmployeeID reports whether employeeID is one of userID's identities
+	// in the tenant: the user id itself or the user's HR profile id.
+	IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error)
+	// UpdateSwapRequestStatus sets the status of a swap request.
 	UpdateSwapRequestStatus(ctx context.Context, tenantID, requestID uuid.UUID, status SwapRequestStatus) error
-	// SwapAssignmentsForRequest atomically swaps the employee of two assignments identified
-	// by the swap request's assignment data. Called inside ApproveSwapRequest.
-	SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error
+	// HandOverAssignment moves assignment assignmentID on shiftID from employee
+	// from to employee to, keeping the row (and its id). ErrAssignmentNotFound
+	// when the row no longer belongs to from on that shift. Called by
+	// ApproveSwapRequest inside WithAssignmentLock.
+	HandOverAssignment(ctx context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error
 }

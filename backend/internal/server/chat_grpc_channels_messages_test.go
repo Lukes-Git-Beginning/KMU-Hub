@@ -28,6 +28,7 @@ type stubChannelRepo struct {
 	channels    map[uuid.UUID]*models.Channel
 	memberships map[string]*models.ChannelMembership
 	users       map[uuid.UUID]struct{ firstName, lastName, email string }
+	groupKeys   map[string]uuid.UUID
 }
 
 func newStubChannelRepo() *stubChannelRepo {
@@ -186,6 +187,25 @@ func (r *stubChannelRepo) CreateDMChannel(_ context.Context, ch *models.Channel,
 	r.channels[ch.ID] = ch
 	r.memberships[chMembershipKey(mem1.ChannelID, mem1.UserID)] = mem1
 	r.memberships[chMembershipKey(mem2.ChannelID, mem2.UserID)] = mem2
+	return nil
+}
+
+func (r *stubChannelRepo) FindGroupDMChannel(_ context.Context, groupKey string, _ uuid.UUID) (*models.Channel, error) {
+	if id, ok := r.groupKeys[groupKey]; ok {
+		return r.channels[id], nil
+	}
+	return nil, channel.ErrChannelNotFound
+}
+
+func (r *stubChannelRepo) CreateGroupDMChannel(_ context.Context, ch *models.Channel, groupKey string, members []*models.ChannelMembership) error {
+	if r.groupKeys == nil {
+		r.groupKeys = make(map[string]uuid.UUID)
+	}
+	r.channels[ch.ID] = ch
+	r.groupKeys[groupKey] = ch.ID
+	for _, m := range members {
+		r.memberships[chMembershipKey(m.ChannelID, m.UserID)] = m
+	}
 	return nil
 }
 
@@ -427,7 +447,7 @@ func (r *stubChatMessageRepo) GetFilesByMessageIDs(_ context.Context, _ []uuid.U
 	return make(map[uuid.UUID][]models.ChatFileWithUploader), nil
 }
 
-func (r *stubChatMessageRepo) GetDMRecipient(_ context.Context, _, _ uuid.UUID) (*uuid.UUID, error) {
+func (r *stubChatMessageRepo) GetDMRecipients(_ context.Context, _, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
 
@@ -1008,6 +1028,67 @@ func TestChatGetOrCreateDM(t *testing.T) {
 		_, err := f.srv.GetOrCreateDM(chatCtx(userA, tenantID), &chatv1.GetOrCreateDMRequest{
 			UserId:      userA.String(),
 			OtherUserId: userA.String(),
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+}
+
+func TestChatGetOrCreateGroupDM(t *testing.T) {
+	t.Run("creates once per member set and passes the name", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, userA, userB, userC := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+		f.addUserBoth(userA, "A", "A", "a@example.com")
+		f.addUserBoth(userB, "B", "B", "b@example.com")
+		f.addUserBoth(userC, "C", "C", "c@example.com")
+		name := "Projekt"
+
+		resp, err := f.srv.GetOrCreateGroupDM(chatCtx(userA, tenantID), &chatv1.GetOrCreateGroupDMRequest{
+			UserId:         userA.String(),
+			ParticipantIds: []string{userB.String(), userC.String()},
+			Name:           &name,
+		})
+		require.NoError(t, err)
+		require.True(t, resp.Created)
+		require.True(t, resp.Channel.IsDm)
+		require.Equal(t, int32(3), resp.Channel.MemberCount)
+		require.Equal(t, "Projekt", resp.Channel.Name)
+
+		again, err := f.srv.GetOrCreateGroupDM(chatCtx(userB, tenantID), &chatv1.GetOrCreateGroupDMRequest{
+			UserId:         userB.String(),
+			ParticipantIds: []string{userC.String(), userA.String()},
+		})
+		require.NoError(t, err)
+		require.False(t, again.Created)
+		require.Equal(t, resp.Channel.Id, again.Channel.Id)
+	})
+
+	t.Run("invalid participant id", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, userA := uuid.New(), uuid.New()
+		_, err := f.srv.GetOrCreateGroupDM(chatCtx(userA, tenantID), &chatv1.GetOrCreateGroupDMRequest{
+			UserId:         userA.String(),
+			ParticipantIds: []string{"not-a-uuid"},
+		})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("unknown participant", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, userA, userB := uuid.New(), uuid.New(), uuid.New()
+		f.addUserBoth(userA, "A", "A", "a@example.com")
+		f.addUserBoth(userB, "B", "B", "b@example.com")
+		_, err := f.srv.GetOrCreateGroupDM(chatCtx(userA, tenantID), &chatv1.GetOrCreateGroupDMRequest{
+			UserId:         userA.String(),
+			ParticipantIds: []string{userB.String(), uuid.New().String()},
+		})
+		requireGRPCCode(t, err, codes.NotFound)
+	})
+
+	t.Run("only the caller", func(t *testing.T) {
+		f := newChatChannelsMessagesFixture()
+		tenantID, userA := uuid.New(), uuid.New()
+		_, err := f.srv.GetOrCreateGroupDM(chatCtx(userA, tenantID), &chatv1.GetOrCreateGroupDMRequest{
+			UserId: userA.String(),
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})

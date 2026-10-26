@@ -13,8 +13,9 @@ import (
 // ---------------------------------------------------------------------------
 // Video, meeting and dialer participation of a matched user — Art. 15 GDPR.
 //
-// Read-only. Meeting notes and meeting chat are a separate, undecided topic
-// (BACKLOG-NEXT) and deliberately not part of this file.
+// Read-only. Meeting notes and meeting chat disclose only what the user wrote
+// themselves (author_id / sender_id); other people's notes — private or shared —
+// and their chat lines stay out.
 //
 // dialer_agent_status_log grows without bound (one row per agent status
 // change). Disclosure is capped at the dsarMaxRows most recent changes per
@@ -129,6 +130,57 @@ func meetingActionItemsModule(ctx context.Context, pool *pgxpool.Pool, tenantID,
 		})
 }
 
+// meetingNotesModule discloses the notes the user authored, including their own
+// private ones (it is their data). Notes of other authors are never read.
+func meetingNotesModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	columns := []string{"Meeting", "Notiz", "Privat", "Angelegt"}
+	return userRowsModule(ctx, pool, "meeting notes", "Meeting-Notizen", columns,
+		`SELECT m.title, n.content, n.is_private, n.created_at
+		 FROM meeting_notes n
+		 JOIN meetings m ON m.id = n.meeting_id AND m.tenant_id = n.tenant_id
+		 WHERE n.tenant_id = $1 AND n.author_id = $2
+		 ORDER BY n.created_at DESC
+		 LIMIT $3`, []any{tenantID, userID, dsarMaxRows},
+		func(rows pgx.Rows) (DSARRecord, error) {
+			var title, content string
+			var private bool
+			var createdAt time.Time
+			if err := rows.Scan(&title, &content, &private, &createdAt); err != nil {
+				return DSARRecord{}, err
+			}
+			return DSARRecord{Fields: []DSARField{
+				{Key: "Meeting", Value: title},
+				{Key: "Notiz", Value: content},
+				{Key: "Privat", Value: boolLabel(private)},
+				{Key: "Angelegt", Value: createdAt.Format(dsarTimeLayout)},
+			}}, nil
+		})
+}
+
+// meetingChatModule discloses the in-call chat messages the user sent.
+func meetingChatModule(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) (*DSARModule, error) {
+	columns := []string{"Meeting", "Nachricht", "Gesendet"}
+	return userRowsModule(ctx, pool, "meeting chat", "Meeting-Chat", columns,
+		`SELECT m.title, c.message, c.created_at
+		 FROM meeting_chat c
+		 JOIN meetings m ON m.id = c.meeting_id AND m.tenant_id = c.tenant_id
+		 WHERE c.tenant_id = $1 AND c.sender_id = $2
+		 ORDER BY c.created_at DESC
+		 LIMIT $3`, []any{tenantID, userID, dsarMaxRows},
+		func(rows pgx.Rows) (DSARRecord, error) {
+			var title, message string
+			var sentAt time.Time
+			if err := rows.Scan(&title, &message, &sentAt); err != nil {
+				return DSARRecord{}, err
+			}
+			return DSARRecord{Fields: []DSARField{
+				{Key: "Meeting", Value: title},
+				{Key: "Nachricht", Value: message},
+				{Key: "Gesendet", Value: sentAt.Format(dsarTimeLayout)},
+			}}, nil
+		})
+}
+
 // agentStatusHistoryModule discloses the dialer status changes recorded for
 // the user as agent (working-time-adjacent employee data). Capped, see the
 // file comment.
@@ -156,12 +208,13 @@ func agentStatusHistoryModule(ctx context.Context, pool *pgxpool.Pool, tenantID,
 		})
 }
 
-// videoDialerModules collects the four modules for one user; empty ones are
+// videoDialerModules collects the six modules for one user; empty ones are
 // skipped.
 func videoDialerModules(ctx context.Context, pool *pgxpool.Pool, tenantID, userID uuid.UUID) ([]DSARModule, error) {
 	var out []DSARModule
 	for _, load := range []func(context.Context, *pgxpool.Pool, uuid.UUID, uuid.UUID) (*DSARModule, error){
-		callParticipationModule, meetingParticipationModule, meetingActionItemsModule, agentStatusHistoryModule,
+		callParticipationModule, meetingParticipationModule, meetingActionItemsModule,
+		meetingNotesModule, meetingChatModule, agentStatusHistoryModule,
 	} {
 		mod, err := load(ctx, pool, tenantID, userID)
 		if err != nil {

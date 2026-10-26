@@ -3657,8 +3657,12 @@ func (x *UpdateTaskResponse) GetTask() *TaskProto {
 }
 
 type DeleteTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Set by the gateway when the caller holds work:task:delete only at scope
+	// own: the service then deletes the task only if owner_id created it
+	// (NotFound otherwise). Empty keeps the delete tenant-wide.
+	OwnerId       *string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3696,6 +3700,13 @@ func (*DeleteTaskRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteTaskRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteTaskRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -9325,9 +9336,11 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"_is_closedB\r\n" +
 	"\v_project_id\"<\n" +
 	"\x12UpdateTaskResponse\x12&\n" +
-	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"#\n" +
+	"\x04task\x18\x01 \x01(\v2\x12.work.v1.TaskProtoR\x04task\"P\n" +
 	"\x11DeleteTaskRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
+	"\bowner_id\x18\x02 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x14\n" +
 	"\x12DeleteTaskResponse\"x\n" +
 	"\x0fMoveTaskRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
@@ -10198,6 +10211,7 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[45].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[49].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[51].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[53].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[65].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[83].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[97].OneofWrappers = []any{}

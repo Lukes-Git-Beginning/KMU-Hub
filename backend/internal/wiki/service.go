@@ -3,12 +3,15 @@ package wiki
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // Service handles wiki business logic.
@@ -46,6 +49,9 @@ type UpdateArticleInput struct {
 	CategoryID *uuid.UUID // uuid.Nil to clear
 	Published  *bool
 	EditorID   uuid.UUID // user making the change (saved as version author)
+	// OwnerID narrows the edit to articles this user wrote (scope "own");
+	// nil leaves it tenant-wide. A foreign article answers ErrArticleNotFound.
+	OwnerID *uuid.UUID
 }
 
 // ListArticlesInput contains filtering options for listing articles.
@@ -69,6 +75,7 @@ type UploadInput struct {
 	Mime       string
 	Size       int64
 	UploadedBy *uuid.UUID
+	OwnerID    *uuid.UUID // see UpdateArticleInput.OwnerID
 }
 
 // CreateCategoryInput contains data for creating a category.
@@ -161,7 +168,7 @@ func (s *Service) CreateArticle(ctx context.Context, input CreateArticleInput) (
 
 // UpdateArticle updates an existing article and saves a version snapshot.
 func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (*Article, error) {
-	article, err := s.repo.GetArticleByID(ctx, input.TenantID, input.ArticleID)
+	article, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID)
 	if err != nil {
 		return nil, err
 	}
@@ -241,9 +248,10 @@ func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (
 	return article, nil
 }
 
-// DeleteArticle removes an article.
-func (s *Service) DeleteArticle(ctx context.Context, tenantID, articleID uuid.UUID) error {
-	article, err := s.repo.GetArticleByID(ctx, tenantID, articleID)
+// DeleteArticle removes an article. With ownerID set (scope "own") only an
+// article the caller wrote is removed; any other answers ErrArticleNotFound.
+func (s *Service) DeleteArticle(ctx context.Context, tenantID, articleID uuid.UUID, ownerID *uuid.UUID) error {
+	article, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID)
 	if err != nil {
 		return err
 	}
@@ -315,8 +323,13 @@ func (s *Service) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID)
 	return s.repo.GetVersion(ctx, tenantID, versionID)
 }
 
-// RestoreVersion restores an article to a previous version's content.
-func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID) (*Article, error) {
+// RestoreVersion restores an article to a previous version's content. ownerID
+// narrows it like UpdateArticleInput.OwnerID; the article is checked before the
+// version, so a foreign article never confirms that a version id exists.
+func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID, ownerID *uuid.UUID) (*Article, error) {
+	if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+		return nil, err
+	}
 	version, err := s.repo.GetVersion(ctx, tenantID, versionID)
 	if err != nil {
 		return nil, err
@@ -327,7 +340,22 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versi
 		ArticleID: articleID,
 		Content:   version.Content,
 		EditorID:  editorID,
+		OwnerID:   ownerID,
 	})
+}
+
+// loadEditableArticle loads an article the caller may change. With ownerID set
+// (scope "own") an article written by someone else answers ErrArticleNotFound
+// rather than a permission error, so the caller learns nothing about the id.
+func (s *Service) loadEditableArticle(ctx context.Context, tenantID, articleID uuid.UUID, ownerID *uuid.UUID) (*Article, error) {
+	article, err := s.repo.GetArticleByID(ctx, tenantID, articleID)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != nil && article.AuthorID != *ownerID {
+		return nil, ErrArticleNotFound
+	}
+	return article, nil
 }
 
 // ============================================================================
@@ -338,6 +366,11 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versi
 func (s *Service) UploadAttachment(ctx context.Context, input UploadInput) (*Attachment, error) {
 	if strings.TrimSpace(input.FileRef) == "" {
 		return nil, ErrInvalidContent
+	}
+	if input.OwnerID != nil {
+		if _, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID); err != nil {
+			return nil, err
+		}
 	}
 
 	now := time.Now()
@@ -369,8 +402,22 @@ func (s *Service) ListAttachments(ctx context.Context, tenantID, articleID uuid.
 	return s.repo.ListAttachments(ctx, tenantID, articleID)
 }
 
-// DeleteAttachment removes an attachment.
-func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+// DeleteAttachment removes an attachment. With ownerID set (scope "own") the
+// attachment must hang on an article the caller wrote, otherwise it answers
+// ErrAttachmentNotFound.
+func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		articleID, err := s.repo.GetAttachmentArticleID(ctx, tenantID, attachmentID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+			if errors.Is(err, ErrArticleNotFound) {
+				return ErrAttachmentNotFound
+			}
+			return err
+		}
+	}
 	if delErr := s.repo.DeleteAttachment(ctx, tenantID, attachmentID); delErr != nil {
 		return fmt.Errorf("delete attachment: %w", delErr)
 	}
@@ -504,6 +551,9 @@ type CreateShareTokenInput struct {
 	// the authenticated caller, and a nil value is recorded as "unknown"
 	// rather than refused, so a missing subject never blocks a share.
 	CreatedBy *uuid.UUID
+	// OwnerID set (scope "own") shares only an article the caller wrote; any
+	// other answers ErrArticleNotFound.
+	OwnerID *uuid.UUID
 }
 
 // CreateShareToken creates a new share token for an article.
@@ -511,8 +561,13 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 	// Same rules as form share links: a link that is born expired is a mistake
 	// the caller should hear about, not a dead row, and "read" is the only
 	// permission a redeemed link ever grants ("public" is a display marker).
-	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
+	now := time.Now()
+	if input.ExpiresAt != nil && !input.ExpiresAt.After(now) {
 		return nil, fmt.Errorf("expires_at must be in the future: %w", ErrInvalidShareLink)
+	}
+	expiresAt, err := linksecret.Expiry(input.ExpiresAt, now)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", err, ErrInvalidShareLink)
 	}
 	public := false
 	for _, p := range input.Permissions {
@@ -525,8 +580,8 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		}
 	}
 
-	// Verify article exists in tenant
-	if _, err := s.repo.GetArticleByID(ctx, input.TenantID, input.ArticleID); err != nil {
+	// Verify article exists in tenant (and is the caller's at scope own)
+	if _, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID); err != nil {
 		return nil, err
 	}
 
@@ -535,18 +590,17 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		permissions = append(permissions, sharePermissionPublic)
 	}
 
-	secret, err := newShareToken()
+	secret, err := linksecret.New()
 	if err != nil {
 		return nil, err
 	}
 
-	now := time.Now()
 	token := &ShareToken{
 		ID:          uuid.New(),
 		TenantID:    input.TenantID,
 		ArticleID:   input.ArticleID,
 		Token:       secret,
-		ExpiresAt:   input.ExpiresAt,
+		ExpiresAt:   &expiresAt,
 		Permissions: permissions,
 		CreatedAt:   now,
 		CreatedBy:   input.CreatedBy,
@@ -574,8 +628,22 @@ func (s *Service) ListShareTokens(ctx context.Context, tenantID, articleID uuid.
 
 // RevokeShareToken cuts a share link. The row survives with revoked_at set --
 // see 000297 for why the revocation is soft. Revoking an already revoked token
-// succeeds without moving the original timestamp.
-func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
+// succeeds without moving the original timestamp. With ownerID set (scope
+// "own") the link must belong to an article the caller wrote, otherwise it
+// answers ErrShareTokenNotFound.
+func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		articleID, err := s.repo.GetShareTokenArticleID(ctx, tenantID, tokenID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+			if errors.Is(err, ErrArticleNotFound) {
+				return ErrShareTokenNotFound
+			}
+			return err
+		}
+	}
 	if revErr := s.repo.RevokeShareToken(ctx, tenantID, tokenID, time.Now().UTC()); revErr != nil {
 		return fmt.Errorf("revoke share token: %w", revErr)
 	}

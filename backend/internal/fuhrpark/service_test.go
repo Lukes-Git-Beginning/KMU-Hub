@@ -355,6 +355,17 @@ func (m *mockRepository) CreateBookingWithLock(_ context.Context, b *VehicleBook
 	return nil, nil
 }
 
+func (m *mockRepository) ListBusySlots(_ context.Context, tenantID, vehicleID uuid.UUID, from, to time.Time) ([]BusySlot, error) {
+	slots := make([]BusySlot, 0)
+	for _, b := range m.bookings {
+		if b.TenantID == tenantID && b.VehicleID == vehicleID && isActiveBookingStatus(b.Status) &&
+			b.StartsAt.Before(to) && b.EndsAt.After(from) {
+			slots = append(slots, BusySlot{StartsAt: b.StartsAt, EndsAt: b.EndsAt})
+		}
+	}
+	return slots, nil
+}
+
 func (m *mockRepository) FindConflictingBooking(_ context.Context, _, _ uuid.UUID, _, _ time.Time, _ *uuid.UUID) (*uuid.UUID, error) {
 	m.findConflictCalls++
 	if m.findConflictErr != nil {

@@ -827,6 +827,9 @@ type UpdateDefinitionRequest struct {
 	DefaultFormat *string                `protobuf:"bytes,7,opt,name=default_format,json=defaultFormat,proto3,oneof" json:"default_format,omitempty"`
 	IsPublished   *bool                  `protobuf:"varint,8,opt,name=is_published,json=isPublished,proto3,oneof" json:"is_published,omitempty"`
 	EditorId      string                 `protobuf:"bytes,9,opt,name=editor_id,json=editorId,proto3" json:"editor_id,omitempty"`
+	// Set when the caller may only edit definitions they created (berichte:reports:edit
+	// at scope own); a foreign definition then answers not found.
+	OwnerId       *string `protobuf:"bytes,10,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -920,6 +923,13 @@ func (x *UpdateDefinitionRequest) GetIsPublished() bool {
 func (x *UpdateDefinitionRequest) GetEditorId() string {
 	if x != nil {
 		return x.EditorId
+	}
+	return ""
+}
+
+func (x *UpdateDefinitionRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -2561,15 +2571,18 @@ func (x *GetDocumentRequest) GetDocumentId() string {
 }
 
 type UpdateDocumentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	DocumentId    string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
-	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
-	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
-	Module        *string                `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
-	Status        *string                `protobuf:"bytes,6,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	Rows          []byte                 `protobuf:"bytes,7,opt,name=rows,proto3" json:"rows,omitempty"`         // empty = no change
-	Settings      []byte                 `protobuf:"bytes,8,opt,name=settings,proto3" json:"settings,omitempty"` // empty = no change
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TenantId    string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	DocumentId  string                 `protobuf:"bytes,2,opt,name=document_id,json=documentId,proto3" json:"document_id,omitempty"`
+	Title       *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Module      *string                `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
+	Status      *string                `protobuf:"bytes,6,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Rows        []byte                 `protobuf:"bytes,7,opt,name=rows,proto3" json:"rows,omitempty"`         // empty = no change
+	Settings    []byte                 `protobuf:"bytes,8,opt,name=settings,proto3" json:"settings,omitempty"` // empty = no change
+	// Set when the caller may only edit documents they created (berichte:reports:edit
+	// at scope own); a foreign document then answers not found.
+	OwnerId       *string `protobuf:"bytes,9,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2658,6 +2671,13 @@ func (x *UpdateDocumentRequest) GetSettings() []byte {
 		return x.Settings
 	}
 	return nil
+}
+
+func (x *UpdateDocumentRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
 }
 
 type DeleteDocumentRequest struct {
@@ -3803,7 +3823,7 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\v_created_by\"X\n" +
 	"\x14GetDefinitionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
-	"\rdefinition_id\x18\x02 \x01(\tR\fdefinitionId\"\x94\x03\n" +
+	"\rdefinition_id\x18\x02 \x01(\tR\fdefinitionId\"\xc1\x03\n" +
 	"\x17UpdateDefinitionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
 	"\rdefinition_id\x18\x02 \x01(\tR\fdefinitionId\x12\x17\n" +
@@ -3813,12 +3833,15 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\fquery_config\x18\x06 \x01(\fR\vqueryConfig\x12*\n" +
 	"\x0edefault_format\x18\a \x01(\tH\x03R\rdefaultFormat\x88\x01\x01\x12&\n" +
 	"\fis_published\x18\b \x01(\bH\x04R\visPublished\x88\x01\x01\x12\x1b\n" +
-	"\teditor_id\x18\t \x01(\tR\beditorIdB\a\n" +
+	"\teditor_id\x18\t \x01(\tR\beditorId\x12\x1e\n" +
+	"\bowner_id\x18\n" +
+	" \x01(\tH\x05R\aownerId\x88\x01\x01B\a\n" +
 	"\x05_nameB\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_moduleB\x11\n" +
 	"\x0f_default_formatB\x0f\n" +
-	"\r_is_published\"[\n" +
+	"\r_is_publishedB\v\n" +
+	"\t_owner_id\"[\n" +
 	"\x17DeleteDefinitionRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12#\n" +
 	"\rdefinition_id\x18\x02 \x01(\tR\fdefinitionId\"\x1a\n" +
@@ -3969,7 +3992,7 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\x12GetDocumentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
-	"documentId\"\xb1\x02\n" +
+	"documentId\"\xde\x02\n" +
 	"\x15UpdateDocumentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +
@@ -3979,11 +4002,13 @@ const file_proto_berichte_v1_berichte_proto_rawDesc = "" +
 	"\x06module\x18\x05 \x01(\tH\x02R\x06module\x88\x01\x01\x12\x1b\n" +
 	"\x06status\x18\x06 \x01(\tH\x03R\x06status\x88\x01\x01\x12\x12\n" +
 	"\x04rows\x18\a \x01(\fR\x04rows\x12\x1a\n" +
-	"\bsettings\x18\b \x01(\fR\bsettingsB\b\n" +
+	"\bsettings\x18\b \x01(\fR\bsettings\x12\x1e\n" +
+	"\bowner_id\x18\t \x01(\tH\x04R\aownerId\x88\x01\x01B\b\n" +
 	"\x06_titleB\x0e\n" +
 	"\f_descriptionB\t\n" +
 	"\a_moduleB\t\n" +
-	"\a_status\"U\n" +
+	"\a_statusB\v\n" +
+	"\t_owner_id\"U\n" +
 	"\x15DeleteDocumentRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vdocument_id\x18\x02 \x01(\tR\n" +

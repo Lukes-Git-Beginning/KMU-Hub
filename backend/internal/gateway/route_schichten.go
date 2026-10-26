@@ -3,7 +3,6 @@ package gateway
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -187,7 +186,7 @@ func (sr *SchichtenRoutes) HandleListShifts(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &schichtenv1.ListShiftsRequest{
@@ -441,9 +440,17 @@ func (sr *SchichtenRoutes) HandleListAssignments(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// A grant scoped to "own" narrows the roster to the caller's own
+	// assignments; the colleagues' stay with a wider grant (manager).
+	ownerID, ok := ownerFilterForScope(w, r, "schichten:assignment", "read")
+	if !ok {
+		return
+	}
+
 	resp, err := client.ListAssignments(r.Context(), &schichtenv1.ListAssignmentsRequest{
-		TenantId: tenantID.String(),
-		ShiftId:  id,
+		TenantId:  tenantID.String(),
+		ShiftId:   id,
+		OwnUserId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -538,7 +545,7 @@ func (sr *SchichtenRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 
 	resp, err := client.ListTemplates(r.Context(), &schichtenv1.ListTemplatesRequest{
 		TenantId: tenantID.String(),
@@ -827,14 +834,10 @@ func (sr *SchichtenRoutes) HandleCreateSwapRequest(w http.ResponseWriter, r *htt
 
 	// A grant scoped to "own" may only file a swap for the caller's own
 	// assignment; only a wider grant (manager) files on behalf of someone else.
-	// Refusing beats overwriting: a silently rewritten requester would pair the
-	// caller's id with a colleague's assignment_id.
+	// The service checks the requester against the caller's user id and HR
+	// profile id (the desktop roster assigns by profile id) and answers 403.
 	ownerID, ok := ownerFilterForScope(w, r, "schichten:swap", "create")
 	if !ok {
-		return
-	}
-	if ownerID != nil && !strings.EqualFold(req.RequestedByEmployeeID, *ownerID) {
-		response.Error(w, http.StatusForbidden, "requested_by_employee_id must be the caller")
 		return
 	}
 
@@ -846,6 +849,7 @@ func (sr *SchichtenRoutes) HandleCreateSwapRequest(w http.ResponseWriter, r *htt
 		SwapWithEmployeeId:    req.SwapWithEmployeeID,
 		Reason:                req.Reason,
 		IdempotencyKey:        idempotencyKey,
+		OwnerUserId:           ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -866,7 +870,7 @@ func (sr *SchichtenRoutes) HandleListSwapRequests(w http.ResponseWriter, r *http
 		return
 	}
 
-	page, pageSize := parsePagination(r, 1, 50)
+	page, pageSize := parsePaginationMax(r, 1, 50, listPageSizeMax)
 	q := r.URL.Query()
 
 	grpcReq := &schichtenv1.ListSwapRequestsRequest{

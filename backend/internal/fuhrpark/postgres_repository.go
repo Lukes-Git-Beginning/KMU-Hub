@@ -1431,6 +1431,31 @@ func (r *PostgresRepository) FindConflictingBooking(ctx context.Context, tenantI
 	return &conflictID, nil
 }
 
+func (r *PostgresRepository) ListBusySlots(ctx context.Context, tenantID, vehicleID uuid.UUID, from, to time.Time) ([]BusySlot, error) {
+	rows, err := r.pool.Query(ctx, `SELECT starts_at, ends_at FROM vehicle_bookings
+		 WHERE tenant_id = $1
+		   AND vehicle_id = $2
+		   AND status IN `+activeBookingStatusSQL+`
+		   AND `+bookingOverlapPredicate+`
+		 ORDER BY starts_at ASC`,
+		tenantID, vehicleID, from, to,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list busy slots: %w", err)
+	}
+	defer rows.Close()
+
+	slots := make([]BusySlot, 0)
+	for rows.Next() {
+		var s BusySlot
+		if scanErr := rows.Scan(&s.StartsAt, &s.EndsAt); scanErr != nil {
+			return nil, fmt.Errorf("scan busy slot: %w", scanErr)
+		}
+		slots = append(slots, s)
+	}
+	return slots, rows.Err()
+}
+
 func (r *PostgresRepository) UpdateBooking(ctx context.Context, b *VehicleBooking) error {
 	ct, err := r.pool.Exec(ctx, `
 		UPDATE vehicle_bookings

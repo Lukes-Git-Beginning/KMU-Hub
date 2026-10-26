@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/crm/activity"
 	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
 	"github.com/kmuhub/kmuhub/internal/crm/company"
@@ -1173,6 +1174,11 @@ func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealReq
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
 	}
 
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+
 	input := deal.CreateInput{
 		TenantID:  tenantID,
 		Name:      req.Name,
@@ -1180,6 +1186,7 @@ func (s *CRMGRPCServer) CreateDeal(ctx context.Context, req *crmv1.CreateDealReq
 		Currency:  req.Currency,
 		StageID:   stageID,
 		CreatedBy: createdBy,
+		Editor:    editor,
 	}
 
 	if req.ContactId != nil {
@@ -1356,7 +1363,11 @@ func (s *CRMGRPCServer) UpdateDeal(ctx context.Context, req *crmv1.UpdateDealReq
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
 	}
 
-	input := deal.UpdateInput{}
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+	input := deal.UpdateInput{Editor: editor}
 
 	if req.Name != nil {
 		input.Name = req.Name
@@ -1479,7 +1490,12 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 		return nil, status.Error(codes.InvalidArgument, "invalid stage_id")
 	}
 
-	d, err := s.dealService.MoveToStage(ctx, tenantID, dealID, stageID)
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := s.dealService.MoveToStage(ctx, tenantID, dealID, stageID, editor)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1487,6 +1503,20 @@ func (s *CRMGRPCServer) MoveDealToStage(ctx context.Context, req *crmv1.MoveDeal
 	return &crmv1.MoveDealToStageResponse{
 		Deal: toDealInfo(d),
 	}, nil
+}
+
+// toDealEditor parses the gateway's scope narrowing of a deal write; nil writes
+// tenant-wide. Only scope "team" widens past the caller, so an unknown scope
+// narrows to the caller's own deals.
+func toDealEditor(e *crmv1.DealEditor) (*deal.Editor, error) {
+	if e == nil {
+		return nil, nil
+	}
+	userID, err := uuid.Parse(e.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid editor user_id")
+	}
+	return &deal.Editor{UserID: userID, Team: e.GetScope() == auth.ScopeTeam}, nil
 }
 
 // parseTagIDs converts the wire tag ids of the deal and activity tag RPCs into
@@ -1520,7 +1550,12 @@ func (s *CRMGRPCServer) AddDealTags(ctx context.Context, req *crmv1.AddDealTagsR
 		return nil, err
 	}
 
-	d, err := s.dealService.AddTags(ctx, tenantID, dealID, tagIDs)
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := s.dealService.AddTags(ctx, tenantID, dealID, tagIDs, editor)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -1546,7 +1581,12 @@ func (s *CRMGRPCServer) RemoveDealTags(ctx context.Context, req *crmv1.RemoveDea
 		return nil, err
 	}
 
-	d, err := s.dealService.RemoveTags(ctx, tenantID, dealID, tagIDs)
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+
+	d, err := s.dealService.RemoveTags(ctx, tenantID, dealID, tagIDs, editor)
 	if err != nil {
 		return nil, mapCRMError(err)
 	}
@@ -2933,6 +2973,8 @@ func mapCRMError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, deal.ErrTagNotFound):
 		return status.Error(codes.NotFound, err.Error())
+	case errors.Is(err, deal.ErrOutsideEditorScope):
+		return status.Error(codes.PermissionDenied, err.Error())
 	// Activity errors
 	case errors.Is(err, activity.ErrActivityNotFound):
 		return status.Error(codes.NotFound, err.Error())

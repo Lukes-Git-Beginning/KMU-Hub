@@ -97,6 +97,9 @@ type Repository interface {
 	// FindConflictingBooking reports the first active booking of the same
 	// vehicle overlapping [startsAt, endsAt), excluding excludeID when set.
 	FindConflictingBooking(ctx context.Context, tenantID, vehicleID uuid.UUID, startsAt, endsAt time.Time, excludeID *uuid.UUID) (*uuid.UUID, error)
+	// ListBusySlots returns the intervals of the vehicle's active bookings that
+	// overlap [from, to), ordered by start. Only the times leave the table.
+	ListBusySlots(ctx context.Context, tenantID, vehicleID uuid.UUID, from, to time.Time) ([]BusySlot, error)
 
 	// GPS
 	IngestGpsPositions(ctx context.Context, tenantID, vehicleID uuid.UUID, positions []GpsPosition) (int, error)

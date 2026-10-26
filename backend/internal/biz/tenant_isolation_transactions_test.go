@@ -57,6 +57,7 @@ func TestTenantIsolation_Transactions(t *testing.T) {
 		"tenant_id":    tenantA,
 		"invoice_id":   invoiceID,
 		"amount":       "400.00",
+		"currency":     "EUR",
 		"payment_date": day(-5).Format("2006-01-02"),
 		"created_by":   tenantA,
 	})
@@ -111,6 +112,7 @@ func TestTenantIsolation_Transactions(t *testing.T) {
 		"tenant_id":    tenantB,
 		"invoice_id":   otherInvoiceID,
 		"amount":       "50.00",
+		"currency":     "EUR",
 		"payment_date": day(-1).Format("2006-01-02"),
 		"created_by":   tenantB,
 	})

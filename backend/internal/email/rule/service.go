@@ -47,9 +47,25 @@ type RuleInput struct {
 	ActionTarget *string
 }
 
-// List returns all rules of a tenant in application order (oldest first).
-func (s *Service) List(ctx context.Context, tenantID uuid.UUID) ([]*models.EmailRule, error) {
-	return s.repo.List(ctx, tenantID)
+// Actor is the caller a rule operation runs for.
+type Actor struct {
+	UserID uuid.UUID
+	// Admin holds the coarse email key: it maintains the tenant-wide rules and
+	// applies the rule set across every mailbox of the tenant.
+	Admin bool
+}
+
+// List returns the rules the actor sees in application order (oldest first):
+// the tenant-wide rules plus the actor's own. Someone else's personal rules
+// stay hidden, admins included, like the mailbox they run over.
+func (s *Service) List(ctx context.Context, tenantID uuid.UUID, actor Actor) ([]*models.EmailRule, error) {
+	rules, err := s.repo.List(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(rules, func(r *models.EmailRule) bool {
+		return r.UserID != nil && *r.UserID != actor.UserID
+	}), nil
 }
 
 // GetByID returns one rule of a tenant.
@@ -57,12 +73,15 @@ func (s *Service) GetByID(ctx context.Context, id, tenantID uuid.UUID) (*models.
 	return s.repo.GetByID(ctx, id, tenantID)
 }
 
-// Create validates and stores a new rule.
-func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, in RuleInput) (*models.EmailRule, error) {
+// Create validates and stores a new rule owned by the actor. Every new rule is
+// personal; the tenant-wide ones predate per-user rules (migration 000348).
+func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, actor Actor, in RuleInput) (*models.EmailRule, error) {
 	now := time.Now().UTC()
+	owner := actor.UserID
 	r := &models.EmailRule{
 		ID:        uuid.New(),
 		TenantID:  tenantID,
+		UserID:    &owner,
 		Op:        models.EmailRuleOpContains,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -75,14 +94,14 @@ func (s *Service) Create(ctx context.Context, tenantID uuid.UUID, in RuleInput) 
 	}
 
 	slog.Info("email rule created",
-		"rule_id", r.ID, "tenant_id", tenantID,
+		"rule_id", r.ID, "tenant_id", tenantID, "user_id", owner,
 		"field", r.Field, "action_type", r.ActionType)
 	return r, nil
 }
 
-// Update applies a partial change to an existing rule.
-func (s *Service) Update(ctx context.Context, id, tenantID uuid.UUID, in RuleInput) (*models.EmailRule, error) {
-	r, err := s.repo.GetByID(ctx, id, tenantID)
+// Update applies a partial change to a rule the actor may maintain.
+func (s *Service) Update(ctx context.Context, id, tenantID uuid.UUID, actor Actor, in RuleInput) (*models.EmailRule, error) {
+	r, err := s.maintainable(ctx, id, tenantID, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -97,13 +116,33 @@ func (s *Service) Update(ctx context.Context, id, tenantID uuid.UUID, in RuleInp
 	return r, nil
 }
 
-// Delete removes a rule of the tenant.
-func (s *Service) Delete(ctx context.Context, id, tenantID uuid.UUID) error {
+// Delete removes a rule the actor may maintain.
+func (s *Service) Delete(ctx context.Context, id, tenantID uuid.UUID, actor Actor) error {
+	if _, err := s.maintainable(ctx, id, tenantID, actor); err != nil {
+		return err
+	}
 	if err := s.repo.Delete(ctx, id, tenantID); err != nil {
 		return err
 	}
 	slog.Info("email rule deleted", "rule_id", id, "tenant_id", tenantID)
 	return nil
+}
+
+// maintainable returns the rule when the actor may change or remove it: their
+// own rule, or a tenant-wide one for an admin. Someone else's personal rule
+// answers ErrRuleNotFound, as List does not show it.
+func (s *Service) maintainable(ctx context.Context, id, tenantID uuid.UUID, actor Actor) (*models.EmailRule, error) {
+	r, err := s.repo.GetByID(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case r.UserID == nil && !actor.Admin:
+		return nil, ErrTenantWideRule
+	case r.UserID != nil && *r.UserID != actor.UserID:
+		return nil, ErrRuleNotFound
+	}
+	return r, nil
 }
 
 // applyInput writes the set fields of in onto r and validates the result. The
@@ -157,10 +196,18 @@ func (s *Service) applyInput(ctx context.Context, r *models.EmailRule, in RuleIn
 	// to be a label of this tenant -- without the check a rule could push
 	// messages into a foreign mailbox or stamp a nonexistent label id, neither
 	// of which RLS on email_messages would catch (the row keeps its own
-	// tenant_id through a folder change, and label_ids has no foreign key).
+	// tenant_id through a folder change, and label_ids has no foreign key). A
+	// personal rule may only move into its owner's own mailboxes: a folder of a
+	// colleague's account would hand them the owner's mail.
 	switch r.ActionType {
 	case models.EmailRuleActionMove:
-		ok, err := s.repo.FolderBelongsToTenant(ctx, r.ActionTarget, r.TenantID)
+		var ok bool
+		var err error
+		if r.UserID != nil {
+			ok, err = s.repo.FolderBelongsToUser(ctx, r.ActionTarget, r.TenantID, *r.UserID)
+		} else {
+			ok, err = s.repo.FolderBelongsToTenant(ctx, r.ActionTarget, r.TenantID)
+		}
 		if err != nil {
 			return err
 		}
@@ -189,13 +236,15 @@ type ApplyResult struct {
 	Scanned int
 }
 
-// ApplyAll runs every rule of the tenant over its stored messages and persists
-// the resulting label and folder assignment.
+// ApplyAll runs the rule set over stored messages and persists the resulting
+// label and folder assignment. An admin's run covers every mailbox of the
+// tenant, anyone else's only their own. Either way a message only meets the
+// tenant-wide rules and the personal rules of the user holding its account.
 //
 // Rules are applied in creation order and accumulate: a later move overrides an
 // earlier one, labels add up. That mirrors the frontend's demo behaviour so the
 // switch from the mock to this service does not change what users see.
-func (s *Service) ApplyAll(ctx context.Context, tenantID uuid.UUID) (ApplyResult, error) {
+func (s *Service) ApplyAll(ctx context.Context, tenantID uuid.UUID, actor Actor) (ApplyResult, error) {
 	rules, err := s.repo.List(ctx, tenantID)
 	if err != nil {
 		return ApplyResult{}, err
@@ -204,7 +253,11 @@ func (s *Service) ApplyAll(ctx context.Context, tenantID uuid.UUID) (ApplyResult
 		return ApplyResult{}, nil
 	}
 
-	candidates, err := s.repo.ListApplyCandidates(ctx, tenantID, applyScanLimit)
+	var ownerID *uuid.UUID
+	if !actor.Admin {
+		ownerID = &actor.UserID
+	}
+	candidates, err := s.repo.ListApplyCandidates(ctx, tenantID, ownerID, applyScanLimit)
 	if err != nil {
 		return ApplyResult{}, err
 	}
@@ -239,6 +292,9 @@ func (s *Service) evaluateMessage(ctx context.Context, rules []*models.EmailRule
 	changed := false
 
 	for _, r := range rules {
+		if r.UserID != nil && *r.UserID != c.OwnerID {
+			continue
+		}
 		match, err := s.eval.Evaluate(ctx, models.ConditionConfig{
 			Mode: models.ConditionModeSimple,
 			Simple: &models.Condition{

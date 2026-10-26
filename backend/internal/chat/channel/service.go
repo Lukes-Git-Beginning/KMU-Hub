@@ -2,9 +2,14 @@ package channel
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -630,6 +635,141 @@ func (s *Service) GetOrCreateDM(ctx context.Context, input GetOrCreateDMInput) (
 		"channel_id", channel.ID,
 		"user1", user1,
 		"user2", user2,
+	)
+
+	withRel, relErr := s.getWithRelations(ctx, channel, input.UserID)
+	if relErr != nil {
+		return nil, relErr
+	}
+	return &GetOrCreateDMResult{Channel: withRel, Created: true}, nil
+}
+
+// maxGroupDMMembers caps a group DM, caller included.
+// lean: fixed cap; make it a tenant setting if a customer needs bigger groups
+const maxGroupDMMembers = 50
+
+// maxChannelNameLen matches channels.name VARCHAR(100).
+const maxChannelNameLen = 100
+
+// GetOrCreateGroupDMInput contains the data needed to get or create a group DM
+type GetOrCreateGroupDMInput struct {
+	TenantID       uuid.UUID
+	UserID         uuid.UUID
+	ParticipantIDs []uuid.UUID
+	Name           *string
+}
+
+// groupDMKey identifies a member set independent of order and duplicates:
+// hex SHA-256 over the sorted, comma-joined UUIDs. Stored in
+// channels.dm_group_key, unique per tenant.
+func groupDMKey(members []uuid.UUID) string {
+	ids := make([]string, len(members))
+	for i, m := range members {
+		ids[i] = m.String()
+	}
+	sort.Strings(ids)
+	sum := sha256.Sum256([]byte(strings.Join(ids, ",")))
+	return hex.EncodeToString(sum[:])
+}
+
+// GetOrCreateGroupDM finds the DM for exactly this member set or creates it.
+// The caller is always a member. Two people in total is the 1:1 DM and goes
+// through GetOrCreateDM, so 1:1 DMs keep a single representation.
+func (s *Service) GetOrCreateGroupDM(ctx context.Context, input GetOrCreateGroupDMInput) (*GetOrCreateDMResult, error) {
+	seen := map[uuid.UUID]bool{input.UserID: true}
+	members := []uuid.UUID{input.UserID}
+	for _, id := range input.ParticipantIDs {
+		if !seen[id] {
+			seen[id] = true
+			members = append(members, id)
+		}
+	}
+	if len(members) < 2 {
+		return nil, ErrCannotDMSelf
+	}
+	if len(members) > maxGroupDMMembers {
+		return nil, ErrTooManyDMParticipants
+	}
+	if len(members) == 2 {
+		return s.GetOrCreateDM(ctx, GetOrCreateDMInput{TenantID: input.TenantID, UserID: input.UserID, OtherUserID: members[1]})
+	}
+
+	name := "DM"
+	if input.Name != nil {
+		if trimmed := strings.TrimSpace(*input.Name); trimmed != "" {
+			name = trimmed
+		}
+	}
+	if utf8.RuneCountInString(name) > maxChannelNameLen {
+		return nil, ErrDMNameTooLong
+	}
+
+	// UserExists reads users under the caller's tenant (RLS), so a user of
+	// another tenant is reported as not found.
+	for _, id := range members[1:] {
+		exists, err := s.repo.UserExists(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrUserNotFound
+		}
+	}
+
+	key := groupDMKey(members)
+	existing, findErr := s.repo.FindGroupDMChannel(ctx, key, input.TenantID)
+	if findErr == nil {
+		withRel, relErr := s.getWithRelations(ctx, existing, input.UserID)
+		if relErr != nil {
+			return nil, relErr
+		}
+		return &GetOrCreateDMResult{Channel: withRel, Created: false}, nil
+	}
+	if !errors.Is(findErr, ErrChannelNotFound) {
+		return nil, findErr
+	}
+
+	now := time.Now()
+	channel := &models.Channel{
+		ID:        uuid.New(),
+		TenantID:  input.TenantID,
+		Name:      name,
+		IsPrivate: true,
+		IsDM:      true,
+		CreatedBy: input.UserID,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	memberships := make([]*models.ChannelMembership, len(members))
+	for i, id := range members {
+		memberships[i] = &models.ChannelMembership{
+			ChannelID: channel.ID,
+			UserID:    id,
+			TenantID:  input.TenantID,
+			Role:      models.ChannelRoleMember,
+			JoinedAt:  now,
+		}
+	}
+
+	if createErr := s.repo.CreateGroupDMChannel(ctx, channel, key, memberships); createErr != nil {
+		if !errors.Is(createErr, ErrGroupDMExists) {
+			return nil, createErr
+		}
+		// Lost the race against an identical request: return its channel.
+		existing, findErr = s.repo.FindGroupDMChannel(ctx, key, input.TenantID)
+		if findErr != nil {
+			return nil, findErr
+		}
+		withRel, relErr := s.getWithRelations(ctx, existing, input.UserID)
+		if relErr != nil {
+			return nil, relErr
+		}
+		return &GetOrCreateDMResult{Channel: withRel, Created: false}, nil
+	}
+
+	slog.Info("group dm channel created",
+		"channel_id", channel.ID,
+		"members", len(members),
 	)
 
 	withRel, relErr := s.getWithRelations(ctx, channel, input.UserID)

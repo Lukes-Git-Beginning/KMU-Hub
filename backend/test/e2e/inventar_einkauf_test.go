@@ -230,20 +230,10 @@ func TestInventarEinkaufFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("inventar: member is refused what the preset does not hold", func(t *testing.T) {
+	t.Run("inventar: member is refused what the preset does not hold but transfers stock", func(t *testing.T) {
 		other := createItem(t, fmt.Sprintf("E2E-OTH-%d", suffix), 1, 0)
 
-		// Umbuchung: inventar:item:write is not in the member preset. Open product question,
-		// BACKLOG-NEXT decide-member-manager-module-defaults — update this line with the decision.
-		resp, body := postJSON(t, inv+"/transfer", map[string]interface{}{
-			"from_item_id": stockItemID,
-			"to_item_id":   other,
-			"quantity":     1,
-			"reason":       "E2E transfer",
-		}, memberToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
-
-		resp, body = postJSON(t, fmt.Sprintf("%s/items/%s/adjust", inv, stockItemID), map[string]interface{}{
+		resp, body := postJSON(t, fmt.Sprintf("%s/items/%s/adjust", inv, stockItemID), map[string]interface{}{
 			"delta": 5, "reason": "E2E adjust",
 		}, memberToken)
 		requireStatus(t, resp, body, http.StatusForbidden)
@@ -262,13 +252,14 @@ func TestInventarEinkaufFlow(t *testing.T) {
 			t.Fatalf("refused writes must leave the stock at 2, got %d", got)
 		}
 
-		// The admin can do what the member cannot: the transfer moves one unit.
+		// Umbuchung: a transfer is one "out" plus one "in", so the member's movement:create covers
+		// it (decision 2026-10-25). The transfer moves one unit.
 		resp, body = postJSON(t, inv+"/transfer", map[string]interface{}{
 			"from_item_id": stockItemID,
 			"to_item_id":   other,
 			"quantity":     1,
 			"reason":       "E2E transfer",
-		}, adminToken)
+		}, memberToken)
 		requireStatus(t, resp, body, http.StatusNoContent)
 		if from, to := itemQuantity(t, adminToken, stockItemID), itemQuantity(t, adminToken, other); from != 1 || to != 2 {
 			t.Fatalf("transfer of 1 should give 1 and 2, got %d and %d", from, to)

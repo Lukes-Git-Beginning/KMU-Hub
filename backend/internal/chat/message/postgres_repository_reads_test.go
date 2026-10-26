@@ -410,9 +410,9 @@ func TestPostgresRepository_DMAndChannelInfo(t *testing.T) {
 	}
 
 	// fx.channel is a regular (non-DM) channel — no recipient to resolve.
-	recipient, err := repo.GetDMRecipient(ctxOwn, fx.channel, fx.userA)
-	if err != nil || recipient != nil {
-		t.Fatalf("GetDMRecipient non-DM channel: expected nil recipient, got %v (err %v)", recipient, err)
+	recipients, err := repo.GetDMRecipients(ctxOwn, fx.channel, fx.userA)
+	if err != nil || recipients != nil {
+		t.Fatalf("GetDMRecipients non-DM channel: expected no recipients, got %v (err %v)", recipients, err)
 	}
 
 	dmUser1, dmUser2 := fx.userA, fx.userB
@@ -429,13 +429,52 @@ func TestPostgresRepository_DMAndChannelInfo(t *testing.T) {
 	})
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "channels", dmChannel) })
 
-	other, err := repo.GetDMRecipient(ctxOwn, dmChannel, dmUser1)
-	if err != nil || other == nil || *other != dmUser2 {
-		t.Fatalf("GetDMRecipient from dmUser1: expected dmUser2, got %v (err %v)", other, err)
+	other, err := repo.GetDMRecipients(ctxOwn, dmChannel, dmUser1)
+	if err != nil || len(other) != 1 || other[0] != dmUser2 {
+		t.Fatalf("GetDMRecipients from dmUser1: expected [dmUser2], got %v (err %v)", other, err)
 	}
-	other2, err := repo.GetDMRecipient(ctxOwn, dmChannel, dmUser2)
-	if err != nil || other2 == nil || *other2 != dmUser1 {
-		t.Fatalf("GetDMRecipient from dmUser2: expected dmUser1, got %v (err %v)", other2, err)
+	other2, err := repo.GetDMRecipients(ctxOwn, dmChannel, dmUser2)
+	if err != nil || len(other2) != 1 || other2[0] != dmUser1 {
+		t.Fatalf("GetDMRecipients from dmUser2: expected [dmUser1], got %v (err %v)", other2, err)
+	}
+
+	// Group DM: no pair columns, every member but the sender is notified.
+	userC := testutil.SeedRow(t, pool, "users", map[string]any{
+		"tenant_id":     fx.tenant,
+		"email":         fmt.Sprintf("message-read-c-%s@tenanta.local", uuid.New().String()[:8]),
+		"password_hash": "$argon2id$v=19$test",
+		"first_name":    "Cleo",
+		"last_name":     "Reader",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "users", userC) })
+	groupChannel := testutil.SeedRow(t, pool, "channels", map[string]any{
+		"tenant_id":    fx.tenant,
+		"name":         "DM",
+		"is_dm":        true,
+		"dm_group_key": "message-read-group-" + uuid.New().String(),
+		"created_by":   fx.userA,
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "channels", groupChannel) })
+	for _, u := range []uuid.UUID{fx.userA, fx.userB, userC} {
+		seedMembership(t, pool, groupChannel, u, fx.tenant, models.ChannelRoleMember)
+	}
+
+	got, err := repo.GetDMRecipients(ctxOwn, groupChannel, fx.userA)
+	if err != nil {
+		t.Fatalf("GetDMRecipients group DM: %v", err)
+	}
+	gotSet := map[uuid.UUID]bool{}
+	for _, id := range got {
+		gotSet[id] = true
+	}
+	if len(got) != 2 || !gotSet[fx.userB] || !gotSet[userC] {
+		t.Fatalf("GetDMRecipients group DM from userA: expected userB and userC, got %v", got)
+	}
+
+	// Another tenant cannot resolve the group's members.
+	ctxOther := testutil.WithTenantCtx(context.Background(), fx.otherTenant)
+	if leaked, otherErr := repo.GetDMRecipients(ctxOther, groupChannel, fx.userA); otherErr == nil || len(leaked) != 0 {
+		t.Fatalf("GetDMRecipients from another tenant: expected an error and no ids, got %v (err %v)", leaked, otherErr)
 	}
 }
 

@@ -364,6 +364,19 @@ func (r *PostgresRepository) OwnerExists(ctx context.Context, ownerID uuid.UUID)
 	return exists, err
 }
 
+// IsDirectReport is one level of the reporting line, as in the HR team views
+// (timetracking ReportingLineOf).
+// lean: direct reports only; walk the chain down when deeper sales hierarchies need it.
+func (r *PostgresRepository) IsDirectReport(ctx context.Context, tenantID, managerID, userID uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM hr_employee_profiles
+		                WHERE tenant_id = $1 AND user_id = $2 AND manager_user_id = $3)`,
+		tenantID, userID, managerID,
+	).Scan(&ok)
+	return ok, err
+}
+
 func (r *PostgresRepository) TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error) {
 	var exists bool
 	err := r.pool.QueryRow(ctx,

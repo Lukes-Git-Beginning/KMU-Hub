@@ -45,6 +45,39 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
 }
 
+// Editor narrows a deal write to the caller's scope of crm:deal:create or
+// crm:deal:edit; nil writes tenant-wide. With Team the deal's owner may be the
+// caller or one of their direct reports, otherwise only the caller.
+type Editor struct {
+	UserID uuid.UUID
+	Team   bool
+}
+
+// ownerOf is who a deal belongs to for scoped writes: its owner, else its creator.
+func ownerOf(d *models.Deal) uuid.UUID {
+	if d.OwnerID != nil {
+		return *d.OwnerID
+	}
+	return d.CreatedBy
+}
+
+// checkEditor answers ErrOutsideEditorScope when owner lies outside e's scope.
+func (s *Service) checkEditor(ctx context.Context, tenantID, owner uuid.UUID, e *Editor) error {
+	if e == nil || owner == e.UserID {
+		return nil
+	}
+	if e.Team {
+		ok, err := s.repo.IsDirectReport(ctx, tenantID, e.UserID, owner)
+		if err != nil {
+			return err
+		}
+		if ok {
+			return nil
+		}
+	}
+	return ErrOutsideEditorScope
+}
+
 // CreateInput contains the data needed to create a deal
 type CreateInput struct {
 	TenantID          uuid.UUID
@@ -60,6 +93,7 @@ type CreateInput struct {
 	TagIDs            []uuid.UUID
 	CustomFields      map[uuid.UUID]any // field_id -> value
 	CreatedBy         uuid.UUID
+	Editor            *Editor
 }
 
 // Create creates a new deal
@@ -77,6 +111,14 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.DealWi
 	}
 	if !validCurrencies[currency] {
 		return nil, ErrInvalidCurrency
+	}
+
+	owner := input.CreatedBy
+	if input.OwnerID != nil {
+		owner = *input.OwnerID
+	}
+	if scopeErr := s.checkEditor(ctx, input.TenantID, owner, input.Editor); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	// Validate stage exists
@@ -249,6 +291,7 @@ type UpdateInput struct {
 	ExpectedCloseDate *time.Time
 	Notes             *string
 	CustomFields      map[uuid.UUID]any
+	Editor            *Editor
 }
 
 // Update updates an existing deal, scoped to the given tenant.
@@ -256,6 +299,9 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	deal, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), input.Editor); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	if input.Name != nil {
@@ -328,6 +374,10 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 			}
 			deal.OwnerID = input.OwnerID
 		}
+		// A scoped editor must not hand the deal out of their own scope.
+		if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), input.Editor); scopeErr != nil {
+			return nil, scopeErr
+		}
 	}
 
 	if input.ExpectedCloseDate != nil {
@@ -391,10 +441,13 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 }
 
 // MoveToStage moves a deal to a different pipeline stage, scoped to the given tenant.
-func (s *Service) MoveToStage(ctx context.Context, tenantID, dealID, stageID uuid.UUID) (*models.DealWithRelations, error) {
+func (s *Service) MoveToStage(ctx context.Context, tenantID, dealID, stageID uuid.UUID, editor *Editor) (*models.DealWithRelations, error) {
 	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), editor); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	stage, err := s.repo.GetStage(ctx, stageID)
@@ -458,10 +511,13 @@ func (s *Service) MoveToStage(ctx context.Context, tenantID, dealID, stageID uui
 }
 
 // AddTags adds tags to a deal, scoped to the given tenant.
-func (s *Service) AddTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
+func (s *Service) AddTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID, editor *Editor) (*models.DealWithRelations, error) {
 	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), editor); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	// Validate tags
@@ -483,10 +539,13 @@ func (s *Service) AddTags(ctx context.Context, tenantID, dealID uuid.UUID, tagID
 }
 
 // RemoveTags removes tags from a deal, scoped to the given tenant.
-func (s *Service) RemoveTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID) (*models.DealWithRelations, error) {
+func (s *Service) RemoveTags(ctx context.Context, tenantID, dealID uuid.UUID, tagIDs []uuid.UUID, editor *Editor) (*models.DealWithRelations, error) {
 	deal, err := s.repo.GetByID(ctx, dealID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), editor); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	if removeErr := s.repo.RemoveTags(ctx, dealID, tagIDs); removeErr != nil {

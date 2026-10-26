@@ -217,6 +217,12 @@ type Config struct {
 	SystemSMTPUser     string `env:"SYSTEM_SMTP_USER,default="`
 	SystemSMTPPassword string `env:"SYSTEM_SMTP_PASSWORD,default="`
 	SystemSMTPFrom     string `env:"SYSTEM_SMTP_FROM,default=noreply@zentria.tech"`
+	// EmailDialAllowlist exempts internal mail servers from the email
+	// service's dial filter (security/safedial): comma-separated hostnames,
+	// IPs or CIDR ranges, for self-hosted customers whose IMAP/SMTP server
+	// sits in a private network. Empty = public addresses only. Optional,
+	// never asserted.
+	EmailDialAllowlist string `env:"EMAIL_DIAL_ALLOWLIST,default="`
 	// PasswordResetBaseURL is the frontend origin for reset links.
 	PasswordResetBaseURL string `env:"PASSWORD_RESET_BASE_URL,default=https://app.zentria.tech/reset-password"`
 	// CsatSurveyBaseURL is the frontend origin for helpdesk CSAT survey links;

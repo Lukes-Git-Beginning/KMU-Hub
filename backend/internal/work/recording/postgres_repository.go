@@ -30,11 +30,11 @@ func (r *PostgresRepository) CreateRecording(ctx context.Context, rec *Recording
 
 	_, err = r.pool.Exec(ctx,
 		`INSERT INTO recordings (id, tenant_id, call_id, meeting_id, started_by, consent_snapshot, status,
-		  egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+		  egress_id, file_url, file_size_bytes, duration_seconds, retention_expires_at, created_at, room_name)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NULLIF($14, ''))`,
 		rec.ID, rec.TenantID, rec.CallID, rec.MeetingID, rec.StartedBy, snapshotJSON, rec.Status,
 		rec.EgressID, rec.FileURL, rec.FileSizeBytes, rec.DurationSeconds,
-		rec.RetentionExpiresAt, rec.CreatedAt,
+		rec.RetentionExpiresAt, rec.CreatedAt, rec.RoomName,
 	)
 	return err
 }
@@ -337,27 +337,48 @@ func (r *PostgresRepository) listRecordings(ctx context.Context, query string, a
 	return recordings, rows.Err()
 }
 
-// MarkInitiatorConsent stamps pre_recording_consent_at on a recording row.
+// MarkInitiatorConsent stamps the initiator's confirmation and moves the
+// recording from pending to active. Only the call that performs that move gets
+// claimed=true together with the room name captured at start — the caller starts
+// the egress exactly then. A repeated (or concurrent) stamp on the same row finds
+// no pending row and returns claimed=false: the row lock serialises the UPDATEs,
+// the loser re-checks status = 'pending' and matches nothing.
 // The sentinel UUID 00000000-0000-0000-0000-000000000001 is used as initiator_consent_id.
-// tenantID is enforced in the WHERE clause (recordings.tenant_id added by Migration 000106).
-func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error {
+// tenant_id and started_by are enforced in the WHERE clause: a recording of
+// another user or tenant returns ErrNotFound.
+func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) (string, bool, error) {
 	sentinelConsentID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	tag, err := r.pool.Exec(ctx,
+	var roomName string
+	err := r.pool.QueryRow(ctx,
 		`UPDATE recordings
-		 SET pre_recording_consent_at = NOW(),
+		 SET status = 'active',
+		     pre_recording_consent_at = NOW(),
 		     initiator_consent_id = $1
 		 WHERE id = $2
 		   AND started_by = $3
-		   AND tenant_id = $4`,
+		   AND tenant_id = $4
+		   AND status = 'pending'
+		 RETURNING COALESCE(room_name, '')`,
 		sentinelConsentID, recordingID, userID, tenantID,
-	)
-	if err != nil {
-		return err
+	).Scan(&roomName)
+	if err == nil {
+		return roomName, true, nil
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", false, err
 	}
-	return nil
+
+	var exists bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM recordings WHERE id = $1 AND started_by = $2 AND tenant_id = $3)`,
+		recordingID, userID, tenantID,
+	).Scan(&exists); err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, ErrNotFound
+	}
+	return "", false, nil
 }
 
 // GetPreConsentStatus returns true if pre_recording_consent_at is set on the recording.

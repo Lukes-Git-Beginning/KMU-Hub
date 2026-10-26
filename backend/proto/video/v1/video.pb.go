@@ -188,6 +188,8 @@ const (
 	RecordingStatus_RECORDING_STATUS_COMPLETED   RecordingStatus = 3
 	RecordingStatus_RECORDING_STATUS_FAILED      RecordingStatus = 4
 	RecordingStatus_RECORDING_STATUS_DELETED     RecordingStatus = 5
+	// Created, waiting for the initiator's confirmation; no egress runs yet.
+	RecordingStatus_RECORDING_STATUS_PENDING RecordingStatus = 6
 )
 
 // Enum value maps for RecordingStatus.
@@ -199,6 +201,7 @@ var (
 		3: "RECORDING_STATUS_COMPLETED",
 		4: "RECORDING_STATUS_FAILED",
 		5: "RECORDING_STATUS_DELETED",
+		6: "RECORDING_STATUS_PENDING",
 	}
 	RecordingStatus_value = map[string]int32{
 		"RECORDING_STATUS_UNSPECIFIED": 0,
@@ -207,6 +210,7 @@ var (
 		"RECORDING_STATUS_COMPLETED":   3,
 		"RECORDING_STATUS_FAILED":      4,
 		"RECORDING_STATUS_DELETED":     5,
+		"RECORDING_STATUS_PENDING":     6,
 	}
 )
 
@@ -7150,14 +7154,15 @@ const file_proto_video_v1_video_proto_rawDesc = "" +
 	"\x18MEETING_STATUS_SCHEDULED\x10\x01\x12\x1e\n" +
 	"\x1aMEETING_STATUS_IN_PROGRESS\x10\x02\x12\x1c\n" +
 	"\x18MEETING_STATUS_COMPLETED\x10\x03\x12\x1c\n" +
-	"\x18MEETING_STATUS_CANCELLED\x10\x04*\xcc\x01\n" +
+	"\x18MEETING_STATUS_CANCELLED\x10\x04*\xea\x01\n" +
 	"\x0fRecordingStatus\x12 \n" +
 	"\x1cRECORDING_STATUS_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17RECORDING_STATUS_ACTIVE\x10\x01\x12\x1f\n" +
 	"\x1bRECORDING_STATUS_PROCESSING\x10\x02\x12\x1e\n" +
 	"\x1aRECORDING_STATUS_COMPLETED\x10\x03\x12\x1b\n" +
 	"\x17RECORDING_STATUS_FAILED\x10\x04\x12\x1c\n" +
-	"\x18RECORDING_STATUS_DELETED\x10\x05*\x8f\x01\n" +
+	"\x18RECORDING_STATUS_DELETED\x10\x05\x12\x1c\n" +
+	"\x18RECORDING_STATUS_PENDING\x10\x06*\x8f\x01\n" +
 	"\rPresenceLevel\x12\x18\n" +
 	"\x14PRESENCE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fPRESENCE_ONLINE\x10\x01\x12\x11\n" +

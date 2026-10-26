@@ -511,6 +511,30 @@ func (s *Service) OffboardEmployee(
 	return updated, nil
 }
 
+// ReactivateEmployee brings an offboarded employee back: active personnel
+// record, unlocked login, base role member. The cascade is one transaction in
+// the repository, which also refuses when no seat is left.
+func (s *Service) ReactivateEmployee(ctx context.Context, tenantID, employeeID, actorUserID uuid.UUID) (*models.EmployeeProfile, error) {
+	profile, err := s.employeeRepo.GetByID(ctx, employeeID)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Status != models.EmployeeStatusInactive {
+		return nil, ErrNotOffboarded
+	}
+
+	updated, err := s.employeeRepo.Reactivate(ctx, tenantID, employeeID, profile.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "employee reactivated",
+		"tenant_id", tenantID, "employee_id", employeeID, "user_id", profile.UserID,
+		"actor_id", actorUserID,
+	)
+	return updated, nil
+}
+
 // resolveSuccessor decides whether a successor is needed and whether the named
 // one may take over. Returns nil when the leaver has no reports — naming a
 // successor without reports is harmless and simply has no effect.

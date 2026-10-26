@@ -209,6 +209,15 @@ func (r *PostgresWorkTimeRepo) List(ctx context.Context, filter WorkTimeFilter) 
 		argIdx++
 	}
 
+	if filter.ReportingLineOf != nil {
+		conditions = append(conditions, fmt.Sprintf(
+			`(w.employee_id = $%[1]d OR w.employee_id IN (
+				SELECT rl.user_id FROM hr_employee_profiles rl
+				WHERE rl.tenant_id = w.tenant_id AND rl.manager_user_id = $%[1]d))`, argIdx))
+		args = append(args, *filter.ReportingLineOf)
+		argIdx++
+	}
+
 	where := strings.Join(conditions, " AND ")
 
 	// Count query

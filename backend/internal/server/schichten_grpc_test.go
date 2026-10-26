@@ -171,13 +171,13 @@ func (r *stubSchichtenRepo) GetAssignment(_ context.Context, tenantID, shiftID, 
 	return nil, schichten.ErrAssignmentNotFound
 }
 
-func (r *stubSchichtenRepo) ListAssignments(_ context.Context, tenantID, shiftID uuid.UUID) ([]*schichten.ShiftAssignment, error) {
+func (r *stubSchichtenRepo) ListAssignments(_ context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*schichten.ShiftAssignment, error) {
 	if r.forceErr != nil {
 		return nil, r.forceErr
 	}
 	var out []*schichten.ShiftAssignment
 	for _, a := range r.assignments {
-		if a.TenantID == tenantID && a.ShiftID == shiftID {
+		if a.TenantID == tenantID && a.ShiftID == shiftID && (ownUserID == nil || a.EmployeeID == *ownUserID) {
 			out = append(out, a)
 		}
 	}
@@ -216,6 +216,13 @@ func (r *stubSchichtenRepo) ShiftExistsForTemplate(_ context.Context, _ uuid.UUI
 		return false, r.forceErr
 	}
 	return r.existingTemplate, nil
+}
+
+func (r *stubSchichtenRepo) HasOverlappingAssignmentForEmployee(_ context.Context, _, _, _ uuid.UUID, _, _ time.Time) (bool, error) {
+	if r.forceErr != nil {
+		return false, r.forceErr
+	}
+	return false, nil
 }
 
 func (r *stubSchichtenRepo) IsMinorEmployee(_ context.Context, _, employeeID uuid.UUID) (bool, error) {
@@ -329,6 +336,10 @@ func (r *stubSchichtenRepo) GetSwapRequest(_ context.Context, tenantID, requestI
 	return req, nil
 }
 
+func (r *stubSchichtenRepo) IsOwnEmployeeID(_ context.Context, _, employeeID, userID uuid.UUID) (bool, error) {
+	return employeeID == userID, nil
+}
+
 func (r *stubSchichtenRepo) ListSwapRequests(_ context.Context, tenantID uuid.UUID, filter schichten.SwapRequestFilter, offset, limit int) ([]*schichten.SwapRequest, int, error) {
 	if r.forceErr != nil {
 		return nil, 0, r.forceErr
@@ -374,10 +385,15 @@ func (r *stubSchichtenRepo) WithAssignmentLock(_ context.Context, _, _, _ uuid.U
 	return fn(r)
 }
 
-func (r *stubSchichtenRepo) SwapAssignmentsForRequest(_ context.Context, _ *schichten.SwapRequest) error {
+func (r *stubSchichtenRepo) HandOverAssignment(_ context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error {
 	if r.forceErr != nil {
 		return r.forceErr
 	}
+	a, ok := r.assignments[assignmentID]
+	if !ok || a.TenantID != tenantID || a.ShiftID != shiftID || a.EmployeeID != from {
+		return schichten.ErrAssignmentNotFound
+	}
+	a.EmployeeID = to
 	return nil
 }
 
@@ -1014,8 +1030,11 @@ func TestSchichten_GetShiftStats(t *testing.T) {
 // seatFor assigns employeeID to a fresh shift and returns the (assignment_id, shift_id) pair a
 // swap request for that seat must carry; CreateSwapRequest rejects any other pair.
 func seatFor(repo *stubSchichtenRepo, tenantID, employeeID string) (assignmentID, shiftID string) {
+	start := time.Date(2030, 3, 4, 8, 0, 0, 0, time.UTC)
+	shift := &schichten.Shift{ID: uuid.New(), TenantID: uuid.MustParse(tenantID), StartTime: start, EndTime: start.Add(8 * time.Hour)}
+	repo.shifts[shift.ID] = shift
 	a := &schichten.ShiftAssignment{
-		ID: uuid.New(), TenantID: uuid.MustParse(tenantID), ShiftID: uuid.New(), EmployeeID: uuid.MustParse(employeeID),
+		ID: uuid.New(), TenantID: shift.TenantID, ShiftID: shift.ID, EmployeeID: uuid.MustParse(employeeID),
 	}
 	repo.assignments[a.ID] = a
 	return a.ID.String(), a.ShiftID.String()

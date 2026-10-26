@@ -311,7 +311,13 @@ func (w *WorkRoutes) HandleDeleteTask(wr http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, err = client.DeleteTask(r.Context(), &workv1.DeleteTaskRequest{Id: taskID})
+	// At scope own of work:task:delete (member) the service deletes only tasks
+	// the caller created; legacy tasks:delete beyond own keeps it tenant-wide.
+	ownerID, ok := ownerFilterUnlessAltKey(wr, r, [2]string{"tasks", "delete"}, "work:task", "delete")
+	if !ok {
+		return
+	}
+	_, err = client.DeleteTask(r.Context(), &workv1.DeleteTaskRequest{Id: taskID, OwnerId: ownerID})
 	if err != nil {
 		respondGRPCError(wr, err)
 		return

@@ -10,18 +10,29 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
+	hrv1 "github.com/kmuhub/kmuhub/proto/hr/v1"
 )
 
 // DashboardRoutes handles HTTP routes for dashboard layout management.
 // Unlike other route registrars that proxy to gRPC services, this one
 // operates directly against the gateway's PostgreSQL pool via a local service.
+// The team-worktime widget is the exception: its data lives in the HR service and goes over
+// the biz gRPC connection like every other HR read.
 type DashboardRoutes struct {
-	service *DashboardService
+	service  *DashboardService
+	registry *ServiceRegistry // optional: biz connection for the team-worktime widget
 }
 
 // NewDashboardRoutes creates a new DashboardRoutes.
 func NewDashboardRoutes(service *DashboardService) *DashboardRoutes {
 	return &DashboardRoutes{service: service}
+}
+
+// WithHR wires the biz connection for GET /dashboard/team-worktime. Without it that route
+// answers 503 and the layout routes are unaffected.
+func (d *DashboardRoutes) WithHR(registry *ServiceRegistry) *DashboardRoutes {
+	d.registry = registry
+	return d
 }
 
 // ServiceName returns the backend service name.
@@ -38,10 +49,69 @@ func (d *DashboardRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		r.Put("/layout", d.HandleSaveDashboard)
 		r.Delete("/layout", d.HandleResetToDefaults)
 
+		// No guard beyond authentication: a caller without a team grant gets an empty list,
+		// the widget shows its empty state instead of an error.
+		r.Get("/team-worktime", d.HandleGetTeamWorktime)
+
 		// Admin-only role default endpoints
 		r.With(middleware.RequireRole("admin")).Get("/defaults/{role}", d.HandleGetDefaults)
 		r.With(middleware.RequireRole("admin")).Put("/defaults/{role}", d.HandleSaveDefaults)
 	})
+}
+
+// ============================================================================
+// Team Worktime Widget
+// ============================================================================
+
+// teamWorktimePerms are the grants of GET /hr/time/team; the widget shows the same list.
+var teamWorktimePerms = [][2]string{{"hr", "read"}, {"zeiterfassung:team", "view"}}
+
+// teamWorktimeMember is one bar of the widget: the employee's worked minutes this week.
+type teamWorktimeMember struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Minutes int32  `json:"minutes"`
+}
+
+// HandleGetTeamWorktime returns this week's worked minutes of the caller's team as
+// {members: [...]}. Reach follows GET /hr/time/team: the whole tenant at scope all, the
+// reporting line otherwise (enforced by the HR service). A caller holding neither grant gets
+// an empty list without a call, so a member never sees anyone's hours.
+func (d *DashboardRoutes) HandleGetTeamWorktime(w http.ResponseWriter, r *http.Request) {
+	members := []teamWorktimeMember{}
+	if !middleware.HoldsAnyPermission(r.Context(), teamWorktimePerms[0], teamWorktimePerms[1:]...) {
+		response.JSON(w, http.StatusOK, map[string]any{"members": members})
+		return
+	}
+
+	tenantID, err := getTenantID(r)
+	if err != nil {
+		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
+		return
+	}
+	if d.registry == nil {
+		respondServiceUnavailable(w, "biz")
+		return
+	}
+	conn, err := d.registry.GetConnection("biz")
+	if err != nil {
+		respondServiceUnavailable(w, "biz")
+		return
+	}
+
+	resp, err := hrv1.NewHRServiceClient(conn).GetTeamTime(r.Context(), &hrv1.GetTeamTimeReq{
+		TenantId: tenantID,
+		Scope:    narrowestScopeAny(r.Context(), teamWorktimePerms...),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	for _, e := range resp.GetTeam() {
+		members = append(members, teamWorktimeMember{ID: e.GetEmployeeId(), Name: e.GetName(), Minutes: e.GetWeekMinutes()})
+	}
+	response.JSON(w, http.StatusOK, map[string]any{"members": members})
 }
 
 // ============================================================================

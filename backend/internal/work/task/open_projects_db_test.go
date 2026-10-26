@@ -71,14 +71,14 @@ func TestOpenProjects_RealSQL(t *testing.T) {
 	if _, err := open.Create(ctxOwn, CreateInput{TenantID: tenantOwn, ProjectID: &projectOther, Title: "t", CreatedBy: nonMember}); !errors.Is(err, project.ErrNotFound) {
 		t.Fatalf("open: create in another tenant's project want project.ErrNotFound, got %v", err)
 	}
-	if err := open.Delete(ctxOwn, tenantOwn, taskOther, nonMember); !errors.Is(err, ErrNotFound) {
+	if err := open.Delete(ctxOwn, tenantOwn, taskOther, nonMember, nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("open: delete of another tenant's task want ErrNotFound, got %v", err)
 	}
 
-	if err := open.Delete(ctxOwn, tenantOwn, created.ID, nonMember); err != nil {
+	if err := open.Delete(ctxOwn, tenantOwn, created.ID, nonMember, nil); err != nil {
 		t.Fatalf("open: non-member delete: %v", err)
 	}
-	if err := closed.Delete(ctxOwn, tenantOwn, created.ID, nonMember); !errors.Is(err, ErrNotFound) {
+	if err := closed.Delete(ctxOwn, tenantOwn, created.ID, nonMember, nil); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted task must be gone, got %v", err)
 	}
 }

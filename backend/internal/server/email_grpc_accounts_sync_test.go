@@ -19,6 +19,7 @@ import (
 	emailsync "github.com/kmuhub/kmuhub/internal/email/sync"
 	"github.com/kmuhub/kmuhub/internal/email/template"
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 )
 
@@ -457,6 +458,7 @@ func TestSetDefaultEmailAccount_NotFound(t *testing.T) {
 
 func TestTestEmailConnection_Unreachable(t *testing.T) {
 	srv := newTestEmailAccountsServer(newStubAccountRepo(), newStubFolderRepo())
+	srv.accountService.WithDialGuard(loopbackDialGuard()) // reach the dial, not the host check
 
 	resp, err := srv.TestEmailConnection(context.Background(), &emailv1.TestEmailConnectionRequest{
 		ImapHost: "127.0.0.1",
@@ -467,6 +469,45 @@ func TestTestEmailConnection_Unreachable(t *testing.T) {
 	requireGRPCOK(t, err) // a connection failure is reported in the response, not as a gRPC error
 	require.False(t, resp.ImapOk)
 	require.NotEmpty(t, resp.ImapError)
+}
+
+// loopbackDialGuard allowlists 127.0.0.1, the address the fake mail servers in
+// these tests listen on — as a self-hosted customer allowlists an internal one.
+func loopbackDialGuard() *safedial.Guard {
+	g, err := safedial.New("127.0.0.1")
+	if err != nil {
+		panic(err)
+	}
+	return g
+}
+
+// Without an allowlist entry an internal host is refused before any dial:
+// TestEmailConnection reports it, Create and Update reject it with 400.
+func TestEmailAccountHosts_InternalAddressRejected(t *testing.T) {
+	repo := newStubAccountRepo()
+	srv := newTestEmailAccountsServer(repo, newStubFolderRepo())
+	tenantID, userID := uuid.New(), uuid.New()
+	ctx := ctxWithActorAndTenant(userID, tenantID)
+
+	resp, err := srv.TestEmailConnection(ctx, &emailv1.TestEmailConnectionRequest{
+		ImapHost: "127.0.0.1", ImapPort: 993, Username: "x", Password: "x",
+	})
+	requireGRPCOK(t, err)
+	require.False(t, resp.ImapOk)
+	require.Contains(t, resp.ImapError, account.ErrHostNotAllowed.Error())
+
+	for _, req := range []*emailv1.CreateEmailAccountRequest{
+		{EmailAddress: "a@example.com", ImapHost: "10.0.0.5", SmtpHost: "93.184.216.34", Username: "u", Password: "p"},
+		{EmailAddress: "a@example.com", ImapHost: "93.184.216.34", SmtpHost: "::1", Username: "u", Password: "p"},
+	} {
+		_, err := srv.CreateEmailAccount(ctx, req)
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	}
+
+	acct := seedEmailAccount(repo, tenantID, userID, true)
+	internal := "172.16.0.9"
+	_, err = srv.UpdateEmailAccount(ctx, &emailv1.UpdateEmailAccountRequest{Id: acct.ID.String(), SmtpHost: &internal})
+	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 // ---------------------------------------------------------------------------

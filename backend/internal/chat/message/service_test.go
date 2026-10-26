@@ -258,7 +258,7 @@ func (m *MockRepository) GetFilesByMessageIDs(_ context.Context, _ []uuid.UUID) 
 	return make(map[uuid.UUID][]models.ChatFileWithUploader), nil
 }
 
-func (m *MockRepository) GetDMRecipient(_ context.Context, _ uuid.UUID, _ uuid.UUID) (*uuid.UUID, error) {
+func (m *MockRepository) GetDMRecipients(_ context.Context, _ uuid.UUID, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
 

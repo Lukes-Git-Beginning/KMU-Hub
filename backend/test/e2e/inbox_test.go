@@ -180,6 +180,28 @@ func TestInboxTeamAndRoutingFlow(t *testing.T) {
 		}
 	})
 
+	t.Run("member_reads_its_team_inbox", func(t *testing.T) {
+		// kommunikation:team_inbox:read (decision 2026-10-25): a member reads
+		// the team inboxes it belongs to, bounded by membership.
+		resp, body := getJSON(t, base+"/api/v1/inbox/teams", memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if inboxItemByID(inboxArray(t, body), teamID) == nil {
+			t.Errorf("member does not see its team inbox: %s", string(body))
+		}
+
+		if inboxMemberByUser(inboxMembers(t, base, teamID, memberToken), memberID) == nil {
+			t.Error("member does not find itself in its team's member list")
+		}
+
+		resp, body = getJSON(t, base+"/api/v1/inbox/messages?team_inbox_id="+teamID, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		var list map[string]interface{}
+		decodeBody(t, body, &list)
+		if _, ok := list["messages"].([]interface{}); !ok {
+			t.Errorf("messages is not an array: %s", string(body))
+		}
+	})
+
 	t.Run("adding_a_member_twice_conflicts", func(t *testing.T) {
 		resp, body := postJSON(t, base+"/api/v1/inbox/teams/"+teamID+"/members", map[string]interface{}{
 			"user_id": memberID,
@@ -231,6 +253,22 @@ func TestInboxTeamAndRoutingFlow(t *testing.T) {
 
 		if inboxMemberByUser(inboxMembers(t, base, teamID, creatorToken), memberID) != nil {
 			t.Error("removed member is still listed")
+		}
+	})
+
+	t.Run("removed_member_loses_the_team_inbox", func(t *testing.T) {
+		resp, body := getJSON(t, base+"/api/v1/inbox/teams", memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if inboxItemByID(inboxArray(t, body), teamID) != nil {
+			t.Errorf("removed member still lists the team inbox: %s", string(body))
+		}
+
+		resp, body = getJSON(t, base+"/api/v1/inbox/messages?team_inbox_id="+teamID, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		var list map[string]interface{}
+		decodeBody(t, body, &list)
+		if msgs, _ := list["messages"].([]interface{}); len(msgs) != 0 {
+			t.Errorf("removed member still reads team messages: %s", string(body))
 		}
 	})
 

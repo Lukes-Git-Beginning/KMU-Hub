@@ -17,6 +17,17 @@
 # CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-11.md.
 #
 # ==========================================================================================
+# STAND NACH DER ENTSCHEIDUNGSRUNDE 2026-10-25 (Vorbereitung Lauf 17)
+#
+# 26 Entscheidungs-Units in sieben Runden entschieden. Alles Baubare ist nach BACKLOG.yml
+# verschoben (die Entscheidung steht dort je Unit im Feld `decision`). Hier geblieben: die FE-Arbeit
+# (zwei neue fe-Units am Dateiende), `decide-retention-periods-unbounded-personal-tables` mit dem
+# Rest der Tabellen, der Backup-Wächter (tagsüber) und die Units, die bewusst an Legal, Pilot oder
+# einem echten DATEV-Import hängen (retention-hgb-ao, rename x2, datev-field8, gobd-integrity,
+# document-access-baseline). Liste aller Entscheidungen: Laufkontext in JOURNAL.md (Lauf 17).
+# ==========================================================================================
+#
+# ==========================================================================================
 # STAND NACH DER ENTSCHEIDUNGSRUNDE 2026-08-24
 #
 # `wire-biz-event-emitters-for-finance-triggers` ist entschieden (verdrahten) und nach
@@ -192,6 +203,11 @@ units:
     model: opus
     deps: []
     status: blocked
+    stand_2026_10_25: >-
+      Entscheidungsrunde Lauf 17: Lieferantendaten mit Kontaktbezug (`suppliers.contact_id`, im DSAR
+      offengelegt, bei Löschung nicht gescrubbt) gelten als Geschäftsdaten mit HGB-Aufbewahrung und
+      hängen jetzt an DIESER Unit. Die Inspektionsfotos der Vermietung baut Lauf 17
+      (`feat-erasure-deletes-rental-inspection-photos`).
     decided: 2026-08-24
     decision: >-
       AUFGETEILT, Entscheidung Luke 2026-08-24 (A6). Die urspruengliche Sammel-Unit
@@ -301,351 +317,18 @@ units:
 # mit Entscheidungsbedarf in der Arbeitsqueue steht.
 # ==========================================================================================
 
-  - id: decide-dunning-interest-feature
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: sollen Verzugszinsen nach Paragraph 288 BGB ueberhaupt ein
-      Feature sein? Wettbewerbsdifferenzierung gegen zusaetzliche Komplexitaet in einer
-      Geldflaeche.
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    scope: >
-      BEFUND aus Lauf 11 (`verify-dunning-calculate-interest-unreachable`, done, Iteration 12):
-      `dunning.CalculateInterest` (`internal/biz/dunning/service.go:415-458`) hat NULL Aufrufer
-      im Produktionscode — ein Grep nach "CalculateInterest" findet nur die Definition und die
-      Tests. `models.DunningConfig` (`internal/models/finance.go:318`) traegt keinen
-      Basiszinssatz, nur drei Gebuehren. Verzugszinsen werden also nie berechnet, und der
-      Divisor ist fest 365.
-      Die Verify-Unit aus Lauf 11 hat aufgeraeumt und dokumentiert, aber ausdruecklich NICHTS
-      verdrahtet ("DIESE UNIT VERDRAHTET KEINE VERZUGSZINSEN"). Die eigentliche Frage — bauen
-      wir das Feature? — stand seither nirgends als Unit.
-      WAS ZU ENTSCHEIDEN IST: (a) Feature bauen. Dann braucht `DunningConfig` einen
-      Basiszinssatz, der Basiszinssatz der Bundesbank aendert sich halbjaehrlich und muss
-      gepflegt werden, und der Divisor 365 gehoert geprueft (Paragraph 288 rechnet
-      taggenau). (b) Ersatzlos streichen: `CalculateInterest` entfernen, damit kein
-      spaeterer Scan sie wieder als "toten Code" meldet.
-    sources:
-      - backend/internal/biz/dunning/service.go
-      - backend/internal/models/finance.go
-      - .planning/backend-block/loop/archive/lauf-11/JOURNAL.md
-    notes: >
-      Bei (a) ist der Basiszinssatz das eigentliche Problem, nicht die Rechnung: ein Wert, der
-      sich halbjaehrlich aendert und den niemand pflegt, produziert nach zwei Jahren falsche
-      Mahnungen. Wer (a) waehlt, entscheidet mit, WER ihn pflegt.
-    done_when:
-      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
-      - Bei (a) ist eine spitze Unit in BACKLOG.yml angelegt, inkl. der Pflegefrage
-      - Bei (b) ist eine Aufraeum-Unit in BACKLOG.yml angelegt
-
-  - id: decide-einvoice-inbound-codelist-validation
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: sollen EINGANGSrechnungen gegen dieselbe Waehrungs- und
-      Kategorie-Whitelist laufen wie ausgehende? Strenger heisst weniger stille Fehler, aber
-      auch abgelehnte Rechnungen von Lieferanten, die es anders machen.
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    scope: >
-      BEFUND aus Lauf 11, Iteration 52: die Whitelist aus A5
-      (`feat-einvoice-codelist-validation`, done) deckt nur den OUTBOUND-Generator ab. Fuer
-      Eingangsrechnungen (`internal/biz/einvoice/parser.go`) gibt es kein Pendant.
-      Die Wirkung ist asymmetrisch: was wir senden, ist normkonform; was wir empfangen,
-      nehmen wir ungeprueft an. Ein Lieferant mit einem exotischen Waehrungscode oder einer
-      unbekannten Kategorie erzeugt dann eine Rechnung im System, die spaeter beim Export an
-      DATEV auffaellt — an der teuersten Stelle.
-      WAS ZU ENTSCHEIDEN IST: (a) Inbound streng validieren und ablehnen; (b) inbound
-      validieren und nur WARNEN (Rechnung annehmen, Befund protokollieren); (c) so lassen.
-    sources:
-      - backend/internal/biz/einvoice/parser.go
-      - backend/internal/biz/einvoice/validation.go
-      - backend/internal/biz/einvoice/generator_doc.go
-    notes: >
-      (b) ist der wahrscheinlich richtige Kompromiss: eine abgelehnte Eingangsrechnung ist ein
-      Support-Fall beim Kunden, eine protokollierte Auffaelligkeit nicht. Aber das ist eine
-      Produktentscheidung, keine technische — deshalb steht sie hier.
-      Das Paket fuehrt inzwischen 48 EN-16931-Regel-IDs (Stand 2026-08-24); die
-      Regel-Infrastruktur ist also da, es fehlt nur die Anwendung auf den Inbound-Pfad.
-    done_when:
-      - Die Entscheidung (a), (b) oder (c) steht mit Begruendung und Datum in dieser Unit
-      - Bei (a) oder (b) ist eine spitze Unit in BACKLOG.yml angelegt
-
-  - id: decide-payment-currency-column
-    phase: 4
-    service: biz
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      DATENMODELL-ENTSCHEIDUNG LUKE: bekommt `finance_payments` eine eigene
-      `currency`-Spalte? Das ist eine Migration auf einer Geldtabelle und laesst sich nicht
-      halb machen.
-    target: "Entscheidung Luke, danach als opus-Unit mit Migration nach BACKLOG.yml"
-    scope: >
-      BEFUND aus Lauf 11 (Iterationen 61, 64, 69). Drei blinde Waehrungssummierungen wurden
-      behoben (`fix-dashboard-metrics-blind-currency-sum`,
-      `fix-berichte-kpi-blind-currency-sum`, `fix-gobd-export-missing-currency-column`). Bei
-      allen dreien blieb dieselbe Ursache stehen: `finance_payments` traegt keine eigene
-      Waehrung. Eine Zahlung erbt implizit die Waehrung der Rechnung, an der sie haengt —
-      solange jede Zahlung genau einer Rechnung zugeordnet ist, geht das gut.
-      WAS ZU ENTSCHEIDEN IST: (a) Spalte einfuehren (Migration, Backfill aus der Rechnung,
-      alle Lesepfade nachziehen); (b) beim impliziten Erben bleiben und das mit einem
-      `lean:`-Marker samt Upgrade-Trigger festschreiben ("erste Zahlung ohne
-      Rechnungsbezug").
-    sources:
-      - backend/internal/biz/payment/
-      - backend/migrations
-      - backend/internal/biz/dashboard/postgres_repository.go
-    notes: >
-      (b) ist heute vertretbar und kostet nichts. Der Upgrade-Trigger ist wichtig: sobald es
-      eine Zahlung ohne Rechnungsbezug gibt (Vorauszahlung, Gutschrift, Sammelzahlung), ist
-      die implizite Erbung falsch und niemand merkt es.
-      Wenn (a): Backfill und Lesepfade in EINER Unit, nicht in einer Kette.
-    done_when:
-      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
-      - Bei (a) ist eine opus-Unit mit Migration in BACKLOG.yml angelegt
-      - Bei (b) ist eine kleine Unit angelegt, die den lean:-Marker samt Trigger setzt
-
-  - id: decide-adhoc-invoice-currency
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: soll eine Ad-hoc-Rechnung eine Fremdwaehrung anbieten? Das
-      betrifft die Oberflaeche, nicht nur das Backend.
-    target: "Entscheidung Luke gemeinsam mit Darien, danach als Unit nach BACKLOG.yml"
-    scope: >
-      BEFUND aus Lauf 11, Schwester von `decide-payment-currency-column`. Eine Rechnung, die
-      nicht aus einem Angebot entsteht, bekommt ihre Waehrung heute aus den
-      Tenant-Einstellungen. Ob der Nutzer sie beim Anlegen abweichend setzen koennen soll,
-      ist nicht entschieden.
-      WAS ZU ENTSCHEIDEN IST: (a) Fremdwaehrung anbieten — dann braucht es einen Kurs zum
-      Rechnungsdatum, sonst ist die Umrechnung fuer DATEV und GoBD nicht nachvollziehbar;
-      (b) auf der Tenant-Waehrung bleiben und das festschreiben.
-    sources:
-      - backend/internal/biz/invoice/service.go
-      - backend/internal/settings/
-      - backend/internal/biz/datev/exporter.go
-    notes: >
-      (a) ist deutlich teurer, als es aussieht: ein Waehrungskurs zum Rechnungsdatum ist ein
-      eigener Datenbestand mit eigener Pflege, und DATEV verlangt fuer Fremdwaehrungsbelege
-      Kurs und Umrechnung im Export.
-      Diese Entscheidung beruehrt die Oberflaeche und gehoert deshalb mit Darien abgestimmt,
-      nicht allein technisch getroffen.
-    done_when:
-      - Die Entscheidung (a) oder (b) steht mit Begruendung und Datum in dieser Unit
-      - Bei (a) ist die Kursfrage mitentschieden (woher kommt der Kurs, wer pflegt ihn)
-      - Eine Unit in BACKLOG.yml ist angelegt, die die Entscheidung umsetzt
-
-
-  - id: decide-email-messages-contact-pii-on-anonymize
-    phase: 4
-    service: crm
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: sollen `email_messages.from_name`/`.from_email`/`.body_text`/
-      `.body_html`/`.raw_headers` beim Anonymisieren eines Kontakts angefasst werden? Das ist
-      dieselbe Abwaegung wie bei deals/meetings (siehe `ScrubDependentPII`-Godoc in
-      `internal/crm/consent/scrub.go`) - nur potenziell mit einer echten Aufbewahrungspflicht
-      fuer Geschaeftskorrespondenz (Paragraph 257 HGB) auf der anderen Seite.
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    coverage_start: "n.a. (Entscheidungs-Unit, kein Coverage-Ziel)"
-    scope: >
-      BEFUND aus `feat-scrub-dependent-pii-inbox-rentals-contracts` (Iteration 12, Lauf 12):
-      die Unit verlangte, `inbox_messages.preview` zu pruefen, weil das Feld ein abgeleitetes
-      Feld ist, dessen Quelle in `email_messages` liegt. `ScrubDependentPII` scrubt jetzt
-      `inbox_messages.preview` direkt (die Vorschau-Kopie), aber `email_messages` selbst -
-      die eigentliche Quelle - bleibt unangetastet. `email_messages`
-      (`backend/migrations/000041_create_email_tables.up.sql:44-70`) traegt `from_name`,
-      `from_email` (NOT NULL), `body_text`, `body_html`, `raw_headers` im Klartext. Die
-      Verknuepfung zu einem CRM-Kontakt laeuft nicht ueber eine direkte Spalte, sondern ueber
-      `email_contact_links` (message_id, contact_id, `ON DELETE CASCADE` von `contacts`) -
-      die Verlinkung faellt beim Hard-Delete automatisch weg, bleibt aber beim Anonymisieren
-      (Kontaktzeile bleibt bestehen) unveraendert bestehen und zeigt weiter auf die
-      unveraenderte E-Mail.
-      WAS ZU ENTSCHEIDEN IST: (a) `email_messages`-Felder fuer verlinkte Kontakte beim
-      Anonymisieren scrubben (Namensfelder + evtl. Body-Text/-HTML) - Risiko: blindes
-      Scrubben von Freitext kann legitime Geschaeftskorrespondenz beschaedigen, und
-      Paragraph 257 HGB verlangt unter Umstaenden 6 Jahre Aufbewahrung fuer Handelsbriefe,
-      wozu Geschaefts-E-Mails zaehlen koennen. (b) Bewusst als Residualrisiko wie
-      deals/meetings einstufen und in der `ScrubDependentPII`-Godoc-Liste "Deliberately NOT
-      scrubbed" dokumentieren, mit Begruendung.
-    sources:
-      - backend/internal/crm/consent/scrub.go
-      - backend/migrations/000041_create_email_tables.up.sql
-      - backend/internal/email/
-    notes: >
-      Nur `from_name`/`from_email` sind eindeutig personenbezogen und leicht zu scrubben ohne
-      Seiteneffekte; `body_text`/`body_html`/`raw_headers` sind der eigentliche
-      Korrespondenzinhalt und tragen dieselbe HGB-Frage wie bei Rechnungen (`finance_invoices`,
-      siehe bestehende Godoc-Ausnahme). Eine Teilentscheidung (nur die Namensfelder scrubben,
-      Body/Headers als Residualrisiko stehen lassen) ist ebenfalls eine gueltige Option (c).
-    done_when:
-      - Die Entscheidung (a), (b) oder (c) steht mit Begruendung und Datum in dieser Unit
-      - Bei (a) oder (c) ist eine spitze Unit in BACKLOG.yml angelegt
-      - Bei (b) ist eine kleine Unit angelegt, die nur die Godoc-Ausnahme ergaenzt
-
-  - id: decide-schichten-assign-employee-overlap-guard
-    phase: 4
-    service: schichten
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: soll `Service.AssignEmployee` eine echte Kollisionspruefung
-      bekommen (derselbe Mitarbeiter zweimal gleichzeitig eingeteilt)? Das ist ausdruecklich
-      in der Unit `cov-gateway-schichten-shifts-and-templates` (Lauf 13) als Feststellung
-      verlangt, nicht als Fix.
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    coverage_start: "n.a. (Entscheidungs-Unit, kein Coverage-Ziel)"
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-27, gefunden beim Bauen von
-      `cov-gateway-schichten-shifts-and-templates`, siehe
-      `TestService_AssignEmployee_BUG_OverlappingShiftsNotRejected`,
-      `internal/schichten/service_test.go`). `Service.AssignEmployee` (service.go:273) prueft
-      Kapazitaet, ArbZG-Ruhezeit (`validateRestPeriod`, bidirektional vor/nach der neuen
-      Schicht) und JArbSchG-Minderjahrigenschutz, aber keinen direkten Zeit-Overlap: eine
-      neue Schicht, die vollstaendig INNERHALB einer bereits zugewiesenen Schicht desselben
-      Mitarbeiters liegt, findet in keiner der beiden Ruhezeit-Richtungen einen Treffer
-      (`LatestShiftEndBeforeForEmployee`/`EarliestShiftStartAfterForEmployee` suchen jeweils
-      NACH der neuen Schicht endende bzw. VOR ihr beginnende Nachbarschichten, nicht nach
-      echter Ueberlappung). Ein Mitarbeiter kann so doppelt fuer sich ueberschneidende
-      Zeitraeume eingeteilt werden.
-    sources:
-      - backend/internal/schichten/service.go
-      - backend/internal/schichten/postgres_repository.go
-      - backend/internal/schichten/service_test.go
-    notes: >
-      Ein echter Fix braucht eine neue Repository-Abfrage (z. B.
-      `HasOverlappingAssignmentForEmployee(tenantID, employeeID, start, end)` via
-      `tstzrange`-Overlap-Operator `&&` in Postgres) und einen neuen Guard in
-      `AssignEmployee`, analog zu Guard 1-3. Zu klaeren: soll der Guard hart ablehnen, oder
-      -- wie bei ArbZG -- nur fuer den Compliance-Endpoint `CheckArbzgCompliance` als Warnung
-      auftauchen? Schichttausch (`SwapRequest`) muesste denselben Guard beim Genehmigen
-      durchlaufen, sonst entsteht die Ueberschneidung dort neu.
-    done_when:
-      - >-
-        Die Entscheidung (Guard bauen ja/nein, hart ablehnen vs. nur warnen) steht mit
-        Begruendung und Datum in dieser Unit
-      - Bei "ja": eine spitze Unit in BACKLOG.yml angelegt, inkl. SwapRequest-Genehmigung
-
-  - id: fix-fuhrpark-delete-driver-license-no-last-check-guard
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: harter Block (409/FailedPrecondition) beim Loeschen der
-      neuesten Fuehrerscheinkontrollzeile eines Fahrers, ODER Loeschen erlaubt (Tippfehler-
-      Korrektur) plus Audit-Event? Die Unit selbst verlangt die Klaerung vor dem Bauen.
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-licenses-and-documents` (Iteration 17, Lauf 12).
-      `driver_licenses` fuehrt eine Zeile je durchgefuehrter Fuehrerscheinkontrolle; die
-      JEWEILS LETZTE Zeile je `driver_id` ist der aktuelle Kontrollstand und der Nachweis
-      der Halterpflicht (siehe `internal/gateway/route_fuhrpark.go` HandleDeleteDriverLicense
-      Doc-Kommentar). `Service.DeleteDriverLicense` (`internal/fuhrpark/service.go:849`)
-      delegiert ungeprueft an `PostgresRepository.DeleteDriverLicense`
-      (`internal/fuhrpark/postgres_repository.go:948`), die jede Zeile per `id` loescht — ohne
-      zu pruefen, ob es die einzige oder juengste Kontrollzeile fuer ihren `driver_id` ist. Der
-      Gateway-Handler `HandleDeleteDriverLicense` (Route `DELETE
-      /api/v1/fuhrpark/driver-licenses/{id}`, Permission `fuhrpark:license:write`) reicht das
-      unveraendert durch. Ein Loeschen der letzten Kontrollzeile eines Fahrers macht die
-      Halterhaftungs-Pruefung fuer diesen Fahrer spurlos verschwinden.
-      Fix: vor dem Loeschen pruefen, ob die Zeile die neueste (`checked_at` bzw. `created_at`
-      MAX) fuer ihren `driver_id` innerhalb des Tenants ist, und in diesem Fall mit einem
-      fachlichen Fehler (z. B. `codes.FailedPrecondition`, HTTP 409) ablehnen. Alternativ, falls
-      Luke das Feature stattdessen fuer nachtraegliche Korrekturen (Tippfehler-Zeile loeschen)
-      offen halten will, wenigstens ein Audit-Event schreiben, das den Verlust nachvollziehbar
-      macht — die Entscheidung zwischen beiden Wegen gehoert Luke, nicht der Unit.
-    sources:
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/repository.go
-      - backend/internal/server/fuhrpark_grpc.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/fuhrpark/driver_license_test.go
-    notes: >
-      `driver_license_test.go` deckt DeleteDriverLicense bereits fuer Not-Found und
-      Cross-Tenant ab, aber nicht fuer den Fall "letzte/einzige Kontrollzeile eines Fahrers".
-      Vor dem Bauen mit Luke klaeren, ob ein harter Block (409) oder ein Audit-Trail die
-      richtige Antwort ist — das ist eine Produktentscheidung, kein reiner Bugfix.
-    done_when:
-      - >-
-        DeleteDriverLicense blockiert das Loeschen der neuesten Kontrollzeile eines
-        driver_id (409/FailedPrecondition) ODER schreibt beim Loeschen ein Audit-Event, das
-        den Verlust nachvollziehbar macht — Wahl zwischen beiden Wegen mit Luke vorab klaeren,
-        bevor gebaut wird
-      - Die gewaehlte Absicherung ist implementiert und durch einen Test belegt
-      - >-
-        Ein bestehender Kontrollstand kann nicht mehr spurlos verschwinden, ohne dass es
-        nachvollziehbar ist
-
-  - id: fix-fuhrpark-trip-logs-private-flag-not-filtered
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      PRODUKTENTSCHEIDUNG LUKE: private Fahrten (`trip_logs.is_private`) per Default ausblenden
-      ODER nur ueber expliziten `include_private`-Parameter sichtbar machen? Die Unit selbst
-      verlangt die Klaerung vor dem Bauen (Aenderung an einem steuerlich relevanten Bericht).
-    target: "Entscheidung Luke, danach als spitze Unit nach BACKLOG.yml"
-    coverage_start: "n.a. (Bugfix, kein Coverage-Ziel)"
-    scope: >
-      Fund aus `cov-gateway-fuhrpark-triplogs-gps-exports` (Iteration 18, Lauf 12).
-      `trip_logs` traegt `is_private BOOLEAN` (`backend/migrations/000193_create_trip_logs.up.sql`)
-      zur Unterscheidung privater von geschaeftlichen Fahrten. Sowohl
-      `PostgresRepository.ListTripLogs` als auch `PostgresRepository.ListTripLogsForExport`
-      (`internal/fuhrpark/postgres_repository.go:639` und `:1191`) selektieren `is_private` als
-      Spalte, filtern aber in keiner ihrer WHERE-Klauseln danach — jede Route ueber
-      `HandleListTripLogs`, `HandleListVehicleTripLogs` und `HandleExportTripLogs`
-      (`internal/gateway/route_fuhrpark.go`) liefert private Fahrten ununterscheidbar neben
-      geschaeftlichen zurueck. Das steuerlich relevante Fahrtenbuch-Export-PDF/CSV
-      (`Service.ExportTripLogs`, `internal/fuhrpark/service.go:754`) enthaelt damit private
-      Fahrten des Fahrers im arbeitgeberseitigen Bericht.
-      Fix: entweder einen expliziten `include_private`-Query-Parameter einfuehren, der
-      standardmaessig `false` ist (private Fahrten nur auf Wunsch/mit gesonderter Berechtigung
-      sichtbar), oder `is_private=true`-Zeilen grundsaetzlich aus Liste UND Export ausschliessen.
-      Die Entscheidung zwischen beiden Wegen (opt-in sichtbar vs. immer ausgeblendet) gehoert
-      Luke — `IsPrivate` wird beim Anlegen vom Fahrer selbst gesetzt
-      (`createTripLogRequest.IsPrivate`, `route_fuhrpark.go`), es ist also keine
-      Admin-only-Angabe.
-    sources:
-      - backend/internal/fuhrpark/postgres_repository.go
-      - backend/internal/fuhrpark/service.go
-      - backend/internal/gateway/route_fuhrpark.go
-      - backend/internal/gateway/route_fuhrpark_triplogs_gps_test.go
-      - backend/migrations/000193_create_trip_logs.up.sql
-    notes: >
-      `is_private` NICHT stillschweigend rausfiltern, ohne die Wahl (opt-in vs. immer
-      ausgeblendet) vorher mit Luke zu klaeren — eine Verhaltensaenderung an einem bestehenden
-      Bericht ohne Ankuendigung waere selbst ein Befund.
-    done_when:
-      - >-
-        Mit Luke geklaert: private Fahrten per Default ausgeblendet ODER nur ueber einen
-        expliziten Parameter sichtbar — beide Wege sind zulaessig, die Wahl steht vorher fest
-      - Liste UND Export respektieren die gewaehlte Regel, belegt durch einen DB-Test
-      - go test -count=1 ./internal/fuhrpark/ gruen
-
   - id: feat-alerts-backup-dead-mans-switch
     phase: 4
     service: deploy
     model: sonnet
     deps: []
     status: blocked
+    stand_2026_10_25: >-
+      Entscheidungsrunde Lauf 17: Die Regel auf `audit_events_dropped_total` aus dem Nachtrag läuft
+      als `feat-alert-rule-audit-events-dropped` in Lauf 17. Der Backup-Wächter (Zeitstempel aus
+      backup.sh, Textfile-Collector oder node_exporter in Compose, dann die Regel) wird TAGSÜBER gebaut,
+      zusammen mit der Storage Box und dem Offsite-Backup. Eine Compose-Änderung gehört nicht in die
+      Nacht.
     blocked_reason: >-
       Keine Datenquelle: Prometheus scrapt nur die elf Go-Services (deploy/docker/prometheus.yml:14-67);
       es gibt weder Pushgateway noch node_exporter/Textfile-Collector, und backup.sh schreibt keine Metrik.
@@ -706,193 +389,17 @@ units:
         werden muesste, damit sie moeglich wird
       - Ausser alerts.yml ist keine Datei unter deploy/ veraendert (git diff belegt das)
 
-  - id: feat-meeting-notes-and-chat-dsar-and-retention-coverage
-    phase: 4
-    service: security/gdpr
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      Entscheidung von Luke offen: Variante (a) DSAR-Modul plus Retention-Handler fuer meeting_notes und
-      meeting_chat_messages ODER Variante (b) bewusst als accepted residual risk in scrub.go. Die Unit verlangt die
-      Abstimmung vor dem Bauen (notes), done_when[0] ist die Entscheidung; ein Handler, der Freitext loescht oder
-      anonymisiert, ist keine Nachtloop-Entscheidung.
-    coverage_start: n.a. (DSAR/Retention-Luecke, kein Coverage-Ziel)
-    scope: >
-      Gefunden in Iteration 23 beim Bauen von `cov-gateway-video-notes-and-action-items`,
-      Scope-Punkt 3 der Unit (DSAR/Retention-Pruefung fuer Meeting-Notizen/-Chat).
-      `meeting_notes` (Content + author_id, teils `is_private`) und
-      `meeting_chat_messages` (Freitext + sender_name) sind Personenbezug mit freiem Text —
-      dieselbe Kategorie wie `deals.notes` oder `meetings.title/description/agenda`, die in
-      `internal/crm/consent/scrub.go:51` explizit als "accepted residual risk" dokumentiert
-      sind. Fuer die beiden Meeting-Tabellen fehlt diese Entscheidung komplett:
-      - `internal/security/gdpr/dsar_search.go` `meetingsModule` (Zeile 2239-2268) liest
-        NUR `title, status, scheduled_start, scheduled_end` aus `meetings` — kein Zugriff
-        auf `meeting_notes` oder `meeting_chat_messages`. Ein DSAR-Export eines Kontakts
-        zeigt also nie dessen (falls vorhanden) Chat-Beitraege oder Notizen, an denen er als
-        Autor/Sender beteiligt war.
-      - `internal/security/gdpr/retention_*.go` hat keinen Handler fuer `meetings`,
-        `meeting_notes` oder `meeting_chat_messages` (gegengeprueft: keiner der 15
-        bestehenden `retention_*.go`-Handler referenziert eine dieser drei Tabellen).
-        Notizen und Chat-Nachrichten bleiben also unbegrenzt gespeichert, auch nach
-        Kontakt-Loeschung oder Aufbewahrungsfrist-Ablauf.
-      - `internal/crm/consent/scrub.go` nennt nur `meetings.title/description/agenda` als
-        bewusst ausgenommen — `meeting_notes.content` und `meeting_chat_messages.message`
-        sind dort NICHT erwaehnt, die "accepted residual risk"-Entscheidung wurde fuer sie
-        nie getroffen.
-    sources:
-      - backend/internal/security/gdpr/dsar_search.go
-      - backend/internal/security/gdpr/retention.go
-      - backend/internal/security/gdpr/retention_calendar_events.go
-      - backend/internal/crm/consent/scrub.go
-      - backend/internal/work/meeting/postgres_repository.go
-    notes: >
-      Das ist eine Entscheidung, keine automatische Ergaenzung: entweder (a) DSAR-Export um
-      einen `meetingNotesModule`/`meetingChatModule` erweitern und einen
-      Retention-Handler nach dem Muster von `retention_calendar_events.go` bauen, oder (b)
-      die Tabellen bewusst in `scrub.go` als "accepted residual risk" ergaenzen wie
-      `meetings.title/description/agenda` — aber NICHT stillschweigend weiter uebergehen.
-      Variante (a) ist der wahrscheinlich richtige Weg, weil Notizen/Chat direkten
-      Personenbezug ueber `author_id`/`sender_name` UND Freitext-Inhalt kombinieren, staerker
-      als die reinen Meeting-Metadaten. Vor dem Bauen mit Luke abstimmen, welche Variante.
-    done_when:
-      - >-
-        Entscheidung getroffen und dokumentiert (Journal + Commit-Message): DSAR/Retention
-        fuer meeting_notes/meeting_chat_messages nachziehen ODER bewusst als "accepted
-        residual risk" in scrub.go ergaenzen
-      - >-
-        Bei Variante (a): DSAR-Export eines Kontakts zeigt seine eigenen
-        Notizen/Chat-Beitraege; ein Retention-Handler loescht/anonymisiert beide Tabellen
-        nach Ablauf der Frist, nach dem Muster von retention_calendar_events.go
-      - >-
-        Bei Variante (b): scrub.go-Kommentar um beide Tabellen ergaenzt, mit derselben
-        Begruendung wie fuer meetings.title/description/agenda
-      - go test -count=1 ./internal/security/gdpr/... ./internal/crm/consent/... gruen
-
-
-  - id: feat-einkauf-po-framework-contract-call-off-wiring
-    phase: 4
-    service: einkauf
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      Wartet auf Luke (Produkt-/Vertragsentscheidung): (1) Das Feld ist ueber die API gar nicht
-      setzbar - einkauf.proto kennt framework_contract_id nur in der PurchaseOrder-Response (Zeile 94),
-      nicht in Create-/UpdatePurchaseOrderRequest; ein Setzen braucht Proto-Aenderung + Regen + Gateway
-      + openapi.yaml + FE-Vertrag, sonst bleibt die Verdrahtung tot. (2) Betragssemantik offen: netto
-      oder brutto, PO-Waehrung gegen Vertragswaehrung (CreateContractCall bucht ungeprueft), Delta
-      pro Teillieferung aus line.unit_price * Delta. (3) ErrContractBudgetExceeded beim Wareneingang:
-      trotzdem buchen und warnen (Vertragsdeckel verletzt) oder Wareneingang abweisen - die Notes der
-      Unit nennen das selbst eine Produktentscheidung.
-    coverage_start: "n.a. (Feature-Luecke, kein Coverage-Ziel)"
-    scope: >
-      VERIFIZIERTER BEFUND (2026-08-26, gefunden beim Bauen von
-      `cov-einkauf-service-extended-real-paths`). `PurchaseOrder.FrameworkContractID`
-      (backend/internal/einkauf/models.go:57-59) traegt den Kommentar "When set, ReceiveGoods
-      will automatically record a contract call-off." Die Spalte existiert seit Migration
-      000208_einkauf_po_framework_ref, wird in GetPO/GetPOWithLines gelesen
-      (postgres_repository.go:457,473) — aber NIRGENDS gesetzt: weder `CreatePOInput` noch
-      `UpdatePOInput` (service.go) haben ein `FrameworkContractID`-Feld, es gibt keinen Weg,
-      die Spalte ueber den Service zu befuellen. Selbst wenn sie per Hand-SQL gesetzt wuerde,
-      lesen `ReceiveGoods` (service.go:607) und `PartialReceive` (service.go:659) das Feld nie
-      und rufen nie `CreateContractCall` auf — die im Docstring versprochene automatische
-      Abruf-Buchung existiert im Code schlicht nicht. Ein an einen Rahmenvertrag gebundener PO
-      erhoeht dessen `used_value` also nie automatisch; `CreateContractCall` ist aktuell nur
-      manuell erreichbar (kein Gateway-Handler dafuer verifiziert — pruefen). Belegt durch
-      `TestExtended_ReceiveGoods_LinkedToFrameworkContract_DoesNotRecordCallOff` in
-      service_extended_test.go (dokumentiert die Luecke, aendert kein Verhalten).
-    sources:
-      - backend/internal/einkauf/models.go
-      - backend/internal/einkauf/service.go
-      - backend/internal/einkauf/service_extended.go
-      - backend/migrations/000208_einkauf_po_framework_ref.up.sql
-    notes: >
-      Entscheidungen, die beim Bauen anfallen: (1) Soll ReceiveGoods und PartialReceive BEIDE
-      einen Call-off buchen, oder nur der volle ReceiveGoods-Abschluss? Bei PartialReceive waere
-      der Call-off-Betrag der neu geleferte Anteil (analog zum inventarAdj-Delta-Muster in
-      PartialReceive, service.go:695-703), nicht der volle PO-Wert. (2) CreateContractCall
-      race-sicher aus der Empfangs-Transaktion heraus aufrufen — nicht als separater Call nach
-      dem Status-Update, sonst Inkonsistenz bei Teilausfall. (3) Was passiert bei
-      ErrContractBudgetExceeded waehrend eines Wareneingangs? Der Wareneingang selbst darf nicht
-      an einem Budget-Limit scheitern (der Wareneingang ist physisch bereits passiert) — vermutlich
-      Call-off trotzdem buchen und nur loggen/warnen, analog zum inventarAdj-Best-Effort-Muster
-      (service.go:634-648), nicht hart fehlschlagen. Das ist eine Produktentscheidung, kein
-      Bug-Fix — bei Unsicherheit `blocked` mit der Frage an Luke.
-    done_when:
-      - >-
-        CreatePOInput und/oder UpdatePOInput erlauben das Setzen von FrameworkContractID (oder es
-        ist begruendet dokumentiert, warum absichtlich nicht)
-      - >-
-        ReceiveGoods bucht bei gesetztem FrameworkContractID einen Call-off in Hoehe des
-        empfangenen Werts; ein Test belegt used_value auf dem Rahmenvertrag danach korrekt erhoeht
-      - >-
-        PartialReceive bucht denselben Call-off nur fuer das Delta der neu empfangenen Menge,
-        nicht fuer den vollen PO-Wert; ein Test belegt das ueber zwei aufeinanderfolgende
-        Teillieferungen
-      - >-
-        Verhalten bei ErrContractBudgetExceeded waehrend eines Wareneingangs ist entschieden und
-        durch einen Test belegt (oder die Entscheidung ist an Luke delegiert und die Unit steht
-        `blocked`)
-      - go test -count=1 ./internal/einkauf/... gruen, DATABASE_URL gesetzt, 0 Skips
-
-  - id: decide-token-lifetime-and-storage-policy
-    phase: 4
-    service: gateway
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      ARCHITEKTUR-/PRODUKTENTSCHEIDUNG LUKE: gibt es eine einheitliche Token-Policy (Laufzeit,
-      Ablage, gemeinsamer Generator) fuer alle Link- und Zugangstoken? Heute beantwortet jeder
-      Typ die Fragen einzeln und teils abweichend; was richtig ist, ist keine Nachtarbeit.
-    target: "Entscheidung Luke, danach spitze Units nach BACKLOG.yml"
-    scope: >
-      BEFUND aus `scan-signed-url-and-token-lifetimes` (Iteration 50, Tabelle im Journal).
-      FRAGEN: (1) GEMEINSAMER HELPER: es gibt keinen. Der 32-Byte-crypto/rand-base64url-Generator
-      steht viermal wortgleich (`wiki/share.go:newShareToken`, `formulare/form_share.go:newShareToken`,
-      `berichte/service.go:newShareSecret`, `helpdesk/csat_survey.go:newCsatSurveyToken`), jeder
-      Kommentar sagt "matches ..." auf den anderen; daneben `auth.generateSecureToken`
-      (Reset-Token) und `gdpr.generateDownloadToken` (Hex). Ein `internal/`-Paket fuer
-      "Link-Secrets" waere die Konsolidierung - lohnt sie sich bei vier Zeilen je Kopie, oder bleibt
-      es bei den Kommentaren? (2) LAUFZEITEN: WOPI 10 h (Protokollempfehlung), Recording-URL 1 h,
-      Chat-Datei/-Thumbnail 15 min, Kalender-Join-Token (`livekit/service.go:130`) 24 h,
-      Video-Raum-Token (`livekit/room_manager.go:104`, kein `SetValidFor`) LiveKit-Default 6 h,
-      Passwort-Reset 1 h, CSAT 30 Tage, GDPR-Export 7 Tage, Share-Links Wiki/Formulare/Berichte
-      OHNE Pflichtablauf (Berichte max. 365 Tage wenn gesetzt, Wiki/Formulare unbegrenzt),
-      CalDAV-App-Passwoerter unbegrenzt. Soll es eine Obergrenze fuer Share-Links geben, und
-      sollen Kalender- und Video-Token dieselbe Laufzeit haben? (3) ABLAGE: Reset-Token liegt als
-      SHA-256 in der DB (`auth.HashToken`), CalDAV-Passwoerter als bcrypt; Wiki-, Formulare-,
-      Berichte-Share-Token und CSAT-Token liegen im KLARTEXT. Ein DB-Lesezugriff (Backup, falscher
-      Join) gibt damit gueltige externe Zugaenge frei. Hash-Ablage braeuchte je Tabelle eine
-      Migration plus Umgang mit den bestehenden Links (Dual-Lookup oder Invalidierung).
-      (4) OFFBOARDING: soll es die CalDAV-App-Passwoerter widerrufen (Fix von `is_active` steht
-      als `fix-caldav-basic-auth-ignores-user-state` in BACKLOG.yml), und sollen WOPI-Token und
-      LiveKit-Token einen deaktivierten Nutzer ueberleben duerfen (bis 10 h / 24 h)?
-      (5) KALENDER-JOIN-TOKEN: jeder Nutzer mit `calendars:write` bekommt fuer JEDES Event seines
-      Tenants einen Token (`calendar_grpc.go:1299`), nicht nur als Teilnehmer; nach Loeschen des
-      Events bleibt der Token bis zu 24 h gueltig (LiveKit kann nicht widerrufen).
-    sources:
-      - backend/internal/work/livekit/service.go
-      - backend/internal/work/livekit/room_manager.go
-      - backend/internal/document/wopi/token.go
-      - backend/internal/wiki/share.go
-      - backend/internal/auth/token.go
-      - .planning/backend-block/loop/JOURNAL.md
-    notes: >
-      Die Scan-Unit bewertet nicht, welche Laufzeit richtig ist; sie hat nur gezeigt, wo die
-      Antworten auseinanderliegen. Pro Frage reicht ein Ja/Nein und ein Wert. Frage (3) ist die
-      teuerste (Migration je Tabelle, opus) und die einzige mit Datenabfluss-Charakter.
-    done_when:
-      - Je Frage (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
-      - Je Ja ist eine spitze Unit in BACKLOG.yml angelegt
-
   - id: decide-retention-periods-unbounded-personal-tables
     phase: 4
     service: security
     model: opus
     deps: []
     status: blocked
+    stand_2026_10_25: >-
+      Entscheidungsrunde Lauf 17 (Paket Logs/Buchungen): `dialer_agent_status_log` 12 Monate,
+      `call_sessions`/`call_participants` 24 Monate, `public_bookings` 24 Monate nach Terminende,
+      gebaut in Lauf 17 (`feat-retention-*`). Die Meeting-Notizen haben eine eigene Unit (2 Jahre). Alle
+      übrigen Tabellen dieser Liste bleiben hier bis zur anwaltlichen Beratung (Etappe 4).
     blocked_reason: >-
       Entscheidung Luke offen: fuer welche der unten genannten Tabellen mit Personenbezug, ohne gesetzliche
       Frist und ohne jeden Ablauf eine Aufbewahrungsdauer gelten soll. Ein Handler, der Daten loescht oder
@@ -996,47 +503,6 @@ units:
       - Je Gruppe (1) bis (5) steht die Entscheidung mit Datum in dieser Unit
       - Je Ja ist ein Plan mit Backup/Rollback oder eine spitze Unit angelegt
 
-  - id: harden-inbox-message-user-scoping
-    phase: 3
-    service: server
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      Sichtbarkeitsregel fuer Einzelnachrichten ist eine Produktentscheidung (Luke): sichtbar =
-      Eigentuemer ODER zugewiesen ODER Mitglied der Team-Inbox der Nachricht? Ohne Vorgabe wuerde
-      der Fix Team-Inbox-Nachrichten fuer Mitglieder unsichtbar machen.
-    target: "BACKLOG.yml nach Entscheidung Luke"
-    coverage_start: "n.a."
-    scope: >
-      Gefunden in Iteration 43 (cov-server-inbox-and-grpc-core). `ListMessages` und
-      `GetUnreadCount` filtern auf `user_id`; alle Einzelnachrichten-RPCs (`GetMessage`,
-      `MarkRead`/`MarkUnread`, `ToggleStar`, `SetMessageStatus`, `Add/RemoveMessageTag`,
-      `Archive`/`Unarchive`, `Snooze`/`Unsnooze`, `ReplyToMessage`, `ForwardMessage`,
-      `ListThreadMessages`, Bulk*) scopen dagegen NUR auf `tenant_id` (`message.Service.GetByID`
-      nimmt keine user_id). Der Gateway reicht `user_id` mit, der Server ignoriert ihn
-      (`GetMessageRequest.user_id` existiert im Proto). Wer die UUID einer Nachricht eines
-      Kollegen kennt, kann sie lesen (Vorschau, Absender, Thread-Text), archivieren, taggen
-      oder als sich selbst beantworten. UUIDs sind nicht ratbar -- das ist Defense-in-Depth,
-      kein offener Cross-Tenant-Zugriff; Cross-Tenant ist durch Tests belegt dicht
-      (`TestInboxMessageRPCs_ForeignTenantSeesNotFound`). Team-Inbox-Nachrichten gehoeren
-      fachlich mehreren Nutzern (Mitglieder, Zugewiesene) -- die Sichtbarkeitsregel ist eine
-      Produktentscheidung.
-    sources:
-      - backend/internal/server/inbox_grpc.go
-      - backend/internal/inbox/message/service.go
-      - backend/internal/inbox/message/postgres_repository.go
-    notes: >
-      Vor dem Bauen die Regel festlegen: sichtbar = Eigentuemer ODER zugewiesen ODER Mitglied der
-      Team-Inbox der Nachricht. Wenn Luke das nicht vorgibt: `blocked` mit dieser Frage.
-      Wegen `RequirePermissionAny`-Kompatibilitaet keine Guards anfassen.
-    done_when:
-      - >-
-        Ein Test belegt: Nutzer B (gleicher Tenant, nicht Eigentuemer, nicht Mitglied) bekommt
-        NotFound auf GetMessage/Reply/Archive einer Nachricht von Nutzer A
-      - Team-Mitglied und Zugewiesener behalten Zugriff (Test)
-      - go test -count=1 ./internal/server/ ./internal/inbox/... ./internal/gateway/ gruen, DATABASE_URL gesetzt, 0 Skips
-
   # ========================================================================================
   # NACHBEARBEITUNG LAUF 14 (2026-10-23): offen:-Zeilen mit Luke-Bezug aus JOURNAL Lauf 14
   # (archive/lauf-14/) plus Befunde des gezielten Post-Run-Reviews, gebündelt je Frage.
@@ -1071,24 +537,6 @@ units:
   #   0 executions) und `decide-produktion-capacity-week-bounds-tenant-timezone` (entschieden:
   #   Variante (b) Europe/Berlin, in BACKLOG.yml als `fix-produktion-capacity-week-bounds-europe-berlin`).
   # ========================================================================================
-
-  - id: decide-erasure-suppliers-and-inspection-photos
-    phase: 4
-    service: security
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      DSGVO-ENTSCHEIDUNG LUKE (Art. 17), in der Runde 2026-10-23 nicht behandelt.
-    target: "Entscheidung Luke, danach spitze Unit nach BACKLOG.yml"
-    scope: >
-      Rest aus dem früheren `decide-dsar-third-party-precision`, Punkt (5): `suppliers` mit
-      `contact_id` werden im DSAR offengelegt, bei der Löschung aber nicht gescrubbt; Fotoobjekte
-      hinter `photo_urls` der Mietinspektion bleiben im Objektspeicher (72b9c6d1). Frage:
-      scrubben bzw. Objekte löschen, oder Lieferantendaten als Geschäftsdaten mit
-      HGB-Aufbewahrung behandeln (dann an `decide-retention-policy-hgb-ao-domains` hängen)?
-    done_when:
-      - Entscheidung Luke dokumentiert
 
   - id: decide-datev-extf-field8-origin
     phase: 4
@@ -1640,111 +1088,6 @@ units:
   # falls seine Units sie brauchen.
   # ========================================================================================
 
-  - id: decide-member-manager-module-defaults
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Produktfragen zum Rollenmodell, kein Self-Service"
-    target: "Entscheidungsrunde nach Lauf 16"
-    scope: >
-      Sammelstelle für Rechte, die ein member/manager heute NICHT hat und bei denen offen ist,
-      ob er sie haben soll. Lauf 16 fixt nur offensichtliches Self-Service (Regel 1); alles
-      andere landet hier als Zeile "Pfad -> Key -> heute -> Empfehlung". Stand der
-      Vorbereitung (2026-10-24, Grants aus `role_permissions`):
-      Aufgaben und Projekte löschen (member), Kontakte löschen und importieren, Deals
-      schreiben, Helpdesk-Tickets bearbeiten, Schichten `assignment:read`/`template:read`
-      (member sieht seine eigene Zuweisung nicht), Buchungsseiten, Wiki löschen/teilen,
-      `finance:module:view` fehlt manager trotz `finance:read` (Modul-Kachel fehlt, Daten
-      wären lesbar), Dokument-Freigaben anlegen. Lauf 16 (`scan-role-matrix-remaining`,
-      `fix-branchen-member-self-service-grants`) ergänzt weitere Zeilen.
-      Aus `fix-branchen-member-self-service-grants` (Iteration 16, Migration 339 granted
-      Buchung/Führerschein/eigene Schäden/Arbeitsschritte/Übergabeprotokolle, alles andere NICHT):
-      - Fuhrpark Buchungen aller Kollegen sehen (`fuhrpark:booking:read` all): member sieht heute nur die
-        eigenen und erfährt die belegten Zeiten eines Fahrzeugs erst über 409 beim Buchen.
-        Empfehlung: schmale Verfügbarkeits-Route (Fahrzeug + Zeitfenster, ohne Nutzer/Zweck) statt `all`.
-      - Fuhrpark Schäden aller Fahrzeuge lesen (`fuhrpark:damage:read` all): member sieht nur selbst
-        gemeldete; bekannte Schäden fremder Meldungen stehen aber schon in `/vehicles/{id}/history`
-        (`vehicle:read`). Empfehlung: Lesen auf `all` heben, Schreiben (update/resolve) bleibt admin.
-      - Fuhrpark Schaden bearbeiten/auflösen (`damage:write`), Führerscheine anderer (`license:*` all),
-        Buchungen anderer ändern: bleiben admin (manager hält Buchung/Führerschein ebenfalls nur `own`).
-      - Produktion: Arbeitsschritte anlegen/löschen (`workstep:write`), Buchungen/Pläne: bleiben admin.
-      - Vermietung: Übergabeprotokoll ändern (`inspection:write`): bleibt admin; member legt an
-        (`inspection:create`) und liest jetzt, korrigiert aber nicht.
-      Aus `scan-role-matrix-remaining` (Iteration 56, 2026-10-25; Router-Probe aller vom Desktop
-      aufgerufenen Routen mit den Grants aus `role_permissions`, volle Matrix:
-      `.planning/backend-block/loop/role-matrix-lauf16.tsv`, 169 B-Zeilen). Schon oben oder in
-      eigenen NEXT-Units genannt und hier nicht wiederholt: Deals, Kontakte löschen/importieren,
-      Aufgaben/Projekte löschen, Helpdesk-Ticket, Buchungsseiten, Wiki, Schichten-Vorlagen,
-      Dokument-Freigaben, E-Mail-Reste, Team-Inbox, Abwesenheitskalender. Neu:
-      - Finanzen komplett (Rechnungen, Angebote, Gutschriften, Wiederkehrend, Ausgaben, Mahnwesen,
-        Bank, Export; ~70 Routen): member nein, manager ja (`finance:read|write` bzw.
-        `finance:invoice:*`/`finance:quote:*`). Empfehlung: bleibt so. Offen nur, ob Ausgaben
-        (`POST /finance/expenses`) eine Spesen-Einreichung durch Mitarbeiter sein sollen — dann
-        braucht `expenses` erst einen Einreicher und eine Own-Grenze (Regel 1), heute tenantweit.
-      - Automationen lesen/schreiben (`automations:*`): member nein, manager ja. Empfehlung: bleibt.
-      - Personalakte eines Teammitglieds (`GET/POST /hr/employees/{id}/documents`,
-        `POST /hr/personnel-documents`): member UND manager nein, obwohl manager
-        `team:documents:view|team` hält — der Guard kennt nur `hr:read`/`hr:write`. Empfehlung:
-        GET additiv `team:documents:view` mit Berichtslinien-Grenze (Muster
-        `feat-hr-reporting-line-and-team-time-scope`). Ebenso volle Personal-/Vertragsdaten am
-        Teamprofil für den manager (`team:data_personal:view|team`, `team:data_job:view|team`):
-        `fix-hr-employee-detail-for-members` liefert ihm nur die Verzeichnisfelder.
-      - Zeiterfassung-Stammdaten lesen: Kategorien und Vorlagen (`hr:time_category:read`,
-        `hr:time_template:read`) member nein, kein Desktop-Konsument heute. Empfehlung: mit dem
-        ersten Konsumenten granten wie die Projekte (`fix-hr-self-sick-leave-profile-and-time-projects`).
-      - CRM-Pflege: Kontakte/Firmen zusammenführen und Kontakt-Sichtbarkeit (`contacts:write`,
-        nur grober Key — member hat `crm:contact:create|edit|team`), Firma löschen, Aktivität
-        löschen, Tags anlegen/ändern/löschen (`tags:write|delete`; member nur `tags:read`).
-        Empfehlung: Merge/Sichtbarkeit additiv `crm:contact:edit` nur mit Team-Grenze, Tags
-        anlegen granten (Tag-Katalog ist nicht vertraulich), Löschen bleibt manager/admin.
-      - Dokumente: Versionen lesen und zurücksetzen (`documents:write`/`documents:version:restore`;
-        auch manager nein), Datei/Ordner/Tag löschen, persönlichen Bereich initialisieren
-        (`POST /documents/folders/initialize-user`, kein Konsument). Hängt an
-        `decide-document-access-baseline`.
-      - Inventar: Umbuchung `POST /inventar/transfer` hängt nur an `inventar:item:write`,
-        member hat `inventar:movement:create` und darf Ein- und Ausgang einzeln buchen — die
-        Umbuchung ist dieselbe Bewegung. Empfehlung: additiv `inventar:movement:create`.
-        Stammdaten (Artikel, Lager, Inventur anlegen, Picking, Warnungen) bleiben manager/admin.
-      - Einkauf/Produktion/Vermietung/Verträge/Formulare/Wiki-Kategorien: Stammdaten anlegen
-        member nein, manager ja. Empfehlung: bleibt. Produktion `bookings`/`plans` auch manager
-        nein (oben schon „bleiben admin“).
-      - Fuhrpark: Fahrzeug anlegen und GPS lesen (manager ja), Wartung/Fahrtenbuch ändern und
-        löschen (`fuhrpark:service:write`, `fuhrpark:trip:write`, auch manager nein). Offen: darf
-        der Fahrer seinen eigenen Fahrtenbuch-Eintrag korrigieren (seit Migration 340 gibt es
-        `driver_user_id`)? Fahrtenbuch-Korrekturen sind steuerlich heikel, Empfehlung: nein.
-      - Team-Profil: Modul-Zuweisungen eines Kollegen (`GET /tenant/module-grants`,
-        `module-grants:read`) member nein — `MemberProfileContent.tsx:88` zeigt die Chips dann
-        leer, kein Fehler. Empfehlung: bleibt admin/manager.
-    sources:
-      - backend/internal/gateway/
-      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
-    done_when:
-      - "Je Zeile entschieden (granten mit Scope / bleibt admin / Modul-Rolle), daraus Seed-Units für den nächsten Lauf"
-
-  - id: decide-team-inbox-member-visibility
-    phase: 4
-    service: inbox
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE; hängt an `harden-inbox-message-user-scoping`"
-    target: "Entscheidungsrunde nach Lauf 16"
-    scope: >
-      TOTALAUSFALL für member: die Kommunikation-Inbox (Team-Postfächer) braucht `inbox:read`,
-      das nur admin hat (Migration 129). Ein Grant an member gäbe heute JEDE Inbox-Nachricht
-      des Mandanten frei, weil die Nachrichten-RPCs nicht auf Mitgliedschaft begrenzen
-      (`harden-inbox-message-user-scoping`). Frage: (a) member sieht nur Postfächer, in denen
-      er Mitglied ist (Begrenzung bauen, dann granten — Empfehlung), (b) Team-Inbox bleibt
-      Manager-/Admin-Funktion, das FE blendet sie für member aus.
-    sources:
-      - backend/internal/inbox/
-      - backend/internal/server/inbox_grpc.go
-      - backend/internal/gateway/route_inbox.go
-    done_when:
-      - "Entscheidung a/b steht; bei a eine Bau-Unit (Begrenzung + Grant + Fremd-Test)"
-
   - id: decide-document-access-baseline
     phase: 4
     service: document
@@ -1817,42 +1160,6 @@ units:
     done_when:
       - "Keine Stelle unter desktop/src ruft /api/v1 per rohem fetch ohne Auth (Grep im Journal), je Funktion per Screenshot-QA abgenommen"
 
-  - id: decide-ghost-routes-without-backend-capability
-    phase: 4
-    service: gateway
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: das Desktop ruft Routen, für die es keine Backend-Fähigkeit gibt"
-    target: "Entscheidungsrunde nach Lauf 16"
-    scope: >
-      Aus dem Routen-Abgleich 2026-10-24, nicht in Lauf 16, weil es eine Produkt- oder
-      Datenfrage ist:
-      (1) `GET /dashboard/team-worktime` (Default-Widget, für jeden Nutzer; dazu rohes fetch):
-      was sieht ein member — eigene Woche, Berichtslinie (nach `feat-hr-reporting-line-and-
-      team-time-scope`), oder Widget nur für manager? Empfehlung: Route auf `GetTeamTime` mit
-      Berichtslinien-Scope, member ohne Berichte -> leere Liste, FE zeigt Empty-State.
-      (2) `GET /dashboard/birthdays`: Geburtsdatum der Kollegen ist personenbezogen
-      (DSGVO). Spalte + Opt-in, oder Widget streichen? Empfehlung: streichen bis Pilot.
-      (3) `GET /hr/employees/me/salary-statements` (`SelfServiceView.tsx:134`, Capability
-      `team:salary:view`): keine Gehaltsabrechnungen im Datenmodell -> FE ausblenden.
-      (4) `GET /projects/{id}/guest-overview` (`GuestProjectView.tsx:52`): Gastzugang zu
-      Projekten existiert nicht -> FE-Route ausblenden oder Gastmodell entscheiden.
-      (5) Plugin-Routen `installations/{id}/permissions/approve`, `templates/apply` (Flag
-      `plugins.api` aus, WASM OFF) -> liegen lassen.
-      (6) Tote Parameter (kein Komponenten-Aufrufer übergibt sie): `GET /einkauf/pos`
-      date_from/to, `/finance/credit-notes` status, `/finance/dunning` level, `/formulare/
-      schemas` status/limit/offset/isTemplate, `…/submissions` status/limit/offset,
-      `/fuhrpark/vehicles/{id}/services|damages` status/vehicle_id, `/vermietung/calendar`
-      object_id, `/vertraege/contracts` starts_*/ends_* — erst bauen, wenn eine Komponente sie
-      nutzt.
-    sources:
-      - desktop/src/renderer/src/stores/dashboard.ts
-      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
-      - desktop/src/renderer/src/modules/work/projects/GuestProjectView.tsx
-    done_when:
-      - "Je Punkt entschieden; daraus Backend- bzw. FE-Units"
-
   - id: fe-list-page-size-above-200
     phase: 4
     service: desktop
@@ -1876,32 +1183,6 @@ units:
 
   # Aus Lauf 16, Iteration 6 (`fix-hr-employee-directory-for-members`):
 
-  - id: decide-absence-calendar-for-members
-    phase: 4
-    service: hr
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Darf ein member sehen, WER abwesend ist, und in welcher Grobklasse? Die Route liefert heute die Abwesenheitsart im Klartext (`leave_type_name` 'Krankheit', Gesundheitsdatum Art. 9 DSGVO); für member nur nach Projektion freigeben"
-    target: "Luke, danach Loop"
-    scope: >
-      `GET /hr/absences/calendar` (`route_hr.go`, Guard `hr:read`, admin-only) speist den
-      Abwesenheitskalender der Team-Seite (`team/AbsenceCalendar.tsx`) und das Dashboard. Für
-      member/manager 403 = leerer Kalender. Die Antwort (`AbsenceEntry`) trägt `employee_name`,
-      `department`, Zeitraum, `leave_type_name`, `leave_type_color`, `total_days`; die Query
-      (`biz/hr/absence/postgres_repository.go`) nimmt alle genehmigten Anträge inkl. Leave-Type
-      `krank` (Seed in 000046). Bei der Directory-Unit bewusst NICHT umgestellt. Vorschlag:
-      `RequirePermissionAny(hr:read, team:absence:read)` und für Aufrufer ohne `hr:read` eine
-      schmale Projektion (Name, Abteilung, Zeitraum, Grobklasse `absent`, neutrale Farbe — ohne
-      Art und ohne Tageszahl); manager mit Scope team ggf. mit Art für die Berichtslinie.
-      Achtung: member hält `team:absence:read` auf Scope `all` (000256).
-    sources:
-      - backend/internal/gateway/route_hr.go
-      - backend/internal/biz/hr/absence/postgres_repository.go
-      - desktop/src/renderer/src/modules/team/AbsenceCalendar.tsx
-    done_when:
-      - "Sichtbarkeitsregel für member und manager entschieden; daraus eine Backend-Unit mit Router-Test, der die Abwesenheit von leave_type_name für member prüft"
-
   - id: fe-team-card-contract-type-default-full-time
     phase: 4
     service: desktop
@@ -1924,154 +1205,6 @@ units:
       - desktop/src/renderer/src/modules/team/TeamPage.tsx
     done_when:
       - "Mitarbeiterkarte als member zeigt keinen erfundenen Vertragstyp, per Screenshot-QA abgenommen"
-
-  - id: decide-email-account-self-setup-and-dial-guard
-    phase: 4
-    service: email
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: darf ein member sein Postfach selbst anlegen, und welche Hosts darf der Server dafür anwählen (Self-Hosted mit internem Mailserver vs. SSRF-Schutz)?"
-    target: "Luke, danach Loop-Unit"
-    scope: >
-      Gefunden in fix-email-module-for-members (Lauf 16, Iteration 11). Seit Migration 337
-      hat member/manager `email:mailbox:*` und kann EIGENE Postfächer lesen, senden, sortieren.
-      Ein Postfach ANLEGEN, ändern, löschen und die Verbindung testen bleibt auf `email:write`/
-      `email:delete` (nur admin), aus zwei Gründen: (1) `account.Service.TestConnection` und der
-      Sync wählen jeden Host:Port an, den der Body nennt (`imapclient.DialTLS`, kein Filter wie
-      `security/safehttp`) — für jeden member geöffnet wäre das ein Portscan-Orakel ins
-      Docker-Netz (Postgres, Redis, MinIO); (2) `CreateEmailAccount` nimmt `user_id` aus dem
-      Body, ein member könnte Konten für andere anlegen. Folge heute: ein member sieht die
-      Mail-Seite, kann aber kein Konto einrichten — ein Admin muss es per `POST
-      /email/accounts` mit dessen `user_id` anlegen (ob das Desktop dafür eine Oberfläche hat,
-      prüfen). Zu entscheiden: (a) Self-Setup für member ja/nein; (b) wenn ja: Dial-Filter
-      nach safehttp-Muster (öffentliche Adressen) mit Ausnahme-Liste für Self-Hosted-Kunden mit
-      internem Mailserver, `user_id` serverseitig auf den Aufrufer pinnen, Update/Delete nur
-      eigenes Konto.
-    sources:
-      - backend/internal/email/account/service.go
-      - backend/internal/server/email_grpc.go
-      - backend/internal/gateway/route_email.go
-      - backend/internal/security/safehttp/client.go
-    done_when:
-      - "Entscheidung Self-Setup und Dial-Regel im Journal; daraus eine Loop-Unit mit Router- und Service-Tests"
-
-  - id: decide-email-tenant-wide-mail-objects
-    phase: 4
-    service: email
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Besitzmodell für Regeln, Labels, geteilte Vorlagen und den Mailverlauf am Kontakt fehlt; wer darf was?"
-    target: "Luke, danach Loop-Unit"
-    scope: >
-      Gefunden in fix-email-module-for-members. Vier E-Mail-Flächen haben KEIN Besitzmodell und
-      bleiben deshalb auf den groben `email:*`-Keys (nur admin): (1) Regeln — `email_rules` ohne
-      `user_id`, `ApplyAll` wendet jede Regel auf die Nachrichten ALLER Postfächer des Tenants
-      an (`rule.Service.ApplyAll`); ein member mit Regel-Recht könnte fremde Mails verschieben/
-      löschen. Pro-Nutzer-Regeln brauchen Spalte + Scope beim Anwenden. (2) Label-Katalog —
-      tenantweit; member darf Labels lesen und zuweisen (eigene Nachricht), anlegen/umbenennen/
-      löschen nicht. (3) Vorlagen — `UpdateEmailTemplate`/`DeleteEmailTemplate`: jeder, der eine
-      geteilte Vorlage sieht, darf sie ändern, löschen oder durch Umstellen auf `personal`
-      an sich ziehen (`template/service.go` Update); deshalb PUT/DELETE nur admin — damit kann
-      ein member auch seine EIGENE persönliche Vorlage nicht ändern. (4) `GET
-      /email/links/contact/{id}` (`ContactDetailPanel.tsx:243`) liefert alle mit dem Kontakt
-      verknüpften Mails aller Mitarbeiter — Team-Kundenhistorie oder nur eigene? Für member
-      heute 403 (die Kachel bleibt leer). RulesDialog in `MailsPage.tsx` gibt member 403.
-    sources:
-      - backend/internal/email/rule/
-      - backend/internal/email/label/
-      - backend/internal/email/template/service.go
-      - backend/internal/server/email_grpc.go
-      - backend/internal/gateway/route_email.go
-    done_when:
-      - "Regel je Fläche entschieden; daraus Loop-Units (Migration für rule.user_id falls pro Nutzer, Service-Scope, Router-Tests)"
-
-  - id: decide-video-recording-runs-before-initiator-confirms
-    phase: 4
-    service: video
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Egress startet vor der Initiator-Bestätigung, Abbrechen stoppt nicht; erst Prod-Egress-Status, dann Variante (a) Backend verzögert Egress oder (b) Desktop stoppt bei Abbrechen"
-    coverage_start: "internal/work/recording (ungemessen)"
-    scope: >
-      Gefunden in fix-video-initiator-consent-rpc-cannot-marshal (Lauf 16, Iteration 14),
-      gegen Code belegt: `recording.Service.StartRecording` legt die Zeile an und startet den
-      LiveKit-Egress SOFORT (`service.go`, `StartRoomCompositeEgress` nach `CountPendingConsents`).
-      Das Desktop (`CallControls.tsx:121-150`) ruft erst `startRecording`, zeigt DANN den
-      Initiator-Dialog und stempelt bei „Bestätigen" `initiator-consent`; „Abbrechen"
-      (`handleCancelStart`) schließt nur den Dialog — die Aufnahme läuft weiter, ohne dass der
-      Initiator bestätigt hat, und `activeRecordingId` bleibt leer (UI weiß ggf. nicht, dass
-      aufgenommen wird). Der als Gegenmittel gebaute `PreConsentChecker` ist NICHT verdrahtet:
-      `cmd/work/main.go` ruft `recording.NewService` ohne Checker, und es gibt keine einzige
-      Implementierung von `HasInitiatorConsented`. Der Stempel ist damit rein dokumentarisch.
-      Erster Schritt: prüfen, ob Egress in Produktion konfiguriert ist (`LIVEKIT_EGRESS_TEMPLATE_URL`
-      im work-Service, ohne den `ErrEgressNotConfigured` und die Frage ist akademisch) — das
-      gehört Luke (Prod-Lesezugriff). Danach eine Architektur-Entscheidung (Luke): (a) Egress erst
-      nach dem Stempel starten (StartRecording legt nur `pending` an, `ConfirmInitiatorConsent`
-      startet den Egress), oder (b) Abbrechen ruft `stopRecording` + Löschung — (b) wäre
-      Desktop-Code, den der Loop nicht ändert. Kein Bau ohne Entscheidung.
-    sources:
-      - backend/internal/work/recording/service.go
-      - backend/cmd/work/main.go
-      - desktop/src/renderer/src/features/video/CallControls.tsx
-    done_when:
-      - "Luke: Egress-Status in Produktion festgestellt und Variante (a) oder (b) entschieden"
-      - "Bei (a): Service-Test — ohne Stempel kein StartRoomCompositeEgress-Aufruf, nach Stempel genau einer"
-
-  - id: decide-hr-employee-deactivate-reactivate
-    phase: 4
-    service: hr
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Deaktivieren/Reaktivieren der Team-Seite braucht Abbildung auf Offboarding (exit_date + exit_type sind Pflicht, CHECK aus Migration 000282) und einen Reaktivieren-RPC, den es nicht gibt"
-    coverage_start: "internal/biz/hr/employee 76,2 %"
-    scope: >
-      Gefunden in fix-hr-employee-update-drops-address-emergency-and-status (Lauf 16,
-      Iteration 17). `PUT /hr/employees/{id}` mit `status` antwortet jetzt 400 ("Deaktivieren läuft
-      über das Offboarding"), vorher 200 ohne Wirkung. Die Team-Seite (`TeamPage.tsx:280,286`)
-      sendet aber genau das für „Deaktivieren" und „Reaktivieren" und zeigt DANACH sofort einen
-      Erfolgs-Toast (`toast.success` direkt nach `mutate`, ohne `onSuccess`) — der Toast ist falsch,
-      sobald die Mutation fehlschlägt. Desktop-Code ändert der Loop nicht.
-      Empfehlung: Deaktivieren = `OffboardEmployee` mit exit_date heute und exit_type 'other'
-      (setzt voraus, dass 'other' im CHECK/Service-Set zulässig wird — heute nur fünf Werte),
-      Reaktivieren als eigener RPC `ReactivateEmployee` (status active, exit_* NULL, Login und
-      Rollen wieder frei; Rollen sind beim Offboarding gelöscht, also kein reiner Statuswechsel).
-      FE: Toast erst in `onSuccess`, Fehler anzeigen.
-    sources:
-      - backend/internal/gateway/route_hr.go
-      - backend/internal/biz/hr/employee/service.go
-      - backend/migrations/000282_hr_employee_offboarding.up.sql
-      - desktop/src/renderer/src/modules/team/TeamPage.tsx
-    done_when:
-      - "Luke: Abbildung von Deaktivieren/Reaktivieren entschieden"
-      - "FE-Toast erst nach Erfolg (Desktop-Arbeit, nicht Loop)"
-
-  - id: decide-work-task-complete-without-project
-    phase: 4
-    service: work
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: Was bedeutet Abhaken bei einer Aufgabe OHNE Projekt (kein Status möglich) - completed_at direkt setzen oder weiter 409?"
-    coverage_start: "internal/work/task 71,7 %"
-    scope: >
-      Gefunden in fix-work-task-quick-complete-ignored (Lauf 16, Iteration 20). `PUT /tasks/{id}`
-      mit `is_closed` löst den Abschluss über den ersten geschlossenen Status des PROJEKTS auf.
-      Eine projektlose Aufgabe hat keinen Status; sie antwortet heute 409 ("task without a project
-      cannot be completed", `task.ErrTaskWithoutProject`). Das FE (`MyTasksPage.tsx:546`,
-      `KanbanCard.tsx:109`) zeigt dann nur den Fehler, kein Abhaken. Option (a): `completed_at`
-      direkt setzen/löschen - die Spalte existiert, und `MyTasksPage` liest ohnehin `completed_at`;
-      die Kanban-Karte liest `is_closed` (kommt aus dem Status, bliebe false). Option (b): 409
-      lassen, projektlose Aufgaben sind in der Praxis selten (Anlegen-Dialog verlangt ein Projekt).
-    sources:
-      - backend/internal/work/task/service.go
-      - desktop/src/renderer/src/modules/work/tasks/MyTasksPage.tsx
-    done_when:
-      - "Luke: (a) oder (b) entschieden"
-      - "Bei (a): Service-Test + DB-Test, projektlose Aufgabe bekommt completed_at, is_closed=false löscht es"
 
   - id: fe-handle-work-shape-findings
     phase: 4
@@ -2151,64 +1284,6 @@ units:
     done_when:
       - "Luke/Frontend: (a)-(c) gebaut, per Screenshot-QA abgenommen; (e) gelöscht oder korrigiert"
 
-  - id: decide-chat-group-dm
-    phase: 4
-    service: chat
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "PRODUKT-/DATENMODELL-ENTSCHEIDUNG LUKE: Gruppen-DMs sind im Chat-Backend nicht vorgesehen"
-    target: "Luke"
-    scope: >
-      Gefunden in `scan-fe-gateway-shape-and-body-chat` (Iteration 46, 2026-10-25).
-      `NewDMDialog.tsx` erlaubt Mehrfachauswahl ("Gruppe starten", KO-2); `useStartConversation`
-      sendet dann `POST /channels/dm` mit `{participant_ids:[…]}` und OHNE `other_user_id`. Das
-      Gateway (`getOrCreateDMRequest`, `route_chat.go:~600`) verlangt `other_user_id` (required,
-      uuid) -> 400. Das Chat-Proto kennt nur `GetOrCreateDMRequest{user_id, other_user_id}`; es gibt
-      kein Gruppen-DM-Modell (Mitgliederliste, Idempotenz über sortierte Teilnehmermenge, Name).
-      Frage an Luke: Gruppen-DMs bauen (Datenmodell: `is_dm` + mehr als zwei Mitglieder,
-      Schlüssel = Hash der Teilnehmermenge, Migration mit RLS) ODER das FE nimmt die
-      Mehrfachauswahl zurück (dann FE-Unit)? Bis dahin schlägt "Gruppe starten" mit einer
-      Fehlermeldung fehl; 1:1-DMs funktionieren.
-    sources:
-      - desktop/src/renderer/src/modules/chat/channels/NewDMDialog.tsx
-      - desktop/src/renderer/src/api/hooks/useChannels.ts
-      - backend/internal/gateway/route_chat.go
-      - backend/proto/chat/v1/chat.proto
-    done_when:
-      - "Luke: Gruppen-DM ja/nein entschieden; bei ja eine Bau-Unit mit Datenmodell angelegt"
-
-  - id: decide-schichten-swap-semantics
-    phase: 4
-    service: schichten
-    model: opus
-    deps: []
-    status: blocked
-    blocked_reason: "PRODUKTENTSCHEIDUNG LUKE: was ein genehmigter Schichttausch bewirken soll (heute ohne Wirkung oder 409)"
-    target: "Luke"
-    scope: >
-      Gefunden in `e2e-schichten-member-flow` (Iteration 64). `SwapAssignmentsForRequest`
-      (`postgres_repository.go:~687`) tauscht nur die `employee_id` zweier Zuweisungen DERSELBEN
-      Schicht und verlangt, dass der Partner schon auf ihr steht (sonst `ErrSwapPartnerNotAssigned`
-      -> 409). Zwei Mitarbeiter derselben Schicht zu tauschen ändert die Besetzung nicht; ist der
-      Partner nicht auf der Schicht, scheitert die Genehmigung. Das FE bietet in
-      `ShiftDetailModal` jeden Mitarbeiter als Partner an (`swapCandidates` = alle außer dem
-      Zugewiesenen) und kennt nur eine `shift_id`. Der Tausch kann seinen Zweck, eine Schicht an
-      einen Kollegen abzugeben oder gegen eine andere zu tauschen, damit nie erfüllen. Zu
-      entscheiden: (a) Übergabe — die Zuweisung geht auf den Partner über, auch wenn er nicht auf
-      der Schicht steht (mit ArbZG-/JArbSchG-Prüfung wie bei `AssignEmployee`), oder (b) echter
-      Tausch zweier Schichten (Datenmodell: zweite `shift_id`/`partner_assignment_id`,
-      Migration mit RLS, FE-Dialog wählt die Gegenschicht). Der E2E-Flow hält den heutigen Stand
-      fest (Besetzung nach Genehmigung unverändert, Partner ohne Zuweisung 409) und muss mit.
-    sources:
-      - backend/internal/schichten/postgres_repository.go
-      - backend/internal/schichten/service.go
-      - backend/test/e2e/schichten_test.go
-      - desktop/src/renderer/src/modules/schichten/ShiftDetailModal.tsx
-    done_when:
-      - "Luke: (a) Übergabe oder (b) Tausch zweier Schichten entschieden; Bau-Unit mit Datenmodell angelegt"
-
-
   # ========================================================================================
   # NACHBEARBEITUNG LAUF 16 (2026-10-25, Morgen-PR #28)
   #
@@ -2219,116 +1294,657 @@ units:
   # 23505 -> 409. Hier die Reste.
   # ========================================================================================
 
-  - id: seed-leave-types-on-tenant-provisioning
+  # ========================================================================================
+  # AUS DER ENTSCHEIDUNGSRUNDE 2026-10-25 (Vorbereitung Lauf 17): FE-Arbeit
+  # ========================================================================================
+
+  - id: fe-ghost-routes-hide-birthdays-salary-guest
     phase: 4
-    service: hr
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA)"
+    decided: "2026-10-25"
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-25: Geister-Routen nach Empfehlung. Geburtstags-Widget streichen
+      (`useBirthdays.ts`, Geburtsdatum ist personenbezogen, bis zum Pilot kein Opt-in-Modell),
+      Gehaltsabrechnungen (`SelfServiceView.tsx:136`) und Gast-Übersicht (`useProjects.ts:542`)
+      ausblenden. Plugin-Routen und tote Parameter bleiben liegen. Das Backend für
+      `/dashboard/team-worktime` baut Lauf 17 (`feat-dashboard-team-worktime-route`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    sources:
+      - desktop/src/renderer/src/api/hooks/useBirthdays.ts
+      - desktop/src/renderer/src/modules/team/SelfServiceView.tsx
+      - desktop/src/renderer/src/api/hooks/useProjects.ts
+    done_when:
+      - "Kein Desktop-Aufruf mehr auf /dashboard/birthdays, /hr/employees/me/salary-statements, /projects/{id}/guest-overview"
+
+  - id: fe-team-deactivate-toast-after-success
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA)"
+    decided: "2026-10-25"
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-25: Deaktivieren läuft über das Offboarding, Reaktivieren über einen
+      neuen RPC (`feat-hr-deactivate-via-offboarding-and-reactivate`, Lauf 17). Das FE stellt
+      `TeamPage.tsx:279-288` auf die neuen Aufrufe um und zeigt den Erfolgs-Toast erst in
+      `onSuccess`, Fehler sichtbar.
+    target: "Frontend-Session nach Lauf 17"
+    sources:
+      - desktop/src/renderer/src/modules/team/TeamPage.tsx
+    done_when:
+      - "Toast erst nach Erfolg, Deaktivieren/Reaktivieren über die neuen Routen"
+
+  - id: fe-time-entries-own-views-send-employee-id
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 5"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      `GET /api/v1/hr/time/entries` ohne `employee_id` liefert die Reichweite des Aufrufers, nicht "meine
+      Einträge": admin (hr:read all) bekommt schon immer den ganzen Tenant, und seit
+      `fix-hr-correction-list-for-approvers` liefert `?status=correction_pending` ohne `employee_id` für
+      manager (eigene + Berichtslinie), hr_admin und admin (Tenant) die Freigabe-Queue. Drei Desktop-Stellen
+      meinen aber die EIGENEN Einträge und senden trotzdem keine `employee_id`: Header-Widget
+      (`components/header/WorkClockWidget.tsx:50`, "Heute"-Liste zeigt bei admin fremde Einträge ohne Namen
+      als eigene), Export (`modules/zeiterfassung/components/ExportDialog.tsx:69`, admin exportiert den
+      Tenant als "meine Zeiten") und der Profil-Tab "Korrekturen" (`modules/profil/tabs/ZeiterfassungTab.tsx:134`,
+      zeigt manager/hr_admin/admin jetzt die Team-Queue statt der eigenen offenen Korrekturen). Fix im FE:
+      alle drei senden `employee_id: user.id` (wie `ZeiterfassungTab.tsx:131` es schon tut); nur
+      `modules/team/TimeCorrectionPanel.tsx:33` bleibt ohne. Danach kann der Backend-Schlüssel auf den
+      Statusfilter (`lean:`-Marker in `HandleListWorkTimeEntries`) einem expliziten Queue-Parameter weichen.
+    sources:
+      - desktop/src/renderer/src/components/header/WorkClockWidget.tsx
+      - desktop/src/renderer/src/modules/zeiterfassung/components/ExportDialog.tsx
+      - desktop/src/renderer/src/modules/profil/tabs/ZeiterfassungTab.tsx
+      - backend/internal/gateway/route_hr.go (HandleListWorkTimeEntries)
+    done_when:
+      - "Header-Widget, Export und Profil-Korrekturen senden employee_id des Nutzers; admin sieht dort nur eigene Einträge (Screenshot)"
+
+  - id: fe-capability-catalog-team-inbox-read
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 8"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Migration 000346 (`feat-team-inbox-for-members`) legt `kommunikation:team_inbox:read` an (member/manager
+      `own`, admin `all`); das Gateway nimmt den Key additiv an den Inbox-Leserouten an. Der Rollen-Editor kennt
+      ihn nicht: `config/capability-catalog.ts` listet unter `kommunikation` nur die fünf `manage`-Keys. Eine
+      Custom-Rolle kann den Team-Inbox-Lesezugriff deshalb weder sehen noch setzen; die Presets wirken trotzdem.
+      Fix im FE: `fine('kommunikation:team_inbox:read')` in den Katalog, i18n ×4 für das Label.
+    sources:
+      - desktop/src/renderer/src/config/capability-catalog.ts
+      - backend/migrations/000346_seed_team_inbox_read_for_members.up.sql
+    done_when:
+      - "Rollen-Editor zeigt und speichert kommunikation:team_inbox:read (Screenshot)"
+  - id: fe-email-rules-per-user-catalog-and-tenant-wide-marker
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "FRONTEND, NICHT LOOP-TERRITORIUM (Build-+-Verify mit Screenshot-QA); Fund aus Lauf 17 Iteration 11"
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Migration 000348 (`feat-email-rules-per-user`) legt `email:rule:read|write|delete` an (member/manager
+      `own`, admin `all`) und macht jede neue Regel zur Nutzerregel; Bestandsregeln bleiben tenantweit und nur
+      mit dem groben `email:write` änderbar. Zwei FE-Lücken: (1) der Rollen-Editor (`config/capability-catalog.ts`)
+      kennt die drei Keys nicht (er führt gar keine `email`-Keys), eine Custom-Rolle kann sie weder sehen noch setzen. (2) `RulesDialog.tsx` zeigt
+      member die tenantweiten Regeln mit Löschknopf, der Klick endet in 403. Für (2) braucht das FE ein
+      Unterscheidungsmerkmal: `EmailRuleInfo` (Proto) trägt heute weder `user_id` noch `tenant_wide` — das wäre
+      eine kleine Backend-Unit (Proto-Feld plus Regen) vor dem FE-Teil.
+    sources:
+      - desktop/src/renderer/src/config/capability-catalog.ts
+      - desktop/src/renderer/src/modules/mails/RulesDialog.tsx
+      - backend/proto/email/v1/email.proto (EmailRuleInfo)
+      - backend/migrations/000348_email_rules_per_user.up.sql
+    done_when:
+      - "Rollen-Editor zeigt und speichert email:rule:* (Screenshot)"
+      - "member sieht tenantweite Regeln ohne Lösch-/Bearbeiten-Knopf (Screenshot)"
+
+  - id: decide-email-template-create-shared-by-member
+    phase: 4
+    service: email
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: darf member weiterhin geteilte Vorlagen ANLEGEN? Fund aus Lauf 17 Iteration 12"
+    target: "Luke entscheidet, danach eine kleine Backend-Unit"
+    scope: >
+      `feat-email-templates-own-personal-edit` (Migration 000349) beschränkt Ändern/Löschen und den
+      Sichtbarkeitswechsel auf den groben Key (admin); member pflegt nur eigene persönliche Vorlagen. Das ANLEGEN
+      (`POST /api/v1/email/templates`, Guard `email:mailbox:write`) nimmt aber weiter `visibility: shared` von
+      jedem member an: er legt eine tenantweit sichtbare Vorlage an, die er danach selbst nicht mehr korrigieren
+      oder löschen kann (403). Die Entscheidung vom 2026-10-25 ("geteilte nur admin") nennt das Anlegen nicht
+      ausdrücklich. Optionen: (a) Anlegen mit `shared` ohne `email:write` -> 403, (b) so lassen. Zusätzlich:
+      Die Desktop-Vorlagen (`stores/mailTemplates.ts`) laufen heute rein lokal, kein FE-Aufrufer der
+      `/email/templates`-Routen — die Rechte wirken erst, wenn das FE angebunden ist.
+    sources:
+      - backend/internal/email/template/service.go (Create)
+      - backend/internal/gateway/route_email.go (Templates)
+      - desktop/src/renderer/src/stores/mailTemplates.ts
+    done_when:
+      - "Entscheidung im Unit-Text, danach Router-Test: member POST shared -> 403 (falls a)"
+
+  - id: decide-fuhrpark-gps-during-private-trips
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: "ENTSCHEIDUNG LUKE: sollen GPS-Punkte während einer Privatfahrt für Nicht-Fahrer verborgen werden, und wie lassen sie sich zuordnen? Fund aus Lauf 17 Iteration 15"
+    target: "Luke entscheidet, danach eine Backend-Unit (ggf. mit Migration)"
+    scope: >
+      `fix-fuhrpark-trip-logs-private-flag-not-filtered` maskiert Privatfahrten in Fahrtenbuch-Liste und Export
+      (Ziel, Zweck, Route weg). Die Entscheidung vom 2026-10-25 nennt auch „ohne GPS“. Das Fahrtenbuch selbst
+      trägt kein GPS, die GPS-Routen (`GET /fuhrpark/gps/positions`, `/gps/routes`, Guard `fuhrpark:gps:read`)
+      liefern aber weiterhin alle Positionen eines Fahrzeugs. `gps_positions` hat weder Fahrer noch Fahrtbezug,
+      `trip_logs.date` ist ein DATE ohne Uhrzeit: eine Privatfahrt lässt sich den Positionen heute nicht
+      zuordnen. Optionen: (a) Uhrzeit von/bis an `trip_logs` plus Ausblenden der Positionen im Fenster für
+      Nicht-Fahrer, (b) Privat-Flag an den GPS-Punkten (vom Tracker/Fahrer gesetzt), (c) so lassen, GPS bleibt
+      eine Flottenfunktion für admin/manager.
+    sources:
+      - backend/migrations/000195_create_gps_positions.up.sql
+      - backend/migrations/000193_create_trip_logs.up.sql
+      - backend/internal/gateway/route_fuhrpark.go (GPS)
+    done_when:
+      - "Entscheidung im Unit-Text, danach Unit mit DB-Test im Backlog"
+
+
+  - id: fe-berichte-share-link-shown-once
+    phase: 4
+    service: desktop
     model: sonnet
     deps: []
     status: todo
-    target: "neuer Tenant hat ab Anlage die zehn System-Urlaubsarten"
-    coverage_start: "n.a. (Bugfix)"
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante a): Berichte-Token werden gehasht, sobald der
+      Desktop den Link nur noch einmalig aus der Create-Antwort zeigt.
+    target: der Berichte-Share-Dialog braucht das Token aus der Liste nicht mehr
     scope: >
-      000345 kopiert die Zero-UUID-Vorlagen aus 000046 nur in die Tenants, die beim Migrieren
-      existieren (`lean:`-Marker dort). Ein später angelegter Tenant (Provisioning in
-      `internal/auth/postgres_repository.go:~1227`, `INSERT INTO tenants`) hat wieder keine
-      Urlaubsart: kein Urlaubsantrag, `RecordSickLeave` findet "krank" nicht. Gleiches Muster
-      prüfen für `hr_document_categories` (dort liest `ListByTenant` die Vorlagen mit, also
-      vermutlich kein Bruch). Fix in derselben Transaktion wie die Tenant-Anlage oder als
-      idempotentes Seed beim ersten HR-Zugriff, DB-Test mit frischem Tenant.
+      `ShareLinkDialog.tsx:134/138` baut „Link kopieren“ aus `s.token` der Liste (`GET /berichte/documents/{id}/shares`)
+      und verwirft die Create-Antwort. Umbauen: nach dem Erstellen den Link aus der Create-Antwort einmalig anzeigen
+      (kopierbar, Hinweis „wird nur jetzt angezeigt“, i18n ×4); die Liste zeigt Ablauf/Widerruf, aber keinen
+      Kopieren-Knopf mehr. Voraussetzung für `harden-share-tokens-hashed-berichte`.
     sources:
-      - backend/migrations/000345_copy_system_leave_types_to_tenants.up.sql
-      - backend/internal/auth/postgres_repository.go
-      - backend/internal/biz/hr/leave/postgres_repository.go
+      - desktop/src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx
     done_when:
-      - "DB-Test: frisch provisionierter Tenant hat urlaub und krank (is_system)"
+      - Link nur nach dem Erstellen kopierbar, Liste ohne Token, i18n ×4, Screenshot-QA
 
-  - id: harden-einkauf-po-line-tax-rate-range
+  - id: harden-share-tokens-hashed-berichte
     phase: 4
-    service: einkauf
-    model: sonnet
-    deps: []
-    status: todo
-    target: "tax_rate ausserhalb 0..1 ist 400, nicht 500"
-    coverage_start: "n.a. (Haertung)"
-    scope: >
-      `po_lines.tax_rate` ist NUMERIC(5,4), also ein Bruch (0.19). Der E2E-Flow schickte "19"
-      und bekam 500 (`numeric field overflow`, SQLSTATE 22003, CI-Run 40188556300). Der Desktop
-      sendet heute keinen Steuersatz (EinkaufDialogs), `einkauf-export.ts:173` rechnet ihn als
-      Bruch. Validierung an der Trust-Boundary (Service oder Gateway-Tag), gleiche Prüfung für
-      update line; Spec-Beschreibung "Bruch, 0.19 = 19 %".
-    sources:
-      - backend/internal/einkauf/service.go
-      - backend/internal/gateway/route_einkauf.go
-      - backend/migrations/000085_create_einkauf.up.sql
-    done_when:
-      - "Gateway-Test: tax_rate 19 -> 400 mit validation_failed, 0.19 -> 201"
-
-  - id: scan-legacy-seed-grants-for-member-and-manager
-    phase: 4
-    service: auth
+    service: berichte
     model: opus
+    deps:
+      - harden-share-tokens-hashed-wiki-formulare
+      - fe-berichte-share-link-shown-once
+    status: todo
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25, präzisiert 2026-10-26 (Morgen-Check Lauf 17, Variante a): Hash-Ablage für
+      Berichte-Token, erst nachdem `fe-berichte-share-link-shown-once` gemergt ist (sonst ist „Link kopieren“ tot).
+    target: kein Berichte-Link-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Berichte-Share-Secret (`berichte/service.go:newShareSecret`) auf `internal/linksecret` und Hash-Ablage umstellen,
+      Migrationsmuster wie 000351 (Backfill per `sha256`, Bestandslinks bleiben gültig). Die Liste liefert kein Token
+      mehr; das Klartext-Token verlässt den Server nur in der Create-Antwort. Herkunft: Lauf 17 Iteration 17 hat die
+      Sammel-Unit `harden-share-tokens-hashed-berichte-csat` blockiert (Begründung im Journal).
+    sources:
+      - backend/internal/berichte/service.go
+      - backend/migrations/000351_share_token_hashes.up.sql
+    done_when:
+      - 'DB-Test: Bestands-Token gültig, Klartext-Spalte entfernt, Liste ohne Token'
+      - Keine Kopie des Generators mehr in berichte (grep belegt das)
+
+  - id: harden-csat-token-minted-at-dispatch
+    phase: 4
+    service: helpdesk
+    model: opus
+    deps:
+      - harden-share-tokens-hashed-wiki-formulare
+    status: todo
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante b): Das CSAT-Token entsteht erst beim Versand im
+      Dispatcher, gespeichert wird nur der Hash. Die CSAT-Sperre ist für genau diesen Umbau des Dispatch gelockert;
+      CSAT bleibt aus.
+    target: kein CSAT-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Heute mintet das Schließen des Tickets das Token, der Dispatcher liest es später per `ListDueCsatSurveys`
+      (`helpdesk/postgres_repository.go:519`, `SELECT r.token`) und baut den Link (`csat_dispatch.go:288`). Neu: beim
+      Schließen nur die fällige Umfrage ohne Token anlegen; der Dispatcher claimt sie, mintet per `linksecret.New`,
+      speichert den Hash im selben Claim und verschickt die Mail. Die Lookup-Route hasht das vorgelegte Token.
+      Migration: Bestand backfillen wie 000351, Klartext-Spalte entfernen. Scheitert der Versand nach dem Claim, darf
+      ein Retry ein neues Token minten (alter Hash wird ersetzt).
+    sources:
+      - backend/internal/helpdesk/csat_survey.go
+      - backend/internal/helpdesk/csat_dispatch.go
+      - backend/internal/helpdesk/postgres_repository.go
+    done_when:
+      - 'DB-Test: Dispatcher verschickt einen gültigen Link, in der DB steht nur der Hash, Bestands-Token gültig'
+      - 'Test: Retry nach Versandfehler ersetzt den Hash, der alte Link ist ungültig'
+
+  - id: fe-share-link-expiry-max-365-days
+    phase: 4
+    service: desktop
+    model: sonnet
     deps: []
     status: todo
-    target: "jeder Grant der Presets member/manager vor 000256 ist gegen die Rollenmatrix geprüft"
-    coverage_start: "n.a. (Scan)"
+    target: die Share-Dialoge bieten nur noch Abläufe an, die das Backend annimmt
     scope: >
-      000068 hatte member `dialer:agent:manage` gegeben ("agent self-manage"), unbemerkt bis
-      zum ersten E2E mit echtem Seed. Die Rollenmatrix aus Lauf 16 (`role-matrix-lauf16.tsv`)
-      hat das als "ja/ok" gelistet, weil sie den Ist-Seed abbildet, nicht die Absicht. Scan:
-      alle `role_permissions` von member/manager (Preset, tenant_id IS NULL) mit Schlüsseln
-      `*:manage`, `*:delete`, `*:approve`, `admin:*` auflisten, je Grant die Herkunfts-Migration
-      und ob ein Handler den Key als Supervisor-/Fremdzugriff liest. Ergebnis: Fix-Units je
-      Fund, keine Code-Änderung im Scan. Zweite Frage: hat irgendein weiterer grober Key
-      (resource ohne Doppelpunkt) einen Scope ungleich 'all' — seit dem Token-Fix wirkt er.
+      Seit Lauf 17 Iteration 17 (`harden-share-links-max-365-days`) läuft jeder Wiki-, Formular- und Berichte-Link
+      nach spätestens 365 Tagen ab; ohne Angabe gilt 365 Tage, mehr gibt 400. Desktop-Folgen (Loop darf `desktop/`
+      nicht ändern): (1) Berichte `ShareLinkDialog.tsx:27` bietet `'never'` an und sendet dann
+      `expires_in_days: null` -> Link läuft nach 365 Tagen ab, die Option heißt aber „läuft nie ab“
+      (i18n `berichte.docs.share.expiry_never`); Option in „1 Jahr“ umbenennen (×4 Sprachen). (2) Formulare
+      `FormularePage.tsx:4194` Datumsfeld hat `min`, aber kein `max`: ein Datum > 365 Tage gibt einen 400-Toast;
+      `max` = heute + 365 Tage setzen, leeres Feld als „1 Jahr“ beschriften. (3) Wiki sendet kein Ablaufdatum, passt.
     sources:
-      - backend/migrations/000068_dialer_permissions.up.sql
-      - backend/migrations/000256_rbac_phase1a_role_scope_and_presets.up.sql
-      - .planning/backend-block/loop/role-matrix-lauf16.tsv
+      - desktop/src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx
+      - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
     done_when:
-      - "Liste mit Herkunft je Grant im Journal, je Fund eine Unit in BACKLOG-NEXT.yml"
+      - Keine Option „läuft nie ab“ mehr, Datumsfeld auf 365 Tage begrenzt, i18n ×4, Screenshot-QA
+  - id: decide-recording-participant-consent-before-egress
+    phase: 4
+    service: work
+    model: opus
+    deps:
+      - fix-video-egress-after-initiator-consent
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE (Fund aus Lauf 17 Iteration 20): Wann willigen die Teilnehmer ein — während die
+      Aufnahme `pending` ist (vor dem Egress, Desktop muss den Teilnehmer-Dialog dann auch für pending zeigen)
+      oder erst nach dem Start? Heute ist das Teilnehmer-Gate unerfüllbar, die Aufnahme lässt sich nie starten.
+    target: eine Aufnahme lässt sich mit echten Teilnehmern überhaupt starten, und niemand wird ohne Einwilligung aufgenommen
+    scope: >
+      Gegen Code belegt in Lauf 17 Iteration 20 (`fix-video-egress-after-initiator-consent`), dort NICHT
+      geändert: (1) `recording.Service.StartRecording` legt die Zeile mit NEUER ID an und ruft sofort
+      `CountPendingConsents(rec.ID, participantIDs)`. Einwilligungen hängen per FK an `recording_id` — für eine
+      gerade erzeugte ID kann es keine geben, der Zähler ist immer = Teilnehmerzahl >= 1 (der gRPC-Server fügt
+      notfalls den Initiator selbst ein). Ergebnis immer `ErrConsentPending` (gRPC FailedPrecondition, HTTP 412/409),
+      Zeile wird gelöscht. Sämtliche Erfolgs-Tests umgehen das mit `pendingOverride = 0`;
+      `TestStartRecording_ConsentPendingByDefault` (internal/server) belegt das Dauer-Pending sogar. Auf Prod
+      unsichtbar, weil `LIVEKIT_EGRESS_TEMPLATE_URL` leer ist (503 vorher). (2) Desktop
+      `useActiveMeetingRecording` (`api/hooks/useVideo.ts:277`) sucht `r.status === 'active'`, der Wire liefert
+      `status` aber als Enum-ZAHL (`response.ProtoList`, `UseEnumNumbers`; ACTIVE = 1, seit Iteration 20
+      PENDING = 6). Der Treffer bleibt immer `null` -> der Teilnehmer-Einwilligungsdialog in
+      `VideoCallView.tsx:968` (`showInCallConsent`) öffnet nie, auch der Aufnahme-Banner nicht. Varianten:
+      (a) Teilnehmer willigen auf die `pending`-Aufnahme ein, das Gate wandert aus `StartRecording` in
+      `ConfirmInitiatorConsent` (Egress erst, wenn alle zugestimmt haben; Desktop zeigt den Dialog bei
+      pending, Status-Vergleich numerisch oder Backend-Rewrite auf String wie TaxMode in `response.go`);
+      (b) Einwilligung erst nach dem Start (DSGVO-fragwürdig, Aufnahme läuft dann schon).
+    sources:
+      - backend/internal/work/recording/service.go
+      - backend/internal/server/video_grpc.go
+      - backend/internal/server/response/response.go
+      - desktop/src/renderer/src/api/hooks/useVideo.ts
+      - desktop/src/renderer/src/features/video/VideoCallView.tsx
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+    done_when:
+      - 'Entscheidung Luke: Einwilligungszeitpunkt der Teilnehmer, Status-Wire (Zahl im FE oder String-Rewrite im Backend)'
+      - 'Service-Test mit echtem Repo: Start -> alle Teilnehmer willigen ein -> Initiator bestätigt -> genau ein Egress; ein fehlendes Ja -> kein Egress'
 
-  - id: fix-recurring-concurrent-generate-test-flake
+  - id: decide-recurring-generate-future-period
     phase: 4
     service: biz
     model: sonnet
     deps: []
-    status: todo
-    target: "TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice ist deterministisch"
-    coverage_start: "n.a. (Test-Flake)"
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE: darf "jetzt erzeugen" (manueller RPC `GenerateRecurringInvoice`) eine noch nicht
+      fällige Folgeperiode abrechnen? Heute rechnet `Generate` die Periode `NextRun` ab, auch wenn
+      `NextRun > heute` — ein Doppelklick auf zwei getrennte Requests erzeugt zwei Rechnungen für zwei Monate.
+    target: Generate rechnet keine Periode ab, die in der Zukunft liegt (oder die Entscheidung dokumentiert das Gegenteil)
     scope: >
-      Fiel im PR #28 einmal unter `-race` (CI-Run 40191840035, 2 Rechnungen statt 1, Paket nicht
-      im Lauf angefasst). Ursache: liest der zweite Racer den Plan erst NACH `repo.Update` des
-      ersten, steht `NextRun` schon auf der Folgeperiode und er claimt legitim diese — zwei
-      Rechnungen für zwei Perioden. `ClaimPeriod` (ON CONFLICT) schützt nur dieselbe Periode,
-      und das tut es. Einziger Aufrufer ist der manuelle RPC (`biz_grpc_recurring.go:231`), kein
-      Scheduler. Fix im Test: beide Racer müssen dieselbe Periode sehen (z. B. Barriere nach
-      `GetByID` über einen Test-Hook, oder Generate zweimal mit vorab geladenem Plan). Daneben
-      die Produktfrage für Luke: darf "jetzt erzeugen" eine noch nicht fällige Folgeperiode
-      abrechnen (Doppelklick = zwei Monate)? Wenn nein, `Generate` mit `NextRun > heute` ablehnen.
+      Aus `fix-recurring-concurrent-generate-test-flake` (Lauf 17, Iteration 26). `ClaimPeriod` (ON CONFLICT)
+      schützt nur dieselbe Periode; liest ein zweiter Aufruf den Plan erst nach `repo.Update` des ersten, steht
+      `NextRun` auf der Folgeperiode und er claimt diese legitim. Einziger Aufrufer ist der manuelle RPC
+      (`biz_grpc_recurring.go:231`), kein Scheduler. Variante ja: `Generate` lehnt `dateOnly(rec.NextRun)` nach
+      heute mit eigenem Fehler (gRPC FailedPrecondition, HTTP 409) ab. Desktop-Aufrufer vorher greppen
+      (Button "jetzt erzeugen" bei Plänen, die noch nicht fällig sind?).
     sources:
       - backend/internal/biz/recurring/service.go
-      - backend/internal/biz/recurring/service_db_test.go
+      - backend/internal/server/biz_grpc_recurring.go
     done_when:
-      - "Test 20x mit -race grün (CI) und Produktfrage im Journal beantwortet oder als decide-Unit"
+      - 'Entscheidung Luke: Folgeperiode vor Fälligkeit abrechenbar ja/nein, mit Datum in dieser Unit'
 
-  - id: fix-produktion-concurrent-booking-move-deadlock
+  - id: decide-desktop-produktion-booking-plan-envelope
     phase: 4
     service: produktion
     model: sonnet
     deps: []
-    status: todo
-    target: "zwei gleichzeitige Umbuchungen auf dasselbe Fenster: eine gewinnt, die andere 409 — nie 500"
-    coverage_start: "n.a. (Bugfix/Flake)"
+    status: blocked
+    blocked_reason: >-
+      ENTSCHEIDUNG LUKE / Desktop-Team: Das Gateway antwortet `POST/PATCH /produktion/bookings` mit `{booking}`,
+      `POST/GET/PATCH /produktion/plans` mit `{plan}` und `GET /plans/{id}/capacity` mit `{overview}` (Proto-Envelope).
+      `produktion-client.ts` typisiert alle fünf als flaches `MachineBooking`/`ProductionPlan`/`CapacityOverview`
+      (Aufträge, BOMs, Schritte, Maschinen entpacken oder tippen die Hülle korrekt). Backend umbauen (flach) oder
+      Desktop entpacken? Desktop-Code ist für den Loop gesperrt.
+    target: Buchungs-, Plan- und Kapazitäts-Antworten und ihre FE-Typen stimmen überein
     scope: >
-      `TestMachineBookingOverlapConstraint/two_concurrent_moves_onto_the_same_window` fiel auf main
-      nach dem Merge von PR #28 (CI-Run 40196109073) mit `deadlock detected (SQLSTATE 40P01)`; das
-      Paket war nicht im Lauf. Zwei UPDATEs verschiedener Zeilen prüfen dieselbe Exclusion-
-      Constraint und können sich gegenseitig blockieren; Postgres bricht dann einen mit 40P01 ab.
-      `UpdateBooking` bildet nur 23P01 auf `ErrBookingConflict` ab, der Verlierer bekäme im
-      Betrieb also 500. Fix: 40P01 dort ebenfalls als Konflikt (oder ein Retry), Test bleibt bei
-      "1 win / 1 conflict". Gleiches Muster in `CreateBookingWithLock` prüfen.
+      Aus `e2e-produktion-member-flow` (Lauf 17, Iteration 29), dort festgeschrieben als `{booking}`/`{plan}` im
+      E2E. Heute hat keine Oberfläche einen Aufrufer für `useCreateMachineBooking`, `useUpdateMachineBooking`,
+      `usePlan`, `useCapacityOverview`, `useCreatePlan`, `useUpdatePlan` (nur `useProduktion.ts` selbst), es bricht
+      also nichts. Sobald ein Screen sie nutzt, liest er `data.id` aus einer Hülle. Empfehlung: Desktop entpackt wie
+      `unwrapOrder`, Backend bleibt (die anderen Produktion-Antworten tragen auch die Hülle).
     sources:
-      - backend/internal/produktion/postgres_repository.go
-      - backend/internal/produktion/booking_overlap_constraint_test.go
+      - desktop/src/renderer/src/api/produktion-client.ts
+      - desktop/src/renderer/src/api/hooks/useProduktion.ts
+      - backend/test/e2e/produktion_test.go
     done_when:
-      - "Test 20x mit -race grün (CI), 40P01 im Repo-Mapping"
+      - 'Entscheidung Luke: Backend flach oder Desktop entpackt, mit Datum in dieser Unit'
+
+  - id: fe-vertraege-list-asks-for-first-page-only
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: die Vertragsliste zeigt alle Verträge des Mandanten, nicht nur die ersten 20
+    scope: >
+      Fund aus `e2e-vertraege-flow` (Lauf 17, Iteration 35). `VertraegePage.tsx:1238` ruft `useContractsApi()` ohne
+      Parameter; `listContracts` sendet damit kein `page_size`, das Gateway antwortet mit der Standardseite (20)
+      und `total`. Die Seite liest nur `contractsData.contracts` und kennt weder Paging noch `total`: ab dem
+      21. Vertrag fehlen die übrigen in Liste, Fristen-Hinweisen und Dashboard-Warnungen
+      (`useContractExpiryNotifications`). Backend-Obergrenze 100 (`listPageSizeMaxSmall`). Fix im Desktop (Loop darf
+      `desktop/` nicht ändern): `page_size: 100` senden und bei `total > 100` blättern oder nachladen, wie
+      `VermietungPage.tsx:643` es für Objekte macht.
+    sources:
+      - desktop/src/renderer/src/modules/vertraege/VertraegePage.tsx
+      - desktop/src/renderer/src/api/hooks/useVertraege.ts
+      - backend/test/e2e/vertraege_test.go
+    done_when:
+      - Die Liste lädt mehr als 20 Verträge, Playwright-Screenshot mit 25 Verträgen
+
+  - id: fe-schichten-swap-list-drop-client-own-filter
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht im Tausch-Tab auch die Anträge, die unter seiner HR-Profil-ID laufen
+    scope: >
+      Fund aus `fix-schichten-swap-own-scope-employee-identity` (Lauf 17, Iteration 45). Seit dieser Unit filtert das
+      Backend `GET /schichten/swap-requests` bei Scope `own` auf beide Identitäten des Aufrufers (User-ID UND
+      HR-Profil-ID), und ein Tauschantrag aus dem Raster (`SchichtenPage.tsx:632`, `requestedByEmployeeId:
+      detailAssignment.userId` = Profil-ID) wird angelegt. Das Desktop filtert die Liste aber zusätzlich clientseitig
+      (`SchichtenPage.tsx:518-527`, `baseSwapRequests`) auf `requestedByEmployeeId === currentUserId ||
+      swapWithEmployeeId === currentUserId` — Anträge unter der Profil-ID verschwinden dadurch im UI, obwohl der Server
+      sie liefert, und `pendingSwapCount` zählt sie nicht. Fix im Desktop (Loop darf `desktop/` nicht ändern): den
+      Clientfilter streichen, die Liste kommt bereits serverseitig gescoped.
+    sources:
+      - desktop/src/renderer/src/modules/schichten/SchichtenPage.tsx
+      - backend/internal/schichten/postgres_repository.go
+      - backend/internal/gateway/route_schichten_swap_own_identity_db_test.go
+    done_when:
+      - member mit Raster-Zuweisung legt einen Tauschantrag an und sieht ihn im Tausch-Tab (Playwright-Screenshot)
+
+  - id: fe-helpdesk-own-scope-hide-agent-actions
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht am zugewiesenen Ticket nur die Aktionen, die das Backend ihm erlaubt
+    scope: >
+      Fund aus `feat-helpdesk-assigned-tickets-edit-for-members` (Lauf 17, Iteration 46). member hält seit Migration
+      356 `helpdesk:ticket:edit` mit Scope `own`. Das Desktop (`HelpdeskPage.tsx:1336-1338`) blendet mit
+      `canEditTicket = useScopedCapability('helpdesk:ticket:edit', ticket.assigneeId)` das ganze Agenten-Panel ein:
+      Status, Eskalieren (PUT priority) und Schließen/Wiedereröffnen funktionieren (200), aber Zuweisen-Select
+      (`POST /assign`) und Zusammenführen (`POST /merge`) antworten einem member 403. Außerdem zeigt
+      `canEditInternal = useHasCapability('helpdesk:ticket:edit')` (ohne Scope) den Interne-Notiz-Toggle jetzt jedem
+      member; ein internes Senden ist 403, die Nachrichtenliste blendet interne Notizen für member weiter aus. Fix im
+      Desktop (Loop darf `desktop/` nicht ändern): Zuweisen, Zusammenführen und den Interne-Notiz-Toggle nur bei
+      `helpdesk:ticket:edit` mit Scope ≠ own zeigen. Entscheidungsfrage für Luke vorab: soll der zugewiesene member
+      interne Notizen sehen und schreiben? Dann ist es eine Backend-Unit (Assignee-Bedingung im Service statt
+      Scope-Prüfung in `canWriteInternalNotes`), und nur Zuweisen/Zusammenführen werden im Desktop ausgeblendet.
+    sources:
+      - desktop/src/renderer/src/modules/helpdesk/HelpdeskPage.tsx
+      - backend/internal/gateway/route_helpdesk.go
+      - backend/internal/gateway/route_helpdesk_assigned_edit_db_test.go
+    done_when:
+      - member öffnet ein ihm zugewiesenes Ticket und sieht Status/Eskalieren/Schließen, aber weder Zuweisen noch Zusammenführen noch den Interne-Notiz-Toggle (Playwright-Screenshot)
+
+  - id: fe-work-task-delete-own-means-creator
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht den Löschen-Knopf nur an Aufgaben, die er selbst angelegt hat
+    scope: >
+      Fund aus `feat-work-own-task-delete-for-members` (Lauf 17, Iteration 47). member hält seit Migration 357
+      `work:task:delete` mit Scope `own`; das Backend löscht dann nur Aufgaben mit `created_by` = Aufrufer (sonst
+      404, Entscheidung 2026-10-25 "own über created_by"). Das Desktop (`modules/work/useWorkPermissions.ts:30-32`)
+      rechnet für `delete` dieselben Owner wie für `edit`: `useScopedCapability('work:task:delete', assignee_id,
+      created_by, reporter_id)`. Ein member sieht den Löschen-Knopf also auch an Aufgaben, die ihm nur zugewiesen
+      sind, und bekommt dort 404 (Fehler-Toast). Fix im Desktop (Loop darf `desktop/` nicht ändern): `delete` nur
+      gegen `task?.created_by` prüfen. Der Rest der Task-Rechte bleibt unverändert.
+    sources:
+      - desktop/src/renderer/src/modules/work/useWorkPermissions.ts
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/gateway/route_work_own_task_delete_db_test.go
+    done_when:
+      - member sieht Löschen an einer selbst angelegten Aufgabe, nicht an einer nur zugewiesenen (Playwright-Screenshot)
+
+  - id: fe-crm-deal-edit-team-scope-and-team-definition
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht Bearbeiten nur an Deals seines Teams, und Luke bestätigt, was "Team" bei Deals heißt
+    scope: >
+      Fund aus `feat-crm-deals-write-team-scope-for-members` (Lauf 17, Iteration 48). Seit Migration 358 hält member
+      `crm:deal:create|edit` mit Scope `team`. Das Backend hatte für Deals (und Kontakte) KEINE Team-Grenze, `team`
+      wirkte wie `all`; gebaut ist sie jetzt mit der einzigen Team-Definition, die es im Backend gibt
+      (Reporting-Line wie HR 334/335 und timetracking `ReportingLineOf`): Owner des Deals (`owner_id`, sonst
+      `created_by`) ist der Aufrufer oder einer seiner DIREKTEN Berichte (`hr_employee_profiles.manager_user_id`).
+      Für einen member ohne Berichte heißt das praktisch: nur eigene Deals. ENTSCHEIDUNGSFRAGE an Luke: meint
+      "Pipeline seines Teams" stattdessen Kollegen mit demselben Vorgesetzten (Geschwister) oder dieselbe
+      `department`? Dann ändert sich nur `deal.PostgresRepository.IsDirectReport` (eine Query). Desktop-Teil
+      (Loop darf `desktop/` nicht ändern): `DealDetailPage.tsx:90` und `DealPipelineView.tsx:276` rufen
+      `useScopedCapability('crm:deal:edit')` ohne Owner und behandeln `team` wie `all` (backend-gaps R-3) — member
+      sieht Bearbeiten/Ziehen an jedem Deal und bekommt an fremden 403. `DealsListPage.tsx:102`
+      (`useHasCapability('crm:deal:create')`) passt; ein Owner-Feld außerhalb des Teams gibt 403.
+    sources:
+      - desktop/src/renderer/src/modules/crm/deals/DealDetailPage.tsx
+      - desktop/src/renderer/src/modules/crm/deals/DealPipelineView.tsx
+      - backend/internal/crm/deal/postgres_repository.go
+      - backend/internal/gateway/route_crm_deal_team_write_db_test.go
+    done_when:
+      - Luke hat die Team-Definition für Deals bestätigt oder geändert
+      - member sieht Bearbeiten/Ziehen nur an eigenen Deals und denen seiner Berichte (Playwright-Screenshot)
+
+  - id: fe-wiki-share-dialog-own-scope
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht Teilen und Widerrufen nur an eigenen Wiki-Seiten
+    scope: >
+      Fund aus `feat-wiki-own-page-share-delete-for-members` (Lauf 17, Iteration 49). Seit Migration 359 hält member
+      `wiki:article:delete` und `wiki:share_token:create` mit Scope `own`; das Backend lässt Teilen, Widerrufen,
+      Seite löschen und Anhang löschen nur am eigenen Artikel (`author_id`) zu und antwortet sonst 404. Desktop-Teil
+      (Loop darf `desktop/` nicht ändern): `WikiShareDialog.tsx:51` ruft `useHasCapability('wiki:share_token:create')`
+      ohne Owner — member sieht den Knopf "Link erstellen" und den Widerruf an JEDER Seite und bekommt an fremden
+      einen Fehler-Toast (404). Fix: `useScopedCapability('wiki:share_token:create', article.authorId)` wie
+      `WikiArticleHeader.tsx:87` beim Löschen. Löschen (`WikiArticleHeader.tsx:87`) und Anhang löschen
+      (`WikiAttachments.tsx:66`, Gate `wiki:article:edit` own) passen bereits. Nebenbei: manager hält
+      `wiki:share_token:create` nicht, sondern nur den Alt-Key `wiki:articles:write`; der Dialog blendet Teilen für
+      manager deshalb ganz aus, obwohl das Backend es lässt (gleiche Abweichung wie beim Bearbeiten, Iteration 40).
+    sources:
+      - desktop/src/renderer/src/modules/wiki/WikiShareDialog.tsx
+      - desktop/src/renderer/src/modules/wiki/WikiArticleHeader.tsx
+      - backend/internal/gateway/route_wiki_own_delete_share_db_test.go
+    done_when:
+      - member sieht Teilen/Widerrufen an der eigenen Seite, nicht an einer fremden (Playwright-Screenshot)
+
+  - id: fe-fuhrpark-pool-booking-with-availability
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member bucht ein Poolfahrzeug im Desktop und sieht vorher die belegten Zeiten
+    scope: >
+      Fund aus `feat-fuhrpark-vehicle-availability-route` (Lauf 17, Iteration 50). Das Backend liefert seit dieser
+      Unit `GET /api/v1/fuhrpark/vehicles/{id}/availability?from&to` (RFC3339, Fenster höchstens 93 Tage) mit
+      `{vehicle_id, from, to, items: [{starts_at, ends_at}], total}` — nur aktive Buchungen (booked, in_use), ohne
+      Nutzer und Zweck, Guard `fuhrpark:booking:read` (member hält ihn mit Scope own, der Scope greift hier bewusst
+      nicht). Desktop-Teil (Loop darf `desktop/` nicht ändern): das Fuhrpark-Modul hat KEINEN Aufrufer für
+      `/fuhrpark/bookings` und keinen für die neue Route — `grep -rln booking desktop/src/renderer/src/modules/fuhrpark`
+      ist leer, nur `api/types.ts` kennt die Buchungspfade. Weder Buchen noch die Verfügbarkeit sind also für
+      irgendeinen Nutzer erreichbar. Gebraucht: Buchungsdialog am Fahrzeug (POST `/fuhrpark/bookings`, `user_id` wird
+      bei Scope own vom Gateway überschrieben), davor die belegten Fenster aus der neuen Route anzeigen, 409 als
+      "bereits belegt" statt Fehler-Toast. `api/types.ts` nach `openapi.yaml`-Regen neu erzeugen.
+    sources:
+      - backend/api/openapi.yaml
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/gateway/route_fuhrpark_availability_db_test.go
+      - desktop/src/renderer/src/modules/fuhrpark/
+    done_when:
+      - member sieht die belegten Zeiten eines Poolfahrzeugs und bucht ein freies Fenster (Playwright-Screenshot)
+
+  - id: decide-fuhrpark-damage-read-scope-for-managers
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: todo
+    target: manager liest Schäden mindestens so weit wie member
+    scope: >
+      Fund aus `seed-fuhrpark-damage-read-all-for-members` (Lauf 17, Iteration 51). Migration 000360 hebt
+      `fuhrpark:damage:read` nur für member auf Scope all, so wie die Entscheidung vom 2026-10-25 lautet. manager
+      hält denselben Key seit 000339 weiter mit Scope own und sieht in `/fuhrpark/damages` und
+      `/fuhrpark/vehicles/{id}/damages` jetzt WENIGER als ein member (nur eigene Meldungen). FRAGE AN LUKE: manager
+      ebenfalls auf all heben (eine UPDATE-Zeile wie 000360, Down zurück auf own)? Die Melder-Bindung hängt seit
+      Iteration 51 an `fuhrpark:damage:write`, nicht mehr am Lese-Scope — das Heben ist ohne weitere Grenze sicher.
+      E2E `TestFuhrparkMemberFlow` pinnt den manager-IST-Stand (`IST: the manager is narrowed …`) und müsste mit.
+    sources:
+      - backend/migrations/000360_fuhrpark_damage_read_all_for_members.up.sql
+      - backend/internal/gateway/route_fuhrpark_damage_read_db_test.go
+      - backend/test/e2e/fuhrpark_test.go
+    done_when:
+      - 'Entscheidung Luke: manager auf all ja/nein; bei ja Router-Test als manager gegen den echten Seed'
+
+  - id: fe-inventar-transfer-dialog
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member bucht im Desktop eine Umbuchung zwischen zwei Artikeln
+    scope: >
+      Fund aus `feat-inventar-transfer-for-movement-create` (Lauf 17, Iteration 52). `POST /api/v1/inventar/transfer`
+      nimmt seit diesem Commit `inventar:item:write` ODER `inventar:movement:create` an (member hält movement:create
+      mit Scope all) und antwortet 204. Das Desktop hat Client (`inventar-client.ts:99` `transferStock`) und Hook
+      (`hooks/useInventar.ts:192` `useTransferStock`), aber KEINE Komponente ruft den Hook auf — die Umbuchung ist
+      im UI nicht erreichbar. Dialog im Artikel-Detail bzw. in der Bewegungsleiste, Gate wie die Einzelbewegung
+      (`useHasCapability('inventar:movement:create')`, `InventarPage.tsx:813`, `ItemDetailModal.tsx:198`).
+      `performed_by` nicht senden (der Server setzt immer den Aufrufer). Desktop-Fläche, gehört nicht in den
+      Backend-Loop.
+    sources:
+      - desktop/src/renderer/src/api/hooks/useInventar.ts
+      - desktop/src/renderer/src/modules/inventar/ItemDetailModal.tsx
+      - backend/internal/gateway/route_inventar_transfer_db_test.go
+    done_when:
+      - member bucht eine Umbuchung zwischen zwei Artikeln, beide Bestände ändern sich (Playwright-Screenshot)
+
+  - id: feat-hr-team-documents-for-managers
+    phase: 4
+    service: hr
+    model: opus
+    deps: [fix-hr-document-rls-roles-over-grpc]
+    status: todo
+    blocked_reason: >
+      Wartet auf Luke (Lauf 17, Iteration 54). Zwei Funde: (1) Die Rollen überqueren den gRPC-Hop nicht, die
+      RLS-Stufen der Akte greifen im HR-Service nie — selbst hr_admin/admin sehen `[]`; Fix-Unit
+      `fix-hr-document-rls-roles-over-grpc` steht am Kopf von BACKLOG.yml und ist Voraussetzung. (2) Nach dem Fix sieht
+      der manager laut Policy die manager- UND employee-Stufe, und `gehaltsabrechnung` (000310) liegt in der
+      employee-Stufe — manager hält aber `team:salary:view` nicht. Frage an Luke: Sieht ein manager die
+      Gehaltsabrechnungen seiner Berichte (ja / nein = Kategorie gehaltsabrechnung für Aufrufer ohne
+      team:salary:view ausfiltern)? Bauplan liegt fertig vor (Journal Iteration 54): Guard additiv
+      `RequirePermissionAny(hr:read, team:documents:view)`, Reichweite im Handler (hr:read/all -> alles, team ->
+      Proto-Flag `restrict_to_reporting_line` an ListEmployeeDocumentsReq, Prüfung im employee-Service wie
+      `GetReportingLineLeaveBalance`, own -> nur eigene ID sonst 403).
+      Stand nach Iteration 55: `fix-hr-document-rls-roles-over-grpc` ist done, reicht aber NUR admin und hr_admin über den
+      Hop (`middleware.forwardedRoles`). Diese Unit muss `manager` dort ergänzen — erst zusammen mit der Berichtslinien-Grenze
+      und einer Einengung von `/hr/personnel-documents` auf die eigenen Dokumente für manager, sonst öffnet die Policy jedem
+      manager die manager- und employee-Stufe des ganzen Mandanten. `TestHRDocuments_RolesReachTheDocumentPolicy` pinnt das
+      heutige Verhalten (manager sieht über /personnel-documents nur sich selbst).
+    decided: '2026-10-25'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
+      Personalakte seiner Berichtslinie. Ergänzt 2026-10-26 (Morgen-Check Lauf 17): die Kategorie
+      `gehaltsabrechnung` wird für Aufrufer ohne `team:salary:view` ausgefiltert; der manager sieht die übrigen
+      Dokumente seiner Berichte.
+    target: Personalakte für Teamleiter
+    coverage_start: n.a.
+    scope: >
+      `GET /hr/employees/{id}/documents` (und Upload) kennt nur `hr:read`/`hr:write`. manager hält `team:documents:view|team`,
+      bekommt aber 403. GET additiv auf `team:documents:view` mit Berichtslinien-Grenze (Muster `feat-hr-reporting-line-and-team-time-scope`,
+      Lauf 16). Upload bleibt HR/admin.
+    sources:
+      - backend/internal/gateway/route_hr.go
+      - backend/internal/biz/hr/
+    done_when:
+      - >
+        Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
+      - >
+        DB-Test: manager ohne `team:salary:view` sieht keine `gehaltsabrechnung` seiner Berichte, hr_admin sieht sie
+
+  - id: fe-invoice-form-pin-currency
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 17 Iteration 74 (`harden-adhoc-invoice-tenant-currency`): Ad-hoc-Rechnungen (ohne
+      `source_quote_id`) und ihre Entwürfe lehnt das Backend in einer anderen Währung als der des
+      Tenants mit 400 ab. `InvoiceFormDialog.tsx:117-252` bietet aber EUR/CHF/USD und setzt bei Land CH
+      auf CHF. Auswahl bei Ad-hoc auf die Tenant-Währung festnageln (oder ausblenden), nur bei
+      Rechnung aus Angebot frei lassen. Danach `types.ts` aus der OpenAPI regenerieren.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx
+
+  - id: fe-new-dm-dialog-real-user-directory
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 17 Iteration 80 (`feat-chat-group-dm-gateway-and-ws`): `POST /api/v1/channels/dm` nimmt jetzt
+      `{participant_ids:[…]}` an (Gruppen-DM, 3–50 Personen, Aufrufer implizit). `NewDMDialog.tsx:34-39`
+      baut seine Personenliste aber aus den Demo-Daten `EMPLOYEES` mit IDs `usr-<id>` statt aus einem
+      echten Nutzerverzeichnis; gegen das Backend sind das keine UUIDs, also 400 (für 1:1 wie für Gruppen).
+      Liste aus einer echten Nutzer-Quelle des Tenants laden, den Cast in `useStartConversation`
+      (`api/hooks/useChannels.ts:203`) entfernen und `types.ts` aus der OpenAPI regenerieren (Request hat
+      jetzt `participant_ids` und `name`).
+    sources:
+      - desktop/src/renderer/src/modules/chat/channels/NewDMDialog.tsx
+      - desktop/src/renderer/src/api/hooks/useChannels.ts

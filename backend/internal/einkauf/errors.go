@@ -37,4 +37,9 @@ var (
 	// from the contract's. No conversion is attempted: a USD call-off would
 	// otherwise consume EUR of the contract volume one-to-one.
 	ErrContractCurrencyMismatch = errors.New("einkauf contract call-off currency differs from the contract's currency")
+	// ErrPOContractCurrencyMismatch rejects binding a purchase order to a
+	// framework contract in another currency. Unlike the call-off variant it
+	// is a malformed request, not a state conflict: the caller picked a
+	// contract that can never match this PO.
+	ErrPOContractCurrencyMismatch = errors.New("einkauf purchase order currency differs from the framework contract's currency")
 )

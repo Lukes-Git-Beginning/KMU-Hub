@@ -84,6 +84,16 @@ func (g *Generator) newMaroto() core.Maroto {
 
 // GenerateQuotePDF generates a PDF for a quote (Angebot).
 func (g *Generator) GenerateQuotePDF(quote models.Quote) ([]byte, error) {
+	m, err := g.buildQuoteDoc(quote)
+	if err != nil {
+		return nil, err
+	}
+	return g.generate(m)
+}
+
+// buildQuoteDoc assembles the quote maroto document without finalizing it to PDF
+// bytes -- same split as buildInvoiceDoc, so tests can inspect the rendered text.
+func (g *Generator) buildQuoteDoc(quote models.Quote) (core.Maroto, error) {
 	m := g.newMaroto()
 	accentColor := parseColor(g.settings.AccentColor)
 
@@ -142,7 +152,7 @@ func (g *Generator) GenerateQuotePDF(quote models.Quote) ([]byte, error) {
 	// Notes
 	m.AddRows(buildNotesSection("", quote.Notes)...)
 
-	return g.generate(m)
+	return m, nil
 }
 
 // GenerateInvoicePDF generates a PDF for an invoice (Rechnung).
@@ -322,6 +332,12 @@ func (g *Generator) GenerateZUGFeRDInvoicePDF(invoice models.Invoice) ([]byte, e
 // GenerateDunningPDF generates a PDF for a dunning letter (Mahnung).
 // Level determines the tone: 1=friendly, 2=formal, 3=urgent (threatens Inkasso).
 func (g *Generator) GenerateDunningPDF(dunning models.DunningRecord, invoice models.Invoice, level int) ([]byte, error) {
+	return g.generate(g.buildDunningDoc(dunning, invoice, level))
+}
+
+// buildDunningDoc assembles the dunning maroto document without finalizing it to PDF
+// bytes -- same split as buildInvoiceDoc, so tests can inspect the rendered text.
+func (g *Generator) buildDunningDoc(dunning models.DunningRecord, invoice models.Invoice, level int) core.Maroto {
 	m := g.newMaroto()
 	accentColor := parseColor(g.settings.AccentColor)
 
@@ -344,7 +360,7 @@ func (g *Generator) GenerateDunningPDF(dunning models.DunningRecord, invoice mod
 	bodyRows := buildDunningBody(level, invoice.InvoiceNumber, invoice.GrossTotal, dunning.Fee, dunning.Interest)
 	m.AddRows(bodyRows...)
 
-	return g.generate(m)
+	return m
 }
 
 // generate finalizes the maroto document and returns PDF bytes.

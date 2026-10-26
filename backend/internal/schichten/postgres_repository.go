@@ -268,13 +268,24 @@ func (r *PostgresRepository) GetAssignment(ctx context.Context, tenantID, shiftI
 	return &a, nil
 }
 
-func (r *PostgresRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+// ListAssignments returns a shift's assignments. A non-nil ownUserID keeps
+// only the rows that belong to that user: employee_id holds either the user id
+// (API callers, swap requests) or the user's HR profile id (the desktop roster
+// assigns by hr_employee_profiles.id), so both identities count as own.
+//
+// lean: Subquery auf hr_employee_profiles; streichen, sobald employee_id eine
+// einzige Identität trägt (fix-schichten-employee-id-identity-for-own-scope).
+func (r *PostgresRepository) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, tenant_id, shift_id, employee_id, assigned_at, assigned_by
 		 FROM shift_assignments
 		 WHERE tenant_id = $1 AND shift_id = $2
+		   AND ($3::uuid IS NULL
+		        OR employee_id = $3
+		        OR employee_id IN (SELECT ep.id FROM hr_employee_profiles ep
+		                           WHERE ep.tenant_id = $1 AND ep.user_id = $3))
 		 ORDER BY assigned_at ASC`,
-		tenantID, shiftID,
+		tenantID, shiftID, ownUserID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list assignments: %w", err)
@@ -340,6 +351,30 @@ func (r *PostgresRepository) EarliestShiftStartAfterForEmployee(ctx context.Cont
 		return nil, fmt.Errorf("earliest shift start for employee: %w", err)
 	}
 	return &startTime, nil
+}
+
+// HasOverlappingAssignmentForEmployee reports whether the employee holds an
+// assignment on another shift whose window overlaps [start, end). tstzrange
+// defaults to half-open bounds, so back-to-back shifts do not collide.
+func (r *PostgresRepository) HasOverlappingAssignmentForEmployee(ctx context.Context, tenantID, employeeID, exceptShiftID uuid.UUID, start, end time.Time) (bool, error) {
+	var overlaps bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		   SELECT 1
+		   FROM shifts s
+		   JOIN shift_assignments sa ON sa.shift_id = s.id
+		   WHERE sa.tenant_id = $1
+		     AND s.tenant_id = $1
+		     AND sa.employee_id = $2
+		     AND s.id <> $3
+		     AND tstzrange(s.start_time, s.end_time) && tstzrange($4, $5)
+		 )`,
+		tenantID, employeeID, exceptShiftID, start, end,
+	).Scan(&overlaps)
+	if err != nil {
+		return false, fmt.Errorf("overlapping assignment for employee: %w", err)
+	}
+	return overlaps, nil
 }
 
 // ShiftExistsForTemplate checks whether a shift with the given tenant, start, end, and title already exists.
@@ -573,6 +608,23 @@ func (r *PostgresRepository) CreateSwapRequest(ctx context.Context, req *SwapReq
 	return nil
 }
 
+// IsOwnEmployeeID reports whether employeeID is the user id itself or the
+// user's HR profile id in the tenant (the desktop roster assigns by profile id).
+func (r *PostgresRepository) IsOwnEmployeeID(ctx context.Context, tenantID, employeeID, userID uuid.UUID) (bool, error) {
+	if employeeID == userID {
+		return true, nil
+	}
+	var own bool
+	if err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hr_employee_profiles
+		                WHERE tenant_id = $1 AND id = $2 AND user_id = $3)`,
+		tenantID, employeeID, userID,
+	).Scan(&own); err != nil {
+		return false, fmt.Errorf("check own employee id: %w", err)
+	}
+	return own, nil
+}
+
 // GetSwapRequest retrieves a single swap request by ID and tenant.
 func (r *PostgresRepository) GetSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
 	var req SwapRequest
@@ -617,8 +669,12 @@ func (r *PostgresRepository) ListSwapRequests(ctx context.Context, tenantID uuid
 		argNum++
 	}
 	if filter.OwnEmployeeID != nil {
+		// lean: Subquery auf hr_employee_profiles wie ListAssignments; streichen,
+		// sobald employee_id eine einzige Identität trägt.
+		own := fmt.Sprintf("(SELECT $%d::uuid UNION SELECT ep.id FROM hr_employee_profiles ep"+
+			" WHERE ep.tenant_id = $1 AND ep.user_id = $%d)", argNum, argNum)
 		conditions = append(conditions, fmt.Sprintf(
-			"(requested_by_employee_id = $%d OR swap_with_employee_id = $%d)", argNum, argNum))
+			"(requested_by_employee_id IN %s OR swap_with_employee_id IN %s)", own, own))
 		args = append(args, *filter.OwnEmployeeID)
 		argNum++
 	}
@@ -675,70 +731,26 @@ func (r *PostgresRepository) UpdateSwapRequestStatus(ctx context.Context, tenant
 	return nil
 }
 
-// SwapAssignmentsForRequest atomically swaps the employee IDs of two shift assignments:
-// the assignment identified by req.AssignmentID (requested_by) gets the swap_with employee,
-// and the complementary assignment (same shift, swap_with employee) gets requested_by.
-// A swap is only valid between two employees who are both already assigned to the
-// shift -- if the swap partner has no assignment there, ErrSwapPartnerNotAssigned is
-// returned and nothing is changed.
-//
-// Both updates run in a single DB transaction, scoped by assignment row id rather
-// than by (shift_id, employee_id) -- scoping the second UPDATE by employee_id would
-// re-match the row the first UPDATE just moved onto that same employee_id within
-// this same transaction. uq_shift_assignments_tenant is DEFERRABLE (migration
-// 000311): the swap defers its check to COMMIT, because immediately after the first
-// UPDATE the requester's row and the partner's still-unmodified row briefly hold the
-// same (tenant_id, shift_id, employee_id).
-func (r *PostgresRepository) SwapAssignmentsForRequest(ctx context.Context, req *SwapRequest) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin swap transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	if _, err := tx.Exec(ctx, `SET CONSTRAINTS uq_shift_assignments_tenant DEFERRED`); err != nil {
-		return fmt.Errorf("defer swap unique constraint: %w", err)
-	}
-
-	var partnerAssignmentID uuid.UUID
-	err = tx.QueryRow(ctx,
-		`SELECT id FROM shift_assignments
-		 WHERE tenant_id = $1 AND shift_id = $2 AND employee_id = $3
-		 FOR UPDATE`,
-		req.TenantID, req.ShiftID, req.SwapWithEmployeeID,
-	).Scan(&partnerAssignmentID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrSwapPartnerNotAssigned
-	}
-	if err != nil {
-		return fmt.Errorf("lock swap partner assignment: %w", err)
-	}
-
-	// Update the requester's assignment to swap_with employee.
-	_, err = tx.Exec(ctx,
+// HandOverAssignment rewrites the employee of one assignment row in place. The
+// WHERE pins the row to its current owner and shift, so a request whose seat was
+// unassigned or already handed over matches nothing. A partner who already
+// holds a seat on the shift trips uq_shift_assignments_tenant.
+func (r *PostgresRepository) HandOverAssignment(ctx context.Context, tenantID, shiftID, assignmentID, from, to uuid.UUID) error {
+	ct, err := r.pool.Exec(ctx,
 		`UPDATE shift_assignments
 		 SET employee_id = $1
-		 WHERE id = $2 AND tenant_id = $3`,
-		req.SwapWithEmployeeID, req.AssignmentID, req.TenantID,
+		 WHERE id = $2 AND tenant_id = $3 AND shift_id = $4 AND employee_id = $5`,
+		to, assignmentID, tenantID, shiftID, from,
 	)
-	if err != nil {
-		return fmt.Errorf("swap assignment (requester): %w", err)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "uq_shift_assignments_tenant" {
+		return ErrAlreadyAssigned
 	}
-
-	// Update the swap_with employee's assignment, identified by the row id
-	// locked above, to requested_by.
-	_, err = tx.Exec(ctx,
-		`UPDATE shift_assignments
-		 SET employee_id = $1
-		 WHERE id = $2 AND tenant_id = $3`,
-		req.RequestedByEmployeeID, partnerAssignmentID, req.TenantID,
-	)
 	if err != nil {
-		return fmt.Errorf("swap assignment (swap_with): %w", err)
+		return fmt.Errorf("hand over assignment: %w", err)
 	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit swap transaction: %w", err)
+	if ct.RowsAffected() == 0 {
+		return ErrAssignmentNotFound
 	}
 	return nil
 }

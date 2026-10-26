@@ -110,7 +110,7 @@ func TestUpdate_SwitchingToSharedClearsOwner(t *testing.T) {
 	svc := NewService(repo)
 
 	shared := VisibilityShared
-	updated, err := svc.Update(context.Background(), id, testTenantID, ownerID, false, nil, nil, nil, nil, &shared)
+	updated, err := svc.Update(context.Background(), id, testTenantID, ownerID, false, true, nil, nil, nil, nil, &shared)
 	require.NoError(t, err)
 	assert.Equal(t, VisibilityShared, updated.Visibility)
 	assert.Nil(t, updated.OwnerID)
@@ -128,7 +128,7 @@ func TestUpdate_SwitchingToPersonalOwnsCaller(t *testing.T) {
 	caller := uuid.New()
 
 	personal := VisibilityPersonal
-	updated, err := svc.Update(context.Background(), id, testTenantID, caller, false, nil, nil, nil, nil, &personal)
+	updated, err := svc.Update(context.Background(), id, testTenantID, caller, false, true, nil, nil, nil, nil, &personal)
 	require.NoError(t, err)
 	require.NotNil(t, updated.OwnerID)
 	assert.Equal(t, caller, *updated.OwnerID)
@@ -146,7 +146,7 @@ func TestUpdate_ForeignPersonalTemplateNotFound(t *testing.T) {
 	svc := NewService(repo)
 
 	name := "Gekapert"
-	_, err := svc.Update(context.Background(), id, testTenantID, uuid.New(), false, &name, nil, nil, nil, nil)
+	_, err := svc.Update(context.Background(), id, testTenantID, uuid.New(), false, false, &name, nil, nil, nil, nil)
 	assert.ErrorIs(t, err, ErrTemplateNotFound)
 }
 
@@ -164,9 +164,85 @@ func TestDelete_ChecksVisibilityBeforeDeleting(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), id, testTenantID, uuid.New(), false)
+	err := svc.Delete(context.Background(), id, testTenantID, uuid.New(), false, false)
 	assert.ErrorIs(t, err, ErrTemplateNotFound)
 	assert.False(t, deleteCalled, "Delete must not reach the repository once GetByID refuses visibility")
+}
+
+// writeTracker returns a repository that serves tpl and records whether
+// Update or Delete reached it.
+func writeTracker(tpl *models.EmailTemplate, wrote *bool) *MockRepository {
+	return &MockRepository{
+		GetByIDFn: func(_ context.Context, _, _, _ uuid.UUID, _ bool) (*models.EmailTemplate, error) {
+			cp := *tpl
+			return &cp, nil
+		},
+		UpdateFn: func(_ context.Context, _ *models.EmailTemplate) error { *wrote = true; return nil },
+		DeleteFn: func(_ context.Context, _, _ uuid.UUID) error { *wrote = true; return nil },
+	}
+}
+
+func TestUpdateDelete_OwnPersonalTemplateIsFreeWithoutTheCoarseKey(t *testing.T) {
+	caller := uuid.New()
+	tpl := &models.EmailTemplate{ID: uuid.New(), TenantID: testTenantID, OwnerID: &caller, Visibility: VisibilityPersonal, Name: "Alt"}
+	wrote := false
+	svc := NewService(writeTracker(tpl, &wrote))
+
+	name, personal := "Neu", VisibilityPersonal
+	updated, err := svc.Update(context.Background(), tpl.ID, testTenantID, caller, false, false, &name, nil, nil, nil, &personal)
+	require.NoError(t, err, "resending the unchanged visibility is no visibility change")
+	assert.Equal(t, "Neu", updated.Name)
+	assert.True(t, wrote)
+
+	wrote = false
+	require.NoError(t, svc.Delete(context.Background(), tpl.ID, testTenantID, caller, false, false))
+	assert.True(t, wrote)
+}
+
+func TestUpdateDelete_SharedTemplateNeedsTheCoarseKey(t *testing.T) {
+	tpl := &models.EmailTemplate{ID: uuid.New(), TenantID: testTenantID, Visibility: VisibilityShared, Name: "Team"}
+	wrote := false
+	svc := NewService(writeTracker(tpl, &wrote))
+	caller := uuid.New()
+
+	name, personal := "Gekapert", VisibilityPersonal
+	_, err := svc.Update(context.Background(), tpl.ID, testTenantID, caller, false, false, &name, nil, nil, nil, nil)
+	assert.ErrorIs(t, err, ErrSharedTemplate)
+	_, err = svc.Update(context.Background(), tpl.ID, testTenantID, caller, false, false, nil, nil, nil, nil, &personal)
+	assert.ErrorIs(t, err, ErrSharedTemplate, "taking a shared template over is a visibility change")
+	assert.ErrorIs(t, svc.Delete(context.Background(), tpl.ID, testTenantID, caller, false, false), ErrSharedTemplate)
+	assert.False(t, wrote, "nothing may reach the repository")
+
+	_, err = svc.Update(context.Background(), tpl.ID, testTenantID, caller, true, true, &name, nil, nil, nil, nil)
+	require.NoError(t, err)
+	assert.True(t, wrote, "the coarse key keeps maintaining shared templates")
+}
+
+func TestUpdate_SharingAPersonalTemplateNeedsTheCoarseKey(t *testing.T) {
+	caller := uuid.New()
+	tpl := &models.EmailTemplate{ID: uuid.New(), TenantID: testTenantID, OwnerID: &caller, Visibility: VisibilityPersonal, Name: "Alt"}
+	wrote := false
+	svc := NewService(writeTracker(tpl, &wrote))
+
+	shared := VisibilityShared
+	_, err := svc.Update(context.Background(), tpl.ID, testTenantID, caller, false, false, nil, nil, nil, nil, &shared)
+	assert.ErrorIs(t, err, ErrSharedTemplate)
+	assert.False(t, wrote)
+}
+
+func TestUpdateDelete_ForeignPersonalTemplateStaysHiddenWithoutTheCoarseKey(t *testing.T) {
+	// isAdmin lets the visibility filter return a colleague's personal
+	// template; without the coarse key it must still read as not found.
+	owner := uuid.New()
+	tpl := &models.EmailTemplate{ID: uuid.New(), TenantID: testTenantID, OwnerID: &owner, Visibility: VisibilityPersonal, Name: "Privat"}
+	wrote := false
+	svc := NewService(writeTracker(tpl, &wrote))
+
+	name := "Gekapert"
+	_, err := svc.Update(context.Background(), tpl.ID, testTenantID, uuid.New(), true, false, &name, nil, nil, nil, nil)
+	assert.ErrorIs(t, err, ErrTemplateNotFound)
+	assert.ErrorIs(t, svc.Delete(context.Background(), tpl.ID, testTenantID, uuid.New(), true, false), ErrTemplateNotFound)
+	assert.False(t, wrote)
 }
 
 func TestRender_SubstitutesOnlyAllowedPlaceholders(t *testing.T) {

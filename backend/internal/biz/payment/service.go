@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,6 +61,9 @@ type RecordInput struct {
 	Reference string
 	Notes     string
 	UserID    uuid.UUID
+	// Currency is the ISO 4217 code the caller booked the payment in. Empty
+	// means "invoice currency"; any other value than the invoice's is rejected.
+	Currency string
 	// IdempotencyKey is the client Idempotency-Key (when present) used for
 	// DB-level deduplication so a retried submission records exactly one payment.
 	IdempotencyKey string
@@ -91,6 +95,18 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		return nil, fmt.Errorf("payment amount must be positive")
 	}
 
+	// The payment is stored with the invoice's currency verbatim so the
+	// currency-matched sums (SumByInvoiceID, open items) always net it.
+	// lean: a legacy invoice with a blank currency compares as models.DefaultCurrency,
+	// not the tenant default; read company_settings here once a non-EUR tenant exists.
+	invoiceCurrency := strings.TrimSpace(inv.Currency)
+	if invoiceCurrency == "" {
+		invoiceCurrency = models.DefaultCurrency
+	}
+	if input.Currency != "" && !strings.EqualFold(strings.TrimSpace(input.Currency), invoiceCurrency) {
+		return nil, fmt.Errorf("%w: payment %s, invoice %s", ErrCurrencyMismatch, input.Currency, invoiceCurrency)
+	}
+
 	now := time.Now()
 	paymentDate := input.Date
 	if paymentDate.IsZero() {
@@ -102,6 +118,7 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		TenantID:       input.TenantID,
 		InvoiceID:      input.InvoiceID,
 		Amount:         input.Amount,
+		Currency:       inv.Currency,
 		PaymentDate:    paymentDate,
 		Method:         input.Method,
 		Reference:      input.Reference,

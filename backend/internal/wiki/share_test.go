@@ -142,7 +142,7 @@ func TestService_RedeemShareToken_RefusalsAreIndistinguishable(t *testing.T) {
 				a := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
 				share := addShareToken(repo, a, nil)
 				svc := NewService(repo)
-				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID); err != nil {
+				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID, nil); err != nil {
 					t.Fatalf("revoke: %v", err)
 				}
 				if _, ok := repo.tokens[share.Token]; !ok {
@@ -158,7 +158,7 @@ func TestService_RedeemShareToken_RefusalsAreIndistinguishable(t *testing.T) {
 				a := addArticle(repo, uuid.New(), "Handbuch", "handbuch", true)
 				share := addShareToken(repo, a, &past)
 				svc := NewService(repo)
-				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID); err != nil {
+				if err := svc.RevokeShareToken(context.Background(), a.TenantID, share.ID, nil); err != nil {
 					t.Fatalf("revoke: %v", err)
 				}
 				return share.Token
@@ -223,7 +223,7 @@ func TestService_CreateShareToken_TokenEntropy(t *testing.T) {
 
 	raw, decodeErr := base64.RawURLEncoding.DecodeString(first.Token)
 	require.NoError(t, decodeErr, "token must be base64url without padding")
-	assert.Len(t, raw, shareTokenBytes)
+	assert.Len(t, raw, 32)
 	assert.NotEqual(t, first.Token, second.Token)
 	assert.Equal(t, []string{sharePermissionRead}, first.Permissions)
 }

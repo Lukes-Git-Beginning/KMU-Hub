@@ -1809,6 +1809,8 @@ func protoMeetingStatusToString(s videov1.MeetingStatus) string {
 
 func stringToProtoRecordingStatus(s string) videov1.RecordingStatus {
 	switch s {
+	case recording.RecordingStatusPending:
+		return videov1.RecordingStatus_RECORDING_STATUS_PENDING
 	case recording.RecordingStatusActive:
 		return videov1.RecordingStatus_RECORDING_STATUS_ACTIVE
 	case recording.RecordingStatusProcessing:

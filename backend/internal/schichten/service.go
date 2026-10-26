@@ -300,12 +300,19 @@ func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput)
 			}
 		}
 
-		// Guard 2: ArbZG §5 rest-period check before DB write
+		// Guard 2: the employee must not already work another shift in this window.
+		// Rest-period math only looks at the neighbouring shifts, so a nested or
+		// overlapping one slips through it.
+		if err := validateNoOverlap(ctx, repo, input.TenantID, input.EmployeeID, input.ShiftID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		// Guard 3: ArbZG §5 rest-period check before DB write
 		if err := validateRestPeriod(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
 			return err
 		}
 
-		// Guard 3: JArbSchG limits, for employees flagged as minors only. A shift
+		// Guard 4: JArbSchG limits, for employees flagged as minors only. A shift
 		// a minor may not legally work must not become an assignment that the
 		// compliance endpoint later reports as a violation after the fact.
 		if err := validateMinorProtection(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
@@ -357,12 +364,14 @@ func (s *Service) UnassignEmployee(ctx context.Context, tenantID, shiftID, emplo
 	return nil
 }
 
-// ListAssignments returns all assignments for a shift.
-func (s *Service) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID) ([]*ShiftAssignment, error) {
+// ListAssignments returns the assignments of a shift. ownUserID, when set
+// (schichten:assignment:read at scope own), narrows them to the caller's own
+// so a member sees their roster without the colleagues'.
+func (s *Service) ListAssignments(ctx context.Context, tenantID, shiftID uuid.UUID, ownUserID *uuid.UUID) ([]*ShiftAssignment, error) {
 	if _, err := s.repo.GetShift(ctx, tenantID, shiftID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListAssignments(ctx, tenantID, shiftID)
+	return s.repo.ListAssignments(ctx, tenantID, shiftID, ownUserID)
 }
 
 // ============================================================================
@@ -604,6 +613,9 @@ type CreateSwapRequestInput struct {
 	ShiftID               uuid.UUID
 	Reason                string
 	IdempotencyKey        string
+	// OwnerUserID, when set (grant scoped to "own"), is the caller's user id:
+	// RequestedByEmployeeID must then be one of the caller's identities.
+	OwnerUserID *uuid.UUID
 }
 
 // ListSwapRequestsInput contains pagination and filtering for swap request listing.
@@ -613,8 +625,8 @@ type ListSwapRequestsInput struct {
 	Status   *SwapRequestStatus
 	Page     int
 	PageSize int
-	// OwnEmployeeID, when set, narrows to swap requests where this employee
-	// is the requester or the swap partner.
+	// OwnEmployeeID, when set, is the caller's user id and narrows to swap
+	// requests where the caller is the requester or the swap partner.
 	OwnEmployeeID *uuid.UUID
 }
 
@@ -638,6 +650,19 @@ func (s *Service) CreateSwapRequest(ctx context.Context, input CreateSwapRequest
 	}
 	if input.ShiftID == uuid.Nil {
 		return nil, ErrInvalidInput
+	}
+
+	// At scope "own" the requester must be the caller — by user id or by the
+	// HR profile id the desktop roster assigns with. Refusing beats rewriting:
+	// a silently swapped requester would pair the caller with a colleague's seat.
+	if input.OwnerUserID != nil {
+		own, err := s.repo.IsOwnEmployeeID(ctx, input.TenantID, input.RequestedByEmployeeID, *input.OwnerUserID)
+		if err != nil {
+			return nil, err
+		}
+		if !own {
+			return nil, ErrSwapRequesterNotCaller
+		}
 	}
 
 	// The assignment must be the requester's own seat on this very shift; the
@@ -696,7 +721,17 @@ func (s *Service) ListSwapRequests(ctx context.Context, input ListSwapRequestsIn
 	return s.repo.ListSwapRequests(ctx, input.TenantID, filter, offset, input.PageSize)
 }
 
-// ApproveSwapRequest approves a swap request and atomically swaps the two assignments.
+// ApproveSwapRequest approves a swap request by handing the requester's
+// assignment over to the swap partner: the same row now carries the partner,
+// the requester is off the shift. The partner gets the same checks as
+// AssignEmployee (overlap, ArbZG rest period, JArbSchG); capacity is not
+// re-checked because a handover leaves the head count unchanged.
+//
+// Checks, handover and status change run in one transaction under
+// WithAssignmentLock on (shift, partner), so a concurrent assignment of the
+// partner or a second approval of the same request queues up behind it. The
+// queued approval then finds the partner on the shift (ErrAlreadyAssigned) and
+// the seat no longer the requester's, so nothing is handed over twice.
 func (s *Service) ApproveSwapRequest(ctx context.Context, tenantID, requestID uuid.UUID) (*SwapRequest, error) {
 	req, err := s.repo.GetSwapRequest(ctx, tenantID, requestID)
 	if err != nil {
@@ -707,19 +742,43 @@ func (s *Service) ApproveSwapRequest(ctx context.Context, tenantID, requestID uu
 		return nil, ErrSwapAlreadyProcessed
 	}
 
-	// Atomically: update status + swap assignments in one transaction.
-	if err := s.repo.SwapAssignmentsForRequest(ctx, req); err != nil {
-		return nil, fmt.Errorf("approve swap request (swap assignments): %w", err)
-	}
-	if err := s.repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusApproved); err != nil {
-		return nil, fmt.Errorf("approve swap request (update status): %w", err)
+	err = s.repo.WithAssignmentLock(ctx, tenantID, req.ShiftID, req.SwapWithEmployeeID, func(repo Repository) error {
+		shift, err := repo.GetShift(ctx, tenantID, req.ShiftID)
+		if err != nil {
+			return err
+		}
+
+		if err := validateNoOverlap(ctx, repo, tenantID, req.SwapWithEmployeeID, req.ShiftID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+		if err := validateRestPeriod(ctx, repo, tenantID, req.SwapWithEmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+		if err := validateMinorProtection(ctx, repo, tenantID, req.SwapWithEmployeeID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		// A partner already on this shift trips the unique constraint: ErrAlreadyAssigned.
+		if err := repo.HandOverAssignment(ctx, tenantID, req.ShiftID, req.AssignmentID, req.RequestedByEmployeeID, req.SwapWithEmployeeID); err != nil {
+			return fmt.Errorf("approve swap request (hand over): %w", err)
+		}
+		if err := repo.UpdateSwapRequestStatus(ctx, tenantID, requestID, SwapRequestStatusApproved); err != nil {
+			return fmt.Errorf("approve swap request (update status): %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	req.Status = SwapRequestStatusApproved
 	req.UpdatedAt = time.Now()
 
-	slog.Info("swap request approved",
+	slog.Info("swap request approved, assignment handed over",
 		"swap_request_id", requestID,
+		"assignment_id", req.AssignmentID,
+		"from_employee_id", req.RequestedByEmployeeID,
+		"to_employee_id", req.SwapWithEmployeeID,
 		"tenant_id", tenantID,
 	)
 	return req, nil
@@ -753,6 +812,24 @@ func (s *Service) RejectSwapRequest(ctx context.Context, tenantID, requestID uui
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+// validateNoOverlap rejects an assignment whose shift window overlaps another
+// shift the employee already works. Adjacent shifts (end = start) are fine.
+func validateNoOverlap(ctx context.Context, repo Repository, tenantID, employeeID, shiftID uuid.UUID, start, end time.Time) error {
+	overlaps, err := repo.HasOverlappingAssignmentForEmployee(ctx, tenantID, employeeID, shiftID, start, end)
+	if err != nil {
+		return fmt.Errorf("overlap check: %w", err)
+	}
+	if overlaps {
+		slog.Warn("overlapping shift assignment rejected",
+			"employee_id", employeeID,
+			"shift_id", shiftID,
+			"tenant_id", tenantID,
+		)
+		return ErrShiftOverlap
+	}
+	return nil
+}
 
 // validateRestPeriod enforces ArbZG §5: minimum 11 hours rest between consecutive
 // shifts for the same employee. Called before AssignEmployee writes to DB.

@@ -49,7 +49,16 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 // and rentals.contact_id has no FK to contacts), so rental_inspections.notes/
 // .signature_data/.photo_urls/.checklist are cleared through a subselect. The
 // underlying rental and inspection rows stay in place, same pattern as
-// tickets.requester_name below.
+// tickets.requester_name below. Clearing photo_urls only drops the reference;
+// the photo objects themselves are deleted by PurgeInspectionPhotos, which the
+// callers run first.
+//
+// Also scrubbed: email_messages.from_name/.from_email of the mails linked to
+// the contact through email_contact_links -- the sender's display name and
+// address. from_email is NOT NULL, so it takes AnonymizedRequesterEmail
+// instead of NULL. Mails the mailbox owner sent themselves (from_email equals
+// the account's own address) are left alone: the link also exists for
+// outbound mail, and there the sender is the employee, not the contact.
 //
 // Deliberately NOT scrubbed here:
 //   - finance_invoices (customer_name/-address/-email/-ust_id_nr) -- §147
@@ -61,6 +70,12 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 //     that does not have to name the person, and staff replies are the
 //     employee's own record with an author_id; same accepted residual risk
 //     as deals.notes below.
+//   - email_messages.subject/.body_text/.body_html/.raw_headers/.to_addresses/
+//     .cc_addresses/.bcc_addresses/.preview -- business correspondence
+//     (Handelsbriefe, §257 HGB, six years); headers and recipient lists also
+//     carry the address and cannot be rewritten without breaking the mail.
+//     Only the sender display fields are scrubbed (decision 2026-10-25,
+//     variant c). Accepted residual risk.
 //   - deals.notes/name, meetings.title/description/agenda -- free text that
 //     CAN name the contact but does not have to; a blind search/replace risks
 //     corrupting unrelated content more than it protects. Accepted residual
@@ -180,6 +195,24 @@ func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.
 	)
 	if err != nil {
 		return 0, fmt.Errorf("scrub dependent pii: clear rental inspection records: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE email_messages m SET from_name = NULL, from_email = $3, updated_at = NOW()
+		 WHERE m.tenant_id = $2
+		   AND (m.from_name IS NOT NULL OR m.from_email <> $3)
+		   AND m.id IN (
+		     SELECT l.message_id FROM email_contact_links l WHERE l.contact_id = $1 AND l.tenant_id = $2
+		   )
+		   AND NOT EXISTS (
+		     SELECT 1 FROM email_accounts a
+		     WHERE a.id = m.account_id AND lower(a.email_address) = lower(m.from_email)
+		   )`,
+		contactID, tenantID, AnonymizedRequesterEmail,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear email sender identity: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

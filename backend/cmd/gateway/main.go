@@ -320,7 +320,7 @@ func main() {
 		gateway.NewFuhrparkRoutes(registry, flagRegistry),
 		gateway.NewFileRoutes(registry),
 		gateway.NewGlobalSearchRoutes(registry),
-		gateway.NewDashboardRoutes(dashboardService),
+		gateway.NewDashboardRoutes(dashboardService).WithHR(registry),
 		gateway.NewFeatureFlagRoutes(flagRegistry),
 		gateway.NewHealthRoutes(healthCheckers, registry),
 		bookingRoutes,

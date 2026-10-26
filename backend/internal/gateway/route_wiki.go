@@ -289,6 +289,26 @@ func (wr *WikiRoutes) HandleGetArticle(w http.ResponseWriter, r *http.Request) {
 	response.Proto(w, http.StatusOK, resp)
 }
 
+// wikiEditOwnerFilter narrows an edit (PATCH, restore, attachment upload) to the
+// caller's own articles when "wiki:article:edit" at scope own is their only way
+// in; the legacy "wiki:articles:write" keeps it tenant-wide (manager).
+func wikiEditOwnerFilter(w http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(w, r, [2]string{"wiki:articles", "write"}, "wiki:article", "edit")
+}
+
+// wikiDeleteOwnerFilter narrows deleting an article or one of its attachments
+// to the caller's own articles when "wiki:article:delete" at scope own is their
+// only way in (member); "wiki:articles:write" keeps it tenant-wide (manager).
+func wikiDeleteOwnerFilter(w http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(w, r, [2]string{"wiki:articles", "write"}, "wiki:article", "delete")
+}
+
+// wikiShareOwnerFilter does the same for minting and revoking share links
+// under "wiki:share_token:create".
+func wikiShareOwnerFilter(w http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(w, r, [2]string{"wiki:articles", "write"}, "wiki:share_token", "create")
+}
+
 func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -307,6 +327,10 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 	}
 
 	userID := middleware.GetUserID(r.Context())
+	ownerID, ok := wikiEditOwnerFilter(w, r)
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[updateArticleRequest](w, r)
 	if !ok {
@@ -322,6 +346,7 @@ func (wr *WikiRoutes) HandleUpdateArticle(w http.ResponseWriter, r *http.Request
 		Published:  req.Published,
 		CategoryId: req.CategoryID,
 		EditorId:   userID,
+		OwnerId:    ownerID,
 	}
 
 	resp, err := client.UpdateArticle(r.Context(), grpcReq)
@@ -349,9 +374,15 @@ func (wr *WikiRoutes) HandleDeleteArticle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	ownerID, ok := wikiDeleteOwnerFilter(w, r)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteArticle(r.Context(), &wikiv1.DeleteArticleRequest{
 		TenantId:  tenantID.String(),
 		ArticleId: id,
+		OwnerId:   ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -446,12 +477,17 @@ func (wr *WikiRoutes) HandleRestoreVersion(w http.ResponseWriter, r *http.Reques
 	}
 
 	userID := middleware.GetUserID(r.Context())
+	ownerID, ok := wikiEditOwnerFilter(w, r)
+	if !ok {
+		return
+	}
 
 	resp, err := client.RestoreVersion(r.Context(), &wikiv1.RestoreVersionRequest{
 		TenantId:  tenantID.String(),
 		ArticleId: articleID,
 		VersionId: versionID,
 		EditorId:  userID,
+		OwnerId:   ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -510,6 +546,10 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 
 	userID := middleware.GetUserID(r.Context())
+	ownerID, ok := wikiEditOwnerFilter(w, r)
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[uploadAttachmentRequest](w, r)
 	if !ok {
@@ -523,6 +563,7 @@ func (wr *WikiRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Requ
 		Mime:       req.Mime,
 		Size:       req.Size,
 		UploadedBy: &userID,
+		OwnerId:    ownerID,
 	}
 
 	resp, err := client.UploadAttachment(r.Context(), grpcReq)
@@ -550,9 +591,15 @@ func (wr *WikiRoutes) HandleDeleteAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	ownerID, ok := wikiDeleteOwnerFilter(w, r)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteAttachment(r.Context(), &wikiv1.DeleteAttachmentRequest{
 		AttachmentId: attachmentID,
 		TenantId:     tenantID.String(),
+		OwnerId:      ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -717,12 +764,17 @@ func (wr *WikiRoutes) HandleCreateShareToken(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	ownerID, ok := wikiShareOwnerFilter(w, r)
+	if !ok {
+		return
+	}
 
 	grpcReq := &wikiv1.CreateShareTokenRequest{
 		TenantId:    tenantID.String(),
 		ArticleId:   articleID,
 		Permissions: req.Permissions,
 		ExpiresAt:   req.ExpiresAt,
+		OwnerId:     ownerID,
 	}
 	// Who opened this article to the outside. Never taken from the body -- a
 	// client-supplied author would be worth less than no author at all.
@@ -783,9 +835,15 @@ func (wr *WikiRoutes) HandleRevokeShareToken(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	ownerID, ok := wikiShareOwnerFilter(w, r)
+	if !ok {
+		return
+	}
+
 	_, err = client.RevokeShareToken(r.Context(), &wikiv1.RevokeShareTokenRequest{
 		TenantId: tenantID.String(),
 		TokenId:  tokenID,
+		OwnerId:  ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

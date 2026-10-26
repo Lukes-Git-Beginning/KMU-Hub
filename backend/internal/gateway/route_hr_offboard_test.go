@@ -45,13 +45,14 @@ func TestHandleOffboardEmployee_RejectsAnUnknownExitTypeAtTheBorder(t *testing.T
 
 // fixed_term_expired is the one exit type the desktop dialog offers that the
 // backlog's scope did not list. Refusing it would leave a value the UI can
-// produce failing at the border.
+// produce failing at the border. "other" is what the team page's deactivate
+// button records.
 func TestHandleOffboardEmployee_AcceptsEveryExitTypeTheDialogOffers(t *testing.T) {
 	routes := NewHRRoutes(emptyRegistry(), nil)
 
 	for _, exitType := range []string{
 		"resignation", "termination", "fixed_term_expired",
-		"mutual_termination", "retirement",
+		"mutual_termination", "retirement", "other",
 	} {
 		t.Run(exitType, func(t *testing.T) {
 			rec := httptest.NewRecorder()
@@ -97,4 +98,9 @@ func TestOffboardResponse_IsWrappedInEmployee(t *testing.T) {
 			t.Errorf("employee.%s = %v, want %v", key, employee[key], want)
 		}
 	}
+}
+
+func TestHandleReactivateEmployee_ServiceUnavailable(t *testing.T) {
+	routes := NewHRRoutes(emptyRegistry(), nil)
+	testServiceUnavailable(t, routes.HandleReactivateEmployee)
 }

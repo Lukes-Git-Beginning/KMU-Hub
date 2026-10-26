@@ -67,6 +67,8 @@ service FuhrparkService {
   rpc CreateVehicleBooking(CreateVehicleBookingRequest) returns (VehicleBookingResponse);
   rpc UpdateVehicleBooking(UpdateVehicleBookingRequest) returns (VehicleBookingResponse);
   rpc DeleteVehicleBooking(DeleteVehicleBookingRequest) returns (DeleteVehicleBookingResponse);
+  // Occupied windows of one vehicle, without who booked it or why.
+  rpc GetVehicleAvailability(GetVehicleAvailabilityRequest) returns (GetVehicleAvailabilityResponse);
 }
 
 // ============================================================================
@@ -671,3 +673,22 @@ message DeleteVehicleBookingRequest  {
   string owner_user_id = 2; // see UpdateVehicleBookingRequest
 }
 message DeleteVehicleBookingResponse {}
+
+// Availability is readable for anyone who may book: it carries only the time
+// windows of active bookings (booked, in_use) -- never user, purpose or id.
+message GetVehicleAvailabilityRequest {
+  string vehicle_id = 1;
+  string from       = 2; // RFC3339, required
+  string to         = 3; // RFC3339, required, after from
+}
+message VehicleBusySlot {
+  string starts_at = 1; // RFC3339
+  string ends_at   = 2; // RFC3339
+}
+message GetVehicleAvailabilityResponse {
+  string vehicle_id = 1;
+  string from       = 2;
+  string to         = 3;
+  repeated VehicleBusySlot items = 4;
+  int32 total = 5;
+}

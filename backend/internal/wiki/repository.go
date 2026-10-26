@@ -40,6 +40,9 @@ type Repository interface {
 	CreateAttachment(ctx context.Context, attachment *Attachment) error
 	ListAttachments(ctx context.Context, tenantID, articleID uuid.UUID) ([]*Attachment, error)
 	DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error
+	// GetAttachmentArticleID resolves the article an attachment hangs on, for
+	// the own-scope check before a delete.
+	GetAttachmentArticleID(ctx context.Context, tenantID, attachmentID uuid.UUID) (uuid.UUID, error)
 
 	// Categories
 	CreateCategory(ctx context.Context, category *Category) error
@@ -55,6 +58,9 @@ type Repository interface {
 	// the author keeps seeing that it was cut (000297).
 	RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, now time.Time) error
 	ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error)
+	// GetShareTokenArticleID resolves the article a link opens, for the
+	// own-scope check before a revoke.
+	GetShareTokenArticleID(ctx context.Context, tenantID, tokenID uuid.UUID) (uuid.UUID, error)
 	// GetShareTokenByToken is the public path's lookup and therefore the one
 	// read here that takes no tenantID — resolving the tenant is what it does.
 	GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error)

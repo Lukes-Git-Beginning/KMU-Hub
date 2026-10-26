@@ -55,13 +55,38 @@ type PurchaseOrder struct {
 	Notes                string     `json:"notes"`
 	CreatedBy            *uuid.UUID `json:"created_by,omitempty"`
 	// FrameworkContractID links this PO to a framework contract (optional).
-	// When set, ReceiveGoods will automatically record a contract call-off.
+	// When set, every goods receipt records a call-off for the newly received value.
 	FrameworkContractID  *uuid.UUID `json:"framework_contract_id,omitempty"`
 	CreatedAt            time.Time  `json:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at"`
 
 	// Lines are populated on GetPO — not stored directly on the PO row.
 	Lines []*POLine `json:"lines,omitempty"`
+
+	// ReceiptCallOff is set only on the PO returned by ReceiveGoods and
+	// PartialReceive, and only when that receipt touched a framework contract.
+	ReceiptCallOff *ReceiptCallOff `json:"-"`
+}
+
+// GoodsReceipt is one goods receipt: the cumulative received quantity per line
+// and the PO status that follows from it.
+type GoodsReceipt struct {
+	TenantID uuid.UUID
+	POID     uuid.UUID
+	Lines    []PartialReceiveItem // one entry per line, cumulative quantity
+	Status   POStatus
+}
+
+// ReceiptCallOff reports what a goods receipt did to the PO's framework contract.
+// CallID is nil when nothing was booked; Warning is set when the call-off
+// exceeded the budget or had to be skipped.
+type ReceiptCallOff struct {
+	ContractID     uuid.UUID
+	CallID         *uuid.UUID
+	Amount         string // net value of the newly received quantities
+	BudgetExceeded bool
+	Remaining      string // contract's remaining value before this call-off
+	Warning        string
 }
 
 // POLine represents a single line item within a purchase order.

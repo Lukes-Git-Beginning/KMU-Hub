@@ -134,8 +134,10 @@ func TestFuhrparkRoutes_MemberSelfServiceIsNarrowedToTheCaller(t *testing.T) {
 		{"delete license", "DeleteDriverLicense", "DELETE", "/api/v1/fuhrpark/driver-licenses/" + recordID + "/", "", http.StatusNoContent, ""},
 		{"list damages", "ListDamages", "GET", "/api/v1/fuhrpark/damages", "", http.StatusOK, ""},
 		{"list vehicle damages", "ListDamages", "GET", "/api/v1/fuhrpark/vehicles/" + vehicleID + "/damages", "", http.StatusOK, ""},
+		// The reporter is pinned by damage:write, not by the read scope (migration 360): without
+		// damage:write even a caller at scope all files under themselves.
 		{"report damage", "ReportDamage", "POST", "/api/v1/fuhrpark/vehicles/" + vehicleID + "/damages",
-			`{"description":"Delle","severity":"minor","reported_by":"` + stranger + `"}`, http.StatusCreated, stranger},
+			`{"description":"Delle","severity":"minor","reported_by":"` + stranger + `"}`, http.StatusCreated, callerID},
 	}
 
 	run := func(t *testing.T, scopes map[string]string, want func(unrestricted string) string) {
@@ -164,6 +166,30 @@ func TestFuhrparkRoutes_MemberSelfServiceIsNarrowedToTheCaller(t *testing.T) {
 
 	t.Run("a role at scope all is not narrowed", func(t *testing.T) {
 		run(t, allScopes, func(unrestricted string) string { return unrestricted })
+	})
+
+	t.Run("damage:write files a damage under the reporter named in the body", func(t *testing.T) {
+		stub := &fuhrparkScopeStub{}
+		router := chi.NewRouter()
+		newFuhrparkRoutes(registryFor(t, "fuhrpark", func(s *grpc.Server) { fuhrparkv1.RegisterFuhrparkServiceServer(s, stub) })).
+			RegisterRoutes(router, guardTestAuth)
+		for name, tc := range map[string]struct {
+			scopes map[string]string
+			want   string
+		}{
+			"write at all": {map[string]string{"fuhrpark:damage:write": auth.ScopeAll}, stranger},
+			"write at own": {map[string]string{"fuhrpark:damage:write": auth.ScopeOwn}, callerID},
+		} {
+			req := httptest.NewRequest("POST", "/api/v1/fuhrpark/vehicles/"+vehicleID+"/damages",
+				strings.NewReader(`{"description":"Delle","severity":"minor","reported_by":"`+stranger+`"}`))
+			req.Header.Set("Content-Type", "application/json")
+			req = withScopes(withPermissions(withAuth(req, callerID, testTenantID), "fuhrpark:damage:write", "fuhrpark:damage:read"), tc.scopes)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			assert.Equal(t, http.StatusCreated, rec.Code, "%s: %s", name, rec.Body.String())
+			id, _ := stub.got("ReportDamage")
+			assert.Equal(t, tc.want, id, "%s: reporter forwarded to the service", name)
+		}
 	})
 
 	t.Run("a token without the booking, license and damage keys is refused", func(t *testing.T) {

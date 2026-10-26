@@ -75,6 +75,7 @@ func TestTenantIsolation_Finance(t *testing.T) {
 		"tenant_id":    testutil.TenantA,
 		"invoice_id":   invoiceID,
 		"amount":       "100.00",
+		"currency":     "EUR",
 		"payment_date": today,
 		"created_by":   uuid.New(),
 	})
@@ -91,8 +92,8 @@ func TestTenantIsolation_Finance(t *testing.T) {
 
 	// Seed finance_dunning_config (UNIQUE on tenant_id — one per tenant).
 	dunningCfgID := testutil.SeedRow(t, pool, "finance_dunning_config", map[string]any{
-		"tenant_id":               testutil.TenantA,
-		"level1_days_after_due":   7,
+		"tenant_id":                testutil.TenantA,
+		"level1_days_after_due":    7,
 		"level2_days_after_level1": 14,
 		"level3_days_after_level2": 21,
 	})

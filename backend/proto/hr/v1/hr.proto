@@ -62,6 +62,7 @@ service HRService {
   rpc GetEmployee(GetEmployeeReq) returns (GetEmployeeResp);
   rpc UpdateEmployee(UpdateEmployeeReq) returns (UpdateEmployeeResp);
   rpc OffboardEmployee(OffboardEmployeeReq) returns (OffboardEmployeeResp);
+  rpc ReactivateEmployee(ReactivateEmployeeReq) returns (ReactivateEmployeeResp);
   rpc UpdateSelfProfile(UpdateSelfProfileReq) returns (UpdateSelfProfileResp);
   rpc ListEmployeeDocuments(ListEmployeeDocumentsReq) returns (ListEmployeeDocumentsResp);
   rpc ListPersonnelDocuments(ListPersonnelDocumentsReq) returns (ListPersonnelDocumentsResp);
@@ -307,6 +308,9 @@ message AbsenceEntry {
   string leave_type_name = 6;
   string leave_type_color = 7;
   string total_days = 8;               // Decimal as string
+  // hr_employee_profiles.manager_user_id of the absent employee, so the gateway can tell a
+  // manager's reporting line apart; empty without a manager.
+  string manager_user_id = 9;
 }
 
 message DailySummary {
@@ -433,6 +437,9 @@ message GetEmployeeLeaveBalanceReq {
   string employee_id = 1;
   string tenant_id = 2;
   int32 year = 3;
+  // Limits the read to the caller and their direct reports (hr_employee_profiles.manager_user_id).
+  // The caller comes from the call context, never from this message.
+  bool restrict_to_reporting_line = 4;
 }
 
 message GetEmployeeLeaveBalanceResp {
@@ -525,6 +532,9 @@ message ListWorkTimeEntriesReq {
   int32 page = 5;
   int32 per_page = 6;
   string status = 7;                   // Optional: active|completed|correction_pending|correction_approved|superseded
+  // Narrows the list to the caller and the caller's reporting line (hr_employee_profiles.
+  // manager_user_id). The caller comes from the call context, never from this message.
+  bool restrict_to_reporting_line = 8;
 }
 
 message ListWorkTimeEntriesResp {
@@ -655,8 +665,8 @@ message OffboardEmployeeReq {
   string last_work_day = 2;          // YYYY-MM-DD
   string exit_date = 3;              // YYYY-MM-DD
   // resignation | termination | fixed_term_expired | mutual_termination |
-  // retirement. String, not an enum: the gateway marshals enums as numbers
-  // (UseEnumNumbers) and the desktop dialog types this as a string union.
+  // retirement | other. String, not an enum: the gateway marshals enums as
+  // numbers (UseEnumNumbers) and the desktop dialog types this as a string union.
   string exit_type = 4;
   string reason = 5;
   // Whether the position is to be refilled. Recorded for the audit trail; it
@@ -667,6 +677,15 @@ message OffboardEmployeeReq {
 }
 
 message OffboardEmployeeResp {
+  EmployeeProfile employee = 1;
+}
+
+message ReactivateEmployeeReq {
+  // The employee profile id from the route, not the user id.
+  string employee_id = 1;
+}
+
+message ReactivateEmployeeResp {
   EmployeeProfile employee = 1;
 }
 

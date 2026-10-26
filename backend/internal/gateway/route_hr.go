@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/biz/hr/compliance"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
@@ -94,7 +96,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(leaveDecide).Post("/requests/{id}/reject", h.HandleRejectLeaveRequest)
 		r.With(selfWrite).Post("/requests/{id}/cancel", h.HandleCancelLeaveRequest)
 		r.With(selfRead).Get("/balance", h.HandleGetLeaveBalance)
-		r.With(selfRead).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
+		r.With(requireSelfReadOr(absenceDataViewPerm)).Get("/balance/{userId}", h.HandleGetEmployeeLeaveBalance)
 		r.With(selfRead).Get("/types", h.HandleListLeaveTypes)
 		// Books the caller's own sick leave (user id from the token, no path id): self-service.
 		r.With(selfWrite).Post("/sick", h.HandleRecordSickLeave)
@@ -110,8 +112,10 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// beside the coarse key — the catalogue deliberately carries no capability
 	// for it. `zeiterfassung:export:run` has no endpoint yet. GET /entries honours
 	// an employee_id query; hr:self at scope own is pinned to the caller there
-	// (restrictToOwnEmployee).
+	// (restrictToOwnEmployee). Approvers without hr:read reach the pending-correction
+	// queue through a review key (correctionReviewScope).
 	var (
+		zeitEntriesRead = requireSelfReadOr(correctionApprovePerm, zeitTeamViewPerm)
 		zeitTeamView    = middleware.RequirePermissionAny([2]string{"hr", "read"}, [2]string{"zeiterfassung:team", "view"})
 		zeitWeekApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:week", "approve"})
 		zeitCorrApprove = middleware.RequirePermissionAny([2]string{"hr", "write"}, [2]string{"zeiterfassung:corrections", "approve"})
@@ -125,7 +129,7 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		r.With(selfWrite).Post("/break/end", h.HandleBreakEnd)
 		r.With(selfRead).Get("/active", h.HandleGetActiveShift)
 		r.With(selfRead).Get("/status", h.HandleGetWorkTimeStatus)
-		r.With(selfRead).Get("/entries", h.HandleListWorkTimeEntries)
+		r.With(zeitEntriesRead).Get("/entries", h.HandleListWorkTimeEntries)
 		r.With(selfWrite).Post("/entries", h.HandleCreateManualEntry)
 		r.With(selfRead).Get("/summary/daily", h.HandleDailySummary)
 		r.With(selfRead).Get("/summary/weekly", h.HandleWeeklySummary)
@@ -162,7 +166,11 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 	// Absence calendar
 	r.Route("/api/v1/hr/absences", func(r chi.Router) {
 		r.Use(authMiddleware)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/calendar", h.HandleGetAbsenceCalendar)
+		// Additive: hr:read keeps the full calendar, team:absence:read (member/readonly all,
+		// manager team, migrations 000256/000335) gets the projection in HandleGetAbsenceCalendar.
+		r.With(middleware.RequirePermissionAny(
+			[2]string{"hr", "read"}, [2]string{"team:absence", "read"},
+		)).Get("/calendar", h.HandleGetAbsenceCalendar)
 	})
 
 	// Same additive-guard rationale as zeitTeamView etc. above: "hr:read" is
@@ -191,6 +199,8 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		// team:employee:offboard is in the catalogue since 000256 and assigned
 		// to admin and hr_admin, so no seed migration is needed here.
 		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/offboard", h.HandleOffboardEmployee)
+		// Reactivating is the reverse of the offboard and needs the same key.
+		r.With(middleware.RequirePermission("team:employee", "offboard")).Post("/{id}/reactivate", h.HandleReactivateEmployee)
 		// Self-service: an employee reaching their OWN Akte. Needed because
 		// /{id}/documents below is guarded by "hr:read", which migration 000129
 		// assigns to admin alone — a member could never open their own file
@@ -531,15 +541,21 @@ func (h *HRRoutes) HandleGetEmployeeLeaveBalance(w http.ResponseWriter, r *http.
 		response.Error(w, http.StatusUnauthorized, "missing or invalid tenant")
 		return
 	}
-	employeeID, ok := restrictToOwnEmployee(w, r, chi.URLParam(r, "userId"))
-	if !ok {
-		return
+	// The team profile shows a colleague's balance at the caller's reach (leaveBalanceReach); the
+	// reporting line itself is checked by the HR service, not here.
+	grpcReq := &hrv1.GetEmployeeLeaveBalanceReq{TenantId: tenantID, EmployeeId: chi.URLParam(r, "userId")}
+	switch leaveBalanceReach(r.Context()) {
+	case auth.ScopeAll:
+	case auth.ScopeTeam:
+		grpcReq.RestrictToReportingLine = true
+	default:
+		if !strings.EqualFold(grpcReq.EmployeeId, middleware.GetUserID(r.Context())) {
+			response.Error(w, http.StatusForbidden, "forbidden")
+			return
+		}
 	}
 
-	resp, err := client.GetEmployeeLeaveBalance(r.Context(), &hrv1.GetEmployeeLeaveBalanceReq{
-		TenantId:   tenantID,
-		EmployeeId: employeeID,
-	})
+	resp, err := client.GetEmployeeLeaveBalance(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -865,19 +881,41 @@ func (h *HRRoutes) HandleListWorkTimeEntries(w http.ResponseWriter, r *http.Requ
 	}
 	page, pageSize := parsePaginationOrLimitOffset(r, 1, 50)
 
-	employeeID, ok := restrictToOwnEmployee(w, r, r.URL.Query().Get("employee_id"))
-	if !ok {
-		return
+	grpcReq := &hrv1.ListWorkTimeEntriesReq{
+		TenantId:  tenantID,
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+		Status:    r.URL.Query().Get("status"),
+		Page:      int32(page),
+		PerPage:   int32(pageSize),
 	}
 
-	grpcReq := &hrv1.ListWorkTimeEntriesReq{
-		TenantId:   tenantID,
-		EmployeeId: employeeID,
-		StartDate:  r.URL.Query().Get("start_date"),
-		EndDate:    r.URL.Query().Get("end_date"),
-		Status:     r.URL.Query().Get("status"),
-		Page:       int32(page),
-		PerPage:    int32(pageSize),
+	// The approval queue (pending corrections, no employee) is listed at the approver's reach.
+	// lean: keyed on the status filter because the desktop sends the same unfiltered request for
+	// the caller's own entries (header widget, export); an explicit queue parameter once the
+	// correction panel sends one.
+	requested := r.URL.Query().Get("employee_id")
+	reach := auth.ScopeOwn
+	if requested == "" && grpcReq.Status == "correction_pending" {
+		reach = correctionReviewScope(r.Context())
+	}
+	switch reach {
+	case auth.ScopeAll:
+	case auth.ScopeTeam:
+		grpcReq.RestrictToReportingLine = true
+	default:
+		// The review keys open the queue and nothing else: a caller who passed the guard on them
+		// alone stops here.
+		if !middleware.HoldsAnyPermission(r.Context(), hrReadPerm, hrSelfPerm) &&
+			middleware.HoldsAnyPermission(r.Context(), correctionApprovePerm, zeitTeamViewPerm) {
+			response.Error(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		employeeID, ok := restrictToOwnEmployee(w, r, requested)
+		if !ok {
+			return
+		}
+		grpcReq.EmployeeId = employeeID
 	}
 
 	resp, err := client.ListWorkTimeEntries(r.Context(), grpcReq)
@@ -1064,7 +1102,60 @@ func (h *HRRoutes) HandleGetAbsenceCalendar(w http.ResponseWriter, r *http.Reque
 	}
 
 	// The client reads `{entries}`; a bare array made the calendar and the dashboard widget empty.
-	response.ProtoListWrapped(w, http.StatusOK, "entries", resp.Absences, nil)
+	if leaveBalanceReach(r.Context()) == auth.ScopeAll {
+		response.ProtoListWrapped(w, http.StatusOK, "entries", resp.Absences, nil)
+		return
+	}
+	response.JSON(w, http.StatusOK, map[string]interface{}{
+		"entries": absenceCalendarProjection(r.Context(), resp.Absences),
+	})
+}
+
+// absenceNeutralColor replaces the leave type colour where the type stays hidden; a colour per
+// type would give 'Krankheit' away as well as its name.
+const absenceNeutralColor = "#9ca3af"
+
+// absenceCalendarEntry is the calendar row for a caller below the full calendar: who is away when,
+// as the coarse class "absent". The leave type is an Art. 9 GDPR health datum when it reads
+// 'Krankheit', so it is only set where team:absence_data:view reaches the employee.
+type absenceCalendarEntry struct {
+	EmployeeID     string `json:"employee_id"`
+	EmployeeName   string `json:"employee_name"`
+	Department     string `json:"department"`
+	StartDate      string `json:"start_date"`
+	EndDate        string `json:"end_date"`
+	AbsenceClass   string `json:"absence_class"`
+	LeaveTypeName  string `json:"leave_type_name,omitempty"`
+	LeaveTypeColor string `json:"leave_type_color"`
+}
+
+// absenceCalendarProjection narrows the calendar for a caller whose leaveBalanceReach is below
+// all: the leave type of their own absences, at scope team also of their direct reports
+// (manager_user_id, the reporting line of the leave balance), and nothing of it for the rest.
+// No total_days for anyone.
+func absenceCalendarProjection(ctx context.Context, entries []*hrv1.AbsenceEntry) []absenceCalendarEntry {
+	caller := middleware.GetUserID(ctx)
+	team := leaveBalanceReach(ctx) == auth.ScopeTeam
+	out := make([]absenceCalendarEntry, 0, len(entries))
+	for _, e := range entries {
+		row := absenceCalendarEntry{
+			EmployeeID:     e.GetEmployeeId(),
+			EmployeeName:   e.GetEmployeeName(),
+			Department:     e.GetDepartment(),
+			StartDate:      e.GetStartDate(),
+			EndDate:        e.GetEndDate(),
+			AbsenceClass:   "absent",
+			LeaveTypeColor: absenceNeutralColor,
+		}
+		reached := caller != "" && (strings.EqualFold(e.GetEmployeeId(), caller) ||
+			(team && strings.EqualFold(e.GetManagerUserId(), caller)))
+		if reached {
+			row.LeaveTypeName = e.GetLeaveTypeName()
+			row.LeaveTypeColor = e.GetLeaveTypeColor()
+		}
+		out = append(out, row)
+	}
+	return out
 }
 
 // ============================================================================
@@ -1149,6 +1240,33 @@ func directoryEntryOf(p *hrv1.EmployeeProfile) employeeDirectoryEntry {
 	}
 }
 
+// teamProfileFieldPerms open a colleague's personal data (address, emergency contact) and
+// contract data (contract, leave days, start and exit) beyond the directory: team for a manager,
+// all for hr_admin. EmployeeProfile carries no salary or bank field (hourly_rate stays in the
+// table), so the two together are the full profile.
+var teamProfileFieldPerms = [][2]string{{"team:data_personal", "view"}, {"team:data_job", "view"}}
+
+// fullProfileReaches reports whether the caller reads emp's full profile through
+// teamProfileFieldPerms: at scope all for anyone, at scope team for the caller's direct reports
+// (manager_user_id, the reporting line the HR service checks for leave balances too).
+//
+// lean: both keys or the directory; split the fields per key once a custom role holds only one.
+func fullProfileReaches(ctx context.Context, emp *hrv1.EmployeeProfile) bool {
+	for _, p := range teamProfileFieldPerms {
+		if !middleware.HoldsAnyPermission(ctx, p) {
+			return false
+		}
+	}
+	switch narrowestScopeAny(ctx, teamProfileFieldPerms...) {
+	case auth.ScopeAll:
+		return true
+	case auth.ScopeTeam:
+		caller := middleware.GetUserID(ctx)
+		return caller != "" && strings.EqualFold(emp.GetManagerUserId(), caller)
+	}
+	return false
+}
+
 // lean: tenant-wide directory even at manager scope team — a people picker needs every
 // colleague and these fields are not confidential in a KMU; narrow when a tenant asks for it.
 func employeeDirectory(profiles []*hrv1.EmployeeProfile) []employeeDirectoryEntry {
@@ -1197,8 +1315,9 @@ func (h *HRRoutes) HandleGetEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reached through team:employee:read alone: the colleague's profile window gets the same
-	// directory fields as the list, nothing of contract, address or exit details.
-	if !callerHasPermission(r, "hr:read") {
+	// directory fields as the list, nothing of contract, address or exit details — unless the
+	// personal and contract keys reach this employee (a manager: their direct reports).
+	if !callerHasPermission(r, "hr:read") && !fullProfileReaches(r.Context(), resp.Employee) {
 		response.JSON(w, http.StatusOK, map[string]interface{}{"employee": directoryEntryOf(resp.Employee)})
 		return
 	}
@@ -1279,9 +1398,10 @@ func (h *HRRoutes) HandleUpdateEmployee(w http.ResponseWriter, r *http.Request) 
 type offboardEmployeeHTTPReq struct {
 	LastWorkDay string `json:"lastWorkDay"                validate:"omitempty,datetime=2006-01-02"`
 	ExitDate    string `json:"exitDate"                   validate:"required,datetime=2006-01-02"`
-	// The five values the offboard dialog offers; the service checks the set
-	// again, this only keeps a typo out of the service.
-	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement"`
+	// The five values the offboard dialog offers plus "other", which the team
+	// page's deactivate button sends; the service checks the set again, this
+	// only keeps a typo out of the service.
+	ExitType        string `json:"exitType"           validate:"required,oneof=resignation termination fixed_term_expired mutual_termination retirement other"`
 	Reason          string `json:"reason"`
 	Backfill        bool   `json:"backfill"`
 	SuccessorUserID string `json:"successorUserId"    validate:"omitempty,uuid"`
@@ -1319,6 +1439,27 @@ func (h *HRRoutes) HandleOffboardEmployee(w http.ResponseWriter, r *http.Request
 	}
 
 	// The whole response, not resp.Employee: the client reads `{employee}`.
+	response.Proto(w, http.StatusOK, resp)
+}
+
+// HandleReactivateEmployee reverses an offboard: active record, login unlocked,
+// base role member. No body.
+func (h *HRRoutes) HandleReactivateEmployee(w http.ResponseWriter, r *http.Request) {
+	client, err := h.getHRClient()
+	if err != nil {
+		respondServiceUnavailable(w, h.ServiceName())
+		return
+	}
+
+	resp, err := client.ReactivateEmployee(r.Context(), &hrv1.ReactivateEmployeeReq{
+		EmployeeId: chi.URLParam(r, "id"),
+	})
+	if err != nil {
+		respondGRPCError(w, err)
+		return
+	}
+
+	// `{employee}`, the same shape the offboard route answers with.
 	response.Proto(w, http.StatusOK, resp)
 }
 
@@ -1484,7 +1625,9 @@ func (h *HRRoutes) HandleListEmployeeDocumentCategories(w http.ResponseWriter, r
 // the tenant the caller may see, across employees. The visibility tiers
 // (hr_only / manager / employee) are applied by RLS policy hr_document_access
 // against the caller's roles, so this handler adds no filter of its own — and
-// must not, or the two would drift apart.
+// must not, or the two would drift apart. Only admin and hr_admin cross the
+// gRPC hop (middleware.forwardedRoles), so manager and member get their own
+// employee-tier documents here.
 func (h *HRRoutes) HandleListPersonnelDocuments(w http.ResponseWriter, r *http.Request) {
 	client, err := h.getHRClient()
 	if err != nil {

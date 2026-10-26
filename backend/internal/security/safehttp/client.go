@@ -179,6 +179,14 @@ func controlFunc(allowLoopback bool) func(network, address string, _ syscall.Raw
 	}
 }
 
+// CheckAddr reports whether addr is a public unicast address, wrapping
+// ErrBlockedAddress when it is not. It is the same classification the HTTP
+// client applies at dial time, exported so other tenant-chosen connections
+// (mail servers, see security/safedial) judge addresses by the same rules.
+func CheckAddr(addr netip.Addr) error {
+	return checkAddr(addr, false)
+}
+
 func checkAddr(addr netip.Addr, allowLoopback bool) error {
 	if addr.Is4In6() {
 		// ::ffff:127.0.0.1 must be judged as 127.0.0.1, not as an IPv6 address

@@ -3,6 +3,7 @@ package gateway
 import (
 	"net/http"
 
+	"github.com/kmuhub/kmuhub/internal/auth"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 	crmv1 "github.com/kmuhub/kmuhub/proto/crm/v1"
@@ -187,6 +188,27 @@ func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.R
 // Deals Handlers
 // ============================================================================
 
+// dealEditor narrows a deal write to the caller's scope of crm:deal:<action>
+// (member: team); the service then writes only deals whose owner is the caller
+// or one of their direct reports. Holding the legacy deals:write beyond own
+// keeps the write tenant-wide (manager, admin), as does scope all.
+func dealEditor(w http.ResponseWriter, r *http.Request, action string) (*crmv1.DealEditor, bool) {
+	ctx := r.Context()
+	if middleware.HoldsAnyPermission(ctx, [2]string{"deals", "write"}) && middleware.PermissionScope(ctx, "deals", "write") != auth.ScopeOwn {
+		return nil, true
+	}
+	scope := middleware.PermissionScope(ctx, "crm:deal", action)
+	if scope == auth.ScopeAll {
+		return nil, true
+	}
+	userID := middleware.GetUserID(ctx)
+	if userID == "" {
+		response.Error(w, http.StatusUnauthorized, "missing user in token")
+		return nil, false
+	}
+	return &crmv1.DealEditor{UserId: userID, Scope: scope}, true
+}
+
 type createDealRequest struct {
 	Name              string                    `json:"name" validate:"required"`
 	Value             float64                   `json:"value"`
@@ -220,6 +242,10 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	editor, ok := dealEditor(w, r, "create")
+	if !ok {
+		return
+	}
 
 	grpcReq := &crmv1.CreateDealRequest{
 		TenantId:          tenantID.String(),
@@ -231,6 +257,7 @@ func (c *CRMRoutes) HandleCreateDeal(w http.ResponseWriter, r *http.Request) {
 		Notes:             req.Notes,
 		TagIds:            req.TagIDs,
 		CreatedBy:         userID,
+		Editor:            editor,
 	}
 
 	if req.ContactID != nil {
@@ -376,7 +403,12 @@ func (c *CRMRoutes) HandleUpdateDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	grpcReq := &crmv1.UpdateDealRequest{Id: dealID, TenantId: tenantID.String()}
+	editor, ok := dealEditor(w, r, "edit")
+	if !ok {
+		return
+	}
+
+	grpcReq := &crmv1.UpdateDealRequest{Id: dealID, TenantId: tenantID.String(), Editor: editor}
 	if req.Name != nil {
 		grpcReq.Name = req.Name
 	}
@@ -471,10 +503,16 @@ func (c *CRMRoutes) HandleMoveDealToStage(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	editor, ok := dealEditor(w, r, "edit")
+	if !ok {
+		return
+	}
+
 	resp, err := client.MoveDealToStage(r.Context(), &crmv1.MoveDealToStageRequest{
 		DealId:   dealID,
 		StageId:  req.StageID,
 		TenantId: tenantID.String(),
+		Editor:   editor,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -505,9 +543,15 @@ func (c *CRMRoutes) HandleAddDealTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	editor, ok := dealEditor(w, r, "edit")
+	if !ok {
+		return
+	}
+
 	resp, err := client.AddDealTags(r.Context(), &crmv1.AddDealTagsRequest{
 		DealId: dealID,
 		TagIds: req.TagIDs,
+		Editor: editor,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -534,9 +578,15 @@ func (c *CRMRoutes) HandleRemoveDealTags(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	editor, ok := dealEditor(w, r, "edit")
+	if !ok {
+		return
+	}
+
 	resp, err := client.RemoveDealTags(r.Context(), &crmv1.RemoveDealTagsRequest{
 		DealId: dealID,
 		TagIds: req.TagIDs,
+		Editor: editor,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

@@ -120,10 +120,16 @@ func (s *BerichteGRPCServer) UpdateDefinition(ctx context.Context, req *berichte
 		return nil, status.Errorf(codes.InvalidArgument, "invalid definition_id: %v", err)
 	}
 
+	ownerID, err := parseBerichteOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
 	input := berichte.UpdateDefinitionInput{
 		TenantID:     tenantID,
 		DefinitionID: definitionID,
 		QueryConfig:  json.RawMessage(req.GetQueryConfig()),
+		OwnerID:      ownerID,
 	}
 	if req.Name != nil {
 		input.Name = req.Name
@@ -554,6 +560,11 @@ func (s *BerichteGRPCServer) UpdateDocument(ctx context.Context, req *berichtev1
 		return nil, err
 	}
 
+	ownerID, err := parseBerichteOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
 	doc, err := s.svc.UpdateDocument(ctx, berichte.UpdateDocumentInput{
 		TenantID:    tenantID,
 		DocumentID:  documentID,
@@ -563,11 +574,23 @@ func (s *BerichteGRPCServer) UpdateDocument(ctx context.Context, req *berichtev1
 		Status:      req.Status,
 		Rows:        json.RawMessage(req.GetRows()),
 		Settings:    json.RawMessage(req.GetSettings()),
+		OwnerID:     ownerID,
 	})
 	if err != nil {
 		return nil, mapBerichteError(err)
 	}
 	return &berichtev1.DocumentResponse{Document: documentToProto(doc)}, nil
+}
+
+func parseBerichteOwnerID(raw *string) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	id, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid owner_id: %v", err)
+	}
+	return &id, nil
 }
 
 func (s *BerichteGRPCServer) DeleteDocument(ctx context.Context, req *berichtev1.DeleteDocumentRequest) (*berichtev1.DeleteDocumentResponse, error) {

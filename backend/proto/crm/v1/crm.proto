@@ -707,6 +707,17 @@ message CreateDealRequest {
   repeated string tag_ids = 10;
   repeated CustomFieldValueInput custom_fields = 11;
   string created_by = 12;
+  DealEditor editor = 14;
+}
+
+// DealEditor narrows a deal write to the caller's scope of crm:deal:create or
+// crm:deal:edit. Absent writes tenant-wide. Scope "team" lets the write through
+// when the deal's owner (owner_id, else created_by) is user_id or one of their
+// direct reports (hr_employee_profiles.manager_user_id); any other scope only
+// when the owner is user_id.
+message DealEditor {
+  string user_id = 1;
+  string scope = 2;
 }
 
 message CreateDealResponse {
@@ -753,6 +764,7 @@ message UpdateDealRequest {
   optional string expected_close_date = 8;
   optional string notes = 9;
   repeated CustomFieldValueInput custom_fields = 10;
+  DealEditor editor = 12;
 }
 
 message UpdateDealResponse {
@@ -762,6 +774,7 @@ message UpdateDealResponse {
 message AddDealTagsRequest {
   string deal_id = 1;
   repeated string tag_ids = 2;
+  DealEditor editor = 3;
 }
 
 message AddDealTagsResponse {
@@ -771,6 +784,7 @@ message AddDealTagsResponse {
 message RemoveDealTagsRequest {
   string deal_id = 1;
   repeated string tag_ids = 2;
+  DealEditor editor = 3;
 }
 
 message RemoveDealTagsResponse {
@@ -788,6 +802,7 @@ message MoveDealToStageRequest {
   string deal_id = 1;
   string stage_id = 2;
   string tenant_id = 3;
+  DealEditor editor = 4;
 }
 
 message MoveDealToStageResponse {

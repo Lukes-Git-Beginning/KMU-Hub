@@ -90,7 +90,17 @@ func NewService(repo Repository, executor Executor, opts Options) *Service {
 // ============================================================================
 
 var (
+	// validModules mirrors the desktop's ReportModule (berichte-types.ts) and
+	// the module CHECK constraints (000354): the Report Builder saves the
+	// module of its data source.
 	validModules = map[string]struct{}{
+		"finanzen": {}, "crm": {}, "helpdesk": {}, "inventar": {},
+		"produktion": {}, "work": {}, "kommunikation": {}, "hr": {},
+		"zeiterfassung": {}, "vertraege": {}, "einkauf": {}, "fuhrpark": {},
+		"rapporte": {}, "cross": {},
+	}
+	// kpiModules are the modules the executor computes dashboard KPIs for.
+	kpiModules = map[string]struct{}{
 		"finanzen": {}, "crm": {}, "helpdesk": {}, "inventar": {},
 		"produktion": {}, "cross": {},
 	}
@@ -99,6 +109,13 @@ var (
 )
 
 func isValidModule(m string) bool { _, ok := validModules[m]; return ok }
+
+// ownedBy reports whether an own-scoped edit may touch a row: without an
+// owner filter every row qualifies, with one only rows that user created
+// (a row without creator belongs to nobody, so it is foreign to everyone).
+func ownedBy(createdBy, ownerID *uuid.UUID) bool {
+	return ownerID == nil || (createdBy != nil && *createdBy == *ownerID)
+}
 func isValidKind(k string) bool   { _, ok := validKinds[k]; return ok }
 func isValidFormat(f string) bool { _, ok := validFormats[f]; return ok }
 
@@ -129,6 +146,9 @@ type UpdateDefinitionInput struct {
 	QueryConfig   json.RawMessage // empty = no change
 	DefaultFormat *string
 	IsPublished   *bool
+	// OwnerID narrows the edit to definitions this user created
+	// (berichte:reports:edit at scope own); nil leaves it tenant-wide.
+	OwnerID *uuid.UUID
 }
 
 // ListDefinitionsInput is the user-facing list request.
@@ -256,6 +276,9 @@ func (s *Service) UpdateDefinition(ctx context.Context, in UpdateDefinitionInput
 	def, err := s.repo.GetDefinition(ctx, in.TenantID, in.DefinitionID)
 	if err != nil {
 		return nil, err
+	}
+	if !ownedBy(def.CreatedBy, in.OwnerID) {
+		return nil, ErrDefinitionNotFound
 	}
 
 	if in.Name != nil {
@@ -662,6 +685,9 @@ type UpdateDocumentInput struct {
 	Status      *string
 	Rows        json.RawMessage // empty = no change
 	Settings    json.RawMessage // empty = no change
+	// OwnerID narrows the edit to documents this user created
+	// (berichte:reports:edit at scope own); nil leaves it tenant-wide.
+	OwnerID *uuid.UUID
 }
 
 // ListDocumentsInput is the user-facing document list request.
@@ -732,6 +758,9 @@ func (s *Service) UpdateDocument(ctx context.Context, in UpdateDocumentInput) (*
 	doc, err := s.repo.GetDocument(ctx, in.TenantID, in.DocumentID)
 	if err != nil {
 		return nil, err
+	}
+	if !ownedBy(doc.CreatedBy, in.OwnerID) {
+		return nil, ErrDocumentNotFound
 	}
 
 	if in.Title != nil {
@@ -911,7 +940,7 @@ func sanitizeModules(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, m := range in {
 		m = strings.TrimSpace(m)
-		if m == "" || !isValidModule(m) {
+		if _, ok := kpiModules[m]; !ok {
 			continue
 		}
 		out = append(out, m)
@@ -973,7 +1002,7 @@ const (
 type CreateShareTokenInput struct {
 	TenantID      uuid.UUID
 	DocumentID    uuid.UUID
-	ExpiresInDays *int32 // nil or 0 = never expires
+	ExpiresInDays *int32 // nil or 0 = maxShareExpiryDays; no link is minted without an end
 	Password      string // empty = no password
 	CreatedBy     *uuid.UUID
 }
@@ -998,14 +1027,15 @@ func (s *Service) CreateShareToken(ctx context.Context, in CreateShareTokenInput
 		CreatedAt:  now,
 	}
 
+	days := int32(maxShareExpiryDays)
 	if in.ExpiresInDays != nil && *in.ExpiresInDays != 0 {
-		days := *in.ExpiresInDays
+		days = *in.ExpiresInDays
 		if days < 0 || days > maxShareExpiryDays {
 			return nil, ErrInvalidShareExpiry
 		}
-		expiry := now.AddDate(0, 0, int(days))
-		token.ExpiresAt = &expiry
 	}
+	expiry := now.AddDate(0, 0, int(days))
+	token.ExpiresAt = &expiry
 
 	if in.Password != "" {
 		if len(in.Password) > maxSharePasswordLen {

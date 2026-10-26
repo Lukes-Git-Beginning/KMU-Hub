@@ -318,6 +318,10 @@ func (r *stubDealRepo) OwnerExists(_ context.Context, ownerID uuid.UUID) (bool, 
 	return r.owners[ownerID], nil
 }
 
+func (r *stubDealRepo) IsDirectReport(_ context.Context, _, _, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func (r *stubDealRepo) TagExists(_ context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error) {
 	et, ok := r.validTags[tagID]
 	return ok && et == entityType, nil

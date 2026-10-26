@@ -699,6 +699,10 @@ func (s *RapporteGRPCServer) CreateMeasurement(ctx context.Context, req *rapport
 }
 
 func (s *RapporteGRPCServer) GetMeasurement(ctx context.Context, req *rapportev1.GetMeasurementRequest) (*rapportev1.GetMeasurementResponse, error) {
+	ctx, err := rapporteAuthorScope(ctx, req.GetRestrictToAuthor())
+	if err != nil {
+		return nil, err
+	}
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
@@ -712,6 +716,15 @@ func (s *RapporteGRPCServer) GetMeasurement(ctx context.Context, req *rapportev1
 	if err != nil {
 		return nil, mapRapporteError(err)
 	}
+	// Somebody else's report hides its measurements too, as not found.
+	if req.GetRestrictToAuthor() {
+		if err := s.authorizeMeasurement(ctx, tenantID, m.ReportID, false); err != nil {
+			if status.Code(err) == codes.NotFound {
+				err = mapRapporteError(rapporte.ErrMeasurementNotFound)
+			}
+			return nil, err
+		}
+	}
 	return &rapportev1.GetMeasurementResponse{Measurement: rapporteMeasurementToProto(m)}, nil
 }
 
@@ -719,6 +732,14 @@ func (s *RapporteGRPCServer) ListMeasurements(ctx context.Context, req *rapporte
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "missing tenant: %v", err)
+	}
+	var authorID *uuid.UUID
+	if req.GetRestrictToAuthor() {
+		id, err := uuid.Parse(middleware.GetUserID(ctx))
+		if err != nil {
+			return nil, status.Error(codes.PermissionDenied, "author-scoped request without a caller")
+		}
+		authorID = &id
 	}
 
 	var reportID *uuid.UUID
@@ -730,7 +751,7 @@ func (s *RapporteGRPCServer) ListMeasurements(ctx context.Context, req *rapporte
 		reportID = &parsed
 	}
 
-	measurements, total, err := s.repo.ListMeasurements(ctx, tenantID, reportID, int(req.GetPage()), int(req.GetPageSize()))
+	measurements, total, err := s.repo.ListMeasurements(ctx, tenantID, reportID, authorID, int(req.GetPage()), int(req.GetPageSize()))
 	if err != nil {
 		return nil, mapRapporteError(err)
 	}

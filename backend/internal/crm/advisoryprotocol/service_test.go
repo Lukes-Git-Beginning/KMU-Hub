@@ -26,6 +26,7 @@ type mockRepository struct {
 	deleteErr      error
 	handOverErr    error
 	referralErr    error
+	contactErr     error
 }
 
 func newMockRepository() *mockRepository {
@@ -109,6 +110,9 @@ func (m *mockRepository) HandOver(_ context.Context, id, tenantID uuid.UUID, at 
 }
 
 func (m *mockRepository) ContactExists(_ context.Context, contactID, tenantID uuid.UUID) (bool, error) {
+	if m.contactErr != nil {
+		return false, m.contactErr
+	}
 	return m.contacts[contactID.String()+":"+tenantID.String()], nil
 }
 

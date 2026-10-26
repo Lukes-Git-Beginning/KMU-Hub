@@ -519,7 +519,7 @@ func TestListMeasurements_FiltersByReportAndPaginates(t *testing.T) {
 	}
 	t.Cleanup(func() { testutil.CleanupRow(t, pool, "measurements", standalone.ID) })
 
-	scoped, total, err := repo.ListMeasurements(ctx, tenantID, &report.ID, 1, 50)
+	scoped, total, err := repo.ListMeasurements(ctx, tenantID, &report.ID, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListMeasurements (report filter): %v", err)
 	}
@@ -527,7 +527,7 @@ func TestListMeasurements_FiltersByReportAndPaginates(t *testing.T) {
 		t.Fatalf("expected exactly the report-scoped measurement, got total=%d rows=%+v", total, scoped)
 	}
 
-	all, total, err := repo.ListMeasurements(ctx, tenantID, nil, 1, 50)
+	all, total, err := repo.ListMeasurements(ctx, tenantID, nil, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListMeasurements (unfiltered): %v", err)
 	}
@@ -535,7 +535,7 @@ func TestListMeasurements_FiltersByReportAndPaginates(t *testing.T) {
 		t.Fatalf("expected 2 measurements tenant-wide, got total=%d rows=%d", total, len(all))
 	}
 
-	page, total, err := repo.ListMeasurements(ctx, tenantID, nil, 1, 1)
+	page, total, err := repo.ListMeasurements(ctx, tenantID, nil, nil, 1, 1)
 	if err != nil {
 		t.Fatalf("ListMeasurements (page 1, size 1): %v", err)
 	}
@@ -748,7 +748,7 @@ func TestCreateMeasurement_ReportIDMustBelongToCallerTenant(t *testing.T) {
 	if _, err := repo.CreateMeasurement(ctxA, tenantA, &unknown, "Unbekannt", "", "", "", ""); !errors.Is(err, ErrReportNotFound) {
 		t.Fatalf("expected ErrReportNotFound for an unknown report, got %v", err)
 	}
-	foreign, _, err := repo.ListMeasurements(ctxB, tenantB, &reportB.ID, 1, 50)
+	foreign, _, err := repo.ListMeasurements(ctxB, tenantB, &reportB.ID, nil, 1, 50)
 	if err != nil {
 		t.Fatalf("ListMeasurements (tenant B): %v", err)
 	}

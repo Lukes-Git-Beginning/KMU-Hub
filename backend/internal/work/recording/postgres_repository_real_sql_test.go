@@ -407,10 +407,12 @@ func TestPostgresRepository_AccessAndParticipants_RealSQL(t *testing.T) {
 }
 
 // TestPostgresRepository_MarkInitiatorConsent_And_PreConsentStatus_RealSQL
-// covers the pre-consent stamp used by the service-layer gate in
-// StartRecording. Both the tenant and the started_by user are enforced in
-// the WHERE clause (not via ctx/RLS alone), so a wrong tenant or a wrong
-// user must fail closed with ErrNotFound rather than silently no-op.
+// covers the initiator's stamp that gates the egress: it claims a pending
+// recording (pending -> active) exactly once and hands back the room name
+// captured at start; a second stamp claims nothing. Both the tenant and the
+// started_by user are enforced in the WHERE clause (not via ctx/RLS alone), so
+// a wrong tenant or a wrong user must fail closed with ErrNotFound rather than
+// silently no-op.
 func TestPostgresRepository_MarkInitiatorConsent_And_PreConsentStatus_RealSQL(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	t.Parallel()
@@ -434,7 +436,7 @@ func TestPostgresRepository_MarkInitiatorConsent_And_PreConsentStatus_RealSQL(t 
 	repo := NewPostgresRepository(pool)
 	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
-	rec := &Recording{ID: uuid.New(), TenantID: tenantOwn, MeetingID: &meeting, StartedBy: &user, Status: RecordingStatusActive, ConsentSnapshot: anySnapshot(user), CreatedAt: time.Now().UTC()}
+	rec := &Recording{ID: uuid.New(), TenantID: tenantOwn, MeetingID: &meeting, StartedBy: &user, Status: RecordingStatusPending, ConsentSnapshot: anySnapshot(user), CreatedAt: time.Now().UTC(), RoomName: "room-pending"}
 	if err := repo.CreateRecording(ctx, rec); err != nil {
 		t.Fatalf("CreateRecording: %v", err)
 	}
@@ -444,15 +446,28 @@ func TestPostgresRepository_MarkInitiatorConsent_And_PreConsentStatus_RealSQL(t 
 		t.Fatalf("GetPreConsentStatus (before mark) = (%v, %v), want (false, nil)", stamped, err)
 	}
 
-	if err := repo.MarkInitiatorConsent(ctx, rec.ID, otherUser, tenantOwn); err != ErrNotFound {
-		t.Fatalf("MarkInitiatorConsent (wrong user): got %v, want ErrNotFound", err)
+	if _, claimed, err := repo.MarkInitiatorConsent(ctx, rec.ID, otherUser, tenantOwn); err != ErrNotFound || claimed {
+		t.Fatalf("MarkInitiatorConsent (wrong user): got (%v, %v), want (false, ErrNotFound)", claimed, err)
 	}
-	if err := repo.MarkInitiatorConsent(ctx, rec.ID, user, tenantOther); err != ErrNotFound {
-		t.Fatalf("MarkInitiatorConsent (wrong tenant): got %v, want ErrNotFound", err)
+	if _, claimed, err := repo.MarkInitiatorConsent(ctx, rec.ID, user, tenantOther); err != ErrNotFound || claimed {
+		t.Fatalf("MarkInitiatorConsent (wrong tenant): got (%v, %v), want (false, ErrNotFound)", claimed, err)
+	}
+	if got, err := repo.GetRecording(ctx, rec.ID); err != nil || got.Status != RecordingStatusPending {
+		t.Fatalf("after foreign stamps: status = %v (err %v), want still pending", got, err)
 	}
 
-	if err := repo.MarkInitiatorConsent(ctx, rec.ID, user, tenantOwn); err != nil {
-		t.Fatalf("MarkInitiatorConsent (correct): %v", err)
+	room, claimed, err := repo.MarkInitiatorConsent(ctx, rec.ID, user, tenantOwn)
+	if err != nil || !claimed || room != "room-pending" {
+		t.Fatalf("MarkInitiatorConsent (correct) = (%q, %v, %v), want (room-pending, true, nil)", room, claimed, err)
+	}
+	if got, err := repo.GetRecording(ctx, rec.ID); err != nil || got.Status != RecordingStatusActive {
+		t.Fatalf("after stamp: status = %v (err %v), want active", got, err)
+	}
+
+	// A second stamp finds no pending row: no claim, no error — the caller must
+	// not start a second egress.
+	if room, claimed, err := repo.MarkInitiatorConsent(ctx, rec.ID, user, tenantOwn); err != nil || claimed || room != "" {
+		t.Fatalf("MarkInitiatorConsent (repeat) = (%q, %v, %v), want (\"\", false, nil)", room, claimed, err)
 	}
 
 	if stamped, err := repo.GetPreConsentStatus(ctx, rec.ID, tenantOwn); err != nil || !stamped {

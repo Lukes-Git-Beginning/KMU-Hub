@@ -6,6 +6,7 @@ package leave
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/biz/hr/compliance"
+	hremployee "github.com/kmuhub/kmuhub/internal/biz/hr/employee"
 	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
@@ -409,6 +411,25 @@ func (s *Service) GetLeaveBalance(ctx context.Context, tenantID, employeeID uuid
 		return nil, err
 	}
 	return balance, nil
+}
+
+// GetReportingLineLeaveBalance returns the balance of managerID themselves or of one of their
+// direct reports (hr_employee_profiles.manager_user_id). Anyone else, including an employee
+// without a profile, is ErrNotInReportingLine, so the answer does not reveal who exists.
+func (s *Service) GetReportingLineLeaveBalance(ctx context.Context, tenantID, employeeID, managerID uuid.UUID) (*models.HRLeaveBalance, error) {
+	if employeeID != managerID {
+		emp, err := s.employeeRepo.GetByUserID(ctx, employeeID)
+		if errors.Is(err, hremployee.ErrEmployeeNotFound) {
+			return nil, ErrNotInReportingLine
+		}
+		if err != nil {
+			return nil, err
+		}
+		if emp.TenantID != tenantID || emp.ManagerUserID == nil || *emp.ManagerUserID != managerID {
+			return nil, ErrNotInReportingLine
+		}
+	}
+	return s.GetLeaveBalance(ctx, tenantID, employeeID)
 }
 
 // ListLeaveRequests retrieves leave requests with optional filtering.

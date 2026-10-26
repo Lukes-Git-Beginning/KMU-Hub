@@ -30,7 +30,7 @@ func TestSubmitCsat_Success(t *testing.T) {
 	ticket := seedTicket(h, tenantID)
 	comment := "  quick and friendly  "
 
-	got, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, 5, &comment)
+	got, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, nil, 5, &comment)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestSubmitCsat_RejectsOutOfRange(t *testing.T) {
 	ticket := seedTicket(h, tenantID)
 
 	for _, rating := range []int16{0, -1, 6, 127} {
-		if _, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, rating, nil); !errors.Is(err, ErrInvalidCsatRating) {
+		if _, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, nil, rating, nil); !errors.Is(err, ErrInvalidCsatRating) {
 			t.Errorf("rating %d: expected ErrInvalidCsatRating, got %v", rating, err)
 		}
 	}
@@ -73,10 +73,10 @@ func TestSubmitCsat_SecondRatingUpdatesInsteadOfFailing(t *testing.T) {
 	tenantID := uuid.New()
 	ticket := seedTicket(h, tenantID)
 
-	if _, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, 2, nil); err != nil {
+	if _, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, nil, 2, nil); err != nil {
 		t.Fatalf("first rating: %v", err)
 	}
-	got, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, 4, nil)
+	got, err := h.svc.SubmitCsat(context.Background(), ticket.ID, tenantID, nil, 4, nil)
 	if err != nil {
 		t.Fatalf("second rating: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestSubmitCsat_ForeignTenantIsNotFound(t *testing.T) {
 	h := newTestHarness()
 	ticket := seedTicket(h, uuid.New())
 
-	_, err := h.svc.SubmitCsat(context.Background(), ticket.ID, uuid.New(), 3, nil)
+	_, err := h.svc.SubmitCsat(context.Background(), ticket.ID, uuid.New(), nil, 3, nil)
 	if !errors.Is(err, ErrTicketNotFound) {
 		t.Fatalf("expected ErrTicketNotFound for a foreign tenant, got %v", err)
 	}

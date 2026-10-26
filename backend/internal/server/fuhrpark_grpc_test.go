@@ -42,6 +42,9 @@ type stubFuhrparkRepo struct {
 	// listVehicles, when set, is returned verbatim by ListVehicles (default nil
 	// keeps the existing always-empty behaviour other tests rely on).
 	listVehicles []*fuhrpark.Vehicle
+
+	// tripLogs, when set, is returned by ListTripLogs and ListTripLogsForExport.
+	tripLogs []fuhrpark.TripLog
 }
 
 func newStubFuhrparkRepo() *stubFuhrparkRepo { return &stubFuhrparkRepo{} }
@@ -193,7 +196,7 @@ func (r *stubFuhrparkRepo) ListTripLogs(_ context.Context, _ fuhrpark.ListTripLo
 	if r.err != nil {
 		return nil, 0, r.err
 	}
-	return nil, 0, nil
+	return append([]fuhrpark.TripLog(nil), r.tripLogs...), len(r.tripLogs), nil
 }
 
 func (r *stubFuhrparkRepo) CreateTripLog(_ context.Context, log fuhrpark.TripLog) (fuhrpark.TripLog, error) {
@@ -221,7 +224,10 @@ func (r *stubFuhrparkRepo) DriverUserName(_ context.Context, _, _ uuid.UUID) (st
 }
 
 func (r *stubFuhrparkRepo) ListTripLogsForExport(_ context.Context, _ fuhrpark.ExportTripLogsParams) ([]fuhrpark.TripLog, error) {
-	return nil, r.err
+	if r.err != nil {
+		return nil, r.err
+	}
+	return append([]fuhrpark.TripLog(nil), r.tripLogs...), nil
 }
 
 // --- Vehicle documents ---
@@ -317,6 +323,10 @@ func (r *stubFuhrparkRepo) ListBookings(_ context.Context, _ fuhrpark.ListVehicl
 		return nil, 0, r.err
 	}
 	return nil, 0, nil
+}
+
+func (r *stubFuhrparkRepo) ListBusySlots(_ context.Context, _, _ uuid.UUID, _, _ time.Time) ([]fuhrpark.BusySlot, error) {
+	return nil, r.err
 }
 
 func (r *stubFuhrparkRepo) FindConflictingBooking(_ context.Context, _, _ uuid.UUID, _, _ time.Time, _ *uuid.UUID) (*uuid.UUID, error) {

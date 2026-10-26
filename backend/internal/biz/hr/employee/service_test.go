@@ -26,6 +26,7 @@ type mockEmployeeRepo struct {
 	otherRoleAdmins int
 	directReports   int
 	offboardCalls   []OffboardWrite
+	reactivateCalls int
 }
 
 func newMockEmployeeRepo() *mockEmployeeRepo {
@@ -88,6 +89,17 @@ func (m *mockEmployeeRepo) Offboard(_ context.Context, in OffboardWrite) (*model
 	p.Status = models.EmployeeStatusInactive
 	p.ExitDate = &in.ExitDate
 	p.ExitType = in.ExitType
+	return p, nil
+}
+
+func (m *mockEmployeeRepo) Reactivate(_ context.Context, _, employeeID, _ uuid.UUID) (*models.EmployeeProfile, error) {
+	m.reactivateCalls++
+	p, ok := m.profiles[employeeID]
+	if !ok {
+		return nil, ErrEmployeeNotFound
+	}
+	p.Status = models.EmployeeStatusActive
+	p.ExitDate, p.ExitType = nil, ""
 	return p, nil
 }
 

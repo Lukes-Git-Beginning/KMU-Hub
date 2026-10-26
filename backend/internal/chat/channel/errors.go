@@ -19,4 +19,9 @@ var (
 	ErrCannotLeaveDM          = errors.New("cannot leave a DM channel")
 	ErrCannotDeleteDM         = errors.New("cannot delete a DM channel")
 	ErrChannelHasCallSessions = errors.New("channel has archived call sessions and cannot be deleted")
+	ErrTooManyDMParticipants  = errors.New("too many participants for a group DM")
+	ErrDMNameTooLong          = errors.New("group DM name is too long")
+	// ErrGroupDMExists is returned by CreateGroupDMChannel when a concurrent
+	// request created the same member set first; the service then re-reads it.
+	ErrGroupDMExists = errors.New("group DM for this member set already exists")
 )

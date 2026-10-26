@@ -10,9 +10,10 @@ var (
 	ErrAlreadyAssigned        = errors.New("employee is already assigned to this shift")
 	ErrArbzgViolation         = errors.New("ArbZG §5 violation: minimum 11 hours rest period not met between consecutive shifts")
 	ErrShiftFull              = errors.New("shift has reached maximum capacity")
+	ErrShiftOverlap           = errors.New("employee is already assigned to an overlapping shift")
 	ErrSwapRequestNotFound    = errors.New("swap request not found")
 	ErrSwapAlreadyProcessed   = errors.New("swap request has already been processed")
-	ErrSwapPartnerNotAssigned = errors.New("swap partner is not assigned to this shift")
+	ErrSwapRequesterNotCaller = errors.New("requested_by_employee_id must be the caller")
 
 	// JArbSchG (Jugendarbeitsschutzgesetz) violations. They only ever apply to
 	// employees whose HR profile carries is_minor.

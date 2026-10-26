@@ -108,3 +108,84 @@ func assertModuleCount(t *testing.T, pool *pgxpool.Pool, ctx context.Context, te
 		t.Errorf("tenant_module_activations for %s: got %d, want %d", tenantID, count, expected)
 	}
 }
+
+// TestProvisionTenant_SeedsSystemLeaveTypes proves a freshly provisioned
+// tenant owns the ten system leave types from the first minute: without them
+// no leave request can be filed and RecordSickLeave finds no "krank".
+func TestProvisionTenant_SeedsSystemLeaveTypes(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	testutil.EnsureTenant(t, pool, testutil.TenantA, "TenantA")
+	operatorID := testutil.SeedRow(t, pool, "users", map[string]any{
+		"id":            uuid.New(),
+		"tenant_id":     testutil.TenantA,
+		"email":         "operator-leave-types@test.local",
+		"password_hash": "x",
+		"first_name":    "Platform",
+		"last_name":     "Operator",
+	})
+	defer testutil.CleanupRow(t, pool, "users", operatorID)
+
+	repo := auth.NewPostgresRepository(pool)
+	svc := auth.NewService(repo, auth.NewTokenMaker("test-secret-minimum-32-characters!", 15*time.Minute, 7*24*time.Hour))
+
+	res, err := svc.ProvisionTenant(testutil.WithSystemCtx(context.Background()), auth.ProvisionTenantInput{
+		Name:       "Leave Types Provisioning Test GmbH",
+		AdminEmail: "admin-leave-types@test.local",
+		Modules:    []string{"crm"},
+		CreatedBy:  operatorID,
+	})
+	if err != nil {
+		t.Fatalf("provision tenant: %v", err)
+	}
+	newTenant := res.Tenant.ID
+	defer func() {
+		sysCtx := testutil.WithSystemCtx(context.Background())
+		_, _ = pool.Exec(sysCtx, "DELETE FROM hr_leave_types WHERE tenant_id = $1", newTenant)
+		testutil.CleanupRow(t, pool, "tenants", newTenant)
+	}()
+
+	count := func(ctx context.Context, where string) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(ctx,
+			"SELECT COUNT(*) FROM hr_leave_types WHERE tenant_id = $1 "+where, newTenant,
+		).Scan(&n); err != nil {
+			t.Fatalf("count leave types: %v", err)
+		}
+		return n
+	}
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	var templates int
+	if err := pool.QueryRow(sysCtx,
+		"SELECT COUNT(*) FROM hr_leave_types WHERE tenant_id = '00000000-0000-0000-0000-000000000000'",
+	).Scan(&templates); err != nil {
+		t.Fatalf("count templates: %v", err)
+	}
+	if templates == 0 {
+		t.Fatal("no zero-UUID leave type templates in the database")
+	}
+
+	ctxNew := testutil.WithTenantCtx(context.Background(), newTenant)
+	if got := count(ctxNew, ""); got != templates {
+		t.Errorf("new tenant leave types: got %d, want %d", got, templates)
+	}
+	for _, key := range []string{"urlaub", "krank"} {
+		if got := count(ctxNew, "AND is_system AND key = '"+key+"'"); got != 1 {
+			t.Errorf("new tenant %q system leave type: got %d, want 1", key, got)
+		}
+	}
+	// Seed-owned copies must not leak into the neighbouring tenant.
+	ctxA := testutil.WithTenantCtx(context.Background(), testutil.TenantA)
+	var seenByA int
+	if err := pool.QueryRow(ctxA,
+		"SELECT COUNT(*) FROM hr_leave_types WHERE tenant_id = $1", newTenant,
+	).Scan(&seenByA); err != nil {
+		t.Fatalf("count as tenant A: %v", err)
+	}
+	if seenByA != 0 {
+		t.Errorf("tenant A sees %d leave types of the new tenant, want 0", seenByA)
+	}
+}

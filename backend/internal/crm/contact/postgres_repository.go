@@ -18,8 +18,14 @@ import (
 
 // PostgresRepository implements Repository using PostgreSQL
 type PostgresRepository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	objects consent.ObjectDeleter
 }
+
+// SetObjectDeleter wires the object store Delete removes rental inspection
+// photos from (see consent.PurgeInspectionPhotos). Without one the photo
+// objects stay in storage and a warning is logged.
+func (r *PostgresRepository) SetObjectDeleter(d consent.ObjectDeleter) { r.objects = d }
 
 // NewPostgresRepository creates a new PostgreSQL repository
 func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
@@ -353,6 +359,9 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID, tenantID 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := consent.PurgeInspectionPhotos(ctx, tx, r.objects, id, tenantID); err != nil {
+		return fmt.Errorf("contact delete: %w", err)
+	}
 	if _, err := consent.ScrubDependentPII(ctx, tx, id, tenantID); err != nil {
 		return fmt.Errorf("contact delete: %w", err)
 	}

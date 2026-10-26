@@ -130,7 +130,7 @@ func newSendAttachmentsRig(t *testing.T) *sendAttachmentsRig {
 	srv := NewEmailGRPCServer(
 		account.NewService(account.NewPostgresRepository(f.pool), nil),
 		msgSvc,
-		send.NewService(provider, msgSvc, nil),
+		send.NewService(provider, msgSvc, nil).WithDialGuard(loopbackDialGuard()),
 		nil,
 		attachment.NewService(attachment.NewPostgresRepository(f.pool), &memAttachmentStore{keys: map[string][]byte{}}),
 		nil, nil, nil, nil, nil, nil, nil,

@@ -11,6 +11,7 @@ desktop/scripts/add-*-i18n.mjs
 *.out
 vendor/
 bin/
+.e2e-bin/
 
 # === Node / Electron ===
 node_modules/

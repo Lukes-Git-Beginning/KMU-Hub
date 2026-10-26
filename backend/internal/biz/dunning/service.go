@@ -2,7 +2,7 @@
 // Supports 3-level semi-automatic dunning with configurable intervals and fees.
 // Level 1: Zahlungserinnerung (friendly), Level 2: 1. Mahnung (formal),
 // Level 3: 2. Mahnung / Letzte Mahnung (urgent, threatens Inkasso).
-// Verzugszinsen are calculated per BGB section 288.
+// Verzugszinsen are deliberately not computed (decision 2026-10-25); the interest column stays zero.
 package dunning
 
 import (
@@ -254,10 +254,7 @@ func (s *Service) DetectAndCreateDunnings(ctx context.Context, tenantID uuid.UUI
 			Level:     nextLevel,
 			Status:    models.DunningStatusDraft,
 			Fee:       fee,
-			// lean: Verzugszinsen are never computed — CalculateInterest below has zero
-			// callers (verified 2026-08-23). Not "calculated elsewhere"; simply not wired.
-			// Upgrade trigger: wire once (a) a B2B/B2C flag exists on invoice/customer and
-			// (b) CompanySettings.Basiszinssatz is read here instead of left at zero.
+			// Verzugszinsen are deliberately not a feature (decision 2026-10-25): interest stays zero.
 			Interest: decimal.Zero,
 			// lean: automatic dunning runs have no human actor, created_by is the nil UUID.
 			// Upgrade trigger: a per-tenant system-actor user, once the UI must show who
@@ -417,64 +414,6 @@ func (s *Service) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.
 // List retrieves dunning records with optional filtering.
 func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filter ListFilter) ([]*models.DunningRecord, int, error) {
 	return s.repo.List(ctx, tenantID, filter)
-}
-
-// CalculateInterest calculates Verzugszinsen per BGB section 288.
-// B2C: Basiszinssatz + 5 percentage points
-// B2B: Basiszinssatz + 9 percentage points
-// Pro-rata daily calculation from due_date to today.
-//
-// lean: has zero production callers (verified 2026-08-23, grepped internal/, cmd/ and
-// proto/biz/v1/biz.proto). The basiszinssatz parameter itself CAN be populated today —
-// CompanySettings.Basiszinssatz is a persisted, tenant-configurable field wired end to
-// end (route_biz.go HandleUpdateCompanySettings -> biz_grpc.go:229 -> models.CompanySettings)
-// — but nothing reads it into a dunning record. Upgrade trigger: wire this once a B2B/B2C
-// distinction exists on invoice/customer (models.Invoice has none today).
-// Two fachliche Mängel to fix at the same time as the wiring, not before:
-//   - the divisor below is a fixed 365; a full leap year overstates the daily rate slightly.
-//   - Basiszinssatz changes twice a year (section 247 BGB); a period spanning a change
-//     needs to be split and each half rated with the rate that applied during it, not one
-//     rate applied to the whole span.
-func (s *Service) CalculateInterest(
-	_ context.Context,
-	invoiceGrossTotal decimal.Decimal,
-	dueDate time.Time,
-	basiszinssatz decimal.Decimal,
-	isB2B bool,
-) decimal.Decimal {
-	now := time.Now()
-	if now.Before(dueDate) {
-		return decimal.Zero
-	}
-
-	// Calculate days overdue
-	days := daysBetween(dueDate, now)
-	if days <= 0 {
-		return decimal.Zero
-	}
-
-	// Interest rate per BGB section 288
-	var addPoints decimal.Decimal
-	if isB2B {
-		addPoints = decimal.NewFromInt(9)
-	} else {
-		addPoints = decimal.NewFromInt(5)
-	}
-	annualRate := basiszinssatz.Add(addPoints)
-
-	// Pro-rata daily: (principal * rate/100 * days) / 365
-	hundred := decimal.NewFromInt(100)
-	daysInYear := decimal.NewFromInt(365)
-	daysDecimal := decimal.NewFromInt(int64(days))
-
-	interest := invoiceGrossTotal.
-		Mul(annualRate).
-		Div(hundred).
-		Mul(daysDecimal).
-		Div(daysInYear).
-		Round(2)
-
-	return interest
 }
 
 // daysBetween returns the number of full days between two times.

@@ -34,6 +34,7 @@ const (
 	ChatService_UpdateMessage_FullMethodName       = "/chat.v1.ChatService/UpdateMessage"
 	ChatService_DeleteMessage_FullMethodName       = "/chat.v1.ChatService/DeleteMessage"
 	ChatService_GetOrCreateDM_FullMethodName       = "/chat.v1.ChatService/GetOrCreateDM"
+	ChatService_GetOrCreateGroupDM_FullMethodName  = "/chat.v1.ChatService/GetOrCreateGroupDM"
 	ChatService_ListDMs_FullMethodName             = "/chat.v1.ChatService/ListDMs"
 	ChatService_GetThreadReplies_FullMethodName    = "/chat.v1.ChatService/GetThreadReplies"
 	ChatService_MarkChannelRead_FullMethodName     = "/chat.v1.ChatService/MarkChannelRead"
@@ -74,6 +75,7 @@ type ChatServiceClient interface {
 	DeleteMessage(ctx context.Context, in *DeleteMessageRequest, opts ...grpc.CallOption) (*DeleteMessageResponse, error)
 	// Direct Messages (Sprint 2)
 	GetOrCreateDM(ctx context.Context, in *GetOrCreateDMRequest, opts ...grpc.CallOption) (*GetOrCreateDMResponse, error)
+	GetOrCreateGroupDM(ctx context.Context, in *GetOrCreateGroupDMRequest, opts ...grpc.CallOption) (*GetOrCreateDMResponse, error)
 	ListDMs(ctx context.Context, in *ListDMsRequest, opts ...grpc.CallOption) (*ListDMsResponse, error)
 	// Threads (Sprint 2)
 	GetThreadReplies(ctx context.Context, in *GetThreadRepliesRequest, opts ...grpc.CallOption) (*GetThreadRepliesResponse, error)
@@ -255,6 +257,16 @@ func (c *chatServiceClient) GetOrCreateDM(ctx context.Context, in *GetOrCreateDM
 	return out, nil
 }
 
+func (c *chatServiceClient) GetOrCreateGroupDM(ctx context.Context, in *GetOrCreateGroupDMRequest, opts ...grpc.CallOption) (*GetOrCreateDMResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOrCreateDMResponse)
+	err := c.cc.Invoke(ctx, ChatService_GetOrCreateGroupDM_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *chatServiceClient) ListDMs(ctx context.Context, in *ListDMsRequest, opts ...grpc.CallOption) (*ListDMsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListDMsResponse)
@@ -428,6 +440,7 @@ type ChatServiceServer interface {
 	DeleteMessage(context.Context, *DeleteMessageRequest) (*DeleteMessageResponse, error)
 	// Direct Messages (Sprint 2)
 	GetOrCreateDM(context.Context, *GetOrCreateDMRequest) (*GetOrCreateDMResponse, error)
+	GetOrCreateGroupDM(context.Context, *GetOrCreateGroupDMRequest) (*GetOrCreateDMResponse, error)
 	ListDMs(context.Context, *ListDMsRequest) (*ListDMsResponse, error)
 	// Threads (Sprint 2)
 	GetThreadReplies(context.Context, *GetThreadRepliesRequest) (*GetThreadRepliesResponse, error)
@@ -503,6 +516,9 @@ func (UnimplementedChatServiceServer) DeleteMessage(context.Context, *DeleteMess
 }
 func (UnimplementedChatServiceServer) GetOrCreateDM(context.Context, *GetOrCreateDMRequest) (*GetOrCreateDMResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetOrCreateDM not implemented")
+}
+func (UnimplementedChatServiceServer) GetOrCreateGroupDM(context.Context, *GetOrCreateGroupDMRequest) (*GetOrCreateDMResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOrCreateGroupDM not implemented")
 }
 func (UnimplementedChatServiceServer) ListDMs(context.Context, *ListDMsRequest) (*ListDMsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDMs not implemented")
@@ -836,6 +852,24 @@ func _ChatService_GetOrCreateDM_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ChatServiceServer).GetOrCreateDM(ctx, req.(*GetOrCreateDMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_GetOrCreateGroupDM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOrCreateGroupDMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).GetOrCreateGroupDM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_GetOrCreateGroupDM_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).GetOrCreateGroupDM(ctx, req.(*GetOrCreateGroupDMRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1176,6 +1210,10 @@ var ChatService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetOrCreateDM",
 			Handler:    _ChatService_GetOrCreateDM_Handler,
+		},
+		{
+			MethodName: "GetOrCreateGroupDM",
+			Handler:    _ChatService_GetOrCreateGroupDM_Handler,
 		},
 		{
 			MethodName: "ListDMs",

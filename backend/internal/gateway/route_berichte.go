@@ -325,6 +325,13 @@ func (br *BerichteRoutes) HandleGetDefinition(w http.ResponseWriter, r *http.Req
 	response.JSON(w, http.StatusOK, reportDefinitionEnvelope{Definition: toReportDefinitionWire(resp.GetDefinition())})
 }
 
+// berichteEditOwnerFilter narrows a definition or document PATCH to the
+// caller's own rows when "berichte:reports:edit" at scope own is their only way
+// in; the legacy "berichte:reports:write" keeps it tenant-wide (manager).
+func berichteEditOwnerFilter(w http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(w, r, [2]string{"berichte:reports", "write"}, "berichte:reports", "edit")
+}
+
 func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -343,6 +350,10 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 	}
 
 	userID := middleware.GetUserID(r.Context())
+	ownerID, ok := berichteEditOwnerFilter(w, r)
+	if !ok {
+		return
+	}
 
 	req, ok := decodeAndValidate[updateDefinitionRequest](w, r)
 	if !ok {
@@ -359,6 +370,7 @@ func (br *BerichteRoutes) HandleUpdateDefinition(w http.ResponseWriter, r *http.
 		DefaultFormat: req.DefaultFormat,
 		IsPublished:   req.IsPublished,
 		EditorId:      userID,
+		OwnerId:       ownerID,
 	}
 
 	resp, err := client.UpdateDefinition(r.Context(), grpcReq)
@@ -453,7 +465,7 @@ func toReportDocumentWire(d *berichtev1.Document) reportDocumentWire {
 type createReportDocumentRequest struct {
 	Title       string          `json:"title,omitempty"`
 	Description string          `json:"description,omitempty"`
-	Module      string          `json:"module,omitempty"      validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	Module      string          `json:"module,omitempty"      validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion work kommunikation hr zeiterfassung vertraege einkauf fuhrpark rapporte cross"`
 	TemplateID  *string         `json:"template_id,omitempty"`
 	Rows        json.RawMessage `json:"rows,omitempty"`
 	Settings    json.RawMessage `json:"settings,omitempty"`
@@ -462,7 +474,7 @@ type createReportDocumentRequest struct {
 type updateReportDocumentRequest struct {
 	Title       *string         `json:"title,omitempty"`
 	Description *string         `json:"description,omitempty"`
-	Module      *string         `json:"module,omitempty"   validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion cross"`
+	Module      *string         `json:"module,omitempty"   validate:"omitempty,oneof=finanzen crm helpdesk inventar produktion work kommunikation hr zeiterfassung vertraege einkauf fuhrpark rapporte cross"`
 	Status      *string         `json:"status,omitempty"   validate:"omitempty,oneof=draft final released archived"`
 	Rows        json.RawMessage `json:"rows,omitempty"`
 	Settings    json.RawMessage `json:"settings,omitempty"`
@@ -626,8 +638,21 @@ func (br *BerichteRoutes) HandleUpdateDocument(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	ownerID, ok := berichteEditOwnerFilter(w, r)
+	if !ok {
+		return
+	}
+
 	req, ok := decodeAndValidate[updateReportDocumentRequest](w, r)
 	if !ok {
+		return
+	}
+	// The lifecycle (draft→final→released→archived) is the publish switch, the
+	// desktop shows its buttons only with reports:publish. documentUpdate lets
+	// edit in for content saves, so a status change is judged here.
+	if req.Status != nil && !middleware.HoldsAnyPermission(r.Context(),
+		[2]string{"berichte:reports", "write"}, [2]string{"berichte:reports", "publish"}) {
+		response.Error(w, http.StatusForbidden, "insufficient permissions")
 		return
 	}
 
@@ -640,6 +665,7 @@ func (br *BerichteRoutes) HandleUpdateDocument(w http.ResponseWriter, r *http.Re
 		Status:      req.Status,
 		Rows:        req.Rows,
 		Settings:    req.Settings,
+		OwnerId:     ownerID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

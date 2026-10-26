@@ -25,4 +25,6 @@ var (
 	ErrSettingsNotFound = errors.New("HR company settings not found")
 	// ErrCannotCancelPastLeave is returned when trying to cancel approved leave that has already started.
 	ErrCannotCancelPastLeave = errors.New("cannot cancel approved leave that has already started")
+	// ErrNotInReportingLine is returned when a manager reads an employee outside their reporting line.
+	ErrNotInReportingLine = errors.New("employee is not in the caller's reporting line")
 )

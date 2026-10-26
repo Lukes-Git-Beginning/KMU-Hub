@@ -61,15 +61,20 @@ func (r *PostgresRepository) GetByMessageID(ctx context.Context, messageID uuid.
 	return links, rows.Err()
 }
 
-// GetByContactID returns all email messages linked to a CRM contact within a tenant, with pagination.
-func (r *PostgresRepository) GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error) {
+// GetByContactID returns the email messages linked to a CRM contact within a
+// tenant, with pagination. A non-nil ownerUserID confines the result, and its
+// total, to messages of that user's own mailboxes.
+func (r *PostgresRepository) GetByContactID(ctx context.Context, contactID uuid.UUID, tenantID uuid.UUID, ownerUserID *uuid.UUID, page, perPage int) ([]*models.EmailMessage, int, error) {
 	offset := (page - 1) * perPage
 
-	// Count total
+	const scope = ` FROM email_messages m
+		 INNER JOIN email_contact_links l ON l.message_id = m.id
+		 WHERE l.contact_id = $1 AND l.tenant_id = $2 AND m.tenant_id = $2
+		   AND ($3::uuid IS NULL OR m.account_id IN (
+		       SELECT a.id FROM email_accounts a WHERE a.tenant_id = $2 AND a.user_id = $3))`
+
 	var total int
-	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM email_contact_links WHERE contact_id = $1 AND tenant_id = $2`, contactID, tenantID,
-	).Scan(&total)
+	err := r.pool.QueryRow(ctx, `SELECT COUNT(*)`+scope, contactID, tenantID, ownerUserID).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -83,12 +88,10 @@ func (r *PostgresRepository) GetByContactID(ctx context.Context, contactID uuid.
 			m.subject, m.preview, m.body_text, m.body_html,
 			m.is_read, m.is_starred, m.is_draft, m.has_attachments,
 			m.date, m.size_bytes, m.created_at, m.updated_at
-		 FROM email_messages m
-		 INNER JOIN email_contact_links l ON l.message_id = m.id
-		 WHERE l.contact_id = $1 AND l.tenant_id = $2 AND m.tenant_id = $2
+`+scope+`
 		 ORDER BY m.date DESC
-		 LIMIT $3 OFFSET $4`,
-		contactID, tenantID, perPage, offset,
+		 LIMIT $4 OFFSET $5`,
+		contactID, tenantID, ownerUserID, perPage, offset,
 	)
 	if err != nil {
 		return nil, 0, err

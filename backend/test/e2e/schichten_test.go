@@ -145,7 +145,7 @@ func TestSchichtenMemberFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("member: reads the plan, nothing else", func(t *testing.T) {
+	t.Run("member: reads the plan and their own roster, nothing else", func(t *testing.T) {
 		q := url.Values{"from": {start.Add(-time.Hour).Format(time.RFC3339)}, "to": {end.Add(time.Hour).Format(time.RFC3339)}}
 		resp, body := getJSON(t, sch+"/shifts?"+q.Encode(), memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
@@ -183,13 +183,50 @@ func TestSchichtenMemberFlow(t *testing.T) {
 			t.Fatalf("expected a boolean compliant, got %s", string(body))
 		}
 
-		// Everything that plans or reads the roster is the manager's (decide-member-manager-module-defaults).
+		// The member reads their own roster (schichten:assignment:read at scope own, 000355): on
+		// the shared shift only their own assignment, a member without one gets an empty list.
+		ownRoster := func(token string) []map[string]interface{} {
+			t.Helper()
+			resp, body := getJSON(t, fmt.Sprintf("%s/shifts/%s/assignments", sch, shiftID), token)
+			requireStatus(t, resp, body, http.StatusOK)
+			var out struct {
+				Assignments []map[string]interface{} `json:"assignments"`
+			}
+			decodeBody(t, body, &out)
+			if out.Assignments == nil {
+				t.Fatalf("expected assignments as a list, got %s", string(body))
+			}
+			return out.Assignments
+		}
+		if mine := ownRoster(memberAToken); len(mine) != 1 || mine[0]["employee_id"] != memberAID || mine[0]["id"] != assignmentA {
+			t.Fatalf("member A should see only their own assignment %s, got %v", assignmentA, mine)
+		}
+		if none := ownRoster(memberCToken); len(none) != 0 {
+			t.Fatalf("member C has no assignment on the shift and should see none, got %v", none)
+		}
+
+		// Shift templates are readable for the member (useTemplatesList, the "Vorlagen" tab).
+		resp, body = getJSON(t, sch+"/templates", memberAToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		var tpl struct {
+			Templates []map[string]interface{} `json:"templates"`
+		}
+		decodeBody(t, body, &tpl)
+		foundTpl := false
+		for _, x := range tpl.Templates {
+			if x["id"] == templateID {
+				foundTpl = true
+			}
+		}
+		if !foundTpl {
+			t.Fatalf("expected template %s in the member's list, got %s", templateID, string(body))
+		}
+
+		// Everything that plans the roster is the manager's (decide-member-manager-module-defaults).
 		refused := []struct {
 			name, method, path string
 			body               interface{}
 		}{
-			{"assignments", http.MethodGet, "/shifts/" + shiftID + "/assignments", nil},
-			{"templates", http.MethodGet, "/templates", nil},
 			{"create template", http.MethodPost, "/templates", map[string]interface{}{
 				"name": "x", "day_of_week": 1, "start_hour": 8, "start_minute": 0, "duration_minutes": 60,
 			}},
@@ -293,6 +330,11 @@ func TestSchichtenMemberFlow(t *testing.T) {
 		resp, body = financeRequest(t, http.MethodPost, sch+"/swap-requests", swapBody(assignmentA, memberAID, memberAID), memberAToken)
 		requireStatus(t, resp, body, http.StatusBadRequest)
 
+		// Not in a colleague's name: at scope own the service checks the requester against the
+		// caller (user id or HR profile id).
+		resp, body = financeRequest(t, http.MethodPost, sch+"/swap-requests", swapBody(assignmentB, memberBID, memberCID), memberAToken)
+		requireStatus(t, resp, body, http.StatusForbidden)
+
 		// A colleague who is not on the shift can be asked; the manager's approval is where it ends.
 		swapToC = createSwap(t, memberAToken, swapBody(assignmentA, memberAID, memberCID))
 	})
@@ -329,48 +371,49 @@ func TestSchichtenMemberFlow(t *testing.T) {
 	})
 
 	t.Run("manager: decides", func(t *testing.T) {
-		// Partner B is on the shift: approved. Both stay on it, the swap exchanges the two rows.
+		// An approved swap hands the requester's seat over (decision 2026-10-25). Partner B
+		// already holds a seat on this shift and cannot take a second one: refused, nothing changes.
 		resp, body := postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToB), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusOK)
-		var out swapOut
-		decodeBody(t, body, &out)
-		if out.SwapRequest["status"] != "approved" {
-			t.Fatalf("expected an approved swap request, got %s", string(body))
-		}
-		if st := swapStatus(t, swapToB); st != "approved" {
-			t.Fatalf("expected the list to show approved, got %q", st)
-		}
-		ids := assignmentIDs(t)
-		if _, ok := ids[memberAID]; !ok {
-			t.Fatalf("A must still be on the shift after swapping with B: %v", ids)
-		}
-		if _, ok := ids[memberBID]; !ok || len(ids) != 2 {
-			t.Fatalf("B must still be on the shift after swapping with A: %v", ids)
-		}
-
-		// A decided request cannot be decided again.
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToB), nil, managerToken)
 		requireStatus(t, resp, body, http.StatusConflict)
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToB), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusConflict)
-
-		// Partner C is not on the shift: the approval is refused and nothing changes.
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
-		requireStatus(t, resp, body, http.StatusConflict)
-		if st := swapStatus(t, swapToC); st != "pending" {
+		if st := swapStatus(t, swapToB); st != "pending" {
 			t.Fatalf("a refused approval changed the request to %q", st)
 		}
-		if ids := assignmentIDs(t); len(ids) != 2 {
+		if ids := assignmentIDs(t); len(ids) != 2 || ids[memberAID] != assignmentA || ids[memberBID] != assignmentB {
 			t.Fatalf("a refused approval changed the roster: %v", ids)
 		}
 
-		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToC), nil, managerToken)
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToB), nil, managerToken)
 		requireStatus(t, resp, body, http.StatusOK)
-		out.SwapRequest = nil
+		var out swapOut
 		decodeBody(t, body, &out)
 		if out.SwapRequest["status"] != "rejected" {
 			t.Fatalf("expected a rejected swap request, got %s", string(body))
 		}
+
+		// Partner C is not on the shift: approved, C takes over A's assignment row, A is off.
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		out.SwapRequest = nil
+		decodeBody(t, body, &out)
+		if out.SwapRequest["status"] != "approved" {
+			t.Fatalf("expected an approved swap request, got %s", string(body))
+		}
+		if st := swapStatus(t, swapToC); st != "approved" {
+			t.Fatalf("expected the list to show approved, got %q", st)
+		}
+		ids := assignmentIDs(t)
+		if _, ok := ids[memberAID]; ok {
+			t.Fatalf("A must be off the shift after handing it over to C: %v", ids)
+		}
+		if ids[memberCID] != assignmentA || ids[memberBID] != assignmentB || len(ids) != 2 {
+			t.Fatalf("C must hold A's former assignment %s, B keeps theirs: %v", assignmentA, ids)
+		}
+
+		// A decided request cannot be decided again.
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/approve", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusConflict)
+		resp, body = postJSON(t, fmt.Sprintf("%s/swap-requests/%s/reject", sch, swapToC), nil, managerToken)
+		requireStatus(t, resp, body, http.StatusConflict)
 	})
 
 	t.Run("manager: publishes, unassigns and removes the shift", func(t *testing.T) {

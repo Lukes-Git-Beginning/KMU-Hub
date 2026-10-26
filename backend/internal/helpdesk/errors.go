@@ -4,6 +4,9 @@ import "errors"
 
 var (
 	ErrTicketNotFound         = errors.New("ticket not found")
+	// ErrReassignNotAllowed: an editor at own scope may work the ticket
+	// assigned to them but not hand it on.
+	ErrReassignNotAllowed = errors.New("reassigning a ticket requires helpdesk:ticket:edit beyond own scope")
 	ErrQueueNotFound          = errors.New("ticket queue not found")
 	ErrSLAPolicyNotFound      = errors.New("sla policy not found")
 	ErrInvalidStatus          = errors.New("invalid ticket status")

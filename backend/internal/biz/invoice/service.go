@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -195,11 +196,18 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.Invoic
 
 	// Currency: explicit input wins, then the tenant default from company
 	// settings, then the system default (EUR).
-	currency := models.DefaultCurrency
+	tenantCurrency := models.DefaultCurrency
 	if settings != nil && settings.DefaultCurrency != "" {
-		currency = settings.DefaultCurrency
+		tenantCurrency = settings.DefaultCurrency
 	}
+	currency := tenantCurrency
 	if input.Currency != "" {
+		// A quote carries its own currency and a recurring schedule bills in its
+		// own; only a free-standing invoice is pinned to the tenant currency.
+		adHoc := input.SourceQuoteID == nil && input.RecurringID == nil
+		if adHoc && !strings.EqualFold(input.Currency, tenantCurrency) {
+			return nil, fmt.Errorf("%w: requested %s, tenant %s", ErrCurrencyNotTenantCurrency, input.Currency, tenantCurrency)
+		}
 		currency = input.Currency
 	}
 
@@ -408,6 +416,19 @@ type UpdateInput struct {
 	Notes    *string
 }
 
+// tenantCurrency is the currency company settings name for the tenant, EUR when
+// none is set or the settings cannot be read (the same fallback Create uses).
+func (s *Service) tenantCurrency(ctx context.Context, tenantID uuid.UUID) string {
+	settings, err := s.companySettings.GetByTenantID(ctx, tenantID)
+	if err != nil {
+		slog.Warn("failed to load company settings for invoice currency", "tenant_id", tenantID, "error", err)
+	}
+	if settings != nil && settings.DefaultCurrency != "" {
+		return settings.DefaultCurrency
+	}
+	return models.DefaultCurrency
+}
+
 // Update updates an existing invoice. ONLY draft invoices can be modified (GoBD enforcement).
 // If the invoice has been sent, it is IMMUTABLE and returns ErrInvoiceImmutable.
 func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input UpdateInput) (*models.Invoice, error) {
@@ -446,7 +467,15 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	if input.Notes != nil {
 		inv.Notes = *input.Notes
 	}
-	if input.Currency != nil && *input.Currency != "" {
+	if input.Currency != nil && *input.Currency != "" && *input.Currency != inv.Currency {
+		// Same pin as Create, but only for a change: the desktop form echoes the
+		// stored currency on every edit, and a legacy CHF draft must stay editable.
+		if inv.SourceQuoteID == nil && inv.RecurringID == nil {
+			tenantCurrency := s.tenantCurrency(ctx, tenantID)
+			if !strings.EqualFold(*input.Currency, tenantCurrency) {
+				return nil, fmt.Errorf("%w: requested %s, tenant %s", ErrCurrencyNotTenantCurrency, *input.Currency, tenantCurrency)
+			}
+		}
 		inv.Currency = *input.Currency
 	}
 	if input.InvoiceDate != nil {

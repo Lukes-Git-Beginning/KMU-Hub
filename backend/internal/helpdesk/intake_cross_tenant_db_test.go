@@ -121,7 +121,7 @@ func TestUpdateTicket_CustomFieldsMergeCannotCrossTenant(t *testing.T) {
 	// argument. Service.UpdateTicket loads the ticket through
 	// GetTicketByID(id, tenantID) before it ever touches custom_fields, so
 	// this must fail before any merge happens.
-	_, err := svc.UpdateTicket(context.Background(), ticketB.ID, tenantA,
+	_, err := svc.UpdateTicket(context.Background(), ticketB.ID, tenantA, nil,
 		nil, nil, nil, nil, nil, nil, nil,
 		map[string]any{"injected_by_tenant_a": "pwned"},
 	)
@@ -145,7 +145,7 @@ func TestUpdateTicket_CustomFieldsMergeCannotCrossTenant(t *testing.T) {
 	// Positive control: the same merge, correctly scoped to tenant B, must
 	// succeed -- proves the rejection above is the tenant guard and not some
 	// unrelated failure in the call.
-	updated, err := svc.UpdateTicket(ctxB, ticketB.ID, tenantB,
+	updated, err := svc.UpdateTicket(ctxB, ticketB.ID, tenantB, nil,
 		nil, nil, nil, nil, nil, nil, nil,
 		map[string]any{"legit_update": "ok"},
 	)

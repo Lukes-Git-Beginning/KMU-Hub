@@ -127,9 +127,10 @@ func TestBerichteWrites_LandInCallerTenant(t *testing.T) {
 	}
 	defer testutil.CleanupRow(t, pool, "report_documents", foreignDoc.ID)
 
+	expiresAt := now.Add(time.Hour)
 	token := &ShareToken{
 		ID: uuid.New(), TenantID: tenantOwn, DocumentID: shareDoc.ID,
-		Token: uuid.New().String(), ViewCount: 0, CreatedAt: now,
+		Token: uuid.New().String(), ExpiresAt: &expiresAt, ViewCount: 0, CreatedAt: now,
 	}
 	if err := repo.CreateShareToken(ctxOwn, token); err != nil {
 		t.Fatalf("CreateShareToken: %v", err)

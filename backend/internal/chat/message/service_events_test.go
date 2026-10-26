@@ -21,12 +21,12 @@ import (
 
 type eventCapturingRepo struct {
 	*MockRepository
-	dmRecipient *uuid.UUID
+	dmRecipients []uuid.UUID
 	channelName string
 }
 
-func (r *eventCapturingRepo) GetDMRecipient(_ context.Context, _, _ uuid.UUID) (*uuid.UUID, error) {
-	return r.dmRecipient, nil
+func (r *eventCapturingRepo) GetDMRecipients(_ context.Context, _, _ uuid.UUID) ([]uuid.UUID, error) {
+	return r.dmRecipients, nil
 }
 
 func (r *eventCapturingRepo) GetChannelName(_ context.Context, _ uuid.UUID) (string, error) {
@@ -106,7 +106,7 @@ func TestEmitMessageEvents_DMEmitsToRecipient(t *testing.T) {
 	channelID := uuid.New()
 	senderID := uuid.New()
 	recipientID := uuid.New()
-	repo.dmRecipient = &recipientID
+	repo.dmRecipients = []uuid.UUID{recipientID}
 	repo.AddChannel(channelID, false)
 	repo.AddMember(channelID, senderID, models.ChannelRoleMember)
 	repo.AddUser(senderID, "Alice", "Sender")
@@ -126,13 +126,37 @@ func TestEmitMessageEvents_DMEmitsToRecipient(t *testing.T) {
 	assert.Equal(t, recipientID.String(), ev.TargetUserIDs[0])
 }
 
+func TestEmitMessageEvents_GroupDMEmitsToEveryOtherMember(t *testing.T) {
+	svc, repo, emitter := newEventTestService()
+
+	channelID := uuid.New()
+	senderID := uuid.New()
+	second, third := uuid.New(), uuid.New()
+	repo.dmRecipients = []uuid.UUID{second, third}
+	repo.AddChannel(channelID, false)
+	repo.AddMember(channelID, senderID, models.ChannelRoleMember)
+	repo.AddUser(senderID, "Alice", "Sender")
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		ChannelID: channelID,
+		Content:   "Hi all",
+		CreatedBy: senderID,
+	})
+	require.NoError(t, err)
+
+	require.Len(t, emitter.events, 1)
+	ev := emitter.events[0]
+	assert.Equal(t, "chat.dm.new", ev.Type)
+	assert.Equal(t, []string{second.String(), third.String()}, ev.TargetUserIDs)
+}
+
 func TestEmitMessageEvents_GuestMessageEmitsNothing(t *testing.T) {
 	svc, repo, emitter := newEventTestService()
 
 	channelID := uuid.New()
 	guestSessionID := uuid.New()
 	otherUserID := uuid.New()
-	repo.dmRecipient = &otherUserID // even if a recipient exists, guest messages must not emit
+	repo.dmRecipients = []uuid.UUID{otherUserID} // even if a recipient exists, guest messages must not emit
 	repo.AddChannel(channelID, false)
 
 	_, err := svc.Create(context.Background(), CreateInput{
