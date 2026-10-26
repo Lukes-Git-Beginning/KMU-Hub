@@ -3208,7 +3208,7 @@ units:
     service: automation
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/automation/action von 68,9 % auf ≥ 78 %
     coverage_start: internal/automation/action 68,9 %
     scope: >
@@ -3223,6 +3223,80 @@ units:
       - '`internal/automation/action` ≥ 78 % (go test -cover, Wert im Journal)'
       - Mutationsprobe dokumentiert
       - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
+
+  - id: fix-work-create-task-action-created-by
+    phase: 4
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    target: die Automations-Action work.create_task legt Aufgaben wieder an (heute scheitert jede Ausführung)
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      TOTALAUSFALL, verifiziert in Lauf 17 Iteration 116 (Fund aus `cov-automation-action`).
+      `WorkGRPCServer.CreateTask` (`internal/server/work_grpc.go:669`) beginnt mit
+      `uuid.Parse(req.CreatedBy)` und antwortet bei leerem Wert `InvalidArgument "invalid created_by"`.
+      `CreateTaskAction.Execute` (`internal/automation/action/work_actions.go`) setzt `CreatedBy` nie, und
+      `createTaskConfig` kennt kein `created_by`-Feld. Jede Ausführung von `work.create_task` scheitert
+      damit, für jeden Mandanten. Drei ausgelieferte Vorlagen in `internal/automation/template/templates.go`
+      (Zeilen ~80, ~230, ~368; Follow-up nach Deal/Angebot/E-Mail) nutzen die Action mit
+      `OnError: abort`, die Workflow-Ausführung bricht also ab. Die Schwester-Actions (calendar, biz)
+      lösen es über ein Pflichtfeld `created_by` (Template).
+      Lösungsraum: (a) `created_by` als Template-Feld wie bei calendar/biz, Default auf `{{actor_id}}`
+      aus der Umgebung, danach `assignee_id`; Vorlagen mitziehen; (b) Server akzeptiert wie bei
+      `EmailGRPCServer.SendEmail` einen Aufruf ohne Nutzer-Kontext (Automation) und setzt einen
+      System-Akteur. (b) ist eine Datenmodell-Frage (`tasks.created_by` NOT NULL, FK auf users?) und
+      gehört Luke; ohne Entscheidung (a) bauen.
+    sources:
+      - backend/internal/automation/action/work_actions.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/automation/template/templates.go
+      - backend/internal/automation/action/email_work_notification_actions_test.go
+    notes: >
+      Der Test `TestCreateTaskAction_MapsConfigToRequest` sagt bewusst nichts zu `created_by`. Der Fix
+      ergänzt eine Assertion auf das gesetzte `CreatedBy`, plus einen Test gegen den ECHTEN Server-Parser
+      (kein Fake, der `created_by` ignoriert). Desktop-Aufrufer: Regel-Editor-Katalog
+      (`GET /automation/actions`) prüfen, falls `CreateTaskDefinition().Params` wächst.
+    done_when:
+      - Action setzt `CreatedBy` aus Config/Umgebung, leer wird als Konfigurationsfehler gemeldet statt als gRPC-Fehler
+      - Test, der den Request durch `uuid.Parse` des Servers laufen lässt
+      - Vorlagen liefern einen Akteur
+      - go test -count=1 ./internal/automation/... grün, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-notification-send-action-is-a-stub
+    phase: 4
+    service: automation
+    model: opus
+    deps: []
+    status: todo
+    target: notification.send stellt wirklich eine Benachrichtigung zu, statt Erfolg zu melden
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Stub, verifiziert in Lauf 17 Iteration 116 (Fund aus `cov-automation-action`).
+      `SendNotificationAction.Execute` (`internal/automation/action/notification_actions.go`) erzeugt eine
+      Zufalls-UUID, schreibt eine Logzeile und meldet `Success: true`. Es wird nichts zugestellt; der
+      Kommentar im Code räumt es ein ("does not expose a CreateNotification RPC ... synthetic ID"). In
+      `cmd/automation/main.go:121` ist die Action registriert, in `internal/automation/template/templates.go`
+      Teil der Vorlagen. Der Ausführungsverlauf zeigt grün, der Empfänger bekommt nichts, `deep_link` wird
+      gar nicht gelesen. Fehlerklasse 2 (Stub statt Implementierung).
+      Offen ist der Weg: neue RPC `CreateNotification` auf dem NotificationService (Proto + Regen +
+      Server + Tenant/RLS-Prüfung des Empfängers) oder Zustellung über den Event-Bus, den der
+      Notification-Service schon konsumiert. Kein neuer Gateway-Route nötig.
+    sources:
+      - backend/internal/automation/action/notification_actions.go
+      - backend/proto/notification/v1/
+      - backend/internal/notification/
+      - backend/cmd/automation/main.go
+    notes: >
+      Bis zum Fix gibt es zwei ehrliche Alternativen: Action aus dem Katalog nehmen oder `Success:false`
+      mit "not implemented" melden. Beides ist eine Produktentscheidung, nicht die des Loops. Der Test
+      `TestSendNotificationAction_ResolvesTargetAndReturnsID` pinnt das Stub-Verhalten und ist beim Fix
+      umzuschreiben.
+    done_when:
+      - Ausführung legt eine Benachrichtigung für den Ziel-Nutzer desselben Mandanten an, `deep_link` kommt an
+      - Fremder Mandant als `target_user_id` wird abgelehnt (Test gegen echte DB als kmuhub_app)
+      - Proto neu generiert im selben Commit
+      - go test -count=1 für notification und automation grün, DATABASE_URL gesetzt, 0 Skips
 
   - id: cov-inbox-team
     phase: 4
