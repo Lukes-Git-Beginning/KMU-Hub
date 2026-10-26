@@ -5280,6 +5280,38 @@ paths:
         "500":
           description: Failed to reset dashboard layout
 
+  /api/v1/dashboard/team-worktime:
+    get:
+      summary: This week's worked minutes per team member for the team-worktime widget
+      description: >
+        Same reach as GET /api/v1/hr/time/team: the whole tenant when hr:read or
+        zeiterfassung:team:view reaches all, the caller's reporting line otherwise. A caller
+        holding neither grant (member) gets an empty list, not 403.
+      tags: [dashboard]
+      operationId: getDashboardTeamWorktime
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Worked minutes of the current week per employee (empty list without a team grant)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, minutes]
+                      properties:
+                        id: { type: string, format: uuid, description: Employee user ID }
+                        name: { type: string }
+                        minutes: { type: integer, description: Minutes worked in the current week }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
   /api/v1/dashboard/defaults/{role}:
     get:
       summary: Get default dashboard layout for a role (admin only)
