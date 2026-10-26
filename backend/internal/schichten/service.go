@@ -300,12 +300,19 @@ func (s *Service) AssignEmployee(ctx context.Context, input AssignEmployeeInput)
 			}
 		}
 
-		// Guard 2: ArbZG §5 rest-period check before DB write
+		// Guard 2: the employee must not already work another shift in this window.
+		// Rest-period math only looks at the neighbouring shifts, so a nested or
+		// overlapping one slips through it.
+		if err := validateNoOverlap(ctx, repo, input.TenantID, input.EmployeeID, input.ShiftID, shift.StartTime, shift.EndTime); err != nil {
+			return err
+		}
+
+		// Guard 3: ArbZG §5 rest-period check before DB write
 		if err := validateRestPeriod(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
 			return err
 		}
 
-		// Guard 3: JArbSchG limits, for employees flagged as minors only. A shift
+		// Guard 4: JArbSchG limits, for employees flagged as minors only. A shift
 		// a minor may not legally work must not become an assignment that the
 		// compliance endpoint later reports as a violation after the fact.
 		if err := validateMinorProtection(ctx, repo, input.TenantID, input.EmployeeID, shift.StartTime, shift.EndTime); err != nil {
@@ -771,6 +778,24 @@ func (s *Service) RejectSwapRequest(ctx context.Context, tenantID, requestID uui
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+// validateNoOverlap rejects an assignment whose shift window overlaps another
+// shift the employee already works. Adjacent shifts (end = start) are fine.
+func validateNoOverlap(ctx context.Context, repo Repository, tenantID, employeeID, shiftID uuid.UUID, start, end time.Time) error {
+	overlaps, err := repo.HasOverlappingAssignmentForEmployee(ctx, tenantID, employeeID, shiftID, start, end)
+	if err != nil {
+		return fmt.Errorf("overlap check: %w", err)
+	}
+	if overlaps {
+		slog.Warn("overlapping shift assignment rejected",
+			"employee_id", employeeID,
+			"shift_id", shiftID,
+			"tenant_id", tenantID,
+		)
+		return ErrShiftOverlap
+	}
+	return nil
+}
 
 // validateRestPeriod enforces ArbZG §5: minimum 11 hours rest between consecutive
 // shifts for the same employee. Called before AssignEmployee writes to DB.

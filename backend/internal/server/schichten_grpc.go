@@ -703,6 +703,8 @@ func mapSchichtenError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrShiftFull):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, schichten.ErrShiftOverlap):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, schichten.ErrSwapRequesterNotCaller):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:

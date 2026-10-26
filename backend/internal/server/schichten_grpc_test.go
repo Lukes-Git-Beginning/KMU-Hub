@@ -218,6 +218,13 @@ func (r *stubSchichtenRepo) ShiftExistsForTemplate(_ context.Context, _ uuid.UUI
 	return r.existingTemplate, nil
 }
 
+func (r *stubSchichtenRepo) HasOverlappingAssignmentForEmployee(_ context.Context, _, _, _ uuid.UUID, _, _ time.Time) (bool, error) {
+	if r.forceErr != nil {
+		return false, r.forceErr
+	}
+	return false, nil
+}
+
 func (r *stubSchichtenRepo) IsMinorEmployee(_ context.Context, _, employeeID uuid.UUID) (bool, error) {
 	if r.forceErr != nil {
 		return false, r.forceErr

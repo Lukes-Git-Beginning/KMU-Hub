@@ -18891,7 +18891,14 @@ paths:
                     $ref: '#/components/schemas/SchichtenAssignment'
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "409":
+          description: >
+            Assignment refused: shift full, employee already assigned, ArbZG rest period
+            or JArbSchG limit violated, or the employee already works an overlapping shift.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

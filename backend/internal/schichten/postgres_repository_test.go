@@ -752,3 +752,53 @@ func TestIsMinorEmployee_MatchesProfileIDOrUserIDAndDefaultsFalseWithoutProfile(
 		t.Fatal("expected false for an employee id with no HR profile at all")
 	}
 }
+
+// ============================================================================
+// Overlap guard
+// ============================================================================
+
+func TestAssignEmployee_OverlapGuard_RealRepository(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupSchichtenRepo(t)
+	svc := NewService(repo)
+	base := time.Now().UTC().Truncate(time.Second).Add(144 * time.Hour)
+	employeeID := uuid.New()
+
+	// 08:00-16:00 equivalent window, assigned.
+	first := newTestShift(t, repo, ctx, pool, tenantID, "First", ShiftStatusPublished, base, base.Add(8*time.Hour))
+	if _, err := svc.AssignEmployee(ctx, AssignEmployeeInput{TenantID: tenantID, ShiftID: first.ID, EmployeeID: employeeID}); err != nil {
+		t.Fatalf("first assignment: %v", err)
+	}
+
+	// Overlapping window -> ErrShiftOverlap (409), nothing written.
+	clash := newTestShift(t, repo, ctx, pool, tenantID, "Clash", ShiftStatusPublished, base.Add(6*time.Hour), base.Add(12*time.Hour))
+	_, err := svc.AssignEmployee(ctx, AssignEmployeeInput{TenantID: tenantID, ShiftID: clash.ID, EmployeeID: employeeID})
+	if !errors.Is(err, ErrShiftOverlap) {
+		t.Fatalf("expected ErrShiftOverlap, got %v", err)
+	}
+	if n, cErr := repo.CountAssignments(ctx, tenantID, clash.ID); cErr != nil || n != 0 {
+		t.Fatalf("rejected assignment must not be written: n=%d err=%v", n, cErr)
+	}
+
+	// Adjacent (end = start) does not overlap. The 11 h rest rule is a separate
+	// guard and sees no prior shift ending strictly before this start.
+	adjacent := newTestShift(t, repo, ctx, pool, tenantID, "Adjacent", ShiftStatusPublished, base.Add(8*time.Hour), base.Add(10*time.Hour))
+	has, err := repo.HasOverlappingAssignmentForEmployee(ctx, tenantID, employeeID, adjacent.ID, adjacent.StartTime, adjacent.EndTime)
+	if err != nil || has {
+		t.Fatalf("adjacent shift must not overlap: has=%v err=%v", has, err)
+	}
+
+	// Another employee, and another tenant's view of the same window, see no clash.
+	if has, err = repo.HasOverlappingAssignmentForEmployee(ctx, tenantID, uuid.New(), clash.ID, clash.StartTime, clash.EndTime); err != nil || has {
+		t.Fatalf("other employee must not clash: has=%v err=%v", has, err)
+	}
+	if has, err = repo.HasOverlappingAssignmentForEmployee(ctx, uuid.New(), employeeID, clash.ID, clash.StartTime, clash.EndTime); err != nil || has {
+		t.Fatalf("other tenant must not clash: has=%v err=%v", has, err)
+	}
+
+	// The shift itself is excluded, so re-assigning stays ErrAlreadyAssigned.
+	_, err = svc.AssignEmployee(ctx, AssignEmployeeInput{TenantID: tenantID, ShiftID: first.ID, EmployeeID: employeeID})
+	if !errors.Is(err, ErrAlreadyAssigned) {
+		t.Fatalf("expected ErrAlreadyAssigned for the same shift, got %v", err)
+	}
+}

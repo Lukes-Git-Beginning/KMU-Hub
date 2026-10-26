@@ -353,6 +353,30 @@ func (r *PostgresRepository) EarliestShiftStartAfterForEmployee(ctx context.Cont
 	return &startTime, nil
 }
 
+// HasOverlappingAssignmentForEmployee reports whether the employee holds an
+// assignment on another shift whose window overlaps [start, end). tstzrange
+// defaults to half-open bounds, so back-to-back shifts do not collide.
+func (r *PostgresRepository) HasOverlappingAssignmentForEmployee(ctx context.Context, tenantID, employeeID, exceptShiftID uuid.UUID, start, end time.Time) (bool, error) {
+	var overlaps bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (
+		   SELECT 1
+		   FROM shifts s
+		   JOIN shift_assignments sa ON sa.shift_id = s.id
+		   WHERE sa.tenant_id = $1
+		     AND s.tenant_id = $1
+		     AND sa.employee_id = $2
+		     AND s.id <> $3
+		     AND tstzrange(s.start_time, s.end_time) && tstzrange($4, $5)
+		 )`,
+		tenantID, employeeID, exceptShiftID, start, end,
+	).Scan(&overlaps)
+	if err != nil {
+		return false, fmt.Errorf("overlapping assignment for employee: %w", err)
+	}
+	return overlaps, nil
+}
+
 // ShiftExistsForTemplate checks whether a shift with the given tenant, start, end, and title already exists.
 // Used by ApplyTemplate for idempotency (prevents duplicate application).
 func (r *PostgresRepository) ShiftExistsForTemplate(ctx context.Context, tenantID uuid.UUID, startTime, endTime time.Time, title string) (bool, error) {
