@@ -1802,3 +1802,26 @@ units:
       - backend/test/e2e/fuhrpark_test.go
     done_when:
       - 'Entscheidung Luke: manager auf all ja/nein; bei ja Router-Test als manager gegen den echten Seed'
+
+  - id: fe-inventar-transfer-dialog
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member bucht im Desktop eine Umbuchung zwischen zwei Artikeln
+    scope: >
+      Fund aus `feat-inventar-transfer-for-movement-create` (Lauf 17, Iteration 52). `POST /api/v1/inventar/transfer`
+      nimmt seit diesem Commit `inventar:item:write` ODER `inventar:movement:create` an (member hält movement:create
+      mit Scope all) und antwortet 204. Das Desktop hat Client (`inventar-client.ts:99` `transferStock`) und Hook
+      (`hooks/useInventar.ts:192` `useTransferStock`), aber KEINE Komponente ruft den Hook auf — die Umbuchung ist
+      im UI nicht erreichbar. Dialog im Artikel-Detail bzw. in der Bewegungsleiste, Gate wie die Einzelbewegung
+      (`useHasCapability('inventar:movement:create')`, `InventarPage.tsx:813`, `ItemDetailModal.tsx:198`).
+      `performed_by` nicht senden (der Server setzt immer den Aufrufer). Desktop-Fläche, gehört nicht in den
+      Backend-Loop.
+    sources:
+      - desktop/src/renderer/src/api/hooks/useInventar.ts
+      - desktop/src/renderer/src/modules/inventar/ItemDetailModal.tsx
+      - backend/internal/gateway/route_inventar_transfer_db_test.go
+    done_when:
+      - member bucht eine Umbuchung zwischen zwei Artikeln, beide Bestände ändern sich (Playwright-Screenshot)

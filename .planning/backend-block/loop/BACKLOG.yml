@@ -1684,7 +1684,7 @@ units:
     service: inventar
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-25'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): Umbuchung für member

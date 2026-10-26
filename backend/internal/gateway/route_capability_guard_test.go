@@ -452,9 +452,10 @@ func TestCapabilityGuards_AdditiveWiring(t *testing.T) {
 		{"inventur book differences, catalogue key only", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/book", []string{"inventar:inventur:book"}, allowed},
 		{"inventur book differences, count key does not grant it", inventarRouter, "POST", "/api/v1/inventar/inventur/" + articleID + "/book", []string{"inventar:inventur:count"}, denied},
 
-		// --- inventar: transfer, warnings, session deletion have no FE caller, untouched ---
-		{"stock transfer still requires item:write only", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:movement:adjust"}, denied},
+		// --- inventar: transfer is a movement (item:write or movement:create, Lauf 17); warnings and session deletion have no FE caller, untouched ---
+		{"stock transfer is not an adjustment", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:movement:adjust"}, denied},
 		{"stock transfer with item:write", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:item:write"}, allowed},
+		{"stock transfer with movement:create", inventarRouter, "POST", "/api/v1/inventar/transfer", []string{"inventar:movement:create"}, allowed},
 		{"warning create still requires warning:write only", inventarRouter, "POST", "/api/v1/inventar/warnings", []string{"inventar:item:create"}, denied},
 		{"warning create with warning:write", inventarRouter, "POST", "/api/v1/inventar/warnings", []string{"inventar:warning:write"}, allowed},
 		{"inventur session delete still requires inventur:write only", inventarRouter, "DELETE", "/api/v1/inventar/inventur/" + articleID, []string{"inventar:inventur:count"}, denied},

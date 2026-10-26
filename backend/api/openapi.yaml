@@ -28357,6 +28357,10 @@ paths:
   /api/v1/inventar/transfer:
     post:
       summary: Transfer stock between two items
+      description: >
+        Books an outbound movement on the source item and an inbound movement on the target item
+        in one transaction. Requires `inventar:item:write` or `inventar:movement:create`. The
+        actor of both movements is always the caller; `performed_by` is accepted but ignored.
       tags: [inventar]
       operationId: transferInventarStock
       security: [{ bearerAuth: [] }]

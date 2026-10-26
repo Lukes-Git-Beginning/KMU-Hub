@@ -88,9 +88,10 @@ func (ir *InventarRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		// Attachment deletion (keyed by attachment id, not item id)
 		r.With(attachmentManage).Delete("/attachments/{id}", ir.HandleDeleteItemAttachment)
 
-		// Transfer between items — no FE caller (dead endpoint, verified against
-		// inventar-client.ts); legacy guard stays as-is.
-		r.With(middleware.RequirePermission("inventar:item", "write")).Post("/transfer", ir.HandleTransferStock)
+		// Transfer between items: one "out" plus one "in" in a single transaction, so whoever may
+		// book a single movement (inventar:movement:create, member) may transfer too. The actor is
+		// pinned to the caller (callerIDPtr). No FE caller yet (inventar-client.ts).
+		r.With(middleware.RequirePermissionAny([2]string{"inventar:item", "write"}, [2]string{"inventar:movement", "create"})).Post("/transfer", ir.HandleTransferStock)
 
 		// Warnings
 		r.Route("/warnings", func(r chi.Router) {
