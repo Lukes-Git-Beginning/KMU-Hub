@@ -2581,7 +2581,7 @@ units:
     service: inbox
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/inbox/thread von 58,8 % auf ≥ 75 %
     coverage_start: internal/inbox/thread 58,8 %
     scope: >
