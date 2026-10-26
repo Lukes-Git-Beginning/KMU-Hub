@@ -33,6 +33,10 @@ func TestService_Create_CurrencyExplicitBeatsTenantDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "EUR", inv.Currency, "no explicit currency takes the tenant default")
 
+	// A quote-sourced invoice keeps the requested currency (ad-hoc ones are pinned,
+	// see service_currency_test.go).
+	quoteID := uuid.New()
+	input.SourceQuoteID = &quoteID
 	input.Currency = "CHF"
 	inv, err = svc.Create(context.Background(), input)
 	require.NoError(t, err)

@@ -44570,10 +44570,12 @@ components:
             Absent or 0 takes the tenant default (company settings, else 30).
         currency:
           type: string
-          example: CHF
+          example: EUR
           description: >
             ISO 4217 code (uppercase) of the document currency. Absent takes the tenant default
-            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400.
+            (company settings, else EUR). Anything that is not an ISO 4217 code is a 400. An
+            ad-hoc invoice (no `source_quote_id`) is always billed in the tenant currency: any other
+            code is a 400. An invoice created from a quote keeps the requested currency.
             An `exchange_rate` in the body is ignored: no rate is stored.
         notes:
           type: string
@@ -44619,10 +44621,12 @@ components:
             a changed invoice_date without terms or due_date moves the due date by the same distance.
         currency:
           type: string
-          example: CHF
+          example: EUR
           description: >
             ISO 4217 code (uppercase). Absent or empty keeps the stored currency. Anything that is
-            not an ISO 4217 code is a 400. An `exchange_rate` in the body is ignored.
+            not an ISO 4217 code is a 400. On an ad-hoc draft (not from a quote, not from a recurring
+            schedule) a change to any currency but the tenant's is a 400; repeating the stored
+            currency is accepted. An `exchange_rate` in the body is ignored.
         notes:
           type: string
 

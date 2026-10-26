@@ -1864,3 +1864,22 @@ units:
     done_when:
       - >
         Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
+
+  - id: fe-invoice-form-pin-currency
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: blocked
+    blocked_reason: >-
+      FRONTEND, NICHT LOOP-TERRITORIUM: Desktop-Änderung (Build-+-Verify-Standard,
+      `.planning/nico-block/WORKFLOW.md`).
+    target: "Frontend-Session (Luke oder delegiert)"
+    scope: >
+      Aus Lauf 17 Iteration 74 (`harden-adhoc-invoice-tenant-currency`): Ad-hoc-Rechnungen (ohne
+      `source_quote_id`) und ihre Entwürfe lehnt das Backend in einer anderen Währung als der des
+      Tenants mit 400 ab. `InvoiceFormDialog.tsx:117-252` bietet aber EUR/CHF/USD und setzt bei Land CH
+      auf CHF. Auswahl bei Ad-hoc auf die Tenant-Währung festnageln (oder ausblenden), nur bei
+      Rechnung aus Angebot frei lassen. Danach `types.ts` aus der OpenAPI regenerieren.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/InvoiceFormDialog.tsx

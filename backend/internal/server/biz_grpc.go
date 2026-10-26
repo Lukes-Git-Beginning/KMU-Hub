@@ -2830,6 +2830,8 @@ func mapBizError(err error) error {
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrNoLineItems):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, invoice.ErrCurrencyNotTenantCurrency):
+		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, invoice.ErrQuoteNotAccepted):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, invoice.ErrQuoteAlreadyConverted):

@@ -19,6 +19,8 @@ func TestService_Update_SetsCurrency(t *testing.T) {
 	svc, repo, _, _, _ := newTestService()
 	tenantID := uuid.New()
 	inv := createDraftInvoice(t, repo, tenantID)
+	quoteID := uuid.New()
+	inv.SourceQuoteID = &quoteID // ad-hoc drafts are pinned to the tenant currency
 
 	chf, empty := "CHF", ""
 	got, err := svc.Update(context.Background(), tenantID, inv.ID, UpdateInput{Currency: &chf})
