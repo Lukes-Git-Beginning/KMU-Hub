@@ -6309,8 +6309,8 @@ paths:
         "409":
           description: >-
             Either the Idempotency-Key request is still in flight, or is_closed
-            asks for a state the task cannot reach (a project-less task, or a
-            project without a closed/open status), or project_id asks for a move
+            asks for a state the task cannot reach (a project without a
+            closed/open status), or project_id asks for a move
             the task cannot make (it already has a project, a parent or subtasks,
             or the target project has no open status).
           content:

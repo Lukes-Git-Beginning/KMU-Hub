@@ -305,11 +305,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 }
 
 // statusForClosedFlag resolves "complete"/"reopen" to a concrete status of the task's
-// project. nil means the task already is in the requested state.
+// project. nil means the task already is in the requested state. The task must have a
+// project; project-less tasks have no statuses and are completed via completed_at alone.
 func (s *Service) statusForClosedFlag(ctx context.Context, tenantID uuid.UUID, existing *models.TaskWithRelations, closed bool) (*uuid.UUID, error) {
-	if existing.ProjectID == nil {
-		return nil, ErrTaskWithoutProject
-	}
 	if existing.StatusID != nil && existing.StatusIsClosed == closed {
 		return nil, nil
 	}
@@ -380,7 +378,9 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 		input.StatusID = &openStatus
 	}
 
-	if input.IsClosed != nil && input.StatusID == nil {
+	// A project-less task has no statuses: completion is completed_at alone.
+	completeWithoutStatus := input.IsClosed != nil && input.StatusID == nil && existing.ProjectID == nil
+	if input.IsClosed != nil && input.StatusID == nil && !completeWithoutStatus {
 		statusID, resolveErr := s.statusForClosedFlag(ctx, tenantID, existing, *input.IsClosed)
 		if resolveErr != nil {
 			return nil, resolveErr
@@ -452,6 +452,16 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 			} else {
 				task.CompletedAt = nil
 			}
+		}
+	}
+
+	if completeWithoutStatus {
+		switch {
+		case *input.IsClosed && task.CompletedAt == nil:
+			now := time.Now()
+			task.CompletedAt = &now
+		case !*input.IsClosed:
+			task.CompletedAt = nil
 		}
 	}
 

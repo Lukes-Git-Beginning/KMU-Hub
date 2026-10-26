@@ -2706,7 +2706,7 @@ func mapWorkError(err error) error {
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, task.ErrViewerCannotEdit):
 		return status.Error(codes.PermissionDenied, err.Error())
-	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrTaskWithoutProject), errors.Is(err, task.ErrCannotMoveToProject):
+	case errors.Is(err, task.ErrNoStatusForState), errors.Is(err, task.ErrCannotMoveToProject):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, task.ErrCustomFieldNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())

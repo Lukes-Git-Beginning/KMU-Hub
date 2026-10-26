@@ -1380,9 +1380,27 @@ func TestService_Update_IsClosedRefusals(t *testing.T) {
 		t.Error("a refused completion must not set completed_at")
 	}
 
-	// Project-less task has no status to move to.
+	// Project-less task has no status: completed_at alone carries the state.
 	loose, _ := svc.Create(ctx, CreateInput{Title: "loose", CreatedBy: user})
-	if _, err := svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &yes}, user); !errors.Is(err, ErrTaskWithoutProject) {
-		t.Fatalf("want ErrTaskWithoutProject, got %v", err)
+	no := false
+	repo.lastWantClosed = nil
+	got, err := svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &yes}, user)
+	if err != nil || got.CompletedAt == nil || got.StatusID != nil {
+		t.Fatalf("complete project-less: want completed_at and no status, got err=%v task=%+v", err, got)
+	}
+	// Pin completed_at to the past: a second completion must not move it (the clock is too
+	// coarse here to tell two time.Now() calls apart).
+	first := time.Now().Add(-48 * time.Hour)
+	repo.tasks[loose.ID].CompletedAt = &first
+	if repo.lastWantClosed != nil {
+		t.Error("a project-less task must not trigger a status lookup")
+	}
+	got, err = svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &yes}, user)
+	if err != nil || got.CompletedAt == nil || !got.CompletedAt.Equal(first) {
+		t.Fatalf("completing twice must keep the first completed_at, got err=%v completed=%v", err, got.CompletedAt)
+	}
+	got, err = svc.Update(ctx, tenantID, loose.ID, UpdateInput{IsClosed: &no}, user)
+	if err != nil || got.CompletedAt != nil {
+		t.Fatalf("reopen project-less: want completed_at cleared, got err=%v completed=%v", err, got.CompletedAt)
 	}
 }
