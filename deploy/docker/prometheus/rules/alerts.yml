@@ -101,3 +101,19 @@ groups:
         annotations:
           summary: "Elevated WebSocket authentication failures"
           description: "More than 1 WS auth failure per second sustained for 2 minutes."
+
+  - name: audit
+    rules:
+      # Every dropped audit row is a compliance finding, so any increase fires.
+      # A reason label only exists after its first drop and increase() needs two
+      # samples, so the second branch catches a series that is new in the window.
+      - alert: AuditEventsDropped
+        expr: |
+          sum by (job, reason) (increase(audit_events_dropped_total[15m])) > 0
+          or
+          sum by (job, reason) (audit_events_dropped_total > 0 unless audit_events_dropped_total offset 15m)
+        labels:
+          severity: critical
+        annotations:
+          summary: "Audit events dropped on {{ $labels.job }} ({{ $labels.reason }})"
+          description: "{{ $labels.job }} lost HTTP audit events (reason: {{ $labels.reason }}) in the last 15 minutes. The audit log has a gap."
