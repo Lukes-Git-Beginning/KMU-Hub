@@ -3082,7 +3082,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/email/send von 65,6 % auf ≥ 78 %
     coverage_start: internal/email/send 65,6 %
     scope: >
