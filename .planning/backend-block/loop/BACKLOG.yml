@@ -2644,7 +2644,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/status von 50,4 % auf ≥ 70 %
     coverage_start: internal/work/status 50,4 %
     scope: >
