@@ -2749,7 +2749,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/notification/integration/teams von 40,5 % auf ≥ 70 %
     coverage_start: internal/notification/integration/teams 40,5 %
     scope: >
