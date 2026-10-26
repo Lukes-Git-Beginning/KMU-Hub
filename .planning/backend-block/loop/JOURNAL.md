@@ -1598,3 +1598,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: Der Default-Land-Zweig in `phone_dach`/`clearable_phone_dach` ist für den Validator ohne Wirkung (nur die Normalisierung nutzt das Land); dort kein weiterer Test sinnvoll.
+
+## Iteration 87 — cov-server-response — done — 2026-10-26 06:26
+- commit: siehe Commit `test(server): cover the response helpers and their error paths` (git log)
+- gebaut: `internal/server/response/response_test.go`: `JSON` (Status, Header, nil-Daten ohne Body), `Error`, `ProtoWrapped` (Key, Status-Umschreibung bleibt aktiv), `ProtoFlatten` (Lift, Fehlschlüssel, Marshal-Fehler), 500-Pfade von `Proto`/`ProtoFull`/`ProtoWrapped`/`ProtoList`/`ProtoListWrapped` mit ungültigem UTF-8 (generische Meldung, kein Marshal-Detail im Body), Nil-Liste als `[]`, `fillOptionalNulls` rekursiv in verschachtelten Nachrichten und gesetzte Optionals bleiben unberührt.
+- gate: build n.a. (nur Test-Datei) | vet ok | lint ok (0 issues) | test ok (`internal/server/response`, kein DB-Zugriff im Paket, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: internal/server/response 57,9 % -> 91,2 %
+- mutations-probe: 9 Proben, alle rot: `data != nil` -> `== nil`, `Error`-Meldung fest, `ProtoWrapped`-Key fest, `taken`-Prüfung in `ProtoFlatten` invertiert, `delete(outer, key)` entfernt, `null` -> `0` in `fillOptionalNulls`, Rekursion in verschachtelte Nachricht abgeschaltet, Status im 500-Pfad von `ProtoWrapped` -> 400, `ProtoListWrapped`-Slice als `nil` statt leer (`TestProtoList_NilSliceIsEmptyArray` rot, die Kopie in `ProtoList` selbst bleibt dabei ungeprüft). `response.go` danach unverändert im Diff.
+- verify vorgaenger: sauber (`343766a7`: nur Test-Datei in `internal/validation` plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Die letzte Probe traf die `parts`-Initialisierung in `ProtoList` (erste Fundstelle), nicht die in `ProtoListWrapped`; beide Funktionen haben denselben Nil-Slice-Pfad, `ProtoListWrapped` mit leerer Liste deckt der vorhandene Test `TestProtoListWrapped_EmptySliceIsEmptyArray` ab. (2) `response_proto_test.go` ist nicht gofmt-konform (vorbestehend, nicht angefasst).

@@ -2560,7 +2560,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/server/response von 57,9 % auf ≥ 80 %
     coverage_start: internal/server/response 57,9 %
     scope: >
