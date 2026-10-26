@@ -2497,7 +2497,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/email/account von 48,4 % auf ≥ 70 %
     coverage_start: internal/email/account 48,4 %
     scope: >

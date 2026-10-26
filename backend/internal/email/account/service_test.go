@@ -5,12 +5,14 @@ import (
 	"errors"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/security/safedial"
 )
 
 // --- Mock VaultEncryptor ---
@@ -633,4 +635,59 @@ func getFirstKey(m map[uuid.UUID]*models.EmailAccount) uuid.UUID {
 		return k
 	}
 	return uuid.Nil
+}
+
+func TestService_ListAllActive_CrossTenant(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockEncryptor{})
+	otherTenant := uuid.New()
+
+	a, err := svc.Create(context.Background(), testTenantID, validInput())
+	require.NoError(t, err)
+	b, err := svc.Create(context.Background(), otherTenant, validInput())
+	require.NoError(t, err)
+	// A disabled account must not be swept.
+	repo.accounts[b.ID].SyncEnabled = false
+	c, err := svc.Create(context.Background(), otherTenant, validInput())
+	require.NoError(t, err)
+
+	all, err := svc.ListAllActive(context.Background())
+	require.NoError(t, err)
+	ids := map[uuid.UUID]bool{}
+	for _, acct := range all {
+		ids[acct.ID] = true
+	}
+	assert.True(t, ids[a.ID])
+	assert.True(t, ids[c.ID])
+	assert.False(t, ids[b.ID])
+}
+
+func TestService_UpdateLastSync(t *testing.T) {
+	repo := newMockRepo()
+	svc := NewService(repo, &mockEncryptor{})
+	created, err := svc.Create(context.Background(), testTenantID, validInput())
+	require.NoError(t, err)
+	require.Nil(t, repo.accounts[created.ID].LastSyncAt)
+
+	require.NoError(t, svc.UpdateLastSync(context.Background(), created.ID, testTenantID))
+	stored := repo.accounts[created.ID]
+	require.NotNil(t, stored.LastSyncAt)
+	assert.WithinDuration(t, time.Now(), *stored.LastSyncAt, 5*time.Second)
+
+	// A foreign tenant cannot move the timestamp of someone else's account.
+	repo.accounts[created.ID].LastSyncAt = nil
+	err = svc.UpdateLastSync(context.Background(), created.ID, uuid.New())
+	assert.ErrorIs(t, err, ErrAccountNotFound)
+	assert.Nil(t, repo.accounts[created.ID].LastSyncAt)
+
+	assert.ErrorIs(t, svc.UpdateLastSync(context.Background(), uuid.New(), testTenantID), ErrAccountNotFound)
+}
+
+func TestService_DialGuard(t *testing.T) {
+	svc := NewService(newMockRepo(), &mockEncryptor{})
+	assert.Nil(t, svc.DialGuard(), "unwired service has no guard and fails closed (public addresses only)")
+
+	g, err := safedial.New("10.0.0.0/8")
+	require.NoError(t, err)
+	assert.Same(t, g, svc.WithDialGuard(g).DialGuard())
 }

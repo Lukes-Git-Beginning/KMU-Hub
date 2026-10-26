@@ -1565,3 +1565,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Beim Debuggen einer festhängenden Probe lief kurz ein altes Probe-Skript parallel; die Ergebnisse stimmen mit den erwarteten Testnamen überein, die Restdaten in der lokalen DB (Mandant `quote-env-*`) sind bereinigt. (2) Die `integration`-getaggten Quote-DB-Tests bleiben unverändert bestehen (Überschneidung mit den neuen, bewusst nicht entfernt).
+
+## Iteration 84 — cov-email-account — done — 2026-10-26 06:18
+- commit: siehe Commit `test(email): cover the account repository against the app-role database` (git log)
+- gebaut: `internal/email/account/postgres_repository_env_test.go` (ohne Build-Tag, DATABASE_URL als kmuhub_app, RLS scharf): 6 DB-Tests für Create/GetByID-Roundtrip, Mandantengrenze (Lesen/Löschen/Update unter Fremdmandant, auch mit dem Owner-Tenant als Argument), Reihenfolge `ListByUserAndTenant` und Default-Auswahl, `SetDefault` (genau ein Default, andere Nutzer unberührt), Update/Delete, `ListActive` und `ListAllActive` (System-Kontext sieht alle Mandanten, Tenant-Kontext nur den eigenen). Dazu in `service_test.go` drei Mock-Tests: `ListAllActive` mandantenübergreifend ohne deaktivierte Konten, `UpdateLastSync` (inkl. Fremdmandant), `DialGuard` (ohne Verdrahtung nil = fail-closed, `WithDialGuard` reicht denselben Guard durch).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/email/account` 23 Top-Level PASS, 0 SKIP, DATABASE_URL als kmuhub_app; `./internal/email/...` alle ok) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Fremdmandant per Test belegt)
+- coverage: internal/email/account 56,8 % (lokal gemessen, CI-Wert im Backlog 48,4 %) -> 82,6 %
+- mutations-probe: 7 Proben, alle rot: `ORDER BY created_at DESC`, `SetDefault` auf `is_default = true`, `AND is_default = true` aus `GetByUserIDAndTenant`, `sync_enabled`-Filter aus `ListActive`, `AND user_id` aus `SetDefault` (rot in zwei Tests), `use_ssl = true` fest in `Update`, `LastSyncAt`-Zuweisung in `UpdateLastSync` entfernt. Jeweils aus Backup zurück, `git diff` auf Produktivdateien leer.
+- verify vorgaenger: sauber (`cc32460d`: nur Test-Datei in `internal/biz/quote` plus Loop-Doku, kein Produktivcode, keine Route/Tabelle/Guard)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Der lokale Vorher-Wert (56,8 %) weicht vom CI-Wert (48,4 %) ab, weil lokal die DB-Tests von `tenant_isolation_phase2_test.go` mitlaufen; die CI-Zahl ohne DB wäre niedriger. (2) `TestConnection` (Login-/Logout-Pfad) bleibt ohne IMAP-Gegenstelle ungetestet, Paketziel ist trotzdem erreicht. (3) Die Tests ändern am Verhalten nichts; kein Fund.
