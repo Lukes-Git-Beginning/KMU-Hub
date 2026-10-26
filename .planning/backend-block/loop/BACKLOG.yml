@@ -3103,7 +3103,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/pipelinestage von 65,8 % auf ≥ 78 %
     coverage_start: internal/crm/pipelinestage 65,8 %
     scope: >
