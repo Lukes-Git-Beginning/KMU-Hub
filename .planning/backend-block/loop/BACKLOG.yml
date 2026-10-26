@@ -2707,7 +2707,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/email/contactlink von 35,0 % auf ≥ 65 %
     coverage_start: internal/email/contactlink 35,0 %
     scope: >
