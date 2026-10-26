@@ -1275,3 +1275,15 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) 000360-Down setzt member auf `own` zurück, was dem Stand aus 000339 entspricht — korrekt, aber nur solange 339 nicht selbst zurückgerollt ist. (2) Alle Seed-Änderungen wirken erst nach Re-Login (Permissions im JWT).
+
+## Iteration 60 — feat-scrub-email-sender-names-on-contact-anonymize — done — 2026-10-26 03:21
+- commit: (siehe git log)
+- gebaut: `ScrubDependentPII` (`crm/consent/scrub.go`) setzt bei Anonymisierung und Hard-Delete `email_messages.from_name = NULL` und `from_email = AnonymizedRequesterEmail` (NOT NULL-Spalte) für alle über `email_contact_links` verknüpften Mails des Mandanten. Eigene Ausgangsmails des Postfachbesitzers (`from_email` = `email_accounts.email_address`) bleiben unberührt, weil der Link auch für Empfänger-Kontakte existiert und dort der Mitarbeiter der Absender ist. Godoc: neuer Scrub-Absatz plus Eintrag unter „Deliberately NOT scrubbed“ (Betreff, Body, HTML, Header, Empfängerlisten; §257 HGB).
+  Test `TestAnonymizeContact_ScrubsEmailSenderIdentity`: verknüpfte Eingangsmail gescrubbt (Betreff/Body bleiben), eigene Ausgangsmail, unverknüpfte Mail, Mail eines Geschwister-Kontakts und Mail eines fremden Mandanten bleiben.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/crm/...` alle ok; `consent` 35 PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Test läuft als kmuhub_app mit Fremd-Mandant-Zeile) | gateway n.a. (keine Route)
+- coverage: internal/crm/consent 65,3 % -> 65,4 %
+- mutations-probe: (1) Own-Mailbox-Ausschluss auf `false` gesetzt -> Test rot („owner's own outbound mail must keep its sender“). (2) Link-Subselect ohne `contact_id`-Filter -> Test rot (Geschwister-Mail gescrubbt). Beide Male aus Backup zurück, `cmp` sauber.
+- verify vorgaenger: sauber (`5f8fee21` reiner Doku-Commit der Review-Unit r3, kein Code)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) `search_vector` von `email_messages` wird per Trigger beim UPDATE neu berechnet, enthält aber weiterhin Betreff und Body (bewusst nicht gescrubbt). (2) Der Platzhalter `geloescht@deleted.invalid` ist derselbe wie bei Tickets. (3) Nur Mails mit vorhandenem `email_contact_links`-Eintrag werden erfasst; nicht verknüpfte Mails desselben Absenders bleiben (Verknüpfung entsteht beim Sync automatisch). (4) Beim Verifizieren hinterließen die Mutations-Probe-Läufe lokal Testdaten (Cleanup-Reihenfolge der ersten Testfassung), manuell entfernt; die endgültige Fassung räumt vollständig auf.
