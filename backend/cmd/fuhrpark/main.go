@@ -19,6 +19,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/health"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/security/audit"
 	"github.com/kmuhub/kmuhub/internal/server"
 	fuhrparkv1 "github.com/kmuhub/kmuhub/proto/fuhrpark/v1"
 )
@@ -48,7 +49,7 @@ func main() {
 
 	// Repository and service
 	repo := fuhrpark.NewPostgresRepository(pool)
-	svc := fuhrpark.NewService(repo)
+	svc := fuhrpark.NewService(repo).WithAuditLogger(audit.NewService(audit.NewPostgresRepository(pool)))
 
 	// Start TUEV reminder cron worker in background.
 	// Wire PGEventEmitter so reminders emit pg_notify events that the notification

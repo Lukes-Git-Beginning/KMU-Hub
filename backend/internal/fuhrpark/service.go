@@ -15,11 +15,28 @@ import (
 
 	"github.com/kmuhub/kmuhub/internal/berichte"
 	"github.com/kmuhub/kmuhub/internal/berichte/export"
+	"github.com/kmuhub/kmuhub/internal/clientctx"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
 // Service handles fuhrpark business logic.
 type Service struct {
-	repo Repository
+	repo  Repository
+	audit AuditLogger
+}
+
+// AuditLogger appends one entry to the tamper-evident audit log.
+// *audit.Service satisfies it; nil disables auditing (tests, tools).
+type AuditLogger interface {
+	LogEvent(ctx context.Context, tenantID uuid.UUID, userID *uuid.UUID,
+		action, target, targetType string, details map[string]interface{},
+		ipAddress, userAgent, result string)
+}
+
+// WithAuditLogger wires the audit log used for destructive compliance records.
+func (s *Service) WithAuditLogger(l AuditLogger) *Service {
+	s.audit = l
+	return s
 }
 
 // NewService creates a new fuhrpark service.
@@ -928,9 +945,45 @@ func (s *Service) UpdateDriverLicense(ctx context.Context, lic DriverLicense) (D
 	return s.repo.UpdateDriverLicense(ctx, lic)
 }
 
-// DeleteDriverLicense deletes a driver license check entry.
+// DeleteDriverLicense deletes a driver license check entry. Deleting stays
+// allowed (typo correction), but the row is the Halterpflicht proof, so every
+// delete leaves an audit event carrying the full control state that vanished.
 func (s *Service) DeleteDriverLicense(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.repo.DeleteDriverLicense(ctx, tenantID, id)
+	lic, err := s.repo.GetDriverLicense(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.DeleteDriverLicense(ctx, tenantID, id); err != nil {
+		return err
+	}
+	s.auditDriverLicenseDeleted(ctx, lic)
+	return nil
+}
+
+func (s *Service) auditDriverLicenseDeleted(ctx context.Context, lic DriverLicense) {
+	if s.audit == nil {
+		return
+	}
+	var actor *uuid.UUID
+	if id, err := uuid.Parse(middleware.GetUserID(ctx)); err == nil {
+		actor = &id
+	}
+	details := map[string]interface{}{
+		"driver_id":           lic.DriverID.String(),
+		"license_classes":     lic.LicenseClasses,
+		"checked_at":          lic.CheckedAt.Format(time.RFC3339),
+		"next_check_due_date": lic.NextCheckDueDate.Format("2006-01-02"),
+		"created_at":          lic.CreatedAt.Format(time.RFC3339),
+	}
+	if lic.ExpiryDate != nil {
+		details["expiry_date"] = lic.ExpiryDate.Format("2006-01-02")
+	}
+	if lic.Notes != nil {
+		details["notes"] = *lic.Notes
+	}
+	client := clientctx.From(ctx)
+	s.audit.LogEvent(ctx, lic.TenantID, actor, "fuhrpark.driver_license_deleted",
+		lic.ID.String(), "driver_license", details, client.IP, client.UserAgent, "success")
 }
 
 // ============================================================================
