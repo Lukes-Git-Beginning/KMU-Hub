@@ -150,6 +150,7 @@ func main() {
 		gdpr.NewFormWebhookDeliveryRetentionHandler(pool),
 		gdpr.NewMeetingNoteRetentionHandler(pool),
 		gdpr.NewMeetingChatRetentionHandler(pool),
+		gdpr.NewDialerAgentStatusLogRetentionHandler(pool),
 	)
 	retentionEngine := gdpr.NewRetentionEngine(pool, gdprRepo, retentionRegistry)
 

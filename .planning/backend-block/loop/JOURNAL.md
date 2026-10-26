@@ -1323,3 +1323,15 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Löschen läuft hinter bestehenden Routen)
 - offen: (1) Deploy: `crm` und `auth` bekommen erstmals MINIO_*; die Werte laufen über die Produktions-Env wie bei den anderen Diensten, kein `RequireX`. Ohne erreichbares MinIO scheitert nur die Löschung eines Kontakts MIT Inspektionsfotos (Fehler, Retry), alles andere läuft. (2) Fotos mit externer URL oder fremdem Schlüssel werden bewusst nicht gelöscht (Warnung im Log), die Referenz wird weiterhin geleert. (3) Fehler landen als Rückgabefehler (Erasure scheitert und wird wiederholt), nicht im Erasure-Log — die Kontakt-Anonymisierung hat keinen. (4) Lieferantendaten sind laut Entscheidung bewusst nicht Teil der Unit.
+
+## Iteration 64 — feat-retention-dialer-agent-status-log-12m — done — 2026-10-26 03:41
+- commit: (siehe git log)
+- gebaut: `DialerAgentStatusLogRetentionHandler` (`gdpr/retention_dialer_agent_status_log.go`, resource_type `dialer_agent_status_log`) im Registry-Block von `cmd/auth/main.go` verdrahtet. Uhr = `changed_at` (Tabelle ist append-only), Delete-only, tenant-gescoped, Plan schreibt nie; die 12 Monate sind der `retention_days`-Wert der Policy, Dry-Run bleibt der Worker-Default (`RETENTION_MODE`).
+  Tests (`retention_dialer_agent_status_log_test.go`, echte DB als kmuhub_app): älter als Cutoff und knapp darüber fällig, jünger nicht, Fremd-Mandant nicht im Plan (auch unter System-Kontext), Plan löscht nichts, fremde ID im Apply bleibt, Apply idempotent.
+- gate: build ok | vet ok | lint ok (0 issues gdpr/cmd/auth) | test ok (`internal/security/gdpr` ok, DATABASE_URL als kmuhub_app, neue Tests 2 PASS, 0 SKIP) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | gateway n.a. (keine Route) | e2e n.a.
+- coverage: internal/security/gdpr 76,2 % -> 76,3 %
+- mutations-probe: (1) Vergleich `changed_at < $2` auf `>` -> Test rot. (2) Tenant-Filter im DELETE entfernt -> Test rot (nur dank System-Kontext-Fall mit fremder ID). (3) Tenant-Filter im Plan entfernt -> Test rot (ebenso). Jeweils aus Backup zurück, `cmp` sauber.
+- verify vorgaenger: sauber (`8d598614`: Foto-Purge in derselben Transaktion, Präfix- und `..`-Prüfung, kein Stub, keine Route/Proto/Tabelle, MINIO_*-Passthrough ohne `RequireX`)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Wirkt erst, wenn ein Admin eine Policy `dialer_agent_status_log` mit 365 Tagen anlegt — kein Default-Seed, wie bei den anderen Handlern; im Dry-Run löscht nichts. (2) Kein Index auf `(tenant_id, changed_at)` (`lean:`-Marker im Code); vorhanden ist nur `idx_dasl_user (user_id, changed_at)`. (3) Die DSAR-Auskunft zu dieser Tabelle (`dsar_search_video_dialer.go`) bleibt unverändert.
