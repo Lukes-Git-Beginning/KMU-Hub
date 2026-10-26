@@ -1887,3 +1887,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Lokaler Vorher-Wert 65,9 % deckt sich mit dem CI-Wert. (2) Das PDF ist unkomprimiert (gofpdf), daher sind die Inhalte per String-Suche prüfbar; ändert maroto das, muss `pdfText` inflaten. (3) `Service.GetByID`, `Delete`, `HandOver` und `Update` mappen jeden Repo-Fehler auf `ErrProtocolNotFound`, auch Verbindungsfehler (bestehendes Verhalten, im Test gepinnt). (4) `service.go` und `service_test.go` haben CRLF/uneinheitliche Formatierung (gofmt), nicht angefasst.
+
+## Iteration 113 — cov-crm-savedfilter — done — 2026-10-26 09:33
+- commit: siehe Commit `test(crm): cover the saved filter repository list, default clearing and tenant predicates against the app-role database` (git log)
+- gebaut: `internal/crm/savedfilter/postgres_repository_db_test.go` (4 Tests mit Subtests, DB als `kmuhub_app`, je Test eigene Tenants und User): `List` (Sortierung Default zuerst dann Name, Entity-Typ- und User-Filter einzeln und kombiniert, alle Spalten, Fremd-Tenant-Argument auch unter System-Kontext, Fremd-Session sieht nichts, abgebrochener Kontext), `ClearDefault` (nur Default des Users und Typs, andere Typen/User/Tenants bleiben, `updated_at`, danach neuer Default möglich), Unique-Index auf einen Default je User und Typ, `GetByID`/`Update`/`Delete` (NotFound, falsches Tenant-Argument unter System-Kontext, abgebrochener Kontext ist kein NotFound, Update-Roundtrip).
+- gate: build n.a. (nur Test-Datei) | vet ok | lint ok (0 issues) | test ok (`internal/crm/savedfilter/...` ok, 33 Top-Level-PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Cross-Tenant in den Tests)
+- coverage: internal/crm/savedfilter 68,3 % -> 94,2 %
+- mutations-probe: 16 Proben auf `postgres_repository.go`, alle rot: Sortierung (Default ASC, Name DESC), Tenant-Prädikat in `List`/`GetByID`/`Update`/`Delete`/`ClearDefault`, Entity- und User-Filter in `List`, Update lässt Default bzw. JSON aus, `ClearDefault` ohne User-, Typ- oder Tenant-Prädikat bzw. ohne `updated_at`, ErrNoRows-Mapping. Eine überlebte zuerst (Tenant-Prädikat in `Update`, weil unter Tenant-Kontext RLS allein schützt); Subtest mit falschem `TenantID` unter System-Kontext ergänzt, danach rot. Datei zurück, `git status` zeigt nur die neue Testdatei plus Loop-Doku.
+- verify vorgaenger: sauber (`cee01424`: nur Test-Dateien plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Lokaler Vorher-Wert 68,3 % deckt sich mit dem CI-Wert. (2) `PostgresRepository.List` gibt bei leerem Ergebnis `nil` statt `[]` zurück; die Wire-Form entscheidet der Handler (nicht angefasst). (3) `gofmt -l` meldet `tenant_write_test.go` (bestehend, nicht angefasst).

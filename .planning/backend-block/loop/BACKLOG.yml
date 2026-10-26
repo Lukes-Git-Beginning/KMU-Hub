@@ -3145,7 +3145,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/savedfilter von 68,3 % auf ≥ 78 %
     coverage_start: internal/crm/savedfilter 68,3 %
     scope: >
