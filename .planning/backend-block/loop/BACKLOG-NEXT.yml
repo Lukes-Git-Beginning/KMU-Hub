@@ -1729,3 +1729,28 @@ units:
     done_when:
       - Luke hat die Team-Definition für Deals bestätigt oder geändert
       - member sieht Bearbeiten/Ziehen nur an eigenen Deals und denen seiner Berichte (Playwright-Screenshot)
+
+  - id: fe-wiki-share-dialog-own-scope
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht Teilen und Widerrufen nur an eigenen Wiki-Seiten
+    scope: >
+      Fund aus `feat-wiki-own-page-share-delete-for-members` (Lauf 17, Iteration 49). Seit Migration 359 hält member
+      `wiki:article:delete` und `wiki:share_token:create` mit Scope `own`; das Backend lässt Teilen, Widerrufen,
+      Seite löschen und Anhang löschen nur am eigenen Artikel (`author_id`) zu und antwortet sonst 404. Desktop-Teil
+      (Loop darf `desktop/` nicht ändern): `WikiShareDialog.tsx:51` ruft `useHasCapability('wiki:share_token:create')`
+      ohne Owner — member sieht den Knopf "Link erstellen" und den Widerruf an JEDER Seite und bekommt an fremden
+      einen Fehler-Toast (404). Fix: `useScopedCapability('wiki:share_token:create', article.authorId)` wie
+      `WikiArticleHeader.tsx:87` beim Löschen. Löschen (`WikiArticleHeader.tsx:87`) und Anhang löschen
+      (`WikiAttachments.tsx:66`, Gate `wiki:article:edit` own) passen bereits. Nebenbei: manager hält
+      `wiki:share_token:create` nicht, sondern nur den Alt-Key `wiki:articles:write`; der Dialog blendet Teilen für
+      manager deshalb ganz aus, obwohl das Backend es lässt (gleiche Abweichung wie beim Bearbeiten, Iteration 40).
+    sources:
+      - desktop/src/renderer/src/modules/wiki/WikiShareDialog.tsx
+      - desktop/src/renderer/src/modules/wiki/WikiArticleHeader.tsx
+      - backend/internal/gateway/route_wiki_own_delete_share_db_test.go
+    done_when:
+      - member sieht Teilen/Widerrufen an der eigenen Seite, nicht an einer fremden (Playwright-Screenshot)

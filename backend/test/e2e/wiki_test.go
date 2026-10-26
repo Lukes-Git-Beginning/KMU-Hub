@@ -14,13 +14,16 @@ import (
 
 // TestWikiMemberFlow runs the wiki against the real seed with the bodies the desktop sends (wiki-client.ts,
 // wiki-types.ts): a member writes and edits articles, two members and a manager read each other's work, and
-// everything an editor or admin does is turned away. Needs the wiki service in the stack.
+// what goes beyond their own articles is turned away. Needs the wiki service in the stack.
 //
 // IST of the seed that the test pins and does not judge:
-//   - member holds `wiki:article:create|read` at scope all, `wiki:article:edit` at scope own, the legacy
-//     `wiki:articles:read` and `wiki:categories:read` (000234); delete, share links, attachment delete and every
-//     category write are 403; manager holds the legacy `wiki:articles:write` and `wiki:categories:write`
-//     (000234), which open delete, share links and category management on top of the catalogue keys;
+//   - member holds `wiki:article:create|read` at scope all, `wiki:article:edit`, `wiki:article:delete` and
+//     `wiki:share_token:create` at scope own (000256, 000359), the legacy `wiki:articles:read` and
+//     `wiki:categories:read` (000234); every category write is 403; manager holds the legacy
+//     `wiki:articles:write` and `wiki:categories:write` (000234), which open delete, share links and category
+//     management tenant-wide on top of the catalogue keys;
+//   - the own scope of `wiki:article:delete` and `wiki:share_token:create` binds deleting an article or its
+//     attachments, minting a share link and revoking one to the author: a second member gets 404;
 //   - the own scope of `wiki:article:edit` binds PATCH, restore and attachment upload to the author: a second
 //     member gets 404 on a foreign article; manager (legacy `wiki:articles:write`) and admin stay tenant-wide;
 //   - article reads are tenant-wide, drafts included: a second member lists and opens another member's draft;
@@ -281,7 +284,7 @@ func TestWikiMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
-	t.Run("attachments: member adds and lists, deleting is turned away", func(t *testing.T) {
+	t.Run("attachments: member adds and lists, a second member cannot delete them", func(t *testing.T) {
 		resp, body := postJSON(t, wiki+"/articles/"+articleID+"/attachments", map[string]interface{}{"file_ref": ""}, memberAToken)
 		requireStatus(t, resp, body, http.StatusBadRequest)
 
@@ -308,23 +311,57 @@ func TestWikiMemberFlow(t *testing.T) {
 			t.Fatalf("attachment %s missing in %s", attachID, string(body))
 		}
 
-		resp, body = deleteJSON(t, wiki+"/attachments/"+attachID, memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
-		resp, body = deleteJSON(t, wiki+"/articles/"+articleID+"/attachments/"+attachID, memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
+		// `wiki:article:delete` is own for member: a foreign article's attachment answers 404 on both routes.
+		resp, body = deleteJSON(t, wiki+"/attachments/"+attachID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = deleteJSON(t, wiki+"/articles/"+articleID+"/attachments/"+attachID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = getJSON(t, wiki+"/articles/"+articleID+"/attachments", memberAToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		if !strings.Contains(string(body), attachID) {
+			t.Fatalf("a refused delete must not remove the attachment: %s", string(body))
+		}
 	})
 
-	t.Run("delete and share links are turned away for member", func(t *testing.T) {
-		resp, body := deleteJSON(t, wiki+"/articles/"+articleID, memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
-		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/share", map[string]interface{}{"permissions": []string{"read"}}, memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
+	t.Run("member deletes and shares their own articles, a second member gets 404", func(t *testing.T) {
+		resp, body := deleteJSON(t, wiki+"/articles/"+articleID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/share", map[string]interface{}{"permissions": []string{"read"}}, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
 		resp, body = deleteJSON(t, wiki+"/share/00000000-0000-4000-8000-000000000000", memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
+		requireStatus(t, resp, body, http.StatusNotFound)
 
 		// Share-token listing is a read: member sees an empty set, not an error.
 		resp, body = getJSON(t, wiki+"/articles/"+articleID+"/share", memberAToken)
 		requireStatus(t, resp, body, http.StatusOK)
+
+		// The author shares their article and cuts the link again.
+		resp, body = postJSON(t, wiki+"/articles/"+articleID+"/share", map[string]interface{}{"permissions": []string{"read"}}, memberAToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		tok := nested(t, body, "token")
+		ownTokenID, ownToken := str(tok, "id"), str(tok, "token")
+		if ownTokenID == "" || ownToken == "" {
+			t.Fatalf("share token without id/token: %s", string(body))
+		}
+		resp, body = postJSON(t, base+"/api/v1/public/wiki/articles/"+ownToken, nil, "")
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = deleteJSON(t, wiki+"/share/"+ownTokenID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = deleteJSON(t, wiki+"/share/"+ownTokenID, memberAToken)
+		requireStatus(t, resp, body, http.StatusNoContent)
+		resp, body = postJSON(t, base+"/api/v1/public/wiki/articles/"+ownToken, nil, "")
+		requireStatus(t, resp, body, http.StatusNotFound)
+
+		// The author deletes an article of their own; it is gone for everyone.
+		resp, body = postJSON(t, wiki+"/articles", bodyOf("Scratch "+fmt.Sprint(suffix), fmt.Sprintf("e2e-wiki-scratch-%d", suffix), "x", true), memberAToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		scratchID := str(nested(t, body, "article"), "id")
+		resp, body = deleteJSON(t, wiki+"/articles/"+scratchID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = deleteJSON(t, wiki+"/articles/"+scratchID, memberAToken)
+		requireStatus(t, resp, body, http.StatusNoContent)
+		resp, body = getJSON(t, wiki+"/articles/"+scratchID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
 	t.Run("manager shares the article, the token redeems without login and revokes", func(t *testing.T) {
@@ -364,8 +401,8 @@ func TestWikiMemberFlow(t *testing.T) {
 		resp, body = postJSON(t, base+"/api/v1/public/wiki/articles/not-a-token", nil, "")
 		requireStatus(t, resp, body, http.StatusNotFound)
 
-		resp, body = deleteJSON(t, wiki+"/share/"+tokenID, memberAToken)
-		requireStatus(t, resp, body, http.StatusForbidden)
+		resp, body = deleteJSON(t, wiki+"/share/"+tokenID, memberBToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
 		resp, body = deleteJSON(t, wiki+"/share/"+tokenID, managerToken)
 		requireStatus(t, resp, body, http.StatusNoContent)
 		resp, body = postJSON(t, base+"/api/v1/public/wiki/articles/"+token, nil, "")

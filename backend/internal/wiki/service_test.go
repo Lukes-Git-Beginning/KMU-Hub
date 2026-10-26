@@ -182,6 +182,14 @@ func (m *mockRepository) DeleteAttachment(ctx context.Context, tenantID, attachm
 	return nil
 }
 
+func (m *mockRepository) GetAttachmentArticleID(ctx context.Context, tenantID, attachmentID uuid.UUID) (uuid.UUID, error) {
+	a, ok := m.attachments[attachmentID]
+	if !ok || a.TenantID != tenantID {
+		return uuid.Nil, ErrAttachmentNotFound
+	}
+	return a.ArticleID, nil
+}
+
 func (m *mockRepository) CreateCategory(ctx context.Context, category *Category) error {
 	m.categories[category.ID] = category
 	return nil
@@ -245,6 +253,15 @@ func (m *mockRepository) ListShareTokensByArticle(ctx context.Context, tenantID,
 		}
 	}
 	return result, nil
+}
+
+func (m *mockRepository) GetShareTokenArticleID(ctx context.Context, tenantID, tokenID uuid.UUID) (uuid.UUID, error) {
+	for _, tok := range m.tokens {
+		if tok.ID == tokenID && tok.TenantID == tenantID {
+			return tok.ArticleID, nil
+		}
+	}
+	return uuid.Nil, ErrShareTokenNotFound
 }
 
 func (m *mockRepository) GetShareTokenByToken(ctx context.Context, token string) (*ShareToken, error) {
@@ -526,7 +543,7 @@ func TestService_DeleteArticle_Success(t *testing.T) {
 	tenantID := uuid.New()
 	a := addArticle(repo, tenantID, "Article", "article", false)
 
-	err := svc.DeleteArticle(context.Background(), tenantID, a.ID)
+	err := svc.DeleteArticle(context.Background(), tenantID, a.ID, nil)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.articles, a.ID)
@@ -536,7 +553,7 @@ func TestService_DeleteArticle_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	err := svc.DeleteArticle(context.Background(), uuid.New(), uuid.New())
+	err := svc.DeleteArticle(context.Background(), uuid.New(), uuid.New(), nil)
 
 	assert.ErrorIs(t, err, ErrArticleNotFound)
 }
@@ -918,5 +935,71 @@ func TestService_OwnScopeEdit(t *testing.T) {
 		me := uuid.New()
 		_, err := svc.RestoreVersion(context.Background(), tenantID, uuid.New(), uuid.New(), me, &me)
 		require.ErrorIs(t, err, ErrArticleNotFound)
+	})
+}
+
+func TestService_OwnScopeDeleteAndShare(t *testing.T) {
+	tenantID := uuid.New()
+
+	setup := func() (*Service, *mockRepository, *Article, *Attachment, *ShareToken) {
+		repo := newMockRepository()
+		a := addArticle(repo, tenantID, "Article", "art", true)
+		att := &Attachment{ID: uuid.New(), TenantID: tenantID, ArticleID: a.ID, FileRef: "uploads/a.pdf"}
+		repo.attachments[att.ID] = att
+		tok := &ShareToken{ID: uuid.New(), TenantID: tenantID, ArticleID: a.ID, Token: "tok-" + uuid.NewString()}
+		repo.tokens[tok.Token] = tok
+		return NewService(repo), repo, a, att, tok
+	}
+
+	t.Run("a stranger at own scope gets not found and nothing changes", func(t *testing.T) {
+		svc, repo, a, att, tok := setup()
+		stranger := uuid.New()
+		ctx := context.Background()
+
+		require.ErrorIs(t, svc.DeleteArticle(ctx, tenantID, a.ID, &stranger), ErrArticleNotFound)
+		require.ErrorIs(t, svc.DeleteAttachment(ctx, tenantID, att.ID, &stranger), ErrAttachmentNotFound)
+		require.ErrorIs(t, svc.RevokeShareToken(ctx, tenantID, tok.ID, &stranger), ErrShareTokenNotFound)
+		_, err := svc.CreateShareToken(ctx, CreateShareTokenInput{TenantID: tenantID, ArticleID: a.ID, OwnerID: &stranger})
+		require.ErrorIs(t, err, ErrArticleNotFound)
+
+		assert.Contains(t, repo.articles, a.ID, "article must survive")
+		assert.Contains(t, repo.attachments, att.ID, "attachment must survive")
+		assert.Nil(t, tok.RevokedAt, "link must stay live")
+		assert.Len(t, repo.tokens, 1, "no link minted for a stranger")
+	})
+
+	t.Run("unknown ids at own scope stay not found", func(t *testing.T) {
+		svc, _, _, _, _ := setup()
+		me := uuid.New()
+		ctx := context.Background()
+		require.ErrorIs(t, svc.DeleteAttachment(ctx, tenantID, uuid.New(), &me), ErrAttachmentNotFound)
+		require.ErrorIs(t, svc.RevokeShareToken(ctx, tenantID, uuid.New(), &me), ErrShareTokenNotFound)
+	})
+
+	t.Run("the author at own scope shares, revokes, deletes the attachment and the article", func(t *testing.T) {
+		svc, repo, a, att, tok := setup()
+		author := a.AuthorID
+		ctx := context.Background()
+
+		_, err := svc.CreateShareToken(ctx, CreateShareTokenInput{TenantID: tenantID, ArticleID: a.ID, OwnerID: &author})
+		require.NoError(t, err)
+		require.NoError(t, svc.RevokeShareToken(ctx, tenantID, tok.ID, &author))
+		assert.NotNil(t, tok.RevokedAt)
+		require.NoError(t, svc.DeleteAttachment(ctx, tenantID, att.ID, &author))
+		assert.NotContains(t, repo.attachments, att.ID)
+		require.NoError(t, svc.DeleteArticle(ctx, tenantID, a.ID, &author))
+		assert.NotContains(t, repo.articles, a.ID)
+	})
+
+	t.Run("without an owner all four stay tenant-wide", func(t *testing.T) {
+		svc, repo, a, att, tok := setup()
+		ctx := context.Background()
+
+		_, err := svc.CreateShareToken(ctx, CreateShareTokenInput{TenantID: tenantID, ArticleID: a.ID})
+		require.NoError(t, err)
+		require.NoError(t, svc.RevokeShareToken(ctx, tenantID, tok.ID, nil))
+		require.NoError(t, svc.DeleteAttachment(ctx, tenantID, att.ID, nil))
+		require.NoError(t, svc.DeleteArticle(ctx, tenantID, a.ID, nil))
+		assert.NotContains(t, repo.articles, a.ID)
 	})
 }

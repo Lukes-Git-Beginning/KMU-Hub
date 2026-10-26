@@ -148,7 +148,12 @@ func (s *WikiGRPCServer) DeleteArticle(ctx context.Context, req *wikiv1.DeleteAr
 		return nil, status.Errorf(codes.InvalidArgument, "invalid article_id: %v", err)
 	}
 
-	if err := s.svc.DeleteArticle(ctx, tenantID, articleID); err != nil {
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.svc.DeleteArticle(ctx, tenantID, articleID, ownerID); err != nil {
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.DeleteArticleResponse{}, nil
@@ -368,7 +373,12 @@ func (s *WikiGRPCServer) DeleteAttachment(ctx context.Context, req *wikiv1.Delet
 		return nil, status.Errorf(codes.InvalidArgument, "invalid attachment_id: %v", err)
 	}
 
-	if err := s.svc.DeleteAttachment(ctx, tenantID, attachmentID); err != nil {
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.svc.DeleteAttachment(ctx, tenantID, attachmentID, ownerID); err != nil {
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.DeleteAttachmentResponse{}, nil
@@ -514,6 +524,9 @@ func (s *WikiGRPCServer) CreateShareToken(ctx context.Context, req *wikiv1.Creat
 		}
 		input.CreatedBy = &id
 	}
+	if input.OwnerID, err = parseWikiOwnerID(req.OwnerId); err != nil {
+		return nil, err
+	}
 
 	token, err := s.svc.CreateShareToken(ctx, input)
 	if err != nil {
@@ -554,7 +567,12 @@ func (s *WikiGRPCServer) RevokeShareToken(ctx context.Context, req *wikiv1.Revok
 		return nil, status.Errorf(codes.InvalidArgument, "invalid token_id: %v", err)
 	}
 
-	if err := s.svc.RevokeShareToken(ctx, tenantID, tokenID); err != nil {
+	ownerID, err := parseWikiOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.svc.RevokeShareToken(ctx, tenantID, tokenID, ownerID); err != nil {
 		return nil, mapWikiError(err)
 	}
 	return &wikiv1.RevokeShareTokenResponse{}, nil

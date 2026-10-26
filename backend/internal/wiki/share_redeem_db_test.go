@@ -228,14 +228,14 @@ func TestWikiShareRedeem_RevokedTokenIsRefused(t *testing.T) {
 
 	// A foreign tenant must not be able to cut somebody else's link, and the
 	// failed attempt must leave no mark.
-	if err := svc.RevokeShareToken(ctxOther, tenantOwn, share.ID); !errors.Is(err, ErrShareTokenNotFound) {
+	if err := svc.RevokeShareToken(ctxOther, tenantOwn, share.ID, nil); !errors.Is(err, ErrShareTokenNotFound) {
 		t.Fatalf("RevokeShareToken (foreign ctx): got %v, want ErrShareTokenNotFound", err)
 	}
 	if _, err := svc.RedeemShareToken(visitor, share.Token); err != nil {
 		t.Fatalf("a refused cross-tenant revoke killed the link anyway: %v", err)
 	}
 
-	if err := svc.RevokeShareToken(ctxOwn, tenantOwn, share.ID); err != nil {
+	if err := svc.RevokeShareToken(ctxOwn, tenantOwn, share.ID, nil); err != nil {
 		t.Fatalf("RevokeShareToken (own ctx): %v", err)
 	}
 

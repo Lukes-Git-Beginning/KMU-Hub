@@ -3,6 +3,7 @@ package wiki
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -247,9 +248,10 @@ func (s *Service) UpdateArticle(ctx context.Context, input UpdateArticleInput) (
 	return article, nil
 }
 
-// DeleteArticle removes an article.
-func (s *Service) DeleteArticle(ctx context.Context, tenantID, articleID uuid.UUID) error {
-	article, err := s.repo.GetArticleByID(ctx, tenantID, articleID)
+// DeleteArticle removes an article. With ownerID set (scope "own") only an
+// article the caller wrote is removed; any other answers ErrArticleNotFound.
+func (s *Service) DeleteArticle(ctx context.Context, tenantID, articleID uuid.UUID, ownerID *uuid.UUID) error {
+	article, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID)
 	if err != nil {
 		return err
 	}
@@ -400,8 +402,22 @@ func (s *Service) ListAttachments(ctx context.Context, tenantID, articleID uuid.
 	return s.repo.ListAttachments(ctx, tenantID, articleID)
 }
 
-// DeleteAttachment removes an attachment.
-func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID) error {
+// DeleteAttachment removes an attachment. With ownerID set (scope "own") the
+// attachment must hang on an article the caller wrote, otherwise it answers
+// ErrAttachmentNotFound.
+func (s *Service) DeleteAttachment(ctx context.Context, tenantID, attachmentID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		articleID, err := s.repo.GetAttachmentArticleID(ctx, tenantID, attachmentID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+			if errors.Is(err, ErrArticleNotFound) {
+				return ErrAttachmentNotFound
+			}
+			return err
+		}
+	}
 	if delErr := s.repo.DeleteAttachment(ctx, tenantID, attachmentID); delErr != nil {
 		return fmt.Errorf("delete attachment: %w", delErr)
 	}
@@ -535,6 +551,9 @@ type CreateShareTokenInput struct {
 	// the authenticated caller, and a nil value is recorded as "unknown"
 	// rather than refused, so a missing subject never blocks a share.
 	CreatedBy *uuid.UUID
+	// OwnerID set (scope "own") shares only an article the caller wrote; any
+	// other answers ErrArticleNotFound.
+	OwnerID *uuid.UUID
 }
 
 // CreateShareToken creates a new share token for an article.
@@ -561,8 +580,8 @@ func (s *Service) CreateShareToken(ctx context.Context, input CreateShareTokenIn
 		}
 	}
 
-	// Verify article exists in tenant
-	if _, err := s.repo.GetArticleByID(ctx, input.TenantID, input.ArticleID); err != nil {
+	// Verify article exists in tenant (and is the caller's at scope own)
+	if _, err := s.loadEditableArticle(ctx, input.TenantID, input.ArticleID, input.OwnerID); err != nil {
 		return nil, err
 	}
 
@@ -609,8 +628,22 @@ func (s *Service) ListShareTokens(ctx context.Context, tenantID, articleID uuid.
 
 // RevokeShareToken cuts a share link. The row survives with revoked_at set --
 // see 000297 for why the revocation is soft. Revoking an already revoked token
-// succeeds without moving the original timestamp.
-func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID) error {
+// succeeds without moving the original timestamp. With ownerID set (scope
+// "own") the link must belong to an article the caller wrote, otherwise it
+// answers ErrShareTokenNotFound.
+func (s *Service) RevokeShareToken(ctx context.Context, tenantID, tokenID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		articleID, err := s.repo.GetShareTokenArticleID(ctx, tenantID, tokenID)
+		if err != nil {
+			return err
+		}
+		if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
+			if errors.Is(err, ErrArticleNotFound) {
+				return ErrShareTokenNotFound
+			}
+			return err
+		}
+	}
 	if revErr := s.repo.RevokeShareToken(ctx, tenantID, tokenID, time.Now().UTC()); revErr != nil {
 		return fmt.Errorf("revoke share token: %w", revErr)
 	}

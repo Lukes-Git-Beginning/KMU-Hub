@@ -122,6 +122,9 @@ message UpdateArticleRequest {
 message DeleteArticleRequest {
   string tenant_id = 1;
   string article_id = 2;
+  // Set when the caller may act only on articles they wrote: a foreign one
+  // then answers not-found, so the id stays unconfirmed.
+  optional string owner_id = 3;
 }
 
 message DeleteArticleResponse {}
@@ -219,6 +222,9 @@ message ListAttachmentsResponse {
 message DeleteAttachmentRequest {
   string attachment_id = 1;
   string tenant_id = 2;
+  // Set when the caller may act only on attachments of articles they wrote: a foreign one
+  // then answers not-found, so the id stays unconfirmed.
+  optional string owner_id = 3;
 }
 
 message DeleteAttachmentResponse {}
@@ -284,6 +290,9 @@ message CreateShareTokenRequest {
   // The authenticated caller, filled by the gateway. Unset is recorded as
   // "unknown author" rather than refused.
   optional string created_by = 5;
+  // Set when the caller may act only on articles they wrote: a foreign one
+  // then answers not-found, so the id stays unconfirmed.
+  optional string owner_id = 6;
 }
 
 message ShareTokenResponse {
@@ -293,6 +302,9 @@ message ShareTokenResponse {
 message RevokeShareTokenRequest {
   string tenant_id = 1;
   string token_id = 2;
+  // Set when the caller may act only on links of articles they wrote: a foreign one
+  // then answers not-found, so the id stays unconfirmed.
+  optional string owner_id = 3;
 }
 
 message RevokeShareTokenResponse {}

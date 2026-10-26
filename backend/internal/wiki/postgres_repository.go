@@ -314,6 +314,18 @@ func (r *PostgresRepository) DeleteAttachment(ctx context.Context, tenantID, att
 	return nil
 }
 
+func (r *PostgresRepository) GetAttachmentArticleID(ctx context.Context, tenantID, attachmentID uuid.UUID) (uuid.UUID, error) {
+	var articleID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT article_id FROM wiki_attachments WHERE id = $1 AND tenant_id = $2`,
+		attachmentID, tenantID,
+	).Scan(&articleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrAttachmentNotFound
+	}
+	return articleID, err
+}
+
 // ============================================================================
 // Categories
 // ============================================================================
@@ -417,6 +429,18 @@ func (r *PostgresRepository) RevokeShareToken(ctx context.Context, tenantID, tok
 		return ErrShareTokenNotFound
 	}
 	return nil
+}
+
+func (r *PostgresRepository) GetShareTokenArticleID(ctx context.Context, tenantID, tokenID uuid.UUID) (uuid.UUID, error) {
+	var articleID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT article_id FROM wiki_share_tokens WHERE id = $1 AND tenant_id = $2`,
+		tokenID, tenantID,
+	).Scan(&articleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrShareTokenNotFound
+	}
+	return articleID, err
 }
 
 func (r *PostgresRepository) ListShareTokensByArticle(ctx context.Context, tenantID, articleID uuid.UUID) ([]*ShareToken, error) {

@@ -661,9 +661,12 @@ func (x *UpdateArticleRequest) GetOwnerId() string {
 }
 
 type DeleteArticleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ArticleId     string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TenantId  string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ArticleId string                 `protobuf:"bytes,2,opt,name=article_id,json=articleId,proto3" json:"article_id,omitempty"`
+	// Set when the caller may act only on articles they wrote: a foreign one
+	// then answers not-found, so the id stays unconfirmed.
+	OwnerId       *string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -708,6 +711,13 @@ func (x *DeleteArticleRequest) GetTenantId() string {
 func (x *DeleteArticleRequest) GetArticleId() string {
 	if x != nil {
 		return x.ArticleId
+	}
+	return ""
+}
+
+func (x *DeleteArticleRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -1559,9 +1569,12 @@ func (x *ListAttachmentsResponse) GetAttachments() []*Attachment {
 }
 
 type DeleteAttachmentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AttachmentId  string                 `protobuf:"bytes,1,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AttachmentId string                 `protobuf:"bytes,1,opt,name=attachment_id,json=attachmentId,proto3" json:"attachment_id,omitempty"`
+	TenantId     string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Set when the caller may act only on attachments of articles they wrote: a foreign one
+	// then answers not-found, so the id stays unconfirmed.
+	OwnerId       *string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1606,6 +1619,13 @@ func (x *DeleteAttachmentRequest) GetAttachmentId() string {
 func (x *DeleteAttachmentRequest) GetTenantId() string {
 	if x != nil {
 		return x.TenantId
+	}
+	return ""
+}
+
+func (x *DeleteAttachmentRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -2122,7 +2142,10 @@ type CreateShareTokenRequest struct {
 	Permissions []string               `protobuf:"bytes,4,rep,name=permissions,proto3" json:"permissions,omitempty"`
 	// The authenticated caller, filled by the gateway. Unset is recorded as
 	// "unknown author" rather than refused.
-	CreatedBy     *string `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	CreatedBy *string `protobuf:"bytes,5,opt,name=created_by,json=createdBy,proto3,oneof" json:"created_by,omitempty"`
+	// Set when the caller may act only on articles they wrote: a foreign one
+	// then answers not-found, so the id stays unconfirmed.
+	OwnerId       *string `protobuf:"bytes,6,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2192,6 +2215,13 @@ func (x *CreateShareTokenRequest) GetCreatedBy() string {
 	return ""
 }
 
+func (x *CreateShareTokenRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
+}
+
 type ShareTokenResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         *ShareToken            `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
@@ -2237,9 +2267,12 @@ func (x *ShareTokenResponse) GetToken() *ShareToken {
 }
 
 type RevokeShareTokenRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	TokenId       string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TenantId string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	TokenId  string                 `protobuf:"bytes,2,opt,name=token_id,json=tokenId,proto3" json:"token_id,omitempty"`
+	// Set when the caller may act only on links of articles they wrote: a foreign one
+	// then answers not-found, so the id stays unconfirmed.
+	OwnerId       *string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2284,6 +2317,13 @@ func (x *RevokeShareTokenRequest) GetTenantId() string {
 func (x *RevokeShareTokenRequest) GetTokenId() string {
 	if x != nil {
 		return x.TokenId
+	}
+	return ""
+}
+
+func (x *RevokeShareTokenRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -2661,11 +2701,13 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"\f_category_idB\f\n" +
 	"\n" +
 	"_publishedB\v\n" +
-	"\t_owner_id\"R\n" +
+	"\t_owner_id\"\x7f\n" +
 	"\x14DeleteArticleRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
-	"article_id\x18\x02 \x01(\tR\tarticleId\"\x17\n" +
+	"article_id\x18\x02 \x01(\tR\tarticleId\x12\x1e\n" +
+	"\bowner_id\x18\x03 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x17\n" +
 	"\x15DeleteArticleResponse\"=\n" +
 	"\x0fArticleResponse\x12*\n" +
 	"\aarticle\x18\x01 \x01(\v2\x10.wiki.v1.ArticleR\aarticle\"\xc8\x02\n" +
@@ -2736,10 +2778,12 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"article_id\x18\x01 \x01(\tR\tarticleId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"P\n" +
 	"\x17ListAttachmentsResponse\x125\n" +
-	"\vattachments\x18\x01 \x03(\v2\x13.wiki.v1.AttachmentR\vattachments\"[\n" +
+	"\vattachments\x18\x01 \x03(\v2\x13.wiki.v1.AttachmentR\vattachments\"\x88\x01\n" +
 	"\x17DeleteAttachmentRequest\x12#\n" +
 	"\rattachment_id\x18\x01 \x01(\tR\fattachmentId\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"\x1a\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1e\n" +
+	"\bowner_id\x18\x03 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x1a\n" +
 	"\x18DeleteAttachmentResponse\"4\n" +
 	"\x15ListCategoriesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\"K\n" +
@@ -2789,7 +2833,7 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"created_by\x18\b \x01(\tH\x02R\tcreatedBy\x88\x01\x01B\r\n" +
 	"\v_expires_atB\r\n" +
 	"\v_revoked_atB\r\n" +
-	"\v_created_by\"\xdd\x01\n" +
+	"\v_created_by\"\x8a\x02\n" +
 	"\x17CreateShareTokenRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
 	"\n" +
@@ -2798,14 +2842,18 @@ const file_proto_wiki_v1_wiki_proto_rawDesc = "" +
 	"expires_at\x18\x03 \x01(\tH\x00R\texpiresAt\x88\x01\x01\x12 \n" +
 	"\vpermissions\x18\x04 \x03(\tR\vpermissions\x12\"\n" +
 	"\n" +
-	"created_by\x18\x05 \x01(\tH\x01R\tcreatedBy\x88\x01\x01B\r\n" +
+	"created_by\x18\x05 \x01(\tH\x01R\tcreatedBy\x88\x01\x01\x12\x1e\n" +
+	"\bowner_id\x18\x06 \x01(\tH\x02R\aownerId\x88\x01\x01B\r\n" +
 	"\v_expires_atB\r\n" +
-	"\v_created_by\"?\n" +
+	"\v_created_byB\v\n" +
+	"\t_owner_id\"?\n" +
 	"\x12ShareTokenResponse\x12)\n" +
-	"\x05token\x18\x01 \x01(\v2\x13.wiki.v1.ShareTokenR\x05token\"Q\n" +
+	"\x05token\x18\x01 \x01(\v2\x13.wiki.v1.ShareTokenR\x05token\"~\n" +
 	"\x17RevokeShareTokenRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
-	"\btoken_id\x18\x02 \x01(\tR\atokenId\"\x1a\n" +
+	"\btoken_id\x18\x02 \x01(\tR\atokenId\x12\x1e\n" +
+	"\bowner_id\x18\x03 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x1a\n" +
 	"\x18RevokeShareTokenResponse\"T\n" +
 	"\x16ListShareTokensRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
@@ -2984,13 +3032,16 @@ func file_proto_wiki_v1_wiki_proto_init() {
 	file_proto_wiki_v1_wiki_proto_msgTypes[3].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_wiki_v1_wiki_proto_msgTypes[7].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[10].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[18].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[19].OneofWrappers = []any{}
+	file_proto_wiki_v1_wiki_proto_msgTypes[23].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[27].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[31].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[32].OneofWrappers = []any{}
 	file_proto_wiki_v1_wiki_proto_msgTypes[33].OneofWrappers = []any{}
+	file_proto_wiki_v1_wiki_proto_msgTypes[35].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

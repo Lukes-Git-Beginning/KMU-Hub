@@ -358,6 +358,27 @@ func (r *stubWikiRepo) ListShareTokensByArticle(_ context.Context, tenantID, art
 	return out, nil
 }
 
+func (r *stubWikiRepo) GetAttachmentArticleID(_ context.Context, tenantID, attachmentID uuid.UUID) (uuid.UUID, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	a, ok := r.attachments[attachmentID]
+	if !ok || a.TenantID != tenantID {
+		return uuid.Nil, wiki.ErrAttachmentNotFound
+	}
+	return a.ArticleID, nil
+}
+
+func (r *stubWikiRepo) GetShareTokenArticleID(_ context.Context, tenantID, tokenID uuid.UUID) (uuid.UUID, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, t := range r.shareTokens {
+		if t.ID == tokenID && t.TenantID == tenantID {
+			return t.ArticleID, nil
+		}
+	}
+	return uuid.Nil, wiki.ErrShareTokenNotFound
+}
+
 func (r *stubWikiRepo) GetShareTokenByToken(_ context.Context, token string) (*wiki.ShareToken, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
