@@ -16,8 +16,10 @@ import (
 // omitempty oneof that rejects "" shows up here as a 400 where the unit test only decodes.
 //
 // Roles: member A works the contact book (crm:contact:create|edit, company create/edit); the
-// admin owns the pipeline. Deal writes are 403 for a member today (role matrix, Block B) and are
-// checked as such; the pending decision is `decide-member-manager-module-defaults`.
+// admin owns the pipeline. A member writes the deals of their team (crm:deal:create|edit at scope
+// team, decision 2026-10-25): their own here, the admin's deal stays read-only and deleting stays
+// with manager/admin. The reporting-line half of the team sits in the gateway router test
+// TestCRMDealTeamWrite_MemberAgainstRealSeed.
 func TestContactAndDealDesktopBodyFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
@@ -322,13 +324,36 @@ func TestContactAndDealDesktopBodyFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("member: reads deals, deal writes and deletes are 403 (decide-member-manager-module-defaults)", func(t *testing.T) {
+	t.Run("member: works their own deal, the admin's deal and every delete stay 403", func(t *testing.T) {
 		resp, body := getJSON(t, base+"/api/v1/deals", memberToken)
 		requireStatus(t, resp, body, http.StatusOK)
 
 		resp, body = postJSON(t, base+"/api/v1/deals", map[string]interface{}{
 			"name": "Member deal", "value": 1.0, "currency": "EUR", "stage_id": stageA, "custom_fields": []interface{}{},
 		}, memberToken)
+		requireStatus(t, resp, body, http.StatusCreated)
+		var own struct {
+			Deal map[string]interface{} `json:"deal"`
+		}
+		decodeBody(t, body, &own)
+		ownID := str(own.Deal, "id")
+		if ownID == "" {
+			t.Fatalf("expected the member's deal id, got %s", string(body))
+		}
+
+		resp, body = putJSON(t, base+"/api/v1/deals/"+ownID, map[string]interface{}{
+			"name": "Member deal gepflegt", "value": 2.0, "currency": "EUR", "custom_fields": []interface{}{},
+		}, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		resp, body = postJSON(t, base+"/api/v1/deals/"+ownID+"/stage", map[string]interface{}{
+			"stage_id": stageB,
+		}, memberToken)
+		requireStatus(t, resp, body, http.StatusOK)
+		decodeBody(t, body, &own)
+		if str(own.Deal, "stage_id") != stageB || str(own.Deal, "name") != "Member deal gepflegt" {
+			t.Errorf("member's own deal did not take the update and the move: %s", string(body))
+		}
+		resp, body = deleteJSON(t, base+"/api/v1/deals/"+ownID, memberToken)
 		requireStatus(t, resp, body, http.StatusForbidden)
 
 		resp, body = putJSON(t, base+"/api/v1/deals/"+dealID, map[string]interface{}{

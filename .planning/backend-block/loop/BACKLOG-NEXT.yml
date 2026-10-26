@@ -1700,3 +1700,32 @@ units:
       - backend/internal/gateway/route_work_own_task_delete_db_test.go
     done_when:
       - member sieht Löschen an einer selbst angelegten Aufgabe, nicht an einer nur zugewiesenen (Playwright-Screenshot)
+
+  - id: fe-crm-deal-edit-team-scope-and-team-definition
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: member sieht Bearbeiten nur an Deals seines Teams, und Luke bestätigt, was "Team" bei Deals heißt
+    scope: >
+      Fund aus `feat-crm-deals-write-team-scope-for-members` (Lauf 17, Iteration 48). Seit Migration 358 hält member
+      `crm:deal:create|edit` mit Scope `team`. Das Backend hatte für Deals (und Kontakte) KEINE Team-Grenze, `team`
+      wirkte wie `all`; gebaut ist sie jetzt mit der einzigen Team-Definition, die es im Backend gibt
+      (Reporting-Line wie HR 334/335 und timetracking `ReportingLineOf`): Owner des Deals (`owner_id`, sonst
+      `created_by`) ist der Aufrufer oder einer seiner DIREKTEN Berichte (`hr_employee_profiles.manager_user_id`).
+      Für einen member ohne Berichte heißt das praktisch: nur eigene Deals. ENTSCHEIDUNGSFRAGE an Luke: meint
+      "Pipeline seines Teams" stattdessen Kollegen mit demselben Vorgesetzten (Geschwister) oder dieselbe
+      `department`? Dann ändert sich nur `deal.PostgresRepository.IsDirectReport` (eine Query). Desktop-Teil
+      (Loop darf `desktop/` nicht ändern): `DealDetailPage.tsx:90` und `DealPipelineView.tsx:276` rufen
+      `useScopedCapability('crm:deal:edit')` ohne Owner und behandeln `team` wie `all` (backend-gaps R-3) — member
+      sieht Bearbeiten/Ziehen an jedem Deal und bekommt an fremden 403. `DealsListPage.tsx:102`
+      (`useHasCapability('crm:deal:create')`) passt; ein Owner-Feld außerhalb des Teams gibt 403.
+    sources:
+      - desktop/src/renderer/src/modules/crm/deals/DealDetailPage.tsx
+      - desktop/src/renderer/src/modules/crm/deals/DealPipelineView.tsx
+      - backend/internal/crm/deal/postgres_repository.go
+      - backend/internal/gateway/route_crm_deal_team_write_db_test.go
+    done_when:
+      - Luke hat die Team-Definition für Deals bestätigt oder geändert
+      - member sieht Bearbeiten/Ziehen nur an eigenen Deals und denen seiner Berichte (Playwright-Screenshot)

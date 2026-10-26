@@ -45,6 +45,8 @@ type Repository interface {
 	CompanyExists(ctx context.Context, companyID uuid.UUID) (bool, error)
 	OwnerExists(ctx context.Context, ownerID uuid.UUID) (bool, error)
 	TagExists(ctx context.Context, tagID uuid.UUID, entityType models.EntityType) (bool, error)
+	// IsDirectReport reports whether userID's HR profile names managerID as manager.
+	IsDirectReport(ctx context.Context, tenantID, managerID, userID uuid.UUID) (bool, error)
 
 	// Closed at updates
 	SetClosedAt(ctx context.Context, dealID, tenantID uuid.UUID, closedAt *time.Time) error

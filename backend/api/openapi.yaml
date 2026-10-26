@@ -2766,6 +2766,7 @@ paths:
   /api/v1/deals:
     post:
       summary: Create deal
+      description: "Scope team of crm:deal:create (member) creates deals only for the caller or one of their direct reports as owner_id; another owner answers 403. The legacy deals:write and scope all create for anyone."
       tags: [deals]
       operationId: createDeal
       security:
@@ -2892,6 +2893,7 @@ paths:
 
     put:
       summary: Update deal
+      description: "Scope team of crm:deal:edit (member) writes only deals whose owner (owner_id, else the creator) is the caller or one of their direct reports; any other deal answers 403. The legacy deals:write and scope all write tenant-wide. A scoped caller cannot hand the deal to an owner outside their scope (403)."
       tags: [deals]
       operationId: updateDeal
       security:
@@ -2955,7 +2957,7 @@ paths:
   /api/v1/deals/{id}/stage:
     post:
       summary: Move deal to stage
-      description: Automatically sets closed_at when moving to Won/Lost stages
+      description: "Automatically sets closed_at when moving to Won/Lost stages. Scope team of crm:deal:edit (member) writes only deals whose owner (owner_id, else the creator) is the caller or one of their direct reports; any other deal answers 403. The legacy deals:write and scope all write tenant-wide."
       tags: [deals]
       operationId: moveDealToStage
       security:
@@ -2979,6 +2981,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -3012,6 +3016,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -3042,6 +3048,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
