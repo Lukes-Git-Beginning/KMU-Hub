@@ -3019,7 +3019,7 @@ units:
     service: crm
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/crm/tag von 64,2 % auf ≥ 78 %
     coverage_start: internal/crm/tag 64,2 %
     scope: >
