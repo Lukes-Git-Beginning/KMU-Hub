@@ -1554,3 +1554,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) Ein member darf beim Anlegen einer PO (`einkauf:po:create`) die Vertragsbindung setzen, ändern kann er sie danach nicht; wirksam wird sie erst, wenn ein Einkäufer Zeilen anlegt und absendet. Falls die Bindung selbst `einkauf:contract:call` verlangen soll, ist das eine Produktentscheidung Luke (nicht als Unit angelegt, weil das Verhalten der Entscheidung vom 2026-10-25 entspricht). (2) Der Rechteverlauf aus (1) hat keinen dauerhaften E2E im Repo; ohne Fund schreibt die Review-Unit keinen Code.
+
+## Iteration 83 — cov-biz-quote — done — 2026-10-26 06:08
+- commit: siehe Commit `test(biz): cover the quote repository against the app-role database` (git log)
+- gebaut: `internal/biz/quote/postgres_repository_env_test.go` (ohne Build-Tag, DATABASE_URL als kmuhub_app, RLS scharf): 12 DB-Tests für Create/GetByID/Update/UpdateStatus/Delete/List (Status-, Deal-, Datumsfilter, Paginierung, Tenant-Grenze)/GetByDealID, Nummernkreis (lückenlos, Rollback gibt Nummer frei, je Geschäftsjahr/Mandant getrennt, `GetSequenceInfo`), `CompanySettingsRepo` (Roundtrip, Upsert, Leer-Währung, Fremdmandant) und Parse-Helfer. Ursache der niedrigen CI-Zahl: die vorhandenen DB-Tests des Pakets liegen hinter `//go:build integration` (testcontainers) und zählen weder im PR-Gate noch in der Coverage.
+- gate: build ok | vet ok (auch `-tags=integration`) | lint ok (0 issues) | test ok (`internal/biz/quote` 12 neue Env-Tests, 0 SKIP, DATABASE_URL als kmuhub_app; `./internal/biz/...` alle ok) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Fremdmandant-Lesen/Schreiben per Test belegt)
+- coverage: internal/biz/quote 50,8 % -> 83,8 %
+- mutations-probe: 6 Proben, alle rot: `ORDER BY ... ASC` in `List`, `currentNumber++` entfernt, `DELETE FROM finance_quote_lines` in `UpdateInTx` neutralisiert, Datum-bis-Filter invertiert, Leer-Währungs-Fallback in `Upsert` (erste Fassung überlebte -> Test um zweiten Upsert mit leerer Währung ergänzt, dann rot), Positions-Default der Zeilen aus. Jeweils aus Backup zurück, `postgres_repository.go` unverändert im Diff. Ein Test hing zwischendurch an einer offenen Transaktion (Rollback-Test, `Fatalf` vor `Rollback`): `defer tx.Rollback` ergänzt.
+- verify vorgaenger: sauber (`df515414` nur Loop-Doku, davor `bf542ae7` in Iteration 82 geprüft)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: (1) Beim Debuggen einer festhängenden Probe lief kurz ein altes Probe-Skript parallel; die Ergebnisse stimmen mit den erwarteten Testnamen überein, die Restdaten in der lokalen DB (Mandant `quote-env-*`) sind bereinigt. (2) Die `integration`-getaggten Quote-DB-Tests bleiben unverändert bestehen (Überschneidung mit den neuen, bewusst nicht entfernt).

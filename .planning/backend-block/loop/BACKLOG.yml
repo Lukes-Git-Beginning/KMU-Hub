@@ -2476,7 +2476,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/biz/quote von 50,8 % auf ≥ 70 %
     coverage_start: internal/biz/quote 50,8 %
     scope: >
