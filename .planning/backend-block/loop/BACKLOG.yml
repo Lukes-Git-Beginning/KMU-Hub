@@ -2947,7 +2947,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Kommentare auf Aufgaben ohne Projekt (standalone) lassen sich anlegen statt mit RLS-Fehler zu scheitern
     scope: >
       Fund aus `cov-work-comment` (Lauf 17, Iteration 103), per DB-Test als `kmuhub_app` reproduziert:

@@ -1788,3 +1788,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-work-comment-on-standalone-task-rls` — VOR die erste todo-Unit gesetzt (reproduziert: Kommentar auf Aufgabe ohne Projekt scheitert mit RLS-Fehler 42501, für jeden Nutzer; Subselect in `Create` joint über `projects`)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: (1) CI-Vorher-Wert 60,8 % lokal nicht neu gemessen (Repo hatte vorher keinen DB-Test, Service-Tests nutzen nur Mocks). (2) Das Repository filtert in keinem SELECT/UPDATE/DELETE auf `tenant_id`, sondern verlässt sich allein auf RLS; die Policy greift nachweislich (Cross-Tenant-Tests rot ohne). (3) `Update`/`Delete` wirken bei unbekannter oder fremder ID still als No-op (kein `RowsAffected`-Check). (4) Quelldateien haben CRLF, nicht angefasst; die neue Testdatei ist LF.
+
+## Iteration 104 — fix-work-comment-on-standalone-task-rls — done — 2026-10-26 08:16
+- commit: siehe Commit `fix(work): derive the task comment tenant from the task itself` (git log)
+- gebaut: `PostgresRepository.Create` leitet `tenant_id` des Kommentars aus `tasks.tenant_id` ab statt über `tasks JOIN projects`; Kommentare auf Aufgaben ohne Projekt scheitern nicht mehr mit RLS 42501. Neuer Test `CreateOnStandaloneTask` (Aufgabe mit `project_id IS NULL`, Roundtrip, `tenant_id` = Tenant der Aufgabe, fremder Tenant weiterhin abgelehnt).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`internal/work/comment` 0 SKIP, DATABASE_URL als kmuhub_app; `internal/gateway` ok inkl. `TestOpenAPIRouteDrift`) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy; Cross-Tenant im neuen Test)
+- coverage: internal/work/comment 86,7 % -> 86,7 %
+- mutations-probe: neuer Test gegen den alten Code (Join über `projects`) rot (RLS-Fehler 42501 bei Create), mit dem Fix grün; Fremd-Tenant-Teil durch den bestehenden Test `CreateForForeignTaskIsRejected` plus neue Assertion abgedeckt.
+- verify vorgaenger: sauber (`a263bf23`: nur Test-Datei plus Loop-Doku, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: `POST /api/v1/tasks/{id}/comments` -> Antwortform unverändert, bisheriger 500 auf standalone-Aufgaben wird zu Erfolg -> passt
+- offen: (1) Der Kommentar-Pfad auf Aufgaben mit Projekt liefert denselben Tenant wie vorher (`tasks.tenant_id` = Projekt-Tenant, in 000124 so gesetzt). (2) Quelldatei hat CRLF, erhalten.

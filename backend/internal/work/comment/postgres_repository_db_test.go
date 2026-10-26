@@ -89,6 +89,17 @@ func (f *commentFixture) task(t *testing.T, createdBy uuid.UUID) uuid.UUID {
 	})
 }
 
+// standaloneTask seeds a task without a project (tasks.project_id IS NULL).
+func (f *commentFixture) standaloneTask(t *testing.T, createdBy uuid.UUID) uuid.UUID {
+	t.Helper()
+	return testutil.SeedRow(t, f.pool, "tasks", map[string]any{
+		"tenant_id":   f.tenant,
+		"title":       "Standalone comment task " + uuid.NewString()[:8],
+		"task_number": int(uuid.New().ID())%900000 + 100000,
+		"created_by":  createdBy,
+	})
+}
+
 func (f *commentFixture) add(t *testing.T, taskID, author uuid.UUID, content string, quoted *uuid.UUID, at time.Time) *models.TaskComment {
 	t.Helper()
 	c := &models.TaskComment{
@@ -129,11 +140,36 @@ func TestCommentRepo_CreateInheritsTenantAndRoundtrips(t *testing.T) {
 	assert.True(t, created.Equal(got.CreatedAt))
 	assert.True(t, created.Equal(got.UpdatedAt))
 
-	// The INSERT derives tenant_id from tasks -> projects; RLS lets it through only if it matches.
+	// The INSERT derives tenant_id from the task; RLS lets it through only if it matches.
 	var tenant uuid.UUID
 	require.NoError(t, f.pool.QueryRow(testutil.WithSystemCtx(context.Background()),
 		`SELECT tenant_id FROM task_comments WHERE id = $1`, c.ID).Scan(&tenant))
 	assert.Equal(t, f.tenant, tenant)
+}
+
+func TestCommentRepo_CreateOnStandaloneTask(t *testing.T) {
+	f := newCommentFixture(t)
+	author := f.user(t, "Alan", "Turing")
+	task := f.standaloneTask(t, author)
+
+	c := f.add(t, task, author, "comment on a task without project", nil, now())
+
+	got, err := f.repo.GetByID(f.ctx, c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, task, got.TaskID)
+	assert.Equal(t, "comment on a task without project", got.Content)
+
+	var tenant uuid.UUID
+	require.NoError(t, f.pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT tenant_id FROM task_comments WHERE id = $1`, c.ID).Scan(&tenant))
+	assert.Equal(t, f.tenant, tenant)
+
+	// A foreign tenant still cannot comment on the standalone task.
+	err = f.repo.Create(f.otherTenantCtx(t), &models.TaskComment{
+		ID: uuid.New(), TaskID: task, AuthorID: author, Content: "intruder",
+		CreatedAt: now(), UpdatedAt: now(),
+	})
+	require.Error(t, err)
 }
 
 func TestCommentRepo_CreateForForeignTaskIsRejected(t *testing.T) {
