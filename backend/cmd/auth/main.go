@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/config"
 	"github.com/kmuhub/kmuhub/internal/crm/consent"
 	"github.com/kmuhub/kmuhub/internal/crm/contact"
@@ -121,8 +122,19 @@ func main() {
 	// actually executes one. Registry stays explicit so a resource_type
 	// with no handler here reports "nicht zugeordnet" in the run log
 	// instead of silently doing nothing (see retention.go).
+	//
+	// The contact retention handler deletes/anonymizes contacts, which takes
+	// their rental inspection photos with them -- hence the object store. Not
+	// fatal when MinIO is down at startup.
+	photoStore := chatfile.NewMinIOStoreOrUnavailable(
+		cfg.MinIOEndpoint, cfg.MinIOAccessKey, cfg.MinIOSecretKey, cfg.MinIOBucket, cfg.MinIOUseSSL,
+	)
+	retentionContactRepo := contact.NewPostgresRepository(pool)
+	retentionContactRepo.SetObjectDeleter(photoStore)
+	retentionConsentRepo := consent.NewPostgresRepository(pool)
+	retentionConsentRepo.SetObjectDeleter(photoStore)
 	retentionRegistry := gdpr.NewRetentionRegistry(
-		gdpr.NewContactRetentionHandler(contact.NewPostgresRepository(pool), consent.NewPostgresRepository(pool)),
+		gdpr.NewContactRetentionHandler(retentionContactRepo, retentionConsentRepo),
 		gdpr.NewDialerCallRetentionHandler(pool),
 		gdpr.NewChatMessageRetentionHandler(pool),
 		gdpr.NewHelpdeskTicketRetentionHandler(pool),

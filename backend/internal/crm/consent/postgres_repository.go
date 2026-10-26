@@ -14,8 +14,14 @@ import (
 
 // PostgresRepository implements Repository using PostgreSQL.
 type PostgresRepository struct {
-	pool *pgxpool.Pool
+	pool    *pgxpool.Pool
+	objects ObjectDeleter
 }
+
+// SetObjectDeleter wires the object store AnonymizeContact deletes rental
+// inspection photos from (see PurgeInspectionPhotos). Without one the photo
+// objects stay in storage and a warning is logged.
+func (r *PostgresRepository) SetObjectDeleter(d ObjectDeleter) { r.objects = d }
 
 // AnonymizedFirstName and AnonymizedLastName are the placeholder names
 // AnonymizeContact writes. Exported so callers (e.g. the contact retention
@@ -212,6 +218,9 @@ func (r *PostgresRepository) AnonymizeContact(ctx context.Context, contactID, te
 	// Free-text activity notes, consent_records identifiers, and external
 	// tickets' requester identity -- shared with contact.PostgresRepository.
 	// Delete's hard-delete path so both scrub the identical set of tables.
+	if err := PurgeInspectionPhotos(ctx, tx, r.objects, contactID, tenantID); err != nil {
+		return fmt.Errorf("gdpr contact anonymize: %w", err)
+	}
 	scrubbed, err := ScrubDependentPII(ctx, tx, contactID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gdpr contact anonymize: %w", err)

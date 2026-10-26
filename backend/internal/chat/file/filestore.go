@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"time"
 )
 
@@ -37,4 +38,18 @@ func (s *UnavailableStore) GetPresignedURL(_ context.Context, _ string, _ time.D
 }
 func (s *UnavailableStore) GetPresignedUploadURL(_ context.Context, _ string, _ time.Duration) (string, error) {
 	return "", errors.New("file storage unavailable")
+}
+
+// NewMinIOStoreOrUnavailable is for services that only delete objects as a side
+// effect of another operation (erasure in crm/auth): a MinIO that is down at
+// startup must not keep the whole service from starting, so it degrades to an
+// UnavailableStore whose Delete returns an error -- the erasure that needs it
+// fails and is retried, every other request is unaffected.
+func NewMinIOStoreOrUnavailable(endpoint, accessKey, secretKey, bucket string, useSSL bool) FileStore {
+	store, err := NewMinIOStore(endpoint, accessKey, secretKey, bucket, useSSL)
+	if err != nil {
+		slog.Warn("minio unavailable, object deletion will fail until restart", "error", err)
+		return NewUnavailableStore()
+	}
+	return store
 }

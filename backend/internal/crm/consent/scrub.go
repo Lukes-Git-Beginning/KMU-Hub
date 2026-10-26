@@ -49,7 +49,9 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 // and rentals.contact_id has no FK to contacts), so rental_inspections.notes/
 // .signature_data/.photo_urls/.checklist are cleared through a subselect. The
 // underlying rental and inspection rows stay in place, same pattern as
-// tickets.requester_name below.
+// tickets.requester_name below. Clearing photo_urls only drops the reference;
+// the photo objects themselves are deleted by PurgeInspectionPhotos, which the
+// callers run first.
 //
 // Also scrubbed: email_messages.from_name/.from_email of the mails linked to
 // the contact through email_contact_links -- the sender's display name and

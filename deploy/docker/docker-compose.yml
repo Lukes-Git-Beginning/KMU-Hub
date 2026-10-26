@@ -135,6 +135,12 @@ services:
       # Off everywhere unless set: accounts come from invitations. For local
       # demo setups that sign up via /auth/register, set it in deploy/docker/.env.
       AUTH_SELF_REGISTRATION_ENABLED: ${AUTH_SELF_REGISTRATION_ENABLED:-false}
+      # Object store for deleting rental inspection photos on contact erasure.
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
     ports:
       - "50051:50051"
       - "9091:9091"
@@ -164,6 +170,12 @@ services:
       COSMI_ENV: ${COSMI_ENV:-development}
       CRM_GRPC_PORT: ":50052"
       CRM_HEALTH_PORT: ":9092"
+      # Object store for deleting rental inspection photos on contact erasure.
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: kmuhub-files
+      MINIO_USE_SSL: "false"
     ports:
       - "50052:50052"
       - "9092:9092"
