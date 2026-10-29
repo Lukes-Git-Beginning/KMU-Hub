@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // PostgresRepository implements Repository using PostgreSQL (pgx v5).
@@ -628,16 +629,18 @@ func scanDocument(row pgx.Row) (*Document, error) {
 // Share tokens
 // ============================================================================
 
-const shareTokenColumns = `id, tenant_id, document_id, token, password_hash,
+// shareTokenColumns leaves the secret out: only its hash is stored (000367),
+// so a listed or resolved link never carries a usable token.
+const shareTokenColumns = `id, tenant_id, document_id, password_hash,
 	        expires_at, revoked_at, view_count, created_by, created_at`
 
 func (r *PostgresRepository) CreateShareToken(ctx context.Context, t *ShareToken) error {
 	_, err := r.pool.Exec(ctx,
 		`INSERT INTO report_share_tokens
-		    (id, tenant_id, document_id, token, password_hash, expires_at,
+		    (id, tenant_id, document_id, token_hash, password_hash, expires_at,
 		     revoked_at, view_count, created_by, created_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-		t.ID, t.TenantID, t.DocumentID, t.Token, t.PasswordHash, t.ExpiresAt,
+		t.ID, t.TenantID, t.DocumentID, linksecret.Hash(t.Token), t.PasswordHash, t.ExpiresAt,
 		t.RevokedAt, t.ViewCount, t.CreatedBy, t.CreatedAt,
 	)
 	if err != nil {
@@ -700,7 +703,7 @@ func (r *PostgresRepository) RevokeShareToken(ctx context.Context, tenantID, sha
 // This is the one read in this service that runs without a tenant in the
 // session, because the public request has none: RLS would filter away the
 // single row that answers which tenant the caller may see. The query is
-// therefore pinned to an exact match on the unique token column and returns
+// therefore pinned to an exact match on the unique token_hash column and returns
 // everything the service needs to decide; it is never a listing and never
 // takes a filter. The revoked/expired verdict is the service's, not this
 // query's, so that a revoked link still resolves far enough to be logged.
@@ -710,8 +713,8 @@ func (r *PostgresRepository) GetShareTokenBySecret(ctx context.Context, secret s
 	}
 	return scanShareToken(r.pool.QueryRow(database.WithSystemContext(ctx),
 		`SELECT `+shareTokenColumns+`
-		 FROM report_share_tokens WHERE token = $1`,
-		secret,
+		 FROM report_share_tokens WHERE token_hash = $1`,
+		linksecret.Hash(secret),
 	))
 }
 
@@ -730,7 +733,7 @@ func (r *PostgresRepository) IncrementShareView(ctx context.Context, tenantID, s
 func scanShareToken(row pgx.Row) (*ShareToken, error) {
 	var t ShareToken
 	err := row.Scan(
-		&t.ID, &t.TenantID, &t.DocumentID, &t.Token, &t.PasswordHash,
+		&t.ID, &t.TenantID, &t.DocumentID, &t.PasswordHash,
 		&t.ExpiresAt, &t.RevokedAt, &t.ViewCount, &t.CreatedBy, &t.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {

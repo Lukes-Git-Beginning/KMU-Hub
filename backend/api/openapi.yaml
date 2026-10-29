@@ -50959,8 +50959,10 @@ components:
           type: string
           description: >
             The link secret in clear (43-char base64url, 32 bytes of
-            crypto/rand). Returned so the UI can render a copyable URL; it is
-            the entire credential for the public read route.
+            crypto/rand), the entire credential for the public read route.
+            Only in the create response: the server keeps its SHA-256 alone
+            (000367), so the list omits the field and a link can be copied
+            once, right after it was minted.
         expires_at:
           type: string
           format: date-time

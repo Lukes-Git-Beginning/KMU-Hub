@@ -78,8 +78,10 @@ func TestCreateShareToken_SecretIsFullEntropyAndUnique(t *testing.T) {
 		if decErr != nil {
 			t.Fatalf("token is not base64url: %v", decErr)
 		}
-		if len(raw) != shareTokenBytes {
-			t.Fatalf("token carries %d bytes of entropy, want %d", len(raw), shareTokenBytes)
+		// linksecret draws 32 bytes: the token is the whole credential of the
+		// public route, so its entropy is pinned here, not left to the helper.
+		if len(raw) != 32 {
+			t.Fatalf("token carries %d bytes of entropy, want 32", len(raw))
 		}
 		if seen[token.Token] {
 			t.Fatal("two links got the same secret; the generator is not random")

@@ -44,7 +44,8 @@ type Document struct {
 // ShareToken is an external read link for a single report document.
 //
 // It is the only unauthenticated read path into tenant data in this service,
-// so the invariants live in the type: Token is the whole credential, DocumentID
+// so the invariants live in the type: Token is the whole credential (set only
+// on the freshly minted link, stored as its hash since 000367), DocumentID
 // bounds what it may ever reach, and ExpiresAt/RevokedAt are the two ways it
 // stops working. PasswordHash never leaves the service — the wire form carries
 // only HasPassword.
@@ -52,7 +53,7 @@ type ShareToken struct {
 	ID           uuid.UUID  `json:"id"`
 	TenantID     uuid.UUID  `json:"tenant_id"`
 	DocumentID   uuid.UUID  `json:"document_id"`
-	Token        string     `json:"token"`
+	Token        string     `json:"token,omitempty"`
 	PasswordHash *string    `json:"-"`
 	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
 	RevokedAt    *time.Time `json:"-"`

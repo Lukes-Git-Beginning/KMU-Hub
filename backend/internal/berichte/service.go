@@ -3,9 +3,7 @@ package berichte
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -19,6 +17,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 )
 
@@ -982,11 +981,6 @@ func pointerTime(t time.Time) *time.Time { return &t }
 // ============================================================================
 
 const (
-	// shareTokenBytes is the entropy behind a share link. 32 bytes is not a
-	// round number picked for looks: the public route answers on the token
-	// alone, so the token is the entire access control. At 256 bits a guessing
-	// attack is not slowed by the rate limit, it is impossible.
-	shareTokenBytes = 32
 	// maxSharePasswordLen caps what is fed to bcrypt. bcrypt silently ignores
 	// input past 72 bytes, so an uncapped field would accept two different
 	// passwords as the same one.
@@ -1049,7 +1043,9 @@ func (s *Service) CreateShareToken(ctx context.Context, in CreateShareTokenInput
 		token.PasswordHash = &hashStr
 	}
 
-	secret, err := newShareSecret()
+	// The public route answers on the token alone, so it is drawn by
+	// linksecret (256 bits) and stored only as its hash.
+	secret, err := linksecret.New()
 	if err != nil {
 		return nil, err
 	}
@@ -1155,14 +1151,4 @@ func (s *Service) GetSharedDocument(ctx context.Context, secret, password string
 // link itself resolved to.
 func WithTenant(ctx context.Context, tenantID uuid.UUID) context.Context {
 	return context.WithValue(ctx, middleware.TenantIDKey, tenantID.String())
-}
-
-// newShareSecret draws a link secret from crypto/rand. base64url keeps it
-// usable in a URL path segment without escaping.
-func newShareSecret() (string, error) {
-	buf := make([]byte, shareTokenBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("generate share token: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
 }

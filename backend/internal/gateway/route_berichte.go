@@ -1293,11 +1293,12 @@ type publicReadShareHTTPRequest struct {
 	Password string `json:"password"`
 }
 
-// reportShareWire mirrors ReportShareToken in berichte-types.ts.
+// reportShareWire mirrors ReportShareToken in berichte-types.ts. Token is
+// set only in the create response; the list has no secret to send (000367).
 type reportShareWire struct {
 	ID          string     `json:"id"`
 	DocumentID  string     `json:"document_id"`
-	Token       string     `json:"token"`
+	Token       string     `json:"token,omitempty"`
 	ExpiresAt   *time.Time `json:"expires_at"`
 	HasPassword bool       `json:"has_password"`
 	ViewCount   int32      `json:"view_count"`
