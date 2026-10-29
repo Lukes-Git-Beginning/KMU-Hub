@@ -61,6 +61,9 @@ service AuthService {
   rpc CreateInvitation(CreateInvitationRequest) returns (CreateInvitationResponse);
   rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
   rpc AcceptInvitation(AcceptInvitationRequest) returns (AcceptInvitationResponse);
+  // Pre-JWT, read-only: what the gateway's /invite page shows before the form
+  // is submitted. Answers like AcceptInvitation for an unusable token.
+  rpc GetInvitationPreview(GetInvitationPreviewRequest) returns (GetInvitationPreviewResponse);
   rpc CancelInvitation(CancelInvitationRequest) returns (CancelInvitationResponse);
 
   // Two-Factor Authentication
@@ -565,6 +568,18 @@ message AcceptInvitationResponse {
   UserInfo user = 1;
   string access_token = 2;
   string refresh_token = 3;
+}
+
+message GetInvitationPreviewRequest {
+  string token = 1;
+}
+
+// The invitation as its recipient may see it. Deliberately no tenant id, role
+// or creator: the token is public-facing, the page only prefills the form.
+message GetInvitationPreviewResponse {
+  string email = 1;
+  string first_name = 2;
+  string last_name = 3;
 }
 
 message CancelInvitationRequest {

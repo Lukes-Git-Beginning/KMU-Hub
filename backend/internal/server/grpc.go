@@ -837,6 +837,20 @@ func (s *AuthGRPCServer) AcceptInvitation(ctx context.Context, req *authv1.Accep
 	}, nil
 }
 
+// GetInvitationPreview is pre-JWT like AcceptInvitation: the token is the
+// only credential, and the answer carries nothing the mail did not already.
+func (s *AuthGRPCServer) GetInvitationPreview(ctx context.Context, req *authv1.GetInvitationPreviewRequest) (*authv1.GetInvitationPreviewResponse, error) {
+	inv, err := s.authService.PreviewInvitation(ctx, req.Token)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &authv1.GetInvitationPreviewResponse{
+		Email:     inv.Email,
+		FirstName: inv.FirstName,
+		LastName:  inv.LastName,
+	}, nil
+}
+
 func (s *AuthGRPCServer) CancelInvitation(ctx context.Context, req *authv1.CancelInvitationRequest) (*authv1.CancelInvitationResponse, error) {
 	invID, err := uuid.Parse(req.InvitationId)
 	if err != nil {

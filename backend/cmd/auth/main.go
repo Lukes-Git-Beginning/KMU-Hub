@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
@@ -93,8 +94,8 @@ func main() {
 
 	passwordRepo := password.NewPostgresRepository(pool)
 	passwordService := password.NewService(passwordRepo)
-	// Wire password strength validator into auth service (used during reset).
-	authService.SetPasswordValidator(passwordService)
+	// Wire password strength validator into auth service (reset, invitation accept).
+	authService.SetPasswordValidator(&passwordPolicyAdapter{svc: passwordService})
 
 	gdprRepo := gdpr.NewPostgresRepository(pool)
 	gdprService := gdpr.NewService(gdprRepo)
@@ -271,4 +272,15 @@ func (a *vaultAdapter) EncryptTOTPSecret(_ context.Context, plainSecret string) 
 
 func (a *vaultAdapter) DecryptTOTPSecret(_ context.Context, encryptedSecret string) (string, error) {
 	return a.svc.DecryptTOTPSecret(encryptedSecret)
+}
+
+// passwordPolicyAdapter feeds the tenant into security/password, which reads
+// it from ctx. Reset and invitation accept run before any JWT, so their ctx
+// has no tenant of its own; the adapter is where it gets one.
+type passwordPolicyAdapter struct {
+	svc *password.Service
+}
+
+func (a *passwordPolicyAdapter) ValidatePassword(ctx context.Context, tenantID uuid.UUID, pw string) (bool, []string, error) {
+	return a.svc.ValidatePassword(context.WithValue(ctx, middleware.TenantIDKey, tenantID.String()), pw)
 }

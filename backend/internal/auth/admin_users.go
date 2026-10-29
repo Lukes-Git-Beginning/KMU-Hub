@@ -41,9 +41,9 @@ func (s *Service) ListAdminUsers(ctx context.Context) ([]AdminUser, error) {
 }
 
 // InviteAdminUser opens an invitation for an address and returns the roster row
-// it produces, plus the one-time token. The token travels back to the caller
-// rather than into a mail, because that is how the existing invitation route
-// works — internal/auth's Mailer only knows password resets.
+// it produces, plus the one-time token. The accept link goes out by mail
+// (createInvitation); the token also travels back to the caller, because the
+// existing invitation route has always returned it.
 //
 // Every role id is resolved through GetRoleByID first, and that resolution IS
 // the tenant boundary: roles carries an RLS read policy admitting presets and
@@ -97,7 +97,7 @@ func (s *Service) InviteAdminUser(ctx context.Context, tenantID, actorID uuid.UU
 func (s *Service) ResendAdminUserInvite(ctx context.Context, tenantID, invitationID uuid.UUID) (*AdminUser, string, error) {
 	token := generateSecureToken()
 
-	inv, err := s.repo.RefreshInvitationToken(ctx, tenantID, invitationID, HashToken(token), time.Now().Add(invitationExpiry))
+	inv, err := s.repo.RefreshInvitationToken(ctx, tenantID, invitationID, HashToken(token), time.Now().Add(InvitationExpiry))
 	if err != nil {
 		return nil, "", err
 	}
@@ -108,6 +108,7 @@ func (s *Service) ResendAdminUserInvite(ctx context.Context, tenantID, invitatio
 	}
 
 	slog.Info("invitation resent", "invitation_id", inv.ID, "email", inv.Email)
+	s.sendInvitationEmail(ctx, inv, token)
 	return row, token, nil
 }
 

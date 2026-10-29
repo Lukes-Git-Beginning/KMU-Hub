@@ -53,6 +53,7 @@ const (
 	AuthService_CreateInvitation_FullMethodName        = "/auth.v1.AuthService/CreateInvitation"
 	AuthService_ListInvitations_FullMethodName         = "/auth.v1.AuthService/ListInvitations"
 	AuthService_AcceptInvitation_FullMethodName        = "/auth.v1.AuthService/AcceptInvitation"
+	AuthService_GetInvitationPreview_FullMethodName    = "/auth.v1.AuthService/GetInvitationPreview"
 	AuthService_CancelInvitation_FullMethodName        = "/auth.v1.AuthService/CancelInvitation"
 	AuthService_Setup2FA_FullMethodName                = "/auth.v1.AuthService/Setup2FA"
 	AuthService_Verify2FA_FullMethodName               = "/auth.v1.AuthService/Verify2FA"
@@ -121,6 +122,9 @@ type AuthServiceClient interface {
 	CreateInvitation(ctx context.Context, in *CreateInvitationRequest, opts ...grpc.CallOption) (*CreateInvitationResponse, error)
 	ListInvitations(ctx context.Context, in *ListInvitationsRequest, opts ...grpc.CallOption) (*ListInvitationsResponse, error)
 	AcceptInvitation(ctx context.Context, in *AcceptInvitationRequest, opts ...grpc.CallOption) (*AcceptInvitationResponse, error)
+	// Pre-JWT, read-only: what the gateway's /invite page shows before the form
+	// is submitted. Answers like AcceptInvitation for an unusable token.
+	GetInvitationPreview(ctx context.Context, in *GetInvitationPreviewRequest, opts ...grpc.CallOption) (*GetInvitationPreviewResponse, error)
 	CancelInvitation(ctx context.Context, in *CancelInvitationRequest, opts ...grpc.CallOption) (*CancelInvitationResponse, error)
 	// Two-Factor Authentication
 	Setup2FA(ctx context.Context, in *Setup2FARequest, opts ...grpc.CallOption) (*Setup2FAResponse, error)
@@ -489,6 +493,16 @@ func (c *authServiceClient) AcceptInvitation(ctx context.Context, in *AcceptInvi
 	return out, nil
 }
 
+func (c *authServiceClient) GetInvitationPreview(ctx context.Context, in *GetInvitationPreviewRequest, opts ...grpc.CallOption) (*GetInvitationPreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInvitationPreviewResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetInvitationPreview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) CancelInvitation(ctx context.Context, in *CancelInvitationRequest, opts ...grpc.CallOption) (*CancelInvitationResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CancelInvitationResponse)
@@ -681,6 +695,9 @@ type AuthServiceServer interface {
 	CreateInvitation(context.Context, *CreateInvitationRequest) (*CreateInvitationResponse, error)
 	ListInvitations(context.Context, *ListInvitationsRequest) (*ListInvitationsResponse, error)
 	AcceptInvitation(context.Context, *AcceptInvitationRequest) (*AcceptInvitationResponse, error)
+	// Pre-JWT, read-only: what the gateway's /invite page shows before the form
+	// is submitted. Answers like AcceptInvitation for an unusable token.
+	GetInvitationPreview(context.Context, *GetInvitationPreviewRequest) (*GetInvitationPreviewResponse, error)
 	CancelInvitation(context.Context, *CancelInvitationRequest) (*CancelInvitationResponse, error)
 	// Two-Factor Authentication
 	Setup2FA(context.Context, *Setup2FARequest) (*Setup2FAResponse, error)
@@ -810,6 +827,9 @@ func (UnimplementedAuthServiceServer) ListInvitations(context.Context, *ListInvi
 }
 func (UnimplementedAuthServiceServer) AcceptInvitation(context.Context, *AcceptInvitationRequest) (*AcceptInvitationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method AcceptInvitation not implemented")
+}
+func (UnimplementedAuthServiceServer) GetInvitationPreview(context.Context, *GetInvitationPreviewRequest) (*GetInvitationPreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInvitationPreview not implemented")
 }
 func (UnimplementedAuthServiceServer) CancelInvitation(context.Context, *CancelInvitationRequest) (*CancelInvitationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CancelInvitation not implemented")
@@ -1486,6 +1506,24 @@ func _AuthService_AcceptInvitation_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_GetInvitationPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInvitationPreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetInvitationPreview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetInvitationPreview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetInvitationPreview(ctx, req.(*GetInvitationPreviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AuthService_CancelInvitation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CancelInvitationRequest)
 	if err := dec(in); err != nil {
@@ -1880,6 +1918,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AcceptInvitation",
 			Handler:    _AuthService_AcceptInvitation_Handler,
+		},
+		{
+			MethodName: "GetInvitationPreview",
+			Handler:    _AuthService_GetInvitationPreview_Handler,
 		},
 		{
 			MethodName: "CancelInvitation",

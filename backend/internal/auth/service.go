@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -26,8 +27,12 @@ const passwordResetExpiry = 1 * time.Hour
 // PasswordValidator is the narrow interface the service uses to check
 // password strength. The concrete implementation wraps
 // security/password.Service.
+//
+// The tenant is a parameter because both callers (reset, invitation accept)
+// run before any JWT exists: their ctx carries no tenant, and the policy is
+// per tenant. Reading it from ctx made every check fail and be skipped.
 type PasswordValidator interface {
-	ValidatePassword(ctx context.Context, password string) (valid bool, reasons []string, err error)
+	ValidatePassword(ctx context.Context, tenantID uuid.UUID, password string) (valid bool, reasons []string, err error)
 }
 
 type Service struct {
@@ -517,7 +522,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassw
 	return nil
 }
 
-const invitationExpiry = 7 * 24 * time.Hour // 7 days
+const InvitationExpiry = 7 * 24 * time.Hour // 7 days
 
 // CreateInvitation creates a new user invitation for the given tenant. The
 // tenant is passed in rather than read from ctx: internal/auth cannot import
@@ -565,7 +570,7 @@ func (s *Service) createInvitation(ctx context.Context, tenantID uuid.UUID, emai
 		RoleIDs:   roleIDs,
 		TokenHash: hash,
 		CreatedBy: createdBy,
-		ExpiresAt: time.Now().Add(invitationExpiry),
+		ExpiresAt: time.Now().Add(InvitationExpiry),
 		CreatedAt: time.Now(),
 	}
 
@@ -574,7 +579,66 @@ func (s *Service) createInvitation(ctx context.Context, tenantID uuid.UUID, emai
 	}
 
 	slog.Info("invitation created", "email", email, "role_ids", roleIDs, "created_by", createdBy)
+	s.sendInvitationEmail(ctx, inv, token)
 	return inv, token, nil
+}
+
+// sendInvitationEmail mails the accept link. A failed send never undoes the
+// invitation: it stays pending and ResendAdminUserInvite mails a fresh link.
+// The token is never logged — it is the whole credential for the account.
+func (s *Service) sendInvitationEmail(ctx context.Context, inv *models.Invitation, token string) {
+	if s.mailer == nil {
+		slog.Warn("mailer not configured, invitation email not sent", "invitation_id", inv.ID)
+		return
+	}
+	name := strings.TrimSpace(inv.FirstName + " " + inv.LastName)
+	if name == "" {
+		name = inv.Email
+	}
+	if err := s.mailer.SendInvitationEmail(ctx, inv.Email, name, s.inviteLink(token)); err != nil {
+		slog.Error("failed to send invitation email", "invitation_id", inv.ID, "error", err)
+	}
+}
+
+// inviteLink points at the gateway's /invite page on the host the reset links
+// already use — same Caddy, same gateway — so no second base-URL env exists.
+func (s *Service) inviteLink(token string) string {
+	base := s.resetBaseURL
+	if base == "" {
+		base = "https://app.zentria.tech/reset-password"
+	}
+	u, err := url.Parse(base)
+	if err != nil || u.Host == "" {
+		u, _ = url.Parse("https://app.zentria.tech")
+	}
+	u.Path = "/invite"
+	u.RawQuery = url.Values{"token": {token}}.Encode()
+	u.Fragment = ""
+	return u.String()
+}
+
+// usableInvitation resolves a token to an invitation that can still be
+// accepted. Pre-JWT: the token is opaque and ctx carries no tenant, so the
+// lookup needs RLS bypass.
+func (s *Service) usableInvitation(ctx context.Context, token string) (*models.Invitation, error) {
+	inv, err := s.repo.GetInvitationByToken(sysctx.With(ctx), HashToken(token))
+	if err != nil {
+		return nil, ErrInvitationNotFound
+	}
+	if inv.AcceptedAt != nil {
+		return nil, ErrInvitationAlreadyUsed
+	}
+	if time.Now().After(inv.ExpiresAt) {
+		return nil, ErrInvitationExpired
+	}
+	return inv, nil
+}
+
+// PreviewInvitation returns the invitation behind a token without touching
+// it, for the /invite page to prefill its form and to show a dead link as
+// dead before anyone types a password into it.
+func (s *Service) PreviewInvitation(ctx context.Context, token string) (*models.Invitation, error) {
+	return s.usableInvitation(ctx, token)
 }
 
 // AcceptInvitation creates a user from an invitation
@@ -583,19 +647,22 @@ func (s *Service) AcceptInvitation(ctx context.Context, token, password, firstNa
 	// invitations + users + user_roles lookups all need RLS bypass.
 	ctx = sysctx.With(ctx)
 
-	hash := HashToken(token)
-
-	inv, err := s.repo.GetInvitationByToken(ctx, hash)
+	inv, err := s.usableInvitation(ctx, token)
 	if err != nil {
-		return nil, nil, ErrInvitationNotFound
+		return nil, nil, err
 	}
 
-	if inv.AcceptedAt != nil {
-		return nil, nil, ErrInvitationAlreadyUsed
-	}
-
-	if time.Now().After(inv.ExpiresAt) {
-		return nil, nil, ErrInvitationExpired
+	// The tenant's password policy applies to a new account as much as to a
+	// reset — it is the same credential. Same fail-open on a validator error
+	// as ResetPassword.
+	if s.passwordValidator != nil {
+		valid, reasons, valErr := s.passwordValidator.ValidatePassword(ctx, inv.TenantID, password)
+		if valErr != nil {
+			slog.Warn("password validator error during invitation accept, skipping strength check", "error", valErr)
+		} else if !valid {
+			slog.Info("invitation accept rejected: weak password", "invitation_id", inv.ID, "reasons", reasons)
+			return nil, nil, ErrPasswordTooWeak
+		}
 	}
 
 	// The seat this invitation reserved may have been withdrawn in the meantime
@@ -770,7 +837,7 @@ func (s *Service) ResetPassword(ctx context.Context, token, newPassword string) 
 
 	// Strength check via injected validator (if wired).
 	if s.passwordValidator != nil {
-		valid, reasons, valErr := s.passwordValidator.ValidatePassword(sysCtx, newPassword)
+		valid, reasons, valErr := s.passwordValidator.ValidatePassword(sysCtx, prt.TenantID, newPassword)
 		if valErr != nil {
 			slog.Warn("password validator error during reset, skipping strength check", "error", valErr)
 		} else if !valid {

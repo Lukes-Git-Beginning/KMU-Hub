@@ -174,7 +174,7 @@ func (s *Service) buildProvisioning(in ProvisionTenantInput) (*models.Tenant, *m
 		Email:     email,
 		Role:      "admin",
 		CreatedBy: in.CreatedBy,
-		ExpiresAt: now.Add(invitationExpiry),
+		ExpiresAt: now.Add(InvitationExpiry),
 		CreatedAt: now,
 	}
 

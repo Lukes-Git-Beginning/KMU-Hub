@@ -17,12 +17,23 @@ import (
 // Test helpers
 // ============================================================================
 
-// mockMailer records SendPasswordResetEmail calls for assertion.
+// mockMailer records SendPasswordResetEmail and SendInvitationEmail calls for
+// assertion.
 type mockMailer struct {
 	called    bool
 	lastEmail string
 	lastLink  string
 	err       error
+
+	invites   []sentInvite
+	inviteErr error
+}
+
+type sentInvite struct{ to, name, link string }
+
+func (m *mockMailer) SendInvitationEmail(_ context.Context, toEmail, toName, inviteLink string) error {
+	m.invites = append(m.invites, sentInvite{to: toEmail, name: toName, link: inviteLink})
+	return m.inviteErr
 }
 
 func (m *mockMailer) SendPasswordResetEmail(_ context.Context, toEmail, _ string, resetLink string) error {
@@ -37,9 +48,12 @@ type mockPasswordValidator struct {
 	valid   bool
 	reasons []string
 	err     error
+
+	gotTenant uuid.UUID
 }
 
-func (v *mockPasswordValidator) ValidatePassword(_ context.Context, _ string) (bool, []string, error) {
+func (v *mockPasswordValidator) ValidatePassword(_ context.Context, tenantID uuid.UUID, _ string) (bool, []string, error) {
+	v.gotTenant = tenantID
 	return v.valid, v.reasons, v.err
 }
 

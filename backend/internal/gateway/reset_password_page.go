@@ -45,7 +45,8 @@ type resetPageData struct {
 	Message string
 }
 
-// RegisterPublicRoutes registers the unauthenticated password-reset page. The
+// RegisterPublicRoutes registers the unauthenticated password-reset and
+// invitation pages. The
 // caller passes the strict per-IP public limiter: the token in the link is the
 // whole credential, so an unthrottled POST loop would be a guessing run.
 func (a *AuthRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(http.Handler) http.Handler) {
@@ -59,12 +60,22 @@ func (a *AuthRoutes) RegisterPublicRoutes(r chi.Router, publicRateLimit func(htt
 		// because `curl -I` was showing the global ones instead.
 		r.Head("/reset-password", a.HandleResetPasswordPage)
 		r.Post("/reset-password", a.HandleResetPasswordPageSubmit)
+
+		// Invitation mails link here (invite_page.go); same limiter, same reason.
+		r.Get("/invite", a.HandleInvitePage)
+		r.Head("/invite", a.HandleInvitePage)
+		r.Post("/invite", a.HandleInvitePageSubmit)
 	})
 }
 
-// renderResetPage writes the page with headers that keep the token out of
-// referers, proxies and search indexes, and forbid scripts entirely.
 func renderResetPage(w http.ResponseWriter, code int, data resetPageData) {
+	renderTokenPage(w, code, resetPasswordPageTmpl, data)
+}
+
+// renderTokenPage writes a public page whose URL carries a one-time token,
+// with headers that keep the token out of referers, proxies and search
+// indexes, and forbid scripts entirely.
+func renderTokenPage(w http.ResponseWriter, code int, tmpl *template.Template, data any) {
 	h := w.Header()
 	h.Set("Content-Type", "text/html; charset=utf-8")
 	// No scripts at all: the page is a plain form, so the strictest policy
@@ -79,10 +90,10 @@ func renderResetPage(w http.ResponseWriter, code int, data resetPageData) {
 	h.Set("Cache-Control", "no-store, max-age=0")
 
 	w.WriteHeader(code)
-	if err := resetPasswordPageTmpl.Execute(w, data); err != nil {
+	if err := tmpl.Execute(w, data); err != nil {
 		// Header and status are already on the wire; log rather than
 		// double-write a broken response.
-		slog.Error("reset password page render failed", "error", err)
+		slog.Error("token page render failed", "page", tmpl.Name(), "error", err)
 	}
 }
 

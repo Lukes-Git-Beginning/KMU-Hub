@@ -159,7 +159,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29: Die Einladung kommt per Mail über den vorhandenen System-Mailer, der Link führt

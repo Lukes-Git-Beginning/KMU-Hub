@@ -745,6 +745,44 @@ func TestAuthGRPC_AcceptInvitation(t *testing.T) {
 	})
 }
 
+// GetInvitationPreview answers the /invite page's GET: the name and address
+// the invitation carries, and for an unusable token the same codes the accept
+// path uses, so the page can tell "unknown" from "expired or spent".
+func TestAuthGRPC_GetInvitationPreview(t *testing.T) {
+	ctx := invitationCtx()
+	srv, repo := newTestAuthGRPCServer()
+
+	createResp, err := srv.CreateInvitation(ctx, &authv1.CreateInvitationRequest{
+		Email: "preview@example.com", Role: "member", CreatedBy: uuid.New().String(),
+	})
+	requireGRPCOK(t, err)
+
+	resp, err := srv.GetInvitationPreview(ctx, &authv1.GetInvitationPreviewRequest{Token: createResp.Token})
+	requireGRPCOK(t, err)
+	assert.Equal(t, "preview@example.com", resp.Email)
+
+	_, err = srv.GetInvitationPreview(ctx, &authv1.GetInvitationPreviewRequest{Token: "nonexistent"})
+	requireGRPCCode(t, err, codes.NotFound)
+
+	expired := &models.Invitation{
+		ID: uuid.New(), Email: "old@example.com", Role: "member",
+		TokenHash: auth.HashToken("old-token"), CreatedBy: uuid.New(),
+		ExpiresAt: time.Now().Add(-time.Hour), CreatedAt: time.Now(),
+	}
+	repo.invitations[expired.ID] = expired
+	repo.invByToken[expired.TokenHash] = expired
+	_, err = srv.GetInvitationPreview(ctx, &authv1.GetInvitationPreviewRequest{Token: "old-token"})
+	requireGRPCCode(t, err, codes.FailedPrecondition)
+
+	// Accepting spends the token for the preview as well.
+	_, err = srv.AcceptInvitation(ctx, &authv1.AcceptInvitationRequest{
+		Token: createResp.Token, Password: "StrongPass123!", FirstName: "P", LastName: "V",
+	})
+	requireGRPCOK(t, err)
+	_, err = srv.GetInvitationPreview(ctx, &authv1.GetInvitationPreviewRequest{Token: createResp.Token})
+	requireGRPCCode(t, err, codes.FailedPrecondition)
+}
+
 func TestAuthGRPC_CancelInvitation(t *testing.T) {
 	ctx := invitationCtx()
 

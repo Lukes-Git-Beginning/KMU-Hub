@@ -15,6 +15,8 @@ import (
 	"net/smtp"
 	"strings"
 	"time"
+
+	"github.com/kmuhub/kmuhub/internal/auth"
 )
 
 // smtpDialTimeout bounds the TCP connect; smtpExchangeDeadline bounds the whole
@@ -47,19 +49,92 @@ func (m *systemMailer) SendPasswordResetEmail(_ context.Context, toEmail, toName
 
 	msg := m.buildPasswordResetMessage(toEmail, toName, resetLink,
 		randomToken(), messageID(m.from), time.Now())
+	if err := m.deliver(toEmail, msg); err != nil {
+		return err
+	}
 
+	slog.Info("password reset email sent", "to", toEmail)
+	return nil
+}
+
+// SendInvitationEmail mails the /invite accept link. Unlike the reset path, the
+// unconfigured branch does not log the link: an invitation token creates an
+// account, and dev logs are not where that should be readable.
+func (m *systemMailer) SendInvitationEmail(_ context.Context, toEmail, toName, inviteLink string) error {
+	if m.host == "" {
+		slog.Info("system SMTP not configured — invitation email suppressed", "to", toEmail)
+		return nil
+	}
+
+	msg := m.buildInvitationMessage(toEmail, toName, inviteLink,
+		randomToken(), messageID(m.from), time.Now())
+	if err := m.deliver(toEmail, msg); err != nil {
+		return err
+	}
+
+	slog.Info("invitation email sent", "to", toEmail)
+	return nil
+}
+
+func (m *systemMailer) deliver(toEmail string, msg []byte) error {
 	addr := fmt.Sprintf("%s:%d", m.host, m.port)
 	var auth smtp.Auth
 	if m.username != "" {
 		auth = smtp.PlainAuth("", m.username, m.password, m.host)
 	}
-
 	if err := m.sendMail(addr, auth, []string{toEmail}, msg); err != nil {
 		return fmt.Errorf("system mailer: send to %s: %w", toEmail, err)
 	}
-
-	slog.Info("password reset email sent", "to", toEmail)
 	return nil
+}
+
+// invitationValidity renders auth.InvitationExpiry for the mail text, so the
+// sentence cannot drift from what the service enforces.
+func invitationValidity() string {
+	days := int(auth.InvitationExpiry / (24 * time.Hour))
+	if days == 1 {
+		return "einen Tag"
+	}
+	return fmt.Sprintf("%d Tage", days)
+}
+
+// buildInvitationMessage assembles the invitation mail; same layout and the
+// same fixed-parameter shape as buildPasswordResetMessage.
+func (m *systemMailer) buildInvitationMessage(toEmail, toName, inviteLink, boundary, msgID string, now time.Time) []byte {
+	const subject = "Einladung zu Cosmi"
+	validity := invitationValidity()
+
+	plain := fmt.Sprintf("Hallo %s,\r\n\r\n"+
+		"du wurdest eingeladen, Cosmi zu nutzen. Dein Konto wird für %s angelegt.\r\n\r\n"+
+		"Über diesen Link legst du deinen Namen und dein Passwort fest. Er gilt %s und\r\n"+
+		"lässt sich nur einmal verwenden:\r\n\r\n"+
+		"%s\r\n\r\n"+
+		"Danach meldest du dich mit dieser Adresse in der Cosmi-App an.\r\n\r\n"+
+		"Erwartest du keine Einladung, kannst du diese Nachricht ignorieren.\r\n\r\n"+
+		"Cosmi — von Zentria\r\n",
+		toName, toEmail, validity, inviteLink,
+	)
+
+	htmlBody := fmt.Sprintf(`<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:24px;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;color:#18181b;line-height:1.5;">
+  <div style="max-width:30rem;margin:0 auto;background:#ffffff;border:1px solid #e4e4e7;border-radius:14px;padding:32px;">
+    <p style="margin:0 0 22px;font-size:11px;font-weight:600;letter-spacing:0.13em;text-transform:uppercase;color:#1e7e74;">Cosmi</p>
+    <h1 style="margin:0 0 10px;font-size:20px;font-weight:600;">Du wurdest eingeladen</h1>
+    <p style="margin:0 0 20px;color:#71717a;font-size:15px;">Hallo %s, dein Cosmi-Konto wird für <strong style="color:#18181b;font-weight:600;">%s</strong> angelegt. Lege jetzt Namen und Passwort fest.</p>
+    <a href="%s" style="display:inline-block;padding:12px 22px;background:#1e7e74;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:9px;">Einladung annehmen</a>
+    <p style="margin:20px 0 0;color:#71717a;font-size:13px;">Der Link gilt %s und lässt sich nur einmal verwenden. Falls die Schaltfläche nicht funktioniert:</p>
+    <p style="margin:6px 0 0;font-size:13px;word-break:break-all;"><a href="%s" style="color:#1e7e74;">%s</a></p>
+    <p style="margin:22px 0 0;padding-top:18px;border-top:1px solid #e4e4e7;color:#71717a;font-size:13px;">Erwartest du keine Einladung, kannst du diese Nachricht ignorieren.</p>
+    <p style="margin:18px 0 0;color:#71717a;font-size:12px;">Cosmi — von Zentria</p>
+  </div>
+</body>
+</html>
+`, html.EscapeString(toName), html.EscapeString(toEmail), html.EscapeString(inviteLink),
+		validity, html.EscapeString(inviteLink), html.EscapeString(inviteLink))
+
+	return m.assemble(toEmail, subject, plain, htmlBody, boundary, msgID, now)
 }
 
 // randomToken returns hex bytes for a MIME boundary or a Message-ID local part.
@@ -125,6 +200,12 @@ func (m *systemMailer) buildPasswordResetMessage(toEmail, toName, resetLink, bou
 `, html.EscapeString(toName), html.EscapeString(toEmail),
 		html.EscapeString(resetLink), html.EscapeString(resetLink), html.EscapeString(resetLink))
 
+	return m.assemble(toEmail, subject, plain, htmlBody, boundary, msgID, now)
+}
+
+// assemble wraps a plain and an HTML body into the multipart/alternative mail
+// both system mails send.
+func (m *systemMailer) assemble(toEmail, subject, plain, htmlBody, boundary, msgID string, now time.Time) []byte {
 	var buf bytes.Buffer
 	buf.WriteString("From: " + m.from + "\r\n")
 	buf.WriteString("To: " + toEmail + "\r\n")

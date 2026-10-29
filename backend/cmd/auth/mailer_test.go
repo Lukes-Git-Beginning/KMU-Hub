@@ -165,3 +165,38 @@ func TestMessageIDFallsBackWhenSenderHasNoDomain(t *testing.T) {
 		t.Errorf("messageID = %q, want the localhost fallback", got)
 	}
 }
+
+func TestInvitationMessageCarriesLinkValidityAndSubject(t *testing.T) {
+	const link = "https://app.zentria.tech/invite?token=abc123"
+	m := &systemMailer{host: "smtp.example.com", port: 587, from: "noreply@zentria.tech"}
+	raw := m.buildInvitationMessage(testToEmail, "Nora Neu", link,
+		"boundary0123456789", "<fixed@zentria.tech>",
+		time.Date(2026, 10, 29, 22, 40, 0, 0, time.UTC))
+
+	msg, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatalf("message is not well-formed: %v", err)
+	}
+	subject, err := new(mime.WordDecoder).DecodeHeader(msg.Header.Get("Subject"))
+	if err != nil || subject != "Einladung zu Cosmi" {
+		t.Errorf("Subject = %q (%v)", subject, err)
+	}
+
+	parts := parseParts(t, raw)
+	for _, pt := range []string{"text/plain", "text/html"} {
+		body := parts[pt]
+		if !strings.Contains(body, link) {
+			t.Errorf("%s part does not carry the invite link", pt)
+		}
+		if !strings.Contains(body, testToEmail) {
+			t.Errorf("%s part does not name the account address", pt)
+		}
+		// Rendered from auth.InvitationExpiry, so it cannot drift.
+		if !strings.Contains(body, "7 Tage") {
+			t.Errorf("%s part does not state the validity", pt)
+		}
+	}
+	if strings.Contains(parts["text/html"], "<img") {
+		t.Error("html part contains an image")
+	}
+}
