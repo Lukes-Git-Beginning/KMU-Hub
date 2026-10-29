@@ -150,6 +150,9 @@ func (fr *FuhrparkRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.
 		})
 
 		// GPS
+		// lean: positions are a fleet view for admin/manager and are not masked during private
+		// trips (gps_positions has no driver or trip link, trip_logs.date has no time of day);
+		// add a time window to trip_logs or a private flag on ingest once a customer connects a tracker
 		r.Route("/gps", func(r chi.Router) {
 			r.With(middleware.RequirePermission("fuhrpark:gps", "write")).Post("/ingest", fr.HandleIngestGpsPositions)
 			r.With(middleware.RequirePermission("fuhrpark:gps", "read")).Get("/routes", fr.HandleGetVehicleRoutes)

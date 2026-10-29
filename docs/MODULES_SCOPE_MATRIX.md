@@ -168,6 +168,7 @@
 - **Frontend-Stand:** 2299 LOC in `desktop/src/renderer/src/modules/fuhrpark/` (2 Files), Mock-Store
 - **Backend-Stand:** ✅ Package vorhanden (`backend/internal/fuhrpark/`), 2 Migrations (000096 create, 000097 seed_permissions)
 - **Besonderheiten:** TUeV-Reminder via `tuev_due_date` + Cron-basierter Check via advisory-lock (7d/1d vor Faelligkeit), Fahrzeug-Service-History vollstaendig protokolliert, Schaden-Meldungen mit Foto-Upload (MinIO), Fuel-Tracking optional
+- **GPS und Privatfahrten (Entscheidung 2026-10-29):** Das Fahrtenbuch maskiert Privatfahrten für alle außer dem Fahrer, die GPS-Positionen (`/fuhrpark/gps/*`) bleiben eine ungefilterte Flottenansicht für admin/manager. Erst wenn ein Kunde einen Tracker anbindet, bekommt `trip_logs` ein Zeitfenster oder der Ingest ein Privat-Flag.
 - **Status Sprint 2:** Live — Package, Migrations 000096–097, TUeV-Reminder-Cron vorhanden
 
 ---
