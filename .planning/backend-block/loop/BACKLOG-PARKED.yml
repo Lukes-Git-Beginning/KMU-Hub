@@ -881,3 +881,29 @@ units:
       - backend/internal/server/work_grpc.go
     done_when:
       - 'Test: Zeitplan-Trigger ohne Akteur legt eine Aufgabe mit dem System-Akteur an'
+
+  - id: decide-fuhrpark-gps-during-private-trips
+    phase: 4
+    service: fuhrpark
+    model: sonnet
+    deps: []
+    status: resolved
+    resolved: '2026-10-29'
+    decided: '2026-10-29'
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-29 (Vorbereitung Lauf 18, Variante c): so lassen. Die GPS-Positionen bleiben eine
+      Flottenansicht für admin/manager, Privatfahrten werden dort nicht ausgeblendet. Es ist kein Tracker angebunden
+      und es gibt keinen Piloten mit Fahrzeugen.
+    resolution: >-
+      `lean:`-Marker an den GPS-Routen (`backend/internal/gateway/route_fuhrpark.go`, Block "GPS") und ein Absatz in
+      `docs/MODULES_SCOPE_MATRIX.md` (fuhrpark). Auslöser für den Bau: der erste Kunde bindet einen Tracker an. Dann
+      Variante a (Zeit von/bis an `trip_logs`, Positionen im Fenster für Nicht-Fahrer ausblenden) oder b (Privat-Flag
+      beim Ingest).
+    scope: >-
+      Fund aus Lauf 17 Iteration 15. `gps_positions` hat weder Fahrer noch Fahrtbezug, `trip_logs.date` ist ein DATE
+      ohne Uhrzeit; eine Privatfahrt lässt sich den Positionen heute nicht zuordnen. Das Fahrtenbuch selbst maskiert
+      Privatfahrten seit `fix-fuhrpark-trip-logs-private-flag-not-filtered`.
+    sources:
+      - backend/migrations/000195_create_gps_positions.up.sql
+      - backend/migrations/000193_create_trip_logs.up.sql
+      - backend/internal/gateway/route_fuhrpark.go

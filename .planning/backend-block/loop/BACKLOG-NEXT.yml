@@ -17,6 +17,19 @@
 # CI-Stand nachziehen. Muster: PROMPT-VORBEREITUNG-LAUF-11.md.
 #
 # ==========================================================================================
+# STAND NACH DER ENTSCHEIDUNGSRUNDE 2026-10-29 (Vorbereitung Lauf 18)
+#
+# Acht Entscheidungen in vier Runden. Nach BACKLOG.yml verschoben und dort mit `decision`:
+# `harden-csat-token-minted-at-dispatch`, `feat-hr-team-documents-for-managers`, aus den decide-Units
+# `fix-recording-participant-consent-on-pending`, `fix-recurring-generate-rejects-future-period`,
+# `seed-fuhrpark-damage-read-all-for-managers`, `harden-email-template-create-shared-requires-admin`.
+# GPS bei Privatfahrten: so lassen mit lean-Marker (BACKLOG-PARKED.yml, resolved). Produktion-Hülle:
+# Desktop entpackt (FE, tagsüber). Retention: Fristen bleiben, Kaskaden-Scan im Lauf. Hier geblieben:
+# FE-Arbeit, Legal-, Pilot- und DATEV-gebundene Units, der Backup-Wächter (gehört zum Offsite-Tag).
+# Liste aller Entscheidungen: Laufkontext in JOURNAL.md (Lauf 18).
+# ==========================================================================================
+#
+# ==========================================================================================
 # STAND NACH DER ENTSCHEIDUNGSRUNDE 2026-10-25 (Vorbereitung Lauf 17)
 #
 # 26 Entscheidungs-Units in sieben Runden entschieden. Alles Baubare ist nach BACKLOG.yml
@@ -400,6 +413,10 @@ units:
       `call_sessions`/`call_participants` 24 Monate, `public_bookings` 24 Monate nach Terminende,
       gebaut in Lauf 17 (`feat-retention-*`). Die Meeting-Notizen haben eine eigene Unit (2 Jahre). Alle
       übrigen Tabellen dieser Liste bleiben hier bis zur anwaltlichen Beratung (Etappe 4).
+    stand_2026_10_29: >-
+      Entscheidung Luke 2026-10-29: Fristen bleiben bis zur anwaltlichen Beratung geparkt. Lauf 18 prüft per
+      `scan-child-tables-cascade-on-parent-delete-and-scrub` nur, ob vorhandene Löschwege (Elternobjekt, Kontakt-Scrub,
+      Nutzer-Löschung) die Kindtabellen mitnehmen.
     blocked_reason: >-
       Entscheidung Luke offen: fuer welche der unten genannten Tabellen mit Personenbezug, ohne gesetzliche
       Frist und ohne jeden Ablauf eine Aufbewahrungsdauer gelten soll. Ein Handler, der Daten loescht oder
@@ -1412,55 +1429,6 @@ units:
       - "Rollen-Editor zeigt und speichert email:rule:* (Screenshot)"
       - "member sieht tenantweite Regeln ohne Lösch-/Bearbeiten-Knopf (Screenshot)"
 
-  - id: decide-email-template-create-shared-by-member
-    phase: 4
-    service: email
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: darf member weiterhin geteilte Vorlagen ANLEGEN? Fund aus Lauf 17 Iteration 12"
-    target: "Luke entscheidet, danach eine kleine Backend-Unit"
-    scope: >
-      `feat-email-templates-own-personal-edit` (Migration 000349) beschränkt Ändern/Löschen und den
-      Sichtbarkeitswechsel auf den groben Key (admin); member pflegt nur eigene persönliche Vorlagen. Das ANLEGEN
-      (`POST /api/v1/email/templates`, Guard `email:mailbox:write`) nimmt aber weiter `visibility: shared` von
-      jedem member an: er legt eine tenantweit sichtbare Vorlage an, die er danach selbst nicht mehr korrigieren
-      oder löschen kann (403). Die Entscheidung vom 2026-10-25 ("geteilte nur admin") nennt das Anlegen nicht
-      ausdrücklich. Optionen: (a) Anlegen mit `shared` ohne `email:write` -> 403, (b) so lassen. Zusätzlich:
-      Die Desktop-Vorlagen (`stores/mailTemplates.ts`) laufen heute rein lokal, kein FE-Aufrufer der
-      `/email/templates`-Routen — die Rechte wirken erst, wenn das FE angebunden ist.
-    sources:
-      - backend/internal/email/template/service.go (Create)
-      - backend/internal/gateway/route_email.go (Templates)
-      - desktop/src/renderer/src/stores/mailTemplates.ts
-    done_when:
-      - "Entscheidung im Unit-Text, danach Router-Test: member POST shared -> 403 (falls a)"
-
-  - id: decide-fuhrpark-gps-during-private-trips
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: "ENTSCHEIDUNG LUKE: sollen GPS-Punkte während einer Privatfahrt für Nicht-Fahrer verborgen werden, und wie lassen sie sich zuordnen? Fund aus Lauf 17 Iteration 15"
-    target: "Luke entscheidet, danach eine Backend-Unit (ggf. mit Migration)"
-    scope: >
-      `fix-fuhrpark-trip-logs-private-flag-not-filtered` maskiert Privatfahrten in Fahrtenbuch-Liste und Export
-      (Ziel, Zweck, Route weg). Die Entscheidung vom 2026-10-25 nennt auch „ohne GPS“. Das Fahrtenbuch selbst
-      trägt kein GPS, die GPS-Routen (`GET /fuhrpark/gps/positions`, `/gps/routes`, Guard `fuhrpark:gps:read`)
-      liefern aber weiterhin alle Positionen eines Fahrzeugs. `gps_positions` hat weder Fahrer noch Fahrtbezug,
-      `trip_logs.date` ist ein DATE ohne Uhrzeit: eine Privatfahrt lässt sich den Positionen heute nicht
-      zuordnen. Optionen: (a) Uhrzeit von/bis an `trip_logs` plus Ausblenden der Positionen im Fenster für
-      Nicht-Fahrer, (b) Privat-Flag an den GPS-Punkten (vom Tracker/Fahrer gesetzt), (c) so lassen, GPS bleibt
-      eine Flottenfunktion für admin/manager.
-    sources:
-      - backend/migrations/000195_create_gps_positions.up.sql
-      - backend/migrations/000193_create_trip_logs.up.sql
-      - backend/internal/gateway/route_fuhrpark.go (GPS)
-    done_when:
-      - "Entscheidung im Unit-Text, danach Unit mit DB-Test im Backlog"
-
-
   - id: fe-berichte-share-link-shown-once
     phase: 4
     service: desktop
@@ -1487,7 +1455,6 @@ units:
     service: berichte
     model: opus
     deps:
-      - harden-share-tokens-hashed-wiki-formulare
       - fe-berichte-share-link-shown-once
     status: todo
     decided: '2026-10-26'
@@ -1507,35 +1474,6 @@ units:
     done_when:
       - 'DB-Test: Bestands-Token gültig, Klartext-Spalte entfernt, Liste ohne Token'
       - Keine Kopie des Generators mehr in berichte (grep belegt das)
-
-  - id: harden-csat-token-minted-at-dispatch
-    phase: 4
-    service: helpdesk
-    model: opus
-    deps:
-      - harden-share-tokens-hashed-wiki-formulare
-    status: todo
-    decided: '2026-10-26'
-    decision: >
-      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante b): Das CSAT-Token entsteht erst beim Versand im
-      Dispatcher, gespeichert wird nur der Hash. Die CSAT-Sperre ist für genau diesen Umbau des Dispatch gelockert;
-      CSAT bleibt aus.
-    target: kein CSAT-Token mehr im Klartext
-    coverage_start: n.a.
-    scope: >
-      Heute mintet das Schließen des Tickets das Token, der Dispatcher liest es später per `ListDueCsatSurveys`
-      (`helpdesk/postgres_repository.go:519`, `SELECT r.token`) und baut den Link (`csat_dispatch.go:288`). Neu: beim
-      Schließen nur die fällige Umfrage ohne Token anlegen; der Dispatcher claimt sie, mintet per `linksecret.New`,
-      speichert den Hash im selben Claim und verschickt die Mail. Die Lookup-Route hasht das vorgelegte Token.
-      Migration: Bestand backfillen wie 000351, Klartext-Spalte entfernen. Scheitert der Versand nach dem Claim, darf
-      ein Retry ein neues Token minten (alter Hash wird ersetzt).
-    sources:
-      - backend/internal/helpdesk/csat_survey.go
-      - backend/internal/helpdesk/csat_dispatch.go
-      - backend/internal/helpdesk/postgres_repository.go
-    done_when:
-      - 'DB-Test: Dispatcher verschickt einen gültigen Link, in der DB steht nur der Hash, Bestands-Token gültig'
-      - 'Test: Retry nach Versandfehler ersetzt den Hash, der alte Link ist ungültig'
 
   - id: fe-share-link-expiry-max-365-days
     phase: 4
@@ -1557,82 +1495,16 @@ units:
       - desktop/src/renderer/src/modules/formulare/FormularePage.tsx
     done_when:
       - Keine Option „läuft nie ab“ mehr, Datumsfeld auf 365 Tage begrenzt, i18n ×4, Screenshot-QA
-  - id: decide-recording-participant-consent-before-egress
-    phase: 4
-    service: work
-    model: opus
-    deps:
-      - fix-video-egress-after-initiator-consent
-    status: blocked
-    blocked_reason: >-
-      ENTSCHEIDUNG LUKE (Fund aus Lauf 17 Iteration 20): Wann willigen die Teilnehmer ein — während die
-      Aufnahme `pending` ist (vor dem Egress, Desktop muss den Teilnehmer-Dialog dann auch für pending zeigen)
-      oder erst nach dem Start? Heute ist das Teilnehmer-Gate unerfüllbar, die Aufnahme lässt sich nie starten.
-    target: eine Aufnahme lässt sich mit echten Teilnehmern überhaupt starten, und niemand wird ohne Einwilligung aufgenommen
-    scope: >
-      Gegen Code belegt in Lauf 17 Iteration 20 (`fix-video-egress-after-initiator-consent`), dort NICHT
-      geändert: (1) `recording.Service.StartRecording` legt die Zeile mit NEUER ID an und ruft sofort
-      `CountPendingConsents(rec.ID, participantIDs)`. Einwilligungen hängen per FK an `recording_id` — für eine
-      gerade erzeugte ID kann es keine geben, der Zähler ist immer = Teilnehmerzahl >= 1 (der gRPC-Server fügt
-      notfalls den Initiator selbst ein). Ergebnis immer `ErrConsentPending` (gRPC FailedPrecondition, HTTP 412/409),
-      Zeile wird gelöscht. Sämtliche Erfolgs-Tests umgehen das mit `pendingOverride = 0`;
-      `TestStartRecording_ConsentPendingByDefault` (internal/server) belegt das Dauer-Pending sogar. Auf Prod
-      unsichtbar, weil `LIVEKIT_EGRESS_TEMPLATE_URL` leer ist (503 vorher). (2) Desktop
-      `useActiveMeetingRecording` (`api/hooks/useVideo.ts:277`) sucht `r.status === 'active'`, der Wire liefert
-      `status` aber als Enum-ZAHL (`response.ProtoList`, `UseEnumNumbers`; ACTIVE = 1, seit Iteration 20
-      PENDING = 6). Der Treffer bleibt immer `null` -> der Teilnehmer-Einwilligungsdialog in
-      `VideoCallView.tsx:968` (`showInCallConsent`) öffnet nie, auch der Aufnahme-Banner nicht. Varianten:
-      (a) Teilnehmer willigen auf die `pending`-Aufnahme ein, das Gate wandert aus `StartRecording` in
-      `ConfirmInitiatorConsent` (Egress erst, wenn alle zugestimmt haben; Desktop zeigt den Dialog bei
-      pending, Status-Vergleich numerisch oder Backend-Rewrite auf String wie TaxMode in `response.go`);
-      (b) Einwilligung erst nach dem Start (DSGVO-fragwürdig, Aufnahme läuft dann schon).
-    sources:
-      - backend/internal/work/recording/service.go
-      - backend/internal/server/video_grpc.go
-      - backend/internal/server/response/response.go
-      - desktop/src/renderer/src/api/hooks/useVideo.ts
-      - desktop/src/renderer/src/features/video/VideoCallView.tsx
-      - desktop/src/renderer/src/features/video/CallControls.tsx
-    done_when:
-      - 'Entscheidung Luke: Einwilligungszeitpunkt der Teilnehmer, Status-Wire (Zahl im FE oder String-Rewrite im Backend)'
-      - 'Service-Test mit echtem Repo: Start -> alle Teilnehmer willigen ein -> Initiator bestätigt -> genau ein Egress; ein fehlendes Ja -> kein Egress'
-
-  - id: decide-recurring-generate-future-period
-    phase: 4
-    service: biz
-    model: sonnet
-    deps: []
-    status: blocked
-    blocked_reason: >-
-      ENTSCHEIDUNG LUKE: darf "jetzt erzeugen" (manueller RPC `GenerateRecurringInvoice`) eine noch nicht
-      fällige Folgeperiode abrechnen? Heute rechnet `Generate` die Periode `NextRun` ab, auch wenn
-      `NextRun > heute` — ein Doppelklick auf zwei getrennte Requests erzeugt zwei Rechnungen für zwei Monate.
-    target: Generate rechnet keine Periode ab, die in der Zukunft liegt (oder die Entscheidung dokumentiert das Gegenteil)
-    scope: >
-      Aus `fix-recurring-concurrent-generate-test-flake` (Lauf 17, Iteration 26). `ClaimPeriod` (ON CONFLICT)
-      schützt nur dieselbe Periode; liest ein zweiter Aufruf den Plan erst nach `repo.Update` des ersten, steht
-      `NextRun` auf der Folgeperiode und er claimt diese legitim. Einziger Aufrufer ist der manuelle RPC
-      (`biz_grpc_recurring.go:231`), kein Scheduler. Variante ja: `Generate` lehnt `dateOnly(rec.NextRun)` nach
-      heute mit eigenem Fehler (gRPC FailedPrecondition, HTTP 409) ab. Desktop-Aufrufer vorher greppen
-      (Button "jetzt erzeugen" bei Plänen, die noch nicht fällig sind?).
-    sources:
-      - backend/internal/biz/recurring/service.go
-      - backend/internal/server/biz_grpc_recurring.go
-    done_when:
-      - 'Entscheidung Luke: Folgeperiode vor Fälligkeit abrechenbar ja/nein, mit Datum in dieser Unit'
-
   - id: decide-desktop-produktion-booking-plan-envelope
     phase: 4
     service: produktion
     model: sonnet
     deps: []
-    status: blocked
-    blocked_reason: >-
-      ENTSCHEIDUNG LUKE / Desktop-Team: Das Gateway antwortet `POST/PATCH /produktion/bookings` mit `{booking}`,
-      `POST/GET/PATCH /produktion/plans` mit `{plan}` und `GET /plans/{id}/capacity` mit `{overview}` (Proto-Envelope).
-      `produktion-client.ts` typisiert alle fünf als flaches `MachineBooking`/`ProductionPlan`/`CapacityOverview`
-      (Aufträge, BOMs, Schritte, Maschinen entpacken oder tippen die Hülle korrekt). Backend umbauen (flach) oder
-      Desktop entpacken? Desktop-Code ist für den Loop gesperrt.
+    status: todo
+    decided: '2026-10-29'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-29: Desktop entpackt `{booking}`/`{plan}`/`{overview}` wie `unwrapOrder`, das
+      Backend bleibt (die übrigen Produktion-Antworten tragen die Hülle auch). FE-Arbeit, tagsüber am 2026-10-29.
     target: Buchungs-, Plan- und Kapazitäts-Antworten und ihre FE-Typen stimmen überein
     scope: >
       Aus `e2e-produktion-member-flow` (Lauf 17, Iteration 29), dort festgeschrieben als `{booking}`/`{plan}` im
@@ -1645,7 +1517,7 @@ units:
       - desktop/src/renderer/src/api/hooks/useProduktion.ts
       - backend/test/e2e/produktion_test.go
     done_when:
-      - 'Entscheidung Luke: Backend flach oder Desktop entpackt, mit Datum in dieser Unit'
+      - '`produktion-client.ts` entpackt alle fünf Antworten, Hooks liefern die flachen Typen, Typecheck gescopt grün'
 
   - id: fe-vertraege-list-asks-for-first-page-only
     phase: 4
@@ -1820,28 +1692,6 @@ units:
     done_when:
       - member sieht die belegten Zeiten eines Poolfahrzeugs und bucht ein freies Fenster (Playwright-Screenshot)
 
-  - id: decide-fuhrpark-damage-read-scope-for-managers
-    phase: 4
-    service: fuhrpark
-    model: sonnet
-    deps: []
-    status: todo
-    target: manager liest Schäden mindestens so weit wie member
-    scope: >
-      Fund aus `seed-fuhrpark-damage-read-all-for-members` (Lauf 17, Iteration 51). Migration 000360 hebt
-      `fuhrpark:damage:read` nur für member auf Scope all, so wie die Entscheidung vom 2026-10-25 lautet. manager
-      hält denselben Key seit 000339 weiter mit Scope own und sieht in `/fuhrpark/damages` und
-      `/fuhrpark/vehicles/{id}/damages` jetzt WENIGER als ein member (nur eigene Meldungen). FRAGE AN LUKE: manager
-      ebenfalls auf all heben (eine UPDATE-Zeile wie 000360, Down zurück auf own)? Die Melder-Bindung hängt seit
-      Iteration 51 an `fuhrpark:damage:write`, nicht mehr am Lese-Scope — das Heben ist ohne weitere Grenze sicher.
-      E2E `TestFuhrparkMemberFlow` pinnt den manager-IST-Stand (`IST: the manager is narrowed …`) und müsste mit.
-    sources:
-      - backend/migrations/000360_fuhrpark_damage_read_all_for_members.up.sql
-      - backend/internal/gateway/route_fuhrpark_damage_read_db_test.go
-      - backend/test/e2e/fuhrpark_test.go
-    done_when:
-      - 'Entscheidung Luke: manager auf all ja/nein; bei ja Router-Test als manager gegen den echten Seed'
-
   - id: fe-inventar-transfer-dialog
     phase: 4
     service: desktop
@@ -1864,49 +1714,6 @@ units:
       - backend/internal/gateway/route_inventar_transfer_db_test.go
     done_when:
       - member bucht eine Umbuchung zwischen zwei Artikeln, beide Bestände ändern sich (Playwright-Screenshot)
-
-  - id: feat-hr-team-documents-for-managers
-    phase: 4
-    service: hr
-    model: opus
-    deps: [fix-hr-document-rls-roles-over-grpc]
-    status: todo
-    blocked_reason: >
-      Wartet auf Luke (Lauf 17, Iteration 54). Zwei Funde: (1) Die Rollen überqueren den gRPC-Hop nicht, die
-      RLS-Stufen der Akte greifen im HR-Service nie — selbst hr_admin/admin sehen `[]`; Fix-Unit
-      `fix-hr-document-rls-roles-over-grpc` steht am Kopf von BACKLOG.yml und ist Voraussetzung. (2) Nach dem Fix sieht
-      der manager laut Policy die manager- UND employee-Stufe, und `gehaltsabrechnung` (000310) liegt in der
-      employee-Stufe — manager hält aber `team:salary:view` nicht. Frage an Luke: Sieht ein manager die
-      Gehaltsabrechnungen seiner Berichte (ja / nein = Kategorie gehaltsabrechnung für Aufrufer ohne
-      team:salary:view ausfiltern)? Bauplan liegt fertig vor (Journal Iteration 54): Guard additiv
-      `RequirePermissionAny(hr:read, team:documents:view)`, Reichweite im Handler (hr:read/all -> alles, team ->
-      Proto-Flag `restrict_to_reporting_line` an ListEmployeeDocumentsReq, Prüfung im employee-Service wie
-      `GetReportingLineLeaveBalance`, own -> nur eigene ID sonst 403).
-      Stand nach Iteration 55: `fix-hr-document-rls-roles-over-grpc` ist done, reicht aber NUR admin und hr_admin über den
-      Hop (`middleware.forwardedRoles`). Diese Unit muss `manager` dort ergänzen — erst zusammen mit der Berichtslinien-Grenze
-      und einer Einengung von `/hr/personnel-documents` auf die eigenen Dokumente für manager, sonst öffnet die Policy jedem
-      manager die manager- und employee-Stufe des ganzen Mandanten. `TestHRDocuments_RolesReachTheDocumentPolicy` pinnt das
-      heutige Verhalten (manager sieht über /personnel-documents nur sich selbst).
-    decided: '2026-10-25'
-    decision: >
-      ENTSCHEIDUNG LUKE, 2026-10-25 (Entscheidungsrunde zur Vorbereitung von Lauf 17): manager liest die
-      Personalakte seiner Berichtslinie. Ergänzt 2026-10-26 (Morgen-Check Lauf 17): die Kategorie
-      `gehaltsabrechnung` wird für Aufrufer ohne `team:salary:view` ausgefiltert; der manager sieht die übrigen
-      Dokumente seiner Berichte.
-    target: Personalakte für Teamleiter
-    coverage_start: n.a.
-    scope: >
-      `GET /hr/employees/{id}/documents` (und Upload) kennt nur `hr:read`/`hr:write`. manager hält `team:documents:view|team`,
-      bekommt aber 403. GET additiv auf `team:documents:view` mit Berichtslinien-Grenze (Muster `feat-hr-reporting-line-and-team-time-scope`,
-      Lauf 16). Upload bleibt HR/admin.
-    sources:
-      - backend/internal/gateway/route_hr.go
-      - backend/internal/biz/hr/
-    done_when:
-      - >
-        Router-Test: manager liest Personalakte eines Berichts 200, eines Fremden 403/404; member 403
-      - >
-        DB-Test: manager ohne `team:salary:view` sieht keine `gehaltsabrechnung` seiner Berichte, hr_admin sieht sie
 
   - id: fe-invoice-form-pin-currency
     phase: 4
