@@ -428,6 +428,7 @@ func TestHandleListEmployeeDocuments_ServiceUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/hr/employees/550e8400-e29b-41d4-a716-446655440000/documents", nil)
 	req = withAuth(req, "user-123", testTenantID)
+	req = withPermissions(req, "hr:read")
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleListEmployeeDocuments(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
@@ -438,6 +439,7 @@ func TestHandleListEmployeeDocuments_ReachesRPC(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/hr/employees/550e8400-e29b-41d4-a716-446655440000/documents", nil)
 	req = withAuth(req, "user-123", testTenantID)
+	req = withPermissions(req, "hr:read")
 	req = withChiURLParam(req, "id", "550e8400-e29b-41d4-a716-446655440000")
 	routes.HandleListEmployeeDocuments(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
@@ -445,8 +447,8 @@ func TestHandleListEmployeeDocuments_ReachesRPC(t *testing.T) {
 
 // TestHandleListEmployeeDocuments_RequiresPermission is the router-level
 // counterpart to HandleGetEmployee's: "/{id}/documents" is guarded by
-// "hr:read" (admin only), the same key that stops HandleGetEmployee — so a
-// coworker without it cannot list a colleague's personnel documents either.
+// "hr:read" or "team:documents:view" — a caller with neither cannot list a
+// colleague's personnel documents.
 func TestHandleListEmployeeDocuments_RequiresPermission(t *testing.T) {
 	r := chi.NewRouter()
 	NewHRRoutes(emptyRegistry(), nil).RegisterRoutes(r, guardTestAuth)

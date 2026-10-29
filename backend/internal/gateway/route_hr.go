@@ -207,7 +207,9 @@ func (h *HRRoutes) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler
 		// through it. Same additive guard as the categories route, so no new
 		// permission key and no seed migration.
 		r.With(hrDocumentCategoriesGuard).Get("/me/documents", h.HandleListOwnDocuments)
-		r.With(middleware.RequirePermission("hr", "read")).Get("/{id}/documents", h.HandleListEmployeeDocuments)
+		// Additive like the categories route: hr:read keeps the whole file,
+		// team:documents:view reaches as far as its scope (documentsReach).
+		r.With(hrDocumentCategoriesGuard).Get("/{id}/documents", h.HandleListEmployeeDocuments)
 		r.With(middleware.RequirePermission("hr", "write")).Post("/{id}/documents", h.HandleUploadEmployeeDocument)
 		// Additive guard: the legacy "hr:read" key stays valid AND the
 		// capability-catalogue key (manager scope='team', member scope='own')
@@ -1567,18 +1569,31 @@ func filterDocumentsByCategory(docs []*hrv1.EmployeeDocument, category string) [
 	return filtered
 }
 
+// HandleListEmployeeDocuments lists one employee's personnel file at the caller's reach
+// (documentsReach): tenant-wide for hr:read and hr_admin, the reporting line for a manager, the
+// caller's own file otherwise. RLS policy hr_document_access decides the visible tiers within it.
 func (h *HRRoutes) HandleListEmployeeDocuments(w http.ResponseWriter, r *http.Request) {
+	grpcReq := &hrv1.ListEmployeeDocumentsReq{EmployeeId: chi.URLParam(r, "id")}
+	// The reporting line itself is checked by the HR service, not here.
+	switch documentsReach(r.Context()) {
+	case auth.ScopeAll:
+	case auth.ScopeTeam:
+		grpcReq.RestrictToReportingLine = true
+		grpcReq.HideSalaryDocuments = !mayViewTeamSalary(r.Context())
+	default:
+		if !strings.EqualFold(grpcReq.EmployeeId, middleware.GetUserID(r.Context())) {
+			response.Error(w, http.StatusForbidden, "forbidden")
+			return
+		}
+	}
+
 	client, err := h.getHRClient()
 	if err != nil {
 		respondServiceUnavailable(w, h.ServiceName())
 		return
 	}
 
-	employeeID := chi.URLParam(r, "id")
-
-	resp, err := client.ListEmployeeDocuments(r.Context(), &hrv1.ListEmployeeDocumentsReq{
-		EmployeeId: employeeID,
-	})
+	resp, err := client.ListEmployeeDocuments(r.Context(), grpcReq)
 	if err != nil {
 		respondGRPCError(w, err)
 		return

@@ -379,6 +379,37 @@ func leaveBalanceReach(ctx context.Context) string {
 	return auth.ScopeOwn
 }
 
+var (
+	teamDocumentsViewPerm = [2]string{"team:documents", "view"}
+	teamSalaryViewPerm    = [2]string{"team:salary", "view"}
+)
+
+// documentsReach is the reach at which the caller reads another employee's personnel file: hr:read
+// counts as tenant-wide unless narrowed to "own", otherwise team:documents:view decides — team for a
+// manager (reporting line, checked by the HR service), all for hr_admin. "own" for everyone else.
+// Within the reach RLS policy hr_document_access still decides which tiers are visible.
+func documentsReach(ctx context.Context) string {
+	if middleware.HoldsAnyPermission(ctx, hrReadPerm) &&
+		middleware.PermissionScope(ctx, hrReadPerm[0], hrReadPerm[1]) != auth.ScopeOwn {
+		return auth.ScopeAll
+	}
+	if middleware.HoldsAnyPermission(ctx, teamDocumentsViewPerm) {
+		if scope := middleware.PermissionScope(ctx, teamDocumentsViewPerm[0], teamDocumentsViewPerm[1]); scope == auth.ScopeAll || scope == auth.ScopeTeam {
+			return scope
+		}
+	}
+	return auth.ScopeOwn
+}
+
+// mayViewTeamSalary reports whether the caller sees other employees' salary statements: only with
+// team:salary:view beyond "own" (member holds it for their own statements, manager not at all).
+func mayViewTeamSalary(ctx context.Context) bool {
+	if !middleware.HoldsAnyPermission(ctx, teamSalaryViewPerm) {
+		return false
+	}
+	return middleware.PermissionScope(ctx, teamSalaryViewPerm[0], teamSalaryViewPerm[1]) != auth.ScopeOwn
+}
+
 // restrictToOwnEmployee pins an HR read to the caller when the hr:read/hr:self grant is narrowed
 // to "own". An empty requested id becomes the caller's id (a list without a filter would
 // otherwise return every employee); a foreign id is a 403, not a silent rewrite, so the caller

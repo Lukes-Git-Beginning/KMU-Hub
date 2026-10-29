@@ -227,9 +227,9 @@ func TestPermissionForwarding_CoarseEmailKeysCrossTheHop(t *testing.T) {
 // ─── Forwarded roles ──────────────────────────────────────────────────────────
 
 // hr_document_access reads the caller's roles from app.user_roles, which the
-// service-side pool sets from GetUserRoles. admin and hr_admin must arrive;
-// manager must not, or every manager would read the whole tenant's files.
-func TestRoleForwarding_AdminAndHRAdminCrossTheHop(t *testing.T) {
+// service-side pool sets from GetUserRoles. admin, hr_admin and manager must
+// arrive (the HR service holds manager to the reporting line); nothing else.
+func TestRoleForwarding_HRRolesCrossTheHop(t *testing.T) {
 	ctx := context.WithValue(context.Background(), UserRolesKey, []string{"manager", "hr_admin", "admin", "Büro"})
 
 	var outgoingCtx context.Context
@@ -238,8 +238,8 @@ func TestRoleForwarding_AdminAndHRAdminCrossTheHop(t *testing.T) {
 	}
 	md, _ := metadata.FromOutgoingContext(outgoingCtx)
 	got := md.Get(gRPCRolesHeader)
-	if len(got) != 1 || got[0] != "hr_admin,admin" {
-		t.Fatalf("x-user-roles = %v; want only %q", got, "hr_admin,admin")
+	if len(got) != 1 || got[0] != "manager,hr_admin,admin" {
+		t.Fatalf("x-user-roles = %v; want only %q", got, "manager,hr_admin,admin")
 	}
 
 	res, err := TenantInboundUnaryInterceptor()(metadata.NewIncomingContext(context.Background(), md), nil,
@@ -248,12 +248,12 @@ func TestRoleForwarding_AdminAndHRAdminCrossTheHop(t *testing.T) {
 		t.Fatalf("inbound: %v", err)
 	}
 	roles := GetUserRoles(res.(context.Context))
-	if len(roles) != 2 || roles[0] != "hr_admin" || roles[1] != "admin" {
-		t.Fatalf("GetUserRoles = %v; want [hr_admin admin]", roles)
+	if len(roles) != 3 || roles[0] != "manager" || roles[1] != "hr_admin" || roles[2] != "admin" {
+		t.Fatalf("GetUserRoles = %v; want [manager hr_admin admin]", roles)
 	}
 
 	// The receiving side filters again: a hand-built header cannot smuggle a role in.
-	in := metadata.NewIncomingContext(context.Background(), metadata.Pairs(gRPCRolesHeader, "manager,platform_admin"))
+	in := metadata.NewIncomingContext(context.Background(), metadata.Pairs(gRPCRolesHeader, "member,platform_admin"))
 	res, err = TenantInboundUnaryInterceptor()(in, nil, &grpc.UnaryServerInfo{}, fakeUnaryHandler)
 	if err != nil {
 		t.Fatalf("inbound: %v", err)
@@ -264,7 +264,7 @@ func TestRoleForwarding_AdminAndHRAdminCrossTheHop(t *testing.T) {
 }
 
 func TestRoleForwarding_MemberSendsNoHeader(t *testing.T) {
-	ctx := context.WithValue(context.Background(), UserRolesKey, []string{"member", "manager"})
+	ctx := context.WithValue(context.Background(), UserRolesKey, []string{"member", "Büro"})
 
 	var outgoingCtx context.Context
 	_ = TenantOutboundUnaryInterceptor()(ctx, "/svc/Method", nil, nil, nil, fakeUnaryInvoker(&outgoingCtx))

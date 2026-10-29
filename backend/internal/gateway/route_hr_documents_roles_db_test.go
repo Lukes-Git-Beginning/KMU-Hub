@@ -29,6 +29,10 @@ import (
 // real seed through ResolveTokenPermissions, the real Auth middleware and route registration, a
 // real HR gRPC server behind TenantInboundUnaryInterceptor and the Postgres employee repositories
 // as kmuhub_app.
+//
+// manager crosses the hop too and reads a direct report's file (manager and employee tier, no
+// salary statement without team:salary:view), but nothing beyond the reporting line: the
+// Personalakte list and a stranger's file stay as closed as before.
 func TestHRDocuments_RolesReachTheDocumentPolicy(t *testing.T) {
 	testutil.SkipIfNoDB(t)
 	pool := testutil.PoolFromEnv(t)
@@ -110,6 +114,27 @@ func TestHRDocuments_RolesReachTheDocumentPolicy(t *testing.T) {
 	memberManagerTier := seedDoc(memberID, "manager")
 	memberEmployeeTier := seedDoc(memberID, "employee")
 	managerOwn := seedDoc(managerID, "employee")
+
+	// The reporting line: member reports to manager, stranger to admin. The salary statement
+	// lives in the employee tier (000310), so only the key keeps it from the manager.
+	strangerID, _ := userFor("member")
+	strangerManagerTier := seedDoc(strangerID, "manager")
+	// The nullable text columns are written as "" like the application does: the profile read
+	// scans them into plain strings.
+	for report, boss := range map[uuid.UUID]uuid.UUID{memberID: managerID, strangerID: adminID} {
+		profileID := testutil.SeedRow(t, pool, "hr_employee_profiles", map[string]any{
+			"id": uuid.New(), "tenant_id": tenantID, "user_id": report, "manager_user_id": boss, "start_date": "2026-01-01",
+			"department": "", "position_title": "", "address_city": "", "address_street": "", "address_postal_code": "",
+			"emergency_contact_name": "", "emergency_contact_phone": "",
+		})
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_employee_profiles", profileID) })
+	}
+	category["salary"] = testutil.SeedRow(t, pool, "hr_document_categories", map[string]any{
+		"id": uuid.New(), "tenant_id": tenantID, "name": "Gehaltsabrechnung", "key": employee.SalaryDocumentCategoryKey,
+		"visibility": "employee",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "hr_document_categories", category["salary"]) })
+	memberSalary := seedDoc(memberID, "salary")
 	// Registered last, so it runs before the category and user cleanups; it also removes the
 	// documents the upload subtests create.
 	t.Cleanup(func() {
@@ -180,18 +205,49 @@ func TestHRDocuments_RolesReachTheDocumentPolicy(t *testing.T) {
 
 	t.Run("admin reads every tier of an employee's file", func(t *testing.T) {
 		expectIDs(t, "admin", list(t, "admin", "/api/v1/hr/employees/"+memberID.String()+"/documents", adminToken),
-			memberHROnly, memberManagerTier, memberEmployeeTier)
+			memberHROnly, memberManagerTier, memberEmployeeTier, memberSalary)
 	})
 
 	t.Run("admin and hr_admin read the whole Personalakte", func(t *testing.T) {
-		all := []string{memberHROnly, memberManagerTier, memberEmployeeTier, managerOwn}
+		all := []string{memberHROnly, memberManagerTier, memberEmployeeTier, memberSalary, managerOwn, strangerManagerTier}
 		expectIDs(t, "admin", list(t, "admin", "/api/v1/hr/personnel-documents", adminToken), all...)
 		expectIDs(t, "hr_admin", list(t, "hr_admin", "/api/v1/hr/personnel-documents", hrAdminToken), all...)
 	})
 
 	t.Run("manager and member see only their own employee-tier documents", func(t *testing.T) {
 		expectIDs(t, "manager", list(t, "manager", "/api/v1/hr/personnel-documents", managerToken), managerOwn)
-		expectIDs(t, "member", list(t, "member", "/api/v1/hr/personnel-documents", memberToken), memberEmployeeTier)
+		expectIDs(t, "member", list(t, "member", "/api/v1/hr/personnel-documents", memberToken), memberEmployeeTier, memberSalary)
+	})
+
+	reportFile := "/api/v1/hr/employees/" + memberID.String() + "/documents"
+
+	t.Run("manager reads a report's file without hr_only and salary statements", func(t *testing.T) {
+		expectIDs(t, "manager", list(t, "manager", reportFile, managerToken), memberManagerTier, memberEmployeeTier)
+	})
+
+	t.Run("hr_admin reads the report's salary statement", func(t *testing.T) {
+		expectIDs(t, "hr_admin", list(t, "hr_admin", reportFile, hrAdminToken),
+			memberHROnly, memberManagerTier, memberEmployeeTier, memberSalary)
+	})
+
+	t.Run("manager reads their own file through the same route", func(t *testing.T) {
+		expectIDs(t, "manager", list(t, "manager", "/api/v1/hr/employees/"+managerID.String()+"/documents", managerToken), managerOwn)
+	})
+
+	t.Run("manager is refused a file outside the reporting line", func(t *testing.T) {
+		// strangerID reports to admin; adminID has no profile at all. Both answer alike.
+		for _, id := range []uuid.UUID{strangerID, adminID} {
+			if rec := do(http.MethodGet, "/api/v1/hr/employees/"+id.String()+"/documents", managerToken, nil); rec.Code != http.StatusForbidden {
+				t.Errorf("manager GET file of %s = %d, want 403 (body %s)", id, rec.Code, rec.Body.String())
+			}
+		}
+	})
+
+	t.Run("member reads only their own file", func(t *testing.T) {
+		expectIDs(t, "member", list(t, "member", reportFile, memberToken), memberEmployeeTier, memberSalary)
+		if rec := do(http.MethodGet, "/api/v1/hr/employees/"+managerID.String()+"/documents", memberToken, nil); rec.Code != http.StatusForbidden {
+			t.Errorf("member GET colleague's file = %d, want 403", rec.Code)
+		}
 	})
 
 	t.Run("admin and hr_admin upload into an employee's file", func(t *testing.T) {
@@ -201,7 +257,7 @@ func TestHRDocuments_RolesReachTheDocumentPolicy(t *testing.T) {
 			map[string]any{"employee_id": memberID.String(), "title": "Zeugnis", "category": "roles-employee", "file_name": "zeugnis.pdf"}))
 		// The employee finds both in their own file; the manager still does not.
 		expectIDs(t, "member", list(t, "member", "/api/v1/hr/personnel-documents", memberToken),
-			memberEmployeeTier, byAdmin, byHRAdmin)
+			memberEmployeeTier, memberSalary, byAdmin, byHRAdmin)
 		expectIDs(t, "manager", list(t, "manager", "/api/v1/hr/personnel-documents", managerToken), managerOwn)
 	})
 

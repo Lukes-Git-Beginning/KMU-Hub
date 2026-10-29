@@ -64,14 +64,15 @@ const (
 var forwardedPermissions = []string{PermTeamInboxManage, PermRecordingsAdmin, PermEmailWrite, PermEmailDelete}
 
 // forwardedRoles are the role names a backend decides on through RLS
-// (hr_document_access: admin and hr_admin read every tier and may write).
+// (hr_document_access: admin and hr_admin read every tier and may write,
+// manager reads the manager and employee tier).
 //
-// lean: manager is deliberately missing. The policy grants the manager role
-// the manager AND employee tier of the whole tenant, so forwarding it would
-// open every colleague's file (gehaltsabrechnung included) through
-// /hr/personnel-documents. Add it together with the reporting-line limit of
-// feat-hr-team-documents-for-managers.
-var forwardedRoles = []string{"admin", "hr_admin"}
+// The policy grants manager those tiers for the whole tenant, not for the
+// reporting line. The HR employee service therefore strips the role before
+// every document access and keeps it only for a report's file after checking
+// hr_employee_profiles.manager_user_id (employee.withoutManagerRole). Any new
+// read of hr_employee_documents has to go through that service.
+var forwardedRoles = []string{"admin", "hr_admin", "manager"}
 
 // TenantOutboundUnaryInterceptor is a gRPC client interceptor that copies the
 // tenant_id and user_id values from the HTTP request context (already populated

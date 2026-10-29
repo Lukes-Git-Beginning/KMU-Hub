@@ -5269,12 +5269,20 @@ func (x *UpdateSelfProfileResp) GetEmployee() *EmployeeProfile {
 }
 
 type ListEmployeeDocumentsReq struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EmployeeId    string                 `protobuf:"bytes,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	CategoryId    string                 `protobuf:"bytes,3,opt,name=category_id,json=categoryId,proto3" json:"category_id,omitempty"` // Optional: filter by category
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	EmployeeId string                 `protobuf:"bytes,1,opt,name=employee_id,json=employeeId,proto3" json:"employee_id,omitempty"`
+	TenantId   string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	CategoryId string                 `protobuf:"bytes,3,opt,name=category_id,json=categoryId,proto3" json:"category_id,omitempty"` // Optional: filter by category
+	// Set by the gateway for a caller whose team:documents:view reaches "team"
+	// (manager): the employee must be the caller or one of their direct reports
+	// (hr_employee_profiles.manager_user_id), otherwise PermissionDenied.
+	RestrictToReportingLine bool `protobuf:"varint,4,opt,name=restrict_to_reporting_line,json=restrictToReportingLine,proto3" json:"restrict_to_reporting_line,omitempty"`
+	// Set by the gateway for a caller without team:salary:view beyond "own":
+	// drops the gehaltsabrechnung category from a report's file. Only read on
+	// the reporting-line path; the caller's own file is never narrowed.
+	HideSalaryDocuments bool `protobuf:"varint,5,opt,name=hide_salary_documents,json=hideSalaryDocuments,proto3" json:"hide_salary_documents,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ListEmployeeDocumentsReq) Reset() {
@@ -5326,6 +5334,20 @@ func (x *ListEmployeeDocumentsReq) GetCategoryId() string {
 		return x.CategoryId
 	}
 	return ""
+}
+
+func (x *ListEmployeeDocumentsReq) GetRestrictToReportingLine() bool {
+	if x != nil {
+		return x.RestrictToReportingLine
+	}
+	return false
+}
+
+func (x *ListEmployeeDocumentsReq) GetHideSalaryDocuments() bool {
+	if x != nil {
+		return x.HideSalaryDocuments
+	}
+	return false
 }
 
 type ListEmployeeDocumentsResp struct {
@@ -10129,13 +10151,15 @@ const file_proto_hr_v1_hr_proto_rawDesc = "" +
 	"\x13address_postal_code\x18\a \x01(\tR\x11addressPostalCode\x12'\n" +
 	"\x0faddress_country\x18\b \x01(\tR\x0eaddressCountry\"K\n" +
 	"\x15UpdateSelfProfileResp\x122\n" +
-	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"y\n" +
+	"\bemployee\x18\x01 \x01(\v2\x16.hr.v1.EmployeeProfileR\bemployee\"\xea\x01\n" +
 	"\x18ListEmployeeDocumentsReq\x12\x1f\n" +
 	"\vemployee_id\x18\x01 \x01(\tR\n" +
 	"employeeId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vcategory_id\x18\x03 \x01(\tR\n" +
-	"categoryId\"R\n" +
+	"categoryId\x12;\n" +
+	"\x1arestrict_to_reporting_line\x18\x04 \x01(\bR\x17restrictToReportingLine\x122\n" +
+	"\x15hide_salary_documents\x18\x05 \x01(\bR\x13hideSalaryDocuments\"R\n" +
 	"\x19ListEmployeeDocumentsResp\x125\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x17.hr.v1.EmployeeDocumentR\tdocuments\"[\n" +
 	"\x19ListDocumentCategoriesReq\x12\x1b\n" +

@@ -70,12 +70,11 @@ func TestHandleListOwnDocuments_RequiresPermission(t *testing.T) {
 	assertStatus(t, rec, http.StatusForbidden)
 }
 
-// TestListEmployeeDocuments_StillAdminOnly is the counterpart that matters
-// most: adding the /me route must NOT have widened the per-employee route.
-// A holder of team:documents:view alone must still be turned away from a
-// colleague's Akte — otherwise the new self-service path would have opened
-// every employee's documents to every member.
-func TestListEmployeeDocuments_StillAdminOnly(t *testing.T) {
+// TestListEmployeeDocuments_OwnScopeStaysOnOwnFile is the counterpart that
+// matters most: the per-employee route takes team:documents:view as well
+// (manager reach, feat-hr-team-documents-for-managers), but a holder whose
+// scope is "own" (member) must still be turned away from a colleague's Akte.
+func TestListEmployeeDocuments_OwnScopeStaysOnOwnFile(t *testing.T) {
 	r := chi.NewRouter()
 	NewHRRoutes(emptyRegistry(), nil).RegisterRoutes(r, guardTestAuth)
 
@@ -83,6 +82,7 @@ func TestListEmployeeDocuments_StillAdminOnly(t *testing.T) {
 		"/api/v1/hr/employees/550e8400-e29b-41d4-a716-446655440000/documents", nil)
 	req = withAuth(req, "user-123", testTenantID)
 	req = withPermissions(req, "team:documents:view")
+	req = withScopes(req, map[string]string{"team:documents:view": "own"})
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	assertStatus(t, rec, http.StatusForbidden)

@@ -986,8 +986,22 @@ func (s *HRGRPCServer) ListEmployeeDocuments(ctx context.Context, req *hrv1.List
 
 	// No role is passed: which of this employee's documents the caller may see
 	// is decided by RLS policy hr_document_access from the roles on the
-	// session, the same way ListPersonnelDocuments below works.
-	docs, err := s.employeeService.ListEmployeeDocuments(ctx, employeeID)
+	// session, the same way ListPersonnelDocuments below works. A manager
+	// (team reach) is held to their reporting line by the service.
+	var docs []*models.EmployeeDocument
+	if req.GetRestrictToReportingLine() {
+		tenantID, tenantErr := middleware.GetTenantID(ctx)
+		if tenantErr != nil {
+			return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+		}
+		caller, callerErr := callerID(ctx)
+		if callerErr != nil {
+			return nil, callerErr
+		}
+		docs, err = s.employeeService.ListReportingLineDocuments(ctx, tenantID, employeeID, caller, req.GetHideSalaryDocuments())
+	} else {
+		docs, err = s.employeeService.ListEmployeeDocuments(ctx, employeeID)
+	}
 	if err != nil {
 		return nil, mapHRError(err)
 	}
@@ -2249,6 +2263,8 @@ func mapHRError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, employee.ErrEmployeeRequired):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, employee.ErrInsufficientDocumentAccess):
+		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrSelfOffboard):
 		return status.Error(codes.PermissionDenied, err.Error())
 	case errors.Is(err, employee.ErrLastRoleAdmin),

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -293,27 +294,98 @@ func (s *Service) UpdateSelfProfile(ctx context.Context, userID uuid.UUID, input
 // Document Operations
 // ============================================================================
 
+// SalaryDocumentCategoryKey is the hr_document_categories.key of salary
+// statements (migration 000310). A manager reading a report's file does not
+// see it without team:salary:view beyond "own".
+const SalaryDocumentCategoryKey = "gehaltsabrechnung"
+
+// managerRole is the role RLS policy hr_document_access grants the manager
+// AND employee tier of every file in the tenant.
+const managerRole = "manager"
+
+// withoutManagerRole drops the manager role from the roles the database layer
+// stamps into app.user_roles. hr_document_access knows no reporting line: with
+// the role on the session a manager reads the manager and employee tier of
+// every colleague. Every document access therefore runs without it, except
+// ListReportingLineDocuments once it has checked that the employee reports to
+// the caller. A manager on any other path sees exactly what a member sees.
+func withoutManagerRole(ctx context.Context) context.Context {
+	roles := middleware.GetUserRoles(ctx)
+	kept := make([]string, 0, len(roles))
+	for _, r := range roles {
+		if r != managerRole {
+			kept = append(kept, r)
+		}
+	}
+	if len(kept) == len(roles) {
+		return ctx
+	}
+	return context.WithValue(ctx, middleware.UserRolesKey, kept)
+}
+
 // ListEmployeeDocuments retrieves one employee's documents. Which of them the
 // caller may see is decided by RLS policy hr_document_access from the roles on
 // the session, so this carries no role parameter a caller could influence --
-// exactly like ListPersonnelDocuments below.
+// exactly like ListPersonnelDocuments below. The manager role does not count
+// here; a manager reads a report's file through ListReportingLineDocuments.
 func (s *Service) ListEmployeeDocuments(ctx context.Context, employeeID uuid.UUID) ([]*models.EmployeeDocument, error) {
-	return s.docRepo.ListByEmployee(ctx, employeeID)
+	return s.docRepo.ListByEmployee(withoutManagerRole(ctx), employeeID)
+}
+
+// ListReportingLineDocuments reads the file of managerID themselves or of one
+// of their direct reports (hr_employee_profiles.manager_user_id). Anyone else,
+// including an employee without a profile, is ErrInsufficientDocumentAccess,
+// so the answer does not reveal who exists.
+//
+// The caller's own file is read like ListEmployeeDocuments. A report's file is
+// read with the manager role on the session, so RLS adds the manager tier;
+// hr_only stays hidden. hideSalary drops the gehaltsabrechnung category for a
+// caller who may not see the team's salary statements.
+//
+// lean: post-filter on the category key, safe because ListByEmployee returns
+// one unpaginated file; push it into the query once that list pages.
+func (s *Service) ListReportingLineDocuments(ctx context.Context, tenantID, employeeID, managerID uuid.UUID, hideSalary bool) ([]*models.EmployeeDocument, error) {
+	if employeeID == managerID {
+		return s.ListEmployeeDocuments(ctx, employeeID)
+	}
+	emp, err := s.employeeRepo.GetByUserID(ctx, employeeID)
+	if errors.Is(err, ErrEmployeeNotFound) {
+		return nil, ErrInsufficientDocumentAccess
+	}
+	if err != nil {
+		return nil, err
+	}
+	if emp.TenantID != tenantID || emp.ManagerUserID == nil || *emp.ManagerUserID != managerID {
+		return nil, ErrInsufficientDocumentAccess
+	}
+
+	docs, err := s.docRepo.ListByEmployee(ctx, employeeID)
+	if err != nil || !hideSalary {
+		return docs, err
+	}
+	kept := make([]*models.EmployeeDocument, 0, len(docs))
+	for _, d := range docs {
+		if d.CategoryKey != SalaryDocumentCategoryKey {
+			kept = append(kept, d)
+		}
+	}
+	return kept, nil
 }
 
 // ListPersonnelDocuments retrieves every personnel document of the tenant the
 // caller is allowed to see. The visibility tiers are enforced by RLS policy
 // hr_document_access, which reads the caller's roles from the app.user_roles
 // GUC — so this deliberately carries no role parameter that a caller could
-// influence, unlike ListEmployeeDocuments.
+// influence, unlike ListEmployeeDocuments. Without the manager role (see
+// withoutManagerRole) a manager gets their own employee-tier documents here.
 func (s *Service) ListPersonnelDocuments(ctx context.Context, tenantID uuid.UUID) ([]*models.EmployeeDocument, error) {
-	return s.docRepo.ListByTenant(ctx, tenantID)
+	return s.docRepo.ListByTenant(withoutManagerRole(ctx), tenantID)
 }
 
 // GetEmployeeDocument reads a single personnel document, tenant-scoped and
 // subject to the same RLS visibility tiers as the list.
 func (s *Service) GetEmployeeDocument(ctx context.Context, tenantID, id uuid.UUID) (*models.EmployeeDocument, error) {
-	return s.docRepo.GetByID(ctx, tenantID, id)
+	return s.docRepo.GetByID(withoutManagerRole(ctx), tenantID, id)
 }
 
 // UploadEmployeeDocument creates an HR document record linking a file to an employee.
@@ -379,8 +451,10 @@ func (s *Service) resolveDocumentCategory(ctx context.Context, tenantID uuid.UUI
 }
 
 // DeleteEmployeeDocument deletes an HR document link.
+// hr_document_access has no DELETE clause of its own, so its USING tiers
+// apply: with the manager role a manager could delete colleagues' documents.
 func (s *Service) DeleteEmployeeDocument(ctx context.Context, tenantID, id uuid.UUID) error {
-	return s.docRepo.Delete(ctx, tenantID, id)
+	return s.docRepo.Delete(withoutManagerRole(ctx), tenantID, id)
 }
 
 // ListDocumentCategories retrieves document categories for a tenant, filtered

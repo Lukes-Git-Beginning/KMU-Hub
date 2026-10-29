@@ -13864,6 +13864,13 @@ paths:
   /api/v1/hr/employees/{id}/documents:
     get:
       summary: List employee documents
+      description: >
+        Requires `hr:read` or `team:documents:view`. The reach follows the scope: `hr:read` and
+        `team:documents:view` with scope `all` read any file, scope `team` (manager) reads the
+        caller's own file and those of their direct reports — without the `gehaltsabrechnung`
+        category unless the caller holds `team:salary:view` beyond `own` — and scope `own` reads
+        only the caller's own file. Which visibility tiers appear within the reach is decided by
+        RLS policy `hr_document_access`.
       tags: [hr-employee]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -13881,6 +13888,11 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/EmployeeDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Missing permission, or the employee is outside the caller's reach
+            (not the caller, not a direct report).
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
     post:

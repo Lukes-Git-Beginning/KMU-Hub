@@ -708,6 +708,14 @@ message ListEmployeeDocumentsReq {
   string employee_id = 1;
   string tenant_id = 2;
   string category_id = 3;              // Optional: filter by category
+  // Set by the gateway for a caller whose team:documents:view reaches "team"
+  // (manager): the employee must be the caller or one of their direct reports
+  // (hr_employee_profiles.manager_user_id), otherwise PermissionDenied.
+  bool restrict_to_reporting_line = 4;
+  // Set by the gateway for a caller without team:salary:view beyond "own":
+  // drops the gehaltsabrechnung category from a report's file. Only read on
+  // the reporting-line path; the caller's own file is never narrowed.
+  bool hide_salary_documents = 5;
 }
 
 message ListEmployeeDocumentsResp {
