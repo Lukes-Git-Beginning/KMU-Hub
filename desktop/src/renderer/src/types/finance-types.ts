@@ -266,8 +266,6 @@ export interface CreateCreditNoteRequest {
   line_items: Omit<LineItem, 'id' | 'line_total'>[]
   tax_mode: TaxMode
   reason?: string
-  /** When true, the original invoice is cancelled (storniert) on creation. */
-  is_storno?: boolean
 }
 
 export interface RecordPaymentRequest {

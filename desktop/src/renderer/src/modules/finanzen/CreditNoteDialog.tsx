@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
-import { useCreateCreditNote, useInvoices } from '@/api/hooks/useFinance'
+import { useCancelInvoice, useCreateCreditNote, useInvoices } from '@/api/hooks/useFinance'
 import { formatMoney, calcLineTotal, calcInvoiceSubtotal, calcInvoiceTax, calcInvoiceTotal } from '@/stores/finance'
 import type { Invoice, TaxMode } from '@/types/finance-types'
 
@@ -35,7 +35,11 @@ interface CreditNoteDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   preselectedInvoice?: Invoice | null
-  /** When true, the dialog issues a full credit note that cancels the invoice. */
+  /**
+   * When true, the dialog cancels the invoice through POST /invoices/{id}/cancel:
+   * the server writes the storno credit note over the full amount and sets the
+   * invoice to cancelled in one transaction (GoBD). Positions are shown read-only.
+   */
   isStorno?: boolean
 }
 
@@ -47,6 +51,7 @@ export function CreditNoteDialog({
 }: CreditNoteDialogProps) {
   const { t } = useTranslation()
   const createCreditNote = useCreateCreditNote()
+  const cancelInvoice = useCancelInvoice()
   const { data: invoicesData } = useInvoices()
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState('')
@@ -93,19 +98,14 @@ export function CreditNoteDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form fields from dialog props
       setSelectedInvoiceId(preselectedInvoice.id)
       populateFromInvoice(preselectedInvoice)
-      setReason(
-        isStorno
-          ? t('finanzen.creditNote.stornoReasonDefault', { number: preselectedInvoice.invoice_number })
-          : '',
-      )
+      setReason('')
     } else {
       setSelectedInvoiceId('')
       setTaxMode('standard')
       setReason('')
       setItems([])
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- t intentionally omitted
-  }, [open, preselectedInvoice, isStorno])
+  }, [open, preselectedInvoice])
 
   const handleInvoiceSelect = (invoiceId: string) => {
     setSelectedInvoiceId(invoiceId)
@@ -127,6 +127,16 @@ export function CreditNoteDialog({
 
   const handleSave = () => {
     if (!selectedInvoice) return
+    if (isStorno) {
+      cancelInvoice.mutate(selectedInvoice.id, {
+        onSuccess: () => {
+          toast.success(t('finanzen.creditNote.stornoDone', { number: selectedInvoice.invoice_number }))
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err.message),
+      })
+      return
+    }
     if (!reason.trim()) {
       toast.error(t('finanzen.creditNote.reasonRequired'))
       return
@@ -148,15 +158,10 @@ export function CreditNoteDialog({
         })),
         tax_mode: taxMode,
         reason: reason.trim(),
-        is_storno: isStorno,
       },
       {
         onSuccess: () => {
-          toast.success(
-            isStorno
-              ? t('finanzen.creditNote.stornoDone', { number: selectedInvoice.invoice_number })
-              : t('finanzen.creditNote.created'),
-          )
+          toast.success(t('finanzen.creditNote.created'))
           onOpenChange(false)
         },
         onError: (err) => toast.error(err.message),
@@ -233,20 +238,24 @@ export function CreditNoteDialog({
                 </div>
               </div>
 
-              {/* Reason */}
-              <div className="space-y-1.5">
-                <Label>{t('finanzen.creditNote.reason')} *</Label>
-                <Textarea
-                  placeholder={t('finanzen.creditNote.reasonPlaceholder')}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  rows={2}
-                />
-              </div>
+              {/* Reason — a storno carries the server's own text */}
+              {!isStorno && (
+                <div className="space-y-1.5">
+                  <Label>{t('finanzen.creditNote.reason')} *</Label>
+                  <Textarea
+                    placeholder={t('finanzen.creditNote.reasonPlaceholder')}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              )}
 
               {/* Line items (adjustable) */}
               <div className="space-y-2">
-                <Label>{t('finanzen.creditNote.lineItemsLabel')}</Label>
+                <Label>
+                  {isStorno ? t('finanzen.lineItems.positions') : t('finanzen.creditNote.lineItemsLabel')}
+                </Label>
                 <div className="rounded-lg border border-border overflow-hidden">
                   <div className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-2 text-[10px] font-medium text-muted-foreground bg-secondary/30 uppercase tracking-wider">
                     <span>{t('finanzen.lineItems.description')}</span>
@@ -261,39 +270,55 @@ export function CreditNoteDialog({
                       key={item.key}
                       className="grid grid-cols-[1fr_70px_90px_80px_90px_32px] gap-2 px-3 py-1.5 border-t border-border-muted items-center"
                     >
-                      <Input
-                        value={item.description}
-                        onChange={(e) => updateItem(idx, { description: e.target.value })}
-                        className="h-7 text-xs"
-                      />
-                      <Input
-                        type="number"
-                        min={0.01}
-                        step={0.5}
-                        value={item.quantity}
-                        onChange={(e) => updateItem(idx, { quantity: e.target.value })}
-                        className="h-7 text-xs"
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={item.unit_price}
-                        onChange={(e) => updateItem(idx, { unit_price: e.target.value })}
-                        className="h-7 text-xs"
-                      />
+                      {isStorno ? (
+                        <>
+                          <span className="truncate text-xs text-foreground">{item.description}</span>
+                          <span className="text-xs text-muted-foreground">{item.quantity}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatMoney(item.unit_price, currency)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Input
+                            value={item.description}
+                            onChange={(e) => updateItem(idx, { description: e.target.value })}
+                            className="h-7 text-xs"
+                          />
+                          <Input
+                            type="number"
+                            min={0.01}
+                            step={0.5}
+                            value={item.quantity}
+                            onChange={(e) => updateItem(idx, { quantity: e.target.value })}
+                            className="h-7 text-xs"
+                          />
+                          <Input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={item.unit_price}
+                            onChange={(e) => updateItem(idx, { unit_price: e.target.value })}
+                            className="h-7 text-xs"
+                          />
+                        </>
+                      )}
                       <span className="text-[10px] text-muted-foreground px-1">
                         {item.tax_rate}%
                       </span>
                       <span className="text-xs text-foreground text-right font-medium">
                         {formatMoney(calcLineTotal(item.quantity, item.unit_price), currency)}
                       </span>
-                      <button
-                        onClick={() => removeItem(idx)}
-                        className="rounded p-0.5 text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {isStorno ? (
+                        <span />
+                      ) : (
+                        <button
+                          onClick={() => removeItem(idx)}
+                          className="rounded p-0.5 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -331,10 +356,13 @@ export function CreditNoteDialog({
             onClick={handleSave}
             variant={isStorno ? 'destructive' : 'default'}
             disabled={
-              !selectedInvoice || !reason.trim() || items.length === 0 || createCreditNote.isPending
+              !selectedInvoice ||
+              (isStorno
+                ? cancelInvoice.isPending
+                : !reason.trim() || items.length === 0 || createCreditNote.isPending)
             }
           >
-            {createCreditNote.isPending
+            {(isStorno ? cancelInvoice.isPending : createCreditNote.isPending)
               ? t('finanzen.creditNote.creating')
               : isStorno
                 ? t('finanzen.creditNote.stornoConfirm')

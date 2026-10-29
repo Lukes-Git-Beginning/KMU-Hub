@@ -1,8 +1,9 @@
 /**
  * InviteUserDialog — invite a new tenant account. Email + roles chosen up
  * front (security semantics are clear: the invitee can only do what you grant
- * now). Multi-role since R-2 (union). Creates a pending (`invited`) account
- * via MSW. Real e-mail/token = Luke 🔒.
+ * now). Multi-role since R-2 (union). Creates a pending (`invited`) account;
+ * the server mails the invitee a link to its accept page, and a pending invite
+ * can be re-sent from the user detail.
  */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -21,8 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useInviteUser } from '@/api/hooks/useAdminUsers'
 import { useRoles } from '@/api/hooks/useRbacRoles'
-import { roleDisplayName } from '@/lib/rbac-format'
-import { roleDescriptionKey } from '@/config/roles'
+import { roleDescription, roleDisplayName, rolePresetKey } from '@/lib/rbac-format'
 
 interface InviteUserDialogProps {
   open: boolean
@@ -34,23 +34,29 @@ interface InviteUserDialogProps {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// The demo mock answers `email_exists`; the server says "user already exists"
+// or "pending invitation already exists for this email" (both 409).
+const DUPLICATE_RE = /email_exists|already exists/i
+
 export function InviteUserDialog({ open, onOpenChange, seatsUsed, seatsTotal }: InviteUserDialogProps) {
   const { t } = useTranslation()
   const invite = useInviteUser()
   const { data: allRoles = [] } = useRoles()
 
   const [email, setEmail] = useState('')
-  const [roles, setRoles] = useState<string[]>(['member'])
+  // null = untouched: preselect the member preset. Role ids are UUIDs on the
+  // server, so the preset is found by key, not by a hardcoded id.
+  const [picked, setPicked] = useState<string[] | null>(null)
+  const memberRoleId = allRoles.find((r) => rolePresetKey(r) === 'member')?.id
+  const roles = picked ?? (memberRoleId ? [memberRoleId] : [])
 
   const reset = () => {
     setEmail('')
-    setRoles(['member'])
+    setPicked(null)
   }
 
   const toggleRole = (roleId: string) => {
-    setRoles((current) =>
-      current.includes(roleId) ? current.filter((r) => r !== roleId) : [...current, roleId],
-    )
+    setPicked(roles.includes(roleId) ? roles.filter((r) => r !== roleId) : [...roles, roleId])
   }
 
   const emailValid = EMAIL_RE.test(email.trim())
@@ -69,7 +75,7 @@ export function InviteUserDialog({ open, onOpenChange, seatsUsed, seatsTotal }: 
         onError: (err) => {
           const msg = err instanceof Error ? err.message : ''
           toast.error(
-            msg === 'email_exists'
+            DUPLICATE_RE.test(msg)
               ? t('admin.users.invite.errorExists')
               : t('admin.users.invite.errorGeneric'),
           )
@@ -137,9 +143,10 @@ export function InviteUserDialog({ open, onOpenChange, seatsUsed, seatsTotal }: 
               })}
             </ul>
             <p className="text-xs text-muted-foreground">
-              {roles.length === 1 && allRoles.find((r) => r.id === roles[0])?.isSystem
-                ? t(roleDescriptionKey(roles[0]))
-                : t('rbac.assignment.unionHint')}
+              {(() => {
+                const only = roles.length === 1 ? allRoles.find((r) => r.id === roles[0]) : undefined
+                return only?.isSystem ? roleDescription(t, only) : t('rbac.assignment.unionHint')
+              })()}
             </p>
           </div>
 

@@ -6,7 +6,7 @@
  */
 import type { TFunction } from 'i18next'
 import type { CapabilityScope, Role } from '@/api/rbac-types'
-import { roleLabelKey } from '@/config/roles'
+import { isPresetRoleKey, roleDescriptionKey, roleLabelKey } from '@/config/roles'
 
 /** Human label for a capability key (`work:task:edit` → "Aufgaben — Bearbeiten").
  *  Subjects resolve module-first (`rbac.subject.<module>_<subject>`) so shared
@@ -26,12 +26,33 @@ export function moduleLabel(t: TFunction, module: string): string {
   return t(`rbac.module.${module}`, { defaultValue: module })
 }
 
+/**
+ * Preset key of a system role (`member`, `admin`, …), null for custom roles.
+ * The server sends the role's UUID as `id` and the preset key as `name`; the
+ * demo mock keys presets by `id` and puts a display name in `name`.
+ */
+// lean: two shapes; drop the id branch once the mock mirrors the wire (UUID id, preset key in name)
+export function rolePresetKey(role: Pick<Role, 'id' | 'name' | 'isSystem'>): string | null {
+  if (!role.isSystem) return null
+  return isPresetRoleKey(role.id) ? role.id : role.name
+}
+
 /** Display name of a role — presets via i18n, custom roles carry their own name. */
 export function roleDisplayName(
   t: TFunction,
   role: Pick<Role, 'id' | 'name' | 'isSystem'>,
 ): string {
-  return role.isSystem ? t(roleLabelKey(role.id)) : role.name
+  const key = rolePresetKey(role)
+  return key ? t(roleLabelKey(key)) : role.name
+}
+
+/** Description of a role — presets via i18n, custom roles carry their own text. */
+export function roleDescription(
+  t: TFunction,
+  role: Pick<Role, 'id' | 'name' | 'isSystem' | 'description'>,
+): string {
+  const key = rolePresetKey(role)
+  return key ? t(roleDescriptionKey(key)) : role.description
 }
 
 /** Scope pill classes (mirrors BerechtigungenTab R-1). */

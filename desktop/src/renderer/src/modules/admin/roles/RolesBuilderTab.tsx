@@ -35,10 +35,9 @@ import { fetchRolePermissions } from '@/api/rbac-client'
 import { useDeleteRole, useRoles } from '@/api/hooks/useRbacRoles'
 import { useAdminUsers } from '@/api/hooks/useAdminUsers'
 import { useHasCapability } from '@/hooks/useCapability'
-import { rbacErrorMessage, roleDisplayName } from '@/lib/rbac-format'
+import { rbacErrorMessage, roleDescription, roleDisplayName } from '@/lib/rbac-format'
 import { diffCount, diffGrants } from '@/lib/rbac-diff'
 import { CUSTOM_ROLE_LIMIT } from '@/mocks/data/rbac'
-import { roleDescriptionKey } from '@/config/roles'
 import { STATUS_META, initials } from '../users/presentation'
 import CloneRoleDialog from './CloneRoleDialog'
 import RoleCompareModal from './RoleCompareModal'
@@ -377,7 +376,7 @@ function RoleCard({
             )}
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-            {role.isSystem ? t(roleDescriptionKey(role.id)) : role.description}
+            {roleDescription(t, role)}
           </p>
         </div>
         <DropdownMenu>
@@ -454,7 +453,7 @@ function RoleMembersModal({
       open={role !== null}
       onClose={onClose}
       title={roleDisplayName(t, role)}
-      subtitle={role.isSystem ? t(roleDescriptionKey(role.id)) : role.description}
+      subtitle={roleDescription(t, role)}
       badge={
         <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-muted-foreground">
           <Users className="h-3.5 w-3.5" aria-hidden="true" />

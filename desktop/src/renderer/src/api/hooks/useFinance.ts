@@ -288,6 +288,8 @@ export function useCancelInvoice() {
       qc.invalidateQueries({ queryKey: ['finance', 'invoices'] })
       qc.invalidateQueries({ queryKey: financeKeys.invoice(id) })
       qc.invalidateQueries({ queryKey: ['finance', 'dashboard'] })
+      // Cancelling an issued invoice writes its storno credit note server-side.
+      qc.invalidateQueries({ queryKey: ['finance', 'credit-notes'] })
     },
   })
 }

@@ -595,8 +595,12 @@ export interface ReportDocumentResponse {
 export interface ReportShareToken {
   id: string
   document_id: string
-  token: string
-  /** null = never expires. */
+  /**
+   * Only in the create response. The list never carries it: the server keeps a
+   * hash, so a link can be copied once, right after it was made.
+   */
+  token?: string
+  /** null only on links created before every link had to expire. */
   expires_at: string | null
   has_password: boolean
   view_count: number
@@ -604,8 +608,8 @@ export interface ReportShareToken {
 }
 
 export interface CreateReportShareInput {
-  /** Days until expiry; null/0 = never expires. */
-  expires_in_days?: number | null
+  /** Days until expiry, 1 to 365; omitted means the server default of 365. */
+  expires_in_days?: number
   password?: string
 }
 

@@ -62,6 +62,12 @@ function unwrapOrder(value: { order?: ProductionOrder } | ProductionOrder): Prod
   return (value as { order?: ProductionOrder }).order ?? (value as ProductionOrder)
 }
 
+// Bookings ({ booking }), plans ({ plan }) and the capacity overview
+// ({ overview }) come in the same proto envelope; same tolerance as unwrapOrder.
+function unwrapField<T>(value: Record<string, unknown> | T, key: string): T {
+  return ((value as Record<string, unknown>)[key] as T | undefined) ?? (value as T)
+}
+
 // ---------------------------------------------------------------------------
 // Base path
 // ---------------------------------------------------------------------------
@@ -146,12 +152,18 @@ export function listMachineBookings(params?: ListBookingsParams) {
   })
 }
 
-export function createMachineBooking(body: CreateBookingInput) {
-  return request<MachineBooking>({ method: 'POST', path: `${BASE}/bookings`, body })
+export async function createMachineBooking(body: CreateBookingInput) {
+  const raw = await request<{ booking?: MachineBooking }>({ method: 'POST', path: `${BASE}/bookings`, body })
+  return unwrapField<MachineBooking>(raw, 'booking')
 }
 
-export function updateMachineBooking(id: string, body: UpdateBookingInput) {
-  return request<MachineBooking>({ method: 'PATCH', path: `${BASE}/bookings/${id}`, body })
+export async function updateMachineBooking(id: string, body: UpdateBookingInput) {
+  const raw = await request<{ booking?: MachineBooking }>({
+    method: 'PATCH',
+    path: `${BASE}/bookings/${id}`,
+    body,
+  })
+  return unwrapField<MachineBooking>(raw, 'booking')
 }
 
 export function deleteMachineBooking(id: string) {
@@ -162,24 +174,28 @@ export function deleteMachineBooking(id: string) {
 // Production Plans
 // ---------------------------------------------------------------------------
 
-export function createPlan(body: CreatePlanInput) {
-  return request<ProductionPlan>({ method: 'POST', path: `${BASE}/plans`, body })
+export async function createPlan(body: CreatePlanInput) {
+  const raw = await request<{ plan?: ProductionPlan }>({ method: 'POST', path: `${BASE}/plans`, body })
+  return unwrapField<ProductionPlan>(raw, 'plan')
 }
 
-export function getPlan(id: string) {
-  return request<ProductionPlan>({ method: 'GET', path: `${BASE}/plans/${id}` })
+export async function getPlan(id: string) {
+  const raw = await request<{ plan?: ProductionPlan }>({ method: 'GET', path: `${BASE}/plans/${id}` })
+  return unwrapField<ProductionPlan>(raw, 'plan')
 }
 
-export function updatePlan(id: string, body: UpdatePlanInput) {
-  return request<ProductionPlan>({ method: 'PATCH', path: `${BASE}/plans/${id}`, body })
+export async function updatePlan(id: string, body: UpdatePlanInput) {
+  const raw = await request<{ plan?: ProductionPlan }>({ method: 'PATCH', path: `${BASE}/plans/${id}`, body })
+  return unwrapField<ProductionPlan>(raw, 'plan')
 }
 
-export function getCapacityOverview(planId: string, machineId: string) {
-  return request<CapacityOverview>({
+export async function getCapacityOverview(planId: string, machineId: string) {
+  const raw = await request<{ overview?: CapacityOverview }>({
     method: 'GET',
     path: `${BASE}/plans/${planId}/capacity`,
     params: { machine_id: machineId },
   })
+  return unwrapField<CapacityOverview>(raw, 'overview')
 }
 
 // ---------------------------------------------------------------------------

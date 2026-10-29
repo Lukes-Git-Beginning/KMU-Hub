@@ -43,6 +43,7 @@ import type {
   BuilderQueryConfig,
   CreateDefinitionInput,
   CreateReportDocumentInput,
+  CreateReportShareInput,
   CreateScheduleInput,
   ExportReportInput,
   ListDefinitionsParams,
@@ -324,7 +325,7 @@ export function useCreateReportShare() {
       input,
     }: {
       documentId: string
-      input: { expires_in_days?: number | null; password?: string }
+      input: CreateReportShareInput
     }) => createReportShare(documentId, input),
     onSuccess: (_data, vars) =>
       qc.invalidateQueries({ queryKey: ['berichte', 'shares', vars.documentId] }),

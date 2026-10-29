@@ -899,19 +899,24 @@ export const berichteHandlers = [
 
   // --- External share links (R-5c) ---
   http.get(`${API}/api/v1/berichte/documents/:id/shares`, ({ params }) => {
-    const shares = SHARE_TOKENS.filter((s) => s.document_id === params.id)
+    // Like the server: the list carries no token, only the create response does.
+    const shares = SHARE_TOKENS.filter((s) => s.document_id === params.id).map(
+      ({ token: _token, ...rest }) => rest,
+    )
     return HttpResponse.json({ shares })
   }),
 
   http.post(`${API}/api/v1/berichte/documents/:id/shares`, async ({ params, request }) => {
     const body = (await request.json().catch(() => ({}))) as {
-      expires_in_days?: number | null
+      expires_in_days?: number
       password?: string
     }
+    const days = body.expires_in_days ?? 365
+    if (days < 1 || days > 365) {
+      return HttpResponse.json({ error: 'expires_in_days must be between 1 and 365' }, { status: 400 })
+    }
     shareCounter += 1
-    const days = body.expires_in_days ?? null
-    const expires_at =
-      days && days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null
+    const expires_at = new Date(Date.now() + days * 86_400_000).toISOString()
     const share: ReportShareToken = {
       id: `rsh-${shareCounter}`,
       document_id: params.id as string,
