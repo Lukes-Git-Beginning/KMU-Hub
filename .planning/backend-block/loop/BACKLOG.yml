@@ -233,7 +233,7 @@ units:
     service: automation
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29: Zustellung über den Event-Bus. Die Action publiziert ein Event, der vorhandene
@@ -1368,3 +1368,34 @@ units:
       - Mutationsprobe dokumentiert
       - go test -count=1 des Pakets grün, DATABASE_URL gesetzt falls DB-Tests, 0 Skips
 
+
+  - id: fix-automation-templates-unresolvable-recipient-placeholders
+    phase: 4
+    service: automation
+    model: sonnet
+    deps: []
+    status: todo
+    target: Mitgelieferte Workflow-Vorlagen adressieren nur Felder, die das Trigger-Event wirklich ins env legt
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `fix-notification-send-action-is-a-stub` (Lauf 18, Iteration 3). `buildEnvFromPayload`
+      (`internal/automation/engine/engine.go`) legt nur event_type, module_id, actor_id, resource_id, timestamp,
+      tenant_id und die Schlüssel aus `evt.Payload` ins env. Die Vorlagen in `internal/automation/template/templates.go`
+      adressieren Empfänger und Felder wie `{{deal.owner_id}}`, `{{deal.name}}`, `{{hr_manager_id}}`, `{{manager_id}}`,
+      `{{task.assignee_id}}`. Verifiziert für Vorlage 1: `crm.deal.assigned` (`internal/crm/deal/service.go:407`) setzt
+      kein `Payload`, `{{deal.owner_id}}` bleibt unaufgelöst. Bis `notification.send` echt zustellte, meldete die Action
+      trotzdem Erfolg; jetzt scheitert sie ehrlich mit „target_user_id ... is not a user id" (OnErrorContinue). Je
+      Vorlage prüfen: Trigger-Event → Emitter → welche Schlüssel kommen im env an; fehlende Felder entweder im Emitter
+      als `Payload` mitsenden (wo die Daten schon vorliegen) oder die Vorlage auf vorhandene Felder umstellen
+      (z. B. `{{actor_id}}`, `TargetUserIDs`). Kein neues Proto, keine neue Route.
+    sources:
+      - backend/internal/automation/template/templates.go
+      - backend/internal/automation/engine/engine.go
+      - backend/internal/crm/deal/service.go
+    notes: >
+      Gleiche Fehlerklasse betrifft auch `work.create_task` (`assignee_id: "{{deal.owner_id}}"`) und
+      `biz.create_invoice_draft` (`{{deal.name}}`). Ein Tabellentest „jede Vorlage löst jeden Platzhalter gegen ein
+      realistisches env ihres Triggers auf" verhindert den Rückfall.
+    done_when:
+      - 'Test: für jede Vorlage enthält das gerenderte Action-Config nach resolveTemplate gegen das env ihres Trigger-Events keinen `{{`-Rest'
+      - go test -count=1 für internal/automation/... und die angefassten Emitter grün, DATABASE_URL gesetzt, 0 Skips

@@ -3,20 +3,36 @@ package action
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 )
 
-// SendNotificationAction creates a notification by emitting an event payload.
-// Since the notification service does not expose a CreateNotification RPC,
-// this action logs the notification intent and returns a synthetic notification ID.
-// In production, this will integrate with the event bus to trigger notification creation.
-type SendNotificationAction struct{}
+// EventTypeAutomationNotification is the event type the notification.send
+// action publishes. ModuleID is event.ModuleAutomation, which the automation
+// consumer and engine skip -- the action's own event never starts a workflow.
+const EventTypeAutomationNotification = "automation.notification"
+
+// EventPublisher puts an event on the bus (event.EmitEvent in production).
+type EventPublisher func(ctx context.Context, payload models.EventPayload) error
+
+// SendNotificationAction delivers a notification by publishing an event on the
+// bus. The notification service's InboxConsumer turns it into an inbox message
+// for the target user and pushes it over WebSocket. The consumer's insert only
+// lands for a user of the event's tenant (inbox message repository Create).
+type SendNotificationAction struct {
+	publish EventPublisher
+}
 
 // NewSendNotificationAction creates a new SendNotificationAction.
-func NewSendNotificationAction() *SendNotificationAction {
-	return &SendNotificationAction{}
+func NewSendNotificationAction(publish EventPublisher) *SendNotificationAction {
+	return &SendNotificationAction{publish: publish}
 }
 
 func (a *SendNotificationAction) Type() string { return "notification.send" }
@@ -35,12 +51,44 @@ func (a *SendNotificationAction) Execute(ctx context.Context, config json.RawMes
 	}
 
 	targetUserID := resolveTemplate(cfg.TargetUserID, env)
+	if id, err := uuid.Parse(targetUserID); err != nil || id == uuid.Nil {
+		err := fmt.Errorf("target_user_id %q is not a user id", targetUserID)
+		return ActionResult{Success: false, Error: err.Error()}, err
+	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return ActionResult{Success: false, Error: "no tenant in context"}, err
+	}
+	if a.publish == nil {
+		err := fmt.Errorf("notification.send: no event publisher configured")
+		return ActionResult{Success: false, Error: err.Error()}, err
+	}
+
 	title := resolveTemplate(cfg.Title, env)
 	body := resolveTemplate(cfg.Body, env)
 
+	// The id doubles as ResourceID, which the consumer stores as the inbox
+	// message's source_id (its dedup key).
+	// lean: one fresh id per execution; key it on execution+step once the engine
+	// retries actions, so a retry does not deliver twice.
 	notificationID := uuid.New().String()
 
-	slog.Info("automation notification sent",
+	if err := a.publish(ctx, models.EventPayload{
+		Type:          EventTypeAutomationNotification,
+		TenantID:      tenantID,
+		Priority:      models.PriorityNormal,
+		ModuleID:      event.ModuleAutomation,
+		ResourceID:    notificationID,
+		TargetUserIDs: []string{targetUserID},
+		Title:         title,
+		Body:          body,
+		DeepLink:      resolveTemplate(cfg.DeepLink, env),
+		Timestamp:     time.Now().UTC(),
+	}); err != nil {
+		return ActionResult{Success: false, Error: "publish notification: " + err.Error()}, err
+	}
+
+	slog.Info("automation notification published",
 		"notification_id", notificationID,
 		"target_user_id", targetUserID,
 		"title", title,

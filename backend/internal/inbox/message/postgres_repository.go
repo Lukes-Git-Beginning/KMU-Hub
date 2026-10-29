@@ -33,20 +33,27 @@ func (r *PostgresRepository) Create(ctx context.Context, msg *models.InboxMessag
 			subject, preview, is_read, is_starred, is_archived, status, snoozed_until,
 			assigned_to, team_inbox_id, tags, deep_link, crm_contact_id,
 			metadata, received_at, created_at, updated_at
-		) VALUES (
+		)
+		SELECT
 			$1, $2, $3, $4, $5, $6, $7, $8,
 			$9, $10, $11, $12, $13, $14, $15,
 			$16, $17, $18, $19, $20,
 			$21, $22, NOW(), NOW()
-		)`
+		WHERE EXISTS (SELECT 1 FROM users WHERE id = $3 AND tenant_id = $2)`
 
-	_, err := r.pool.Exec(ctx, query,
+	tag, err := r.pool.Exec(ctx, query,
 		msg.ID, msg.TenantID, msg.UserID, msg.Channel, msg.SourceID, msg.SenderName, msg.SenderID, msg.SenderEmail,
 		msg.Subject, msg.Preview, msg.IsRead, msg.IsStarred, msg.IsArchived, msg.Status, msg.SnoozedUntil,
 		msg.AssignedTo, msg.TeamInboxID, msg.Tags, msg.DeepLink, msg.CRMContactID,
 		msg.Metadata, msg.ReceivedAt,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRecipientNotInTenant
+	}
+	return nil
 }
 
 // visibleToCaller limits a message to the caller bound as $3: its owner, its assignee and the

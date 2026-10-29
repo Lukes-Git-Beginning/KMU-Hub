@@ -27,6 +27,11 @@ var (
 	// ErrForwardNotSupported is returned when the message's channel adapter
 	// has no concept of forwarding to an arbitrary recipient.
 	ErrForwardNotSupported = errors.New("forward is not supported for this channel")
+
+	// ErrRecipientNotInTenant is returned by Create when the message's user is not a user of the
+	// message's tenant. The user_id foreign key does not check that (FK lookups bypass RLS), and
+	// the consumer would otherwise file -- and push over WebSocket -- a message for a foreign user.
+	ErrRecipientNotInTenant = errors.New("inbox message recipient is not a user of the tenant")
 )
 
 // ValidStatuses lists the allowed conversation-level status values.

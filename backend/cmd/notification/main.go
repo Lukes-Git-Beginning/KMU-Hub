@@ -465,6 +465,13 @@ func (ic *InboxConsumer) HandleEvent(ctx context.Context, evt models.EventPayloa
 				// Duplicate is expected for already-processed events
 				continue
 			}
+			if errors.Is(err, message.ErrRecipientNotInTenant) {
+				slog.Warn("inbox consumer: target user is not in the event's tenant, skipping",
+					"user_id", userID,
+					"event_type", evt.Type,
+				)
+				continue
+			}
 			slog.Error("inbox consumer: failed to create inbox message",
 				"user_id", userID,
 				"event_type", evt.Type,

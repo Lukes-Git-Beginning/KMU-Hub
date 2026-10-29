@@ -15,7 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
+	"github.com/kmuhub/kmuhub/internal/models"
+	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/security/safehttp"
+	"github.com/kmuhub/kmuhub/internal/testutil"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 	workv1 "github.com/kmuhub/kmuhub/proto/work/v1"
 )
@@ -237,31 +240,96 @@ func TestCreateTaskAction_RejectsMissingCreator(t *testing.T) {
 
 // ─── notification.send ──────────────────────────────────────────────────────
 
-func TestSendNotificationAction_ResolvesTargetAndReturnsID(t *testing.T) {
-	a := NewSendNotificationAction()
+// capturePublisher records every event the action publishes and fails with err.
+type capturePublisher struct {
+	events []models.EventPayload
+	err    error
+}
+
+func (c *capturePublisher) publish(_ context.Context, p models.EventPayload) error {
+	c.events = append(c.events, p)
+	return c.err
+}
+
+func TestSendNotificationAction_PublishesOneEventForTheTarget(t *testing.T) {
+	pub := &capturePublisher{}
+	a := NewSendNotificationAction(pub.publish)
 	assert.Equal(t, "notification.send", a.Type())
 
-	res, err := a.Execute(context.Background(), mustMarshal(t, map[string]any{
+	tenantID, ownerID := uuid.New(), uuid.NewString()
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	res, err := a.Execute(ctx, mustMarshal(t, map[string]any{
 		"target_user_id": "{{deal.owner_id}}",
 		"title":          "Deal {{deal.name}}",
 		"body":           "Neuer Stand",
-	}), map[string]any{"deal": map[string]any{"owner_id": "user-5", "name": "Acme"}})
+		"deep_link":      "/crm/deals/{{deal.id}}",
+	}), map[string]any{"deal": map[string]any{"owner_id": ownerID, "name": "Acme", "id": "d-7"}})
 
 	require.NoError(t, err)
 	assert.True(t, res.Success)
-	assert.Equal(t, "user-5", res.Output["target_user_id"])
-	id, ok := res.Output["notification_id"].(string)
-	require.True(t, ok)
-	_, perr := uuid.Parse(id)
+	require.Len(t, pub.events, 1)
+	evt := pub.events[0]
+	assert.Equal(t, EventTypeAutomationNotification, evt.Type)
+	assert.Equal(t, event.ModuleAutomation, evt.ModuleID, "the automation consumer skips this module: no workflow loop")
+	assert.Equal(t, tenantID, evt.TenantID)
+	assert.Equal(t, []string{ownerID}, evt.TargetUserIDs)
+	assert.Equal(t, "Deal Acme", evt.Title)
+	assert.Equal(t, "Neuer Stand", evt.Body)
+	assert.Equal(t, "/crm/deals/d-7", evt.DeepLink)
+	assert.False(t, evt.Timestamp.IsZero())
+
+	assert.Equal(t, ownerID, res.Output["target_user_id"])
+	assert.Equal(t, evt.ResourceID, res.Output["notification_id"], "the reported id is the published event's id")
+	_, perr := uuid.Parse(evt.ResourceID)
 	assert.NoError(t, perr, "notification_id must be a UUID")
 
-	res2, err := a.Execute(context.Background(), json.RawMessage(`{"target_user_id":"u"}`), nil)
+	res2, err := a.Execute(ctx, mustMarshal(t, map[string]any{"target_user_id": ownerID}), nil)
 	require.NoError(t, err)
-	assert.NotEqual(t, id, res2.Output["notification_id"], "each execution gets its own id")
+	assert.NotEqual(t, res.Output["notification_id"], res2.Output["notification_id"], "each execution gets its own id")
+}
+
+func TestSendNotificationAction_PublishFailureIsNoSuccess(t *testing.T) {
+	pub := &capturePublisher{err: errors.New("pg_notify: connection refused")}
+	res, err := NewSendNotificationAction(pub.publish).Execute(testutil.WithTenantCtx(context.Background(), uuid.New()),
+		mustMarshal(t, map[string]any{"target_user_id": uuid.NewString(), "title": "t"}), nil)
+	require.Error(t, err)
+	assert.False(t, res.Success)
+	assert.Contains(t, res.Error, "connection refused")
+	assert.Len(t, pub.events, 1)
+}
+
+func TestSendNotificationAction_RejectsWithoutPublishing(t *testing.T) {
+	tenantCtx := testutil.WithTenantCtx(context.Background(), uuid.New())
+	cases := []struct {
+		name   string
+		ctx    context.Context
+		target string
+		pub    bool
+	}{
+		{"unresolved template", tenantCtx, "{{deal.owner_id}}", true},
+		{"not a uuid", tenantCtx, "user-5", true},
+		{"nil uuid", tenantCtx, uuid.Nil.String(), true},
+		{"no tenant", context.Background(), uuid.NewString(), true},
+		{"no publisher", tenantCtx, uuid.NewString(), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pub := &capturePublisher{}
+			var fn EventPublisher
+			if tc.pub {
+				fn = pub.publish
+			}
+			res, err := NewSendNotificationAction(fn).Execute(tc.ctx,
+				mustMarshal(t, map[string]any{"target_user_id": tc.target, "title": "t"}), map[string]any{})
+			require.Error(t, err)
+			assert.False(t, res.Success)
+			assert.Empty(t, pub.events)
+		})
+	}
 }
 
 func TestSendNotificationAction_InvalidConfig(t *testing.T) {
-	res, err := NewSendNotificationAction().Execute(context.Background(), json.RawMessage(`{"title":`), nil)
+	res, err := NewSendNotificationAction(nil).Execute(context.Background(), json.RawMessage(`{"title":`), nil)
 	require.Error(t, err)
 	assert.False(t, res.Success)
 	assert.True(t, strings.HasPrefix(res.Error, "invalid config: "))
@@ -281,8 +349,9 @@ func TestSendNotificationAction_LogsOnlyAPreview(t *testing.T) {
 	t.Cleanup(func() { slog.SetDefault(prev) })
 
 	long := strings.Repeat("x", 150)
-	_, err := NewSendNotificationAction().Execute(context.Background(),
-		mustMarshal(t, map[string]any{"target_user_id": "u", "body": long}), nil)
+	pub := &capturePublisher{}
+	_, err := NewSendNotificationAction(pub.publish).Execute(testutil.WithTenantCtx(context.Background(), uuid.New()),
+		mustMarshal(t, map[string]any{"target_user_id": uuid.NewString(), "body": long}), nil)
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), strings.Repeat("x", 100)+"...")
 	assert.NotContains(t, buf.String(), strings.Repeat("x", 101))
@@ -299,7 +368,7 @@ func TestActionRegistry_RegisterGetAndCatalog(t *testing.T) {
 
 	email := NewSendEmailAction(nil)
 	r.Register(email, SendEmailDefinition())
-	r.Register(NewSendNotificationAction(), SendNotificationDefinition())
+	r.Register(NewSendNotificationAction(nil), SendNotificationDefinition())
 
 	assert.Equal(t, 2, r.Count())
 	got, ok := r.Get("email.send")
@@ -331,7 +400,7 @@ func TestDefinitions_AgreeWithExecutors(t *testing.T) {
 	}{
 		{SendEmailDefinition(), NewSendEmailAction(nil).Type(), "email", []string{"account_id", "to", "subject", "body"}, []string{"message_id"}},
 		{CreateTaskDefinition(), NewCreateTaskAction(nil).Type(), "work", []string{"project_id", "title"}, []string{"task_id"}},
-		{SendNotificationDefinition(), NewSendNotificationAction().Type(), "notification", []string{"target_user_id", "title", "body"}, []string{"notification_id", "target_user_id"}},
+		{SendNotificationDefinition(), NewSendNotificationAction(nil).Type(), "notification", []string{"target_user_id", "title", "body"}, []string{"notification_id", "target_user_id"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.typ, func(t *testing.T) {

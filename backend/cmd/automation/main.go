@@ -26,6 +26,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/idempotency"
 	"github.com/kmuhub/kmuhub/internal/metrics"
 	"github.com/kmuhub/kmuhub/internal/middleware"
+	"github.com/kmuhub/kmuhub/internal/models"
 	"github.com/kmuhub/kmuhub/internal/notification/event"
 	"github.com/kmuhub/kmuhub/internal/server"
 	automationv1 "github.com/kmuhub/kmuhub/proto/automation/v1"
@@ -116,9 +117,12 @@ func main() {
 		action.SendEmailDefinition(),
 	)
 
-	// Notification action (standalone, no gRPC client needed)
+	// Notification action: published on the event bus, delivered by the
+	// notification service's InboxConsumer (inbox message + WebSocket push).
 	actionReg.Register(
-		action.NewSendNotificationAction(),
+		action.NewSendNotificationAction(func(ctx context.Context, p models.EventPayload) error {
+			return event.EmitEvent(ctx, pool, p)
+		}),
 		action.SendNotificationDefinition(),
 	)
 
