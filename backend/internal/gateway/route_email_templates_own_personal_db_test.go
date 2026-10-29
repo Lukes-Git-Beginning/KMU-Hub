@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
@@ -183,9 +185,51 @@ func TestEmailTemplates_MemberMaintainsOwnPersonalTemplatesOnly(t *testing.T) {
 		}
 	})
 
+	t.Run("member creates a personal template but no shared one", func(t *testing.T) {
+		code, body := do(aliceToken, http.MethodPost, "/api/v1/email/templates", `{"name":"Meine","visibility":"personal"}`)
+		if code != http.StatusCreated {
+			t.Fatalf("POST personal = %d, want 201 (body %s)", code, body)
+		}
+		forgetCreated(t, pool, body)
+		if code, body := do(aliceToken, http.MethodPost, "/api/v1/email/templates", `{"name":"Fuer alle","visibility":"shared"}`); code != http.StatusForbidden {
+			t.Errorf("member POST shared = %d, want 403 (body %s)", code, body)
+			forgetCreated(t, pool, body)
+		}
+		var n int
+		if err := pool.QueryRow(sysCtx, `SELECT count(*) FROM email_templates WHERE tenant_id = $1 AND name = 'Fuer alle'`, tenantID).Scan(&n); err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		if n != 0 {
+			t.Errorf("refused shared create left %d rows", n)
+		}
+	})
+
+	t.Run("admin creates a shared template", func(t *testing.T) {
+		code, body := do(adminToken, http.MethodPost, "/api/v1/email/templates", `{"name":"Team neu","visibility":"shared"}`)
+		if code != http.StatusCreated {
+			t.Fatalf("admin POST shared = %d, want 201 (body %s)", code, body)
+		}
+		forgetCreated(t, pool, body)
+	})
+
 	t.Run("a user without the key stays out", func(t *testing.T) {
 		if code, _ := do(noRoleToken, http.MethodPut, base+bobOwn, `{"name":"x"}`); code != http.StatusForbidden {
 			t.Fatalf("role-less PUT = %d, want 403", code)
 		}
 	})
+}
+
+// forgetCreated schedules the cleanup of the template a create response names.
+func forgetCreated(t *testing.T, pool *pgxpool.Pool, body string) {
+	t.Helper()
+	var resp struct {
+		Template struct {
+			ID string `json:"id"`
+		} `json:"template"`
+	}
+	if err := json.Unmarshal([]byte(body), &resp); err != nil || resp.Template.ID == "" {
+		return
+	}
+	id := uuid.MustParse(resp.Template.ID)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "email_templates", id) })
 }

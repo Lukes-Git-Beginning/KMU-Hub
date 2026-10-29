@@ -62,7 +62,7 @@ func TestCreate_DefaultsToPersonalAndOwnsCaller(t *testing.T) {
 	svc := NewService(repo)
 	ownerID := uuid.New()
 
-	tpl, err := svc.Create(context.Background(), testTenantID, ownerID, "Angebot", "Betreff", "<p>Hi</p>", "Hi", "")
+	tpl, err := svc.Create(context.Background(), testTenantID, ownerID, true, "Angebot", "Betreff", "<p>Hi</p>", "Hi", "")
 	require.NoError(t, err)
 	assert.Equal(t, VisibilityPersonal, tpl.Visibility)
 	require.NotNil(t, tpl.OwnerID)
@@ -73,17 +73,29 @@ func TestCreate_SharedHasNoOwner(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 
-	tpl, err := svc.Create(context.Background(), testTenantID, uuid.New(), "Angebot", "Betreff", "<p>Hi</p>", "Hi", VisibilityShared)
+	tpl, err := svc.Create(context.Background(), testTenantID, uuid.New(), true, "Angebot", "Betreff", "<p>Hi</p>", "Hi", VisibilityShared)
 	require.NoError(t, err)
 	assert.Equal(t, VisibilityShared, tpl.Visibility)
 	assert.Nil(t, tpl.OwnerID)
+}
+
+func TestCreate_SharedNeedsMaintainer(t *testing.T) {
+	repo := &MockRepository{}
+	svc := NewService(repo)
+
+	_, err := svc.Create(context.Background(), testTenantID, uuid.New(), false, "Angebot", "", "", "", VisibilityShared)
+	assert.ErrorIs(t, err, ErrSharedTemplate)
+
+	tpl, err := svc.Create(context.Background(), testTenantID, uuid.New(), false, "Angebot", "", "", "", VisibilityPersonal)
+	require.NoError(t, err)
+	assert.Equal(t, VisibilityPersonal, tpl.Visibility)
 }
 
 func TestCreate_NameRequired(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.Create(context.Background(), testTenantID, uuid.New(), "   ", "", "", "", "")
+	_, err := svc.Create(context.Background(), testTenantID, uuid.New(), true, "   ", "", "", "", "")
 	assert.ErrorIs(t, err, ErrNameRequired)
 }
 
@@ -91,7 +103,7 @@ func TestCreate_InvalidVisibility(t *testing.T) {
 	repo := &MockRepository{}
 	svc := NewService(repo)
 
-	_, err := svc.Create(context.Background(), testTenantID, uuid.New(), "Angebot", "", "", "", "public")
+	_, err := svc.Create(context.Background(), testTenantID, uuid.New(), true, "Angebot", "", "", "", "public")
 	assert.ErrorIs(t, err, ErrInvalidVisibility)
 }
 

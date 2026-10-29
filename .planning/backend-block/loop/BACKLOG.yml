@@ -450,7 +450,7 @@ units:
     service: email
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29 (aus `decide-email-template-create-shared-by-member`, Variante a): Eine geteilte

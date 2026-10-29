@@ -26811,6 +26811,9 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Create an email template
+      description: >-
+        A personal template is open to every caller. `visibility: shared` needs
+        the coarse email write key; without it the call is refused with 403.
       tags: [mails]
       operationId: createEmailTemplate
       security:
@@ -26832,6 +26835,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":

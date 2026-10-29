@@ -883,6 +883,18 @@ func TestCreateEmailTemplate_DefaultsToPersonalAndOwned(t *testing.T) {
 	require.Equal(t, userID.String(), resp.Template.OwnerId)
 }
 
+func TestCreateEmailTemplate_SharedNeedsTheCoarseKey(t *testing.T) {
+	f := newEmailSigRuleLabelTplFixture()
+	req := &emailv1.CreateEmailTemplateRequest{UserId: uuid.New().String(), Name: "Team", Visibility: template.VisibilityShared}
+
+	_, err := f.srv.CreateEmailTemplate(ctxWithTenant(uuid.New()), req)
+	requireGRPCCode(t, err, codes.PermissionDenied)
+
+	resp, err := f.srv.CreateEmailTemplate(withEmailPerms(ctxWithTenant(uuid.New()), middleware.PermEmailWrite), req)
+	requireGRPCOK(t, err)
+	require.Equal(t, template.VisibilityShared, resp.Template.Visibility)
+}
+
 func TestCreateEmailTemplate_InvalidVisibility(t *testing.T) {
 	f := newEmailSigRuleLabelTplFixture()
 	_, err := f.srv.CreateEmailTemplate(ctxWithTenant(uuid.New()), &emailv1.CreateEmailTemplateRequest{

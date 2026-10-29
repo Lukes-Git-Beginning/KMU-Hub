@@ -50,8 +50,10 @@ func NewService(repo Repository) *Service {
 
 // Create creates a new email template. An empty visibility defaults to
 // personal. A personal template is always owned by its creator; a shared
-// template has no owner.
-func (s *Service) Create(ctx context.Context, tenantID, ownerID uuid.UUID, name, subject, bodyHTML, bodyText, visibility string) (*models.EmailTemplate, error) {
+// template has no owner. Only a maintainer (coarse email key, admin) creates
+// a shared template; everyone else is confined to personal ones, the same
+// line Update and Delete draw.
+func (s *Service) Create(ctx context.Context, tenantID, ownerID uuid.UUID, maintainer bool, name, subject, bodyHTML, bodyText, visibility string) (*models.EmailTemplate, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrNameRequired
@@ -61,6 +63,9 @@ func (s *Service) Create(ctx context.Context, tenantID, ownerID uuid.UUID, name,
 	}
 	if !isValidVisibility(visibility) {
 		return nil, ErrInvalidVisibility
+	}
+	if visibility == VisibilityShared && !maintainer {
+		return nil, ErrSharedTemplate
 	}
 
 	var owner *uuid.UUID

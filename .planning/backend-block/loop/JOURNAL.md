@@ -155,3 +155,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (Antwortform und Validierung unverändert, nur der Umfang der Liste für manager wächst; Desktop-Fuhrpark-Client liest `damages` unverändert)
 - offen: (1) Neuer Scope wirkt erst nach Re-Login der manager (im JWT gebacken). (2) Bestehende Mandanten mit eigenen Rollen-Overrides sind nicht betroffen (nur Systemrollen `tenant_id IS NULL`).
+
+## Iteration 9 — harden-email-template-create-shared-requires-admin — done — 2026-10-30 00:27
+- commit: siehe Commit `fix(email): refuse shared templates to callers without the coarse write key` (git log)
+- gebaut: `template.Service.Create` nimmt `maintainer` und lehnt `visibility: shared` ohne ihn mit `ErrSharedTemplate` ab (gleiche Linie wie Update/Delete); `CreateEmailTemplate` im Email-Server leitet `maintainer` aus `PermEmailWrite` im ctx ab, wie `UpdateEmailTemplate`. Gateway-Mapping existierte (PermissionDenied -> 403); Spec: Beschreibung und 403 am POST.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/email/..., internal/server, internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app, Router-Test gegen echten Seed real gelaufen) | migration n.a. | rls-smoke n.a. | e2e n.a. (kein Flow nutzt Vorlagen)
+- coverage: internal/email/template 87,9 % (vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: Prüfung mit `false &&` deaktiviert -> `TestCreate_SharedNeedsMaintainer`, `TestCreateEmailTemplate_SharedNeedsTheCoarseKey` und Router-Subtest `member creates a personal template but no shared one` rot; zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `7914df55`: nur Migration 000366 + Tests; kein Proto, keine Route, kein Guard, keine Tabelle; Down setzt nur manager zurück)
+- neue-units: keine
+- desktop-aufrufer: `POST /api/v1/email/templates` -> kein Aufrufer in `desktop/src/renderer/src/api/` (Vorlagen laufen lokal über `stores/mailTemplates.ts`) -> passt
+- offen: Verhaltensänderung: member mit `visibility: shared` bekommt 403 statt 201 (Entscheidung Luke 2026-10-29). Die Fehlermeldung von `ErrSharedTemplate` ("only admins change ...") nennt das Anlegen nicht; bewusst unverändert, kein Test hängt dran, aber Tests/Clients matchen evtl. den Text.

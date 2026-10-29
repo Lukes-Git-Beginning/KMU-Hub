@@ -2364,7 +2364,8 @@ func (s *EmailGRPCServer) CreateEmailTemplate(ctx context.Context, req *emailv1.
 		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
 	}
 
-	tpl, err := s.templateService.Create(ctx, tenantID, userID, req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
+	maintainer := slices.Contains(middleware.GetUserPermissions(ctx), middleware.PermEmailWrite)
+	tpl, err := s.templateService.Create(ctx, tenantID, userID, maintainer, req.Name, req.Subject, req.BodyHtml, req.BodyText, req.Visibility)
 	if err != nil {
 		return nil, mapEmailError(err)
 	}
