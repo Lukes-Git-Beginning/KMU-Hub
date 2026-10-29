@@ -209,7 +209,7 @@ units:
     service: auth
     model: sonnet
     deps: [feat-auth-invite-mail-and-accept-page]
-    status: todo
+    status: done
     target: der Erstkunden-Onboarding-Weg läuft Ende-zu-Ende gegen den echten Stack
     coverage_start: n.a. (E2E)
     scope: >
