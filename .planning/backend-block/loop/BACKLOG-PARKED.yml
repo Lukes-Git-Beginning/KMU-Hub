@@ -907,3 +907,88 @@ units:
       - backend/migrations/000195_create_gps_positions.up.sql
       - backend/migrations/000193_create_trip_logs.up.sql
       - backend/internal/gateway/route_fuhrpark.go
+
+  - id: fe-berichte-share-link-shown-once
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: resolved
+    resolved: '2026-10-29'
+    resolution: >-
+      `4e5c830d` (2026-10-29): Link einmalig aus der Create-Antwort mit Kopieren und Hinweis, Liste ohne Token, Option "1 Jahr" statt "Unbegrenzt". Screenshot-QA `desktop/scripts/qa-berichte-share-once.mjs`.
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante a): Berichte-Token werden gehasht, sobald der
+      Desktop den Link nur noch einmalig aus der Create-Antwort zeigt.
+    target: der Berichte-Share-Dialog braucht das Token aus der Liste nicht mehr
+    scope: >
+      `ShareLinkDialog.tsx:134/138` baut „Link kopieren“ aus `s.token` der Liste (`GET /berichte/documents/{id}/shares`)
+      und verwirft die Create-Antwort. Umbauen: nach dem Erstellen den Link aus der Create-Antwort einmalig anzeigen
+      (kopierbar, Hinweis „wird nur jetzt angezeigt“, i18n ×4); die Liste zeigt Ablauf/Widerruf, aber keinen
+      Kopieren-Knopf mehr. Voraussetzung für `harden-share-tokens-hashed-berichte`.
+    sources:
+      - desktop/src/renderer/src/modules/berichte/components/documents/ShareLinkDialog.tsx
+    done_when:
+      - Link nur nach dem Erstellen kopierbar, Liste ohne Token, i18n ×4, Screenshot-QA
+
+  - id: decide-creditnote-dialog-storno-flag
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: resolved
+    resolved: '2026-10-29'
+    resolution: >-
+      `fdf41561` (2026-10-29, Variante a): Storno läuft über `POST /finance/invoices/{id}/cancel`, Positionen schreibgeschützt, keine Begründung, Gutschriften-Liste wird invalidiert; `is_storno` aus dem Request-Typ entfernt, Mock zieht die Storno-Semantik an die Cancel-Route. Screenshot-QA `desktop/scripts/qa-finanzen-storno-cancel.mjs`.
+    decided: 2026-10-24
+    decision: >-
+      ENTSCHEIDUNG LUKE, 2026-10-24: Variante a: der Dialog ruft bei `is_storno` `POST
+      /finance/invoices/{id}/cancel` statt die Gutschrift-Route. Der GoBD-korrekte Pfad existiert,
+      das Backend bleibt unverändert. FE-Arbeit.
+    scope: >
+      Der Gutschrift-Dialog (`CreditNoteDialog.tsx:139-152`) sendet `is_storno: true` und meldet
+      danach "Storno erledigt". Das Gateway kennt das Feld nicht (`createCreditNoteRequest`), das
+      Proto auch nicht: es entsteht eine normale Gutschrift, die Rechnung bleibt unverändert. Einen
+      Storno-Pfad gibt es im Service (`invoice.Service.CancelInvoice` legt für eine versendete
+      Rechnung die Storno-Gutschrift an und setzt die Rechnung auf `cancelled`, über
+      `creditnote.StornoInvoice` in einer Transaktion), er hängt aber nur an der Rechnungs-Route.
+      ENTSCHEIDUNG LUKE: (a) Dialog bei `is_storno` an `POST /finance/invoices/{id}/cancel`
+      umleiten (FE-Änderung, Gutschrift entsteht automatisch, volle Summe), (b) `is_storno` am
+      Gateway annehmen und intern auf den Cancel-RPC abbilden, die gesendeten Positionen
+      verwerfen, oder (c) die Checkbox im Dialog streichen. Bis dahin sagt der Toast etwas, das
+      nicht stimmt.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/CreditNoteDialog.tsx
+      - backend/internal/gateway/route_biz_billing.go
+      - backend/internal/biz/creditnote/service.go
+      - backend/internal/biz/invoice/service.go
+    done_when:
+      - "Entscheidung a/b/c steht; bei b ein Router-Test, dass is_storno die Rechnung auf cancelled setzt"
+
+  - id: decide-desktop-produktion-booking-plan-envelope
+    phase: 4
+    service: produktion
+    model: sonnet
+    deps: []
+    status: resolved
+    resolved: '2026-10-29'
+    resolution: >-
+      `90ff3108` (2026-10-29): `produktion-client.ts` entpackt `{booking}`/`{plan}`/`{overview}` wie `unwrapOrder`, Test `api/__tests__/produktion-envelope.test.ts`.
+    decided: '2026-10-29'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-29: Desktop entpackt `{booking}`/`{plan}`/`{overview}` wie `unwrapOrder`, das
+      Backend bleibt (die übrigen Produktion-Antworten tragen die Hülle auch). FE-Arbeit, tagsüber am 2026-10-29.
+    target: Buchungs-, Plan- und Kapazitäts-Antworten und ihre FE-Typen stimmen überein
+    scope: >
+      Aus `e2e-produktion-member-flow` (Lauf 17, Iteration 29), dort festgeschrieben als `{booking}`/`{plan}` im
+      E2E. Heute hat keine Oberfläche einen Aufrufer für `useCreateMachineBooking`, `useUpdateMachineBooking`,
+      `usePlan`, `useCapacityOverview`, `useCreatePlan`, `useUpdatePlan` (nur `useProduktion.ts` selbst), es bricht
+      also nichts. Sobald ein Screen sie nutzt, liest er `data.id` aus einer Hülle. Empfehlung: Desktop entpackt wie
+      `unwrapOrder`, Backend bleibt (die anderen Produktion-Antworten tragen auch die Hülle).
+    sources:
+      - desktop/src/renderer/src/api/produktion-client.ts
+      - desktop/src/renderer/src/api/hooks/useProduktion.ts
+      - backend/test/e2e/produktion_test.go
+    done_when:
+      - '`produktion-client.ts` entpackt alle fünf Antworten, Hooks liefern die flachen Typen, Typecheck gescopt grün'

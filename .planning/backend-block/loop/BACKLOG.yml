@@ -71,7 +71,7 @@
 # und die am 2026-10-29 entschiedenen Units, dann die Einzelfälle aus Lauf 17, und scannt danach
 # jede Klasse repo-weit.
 #
-#   BLOCK A (10)  — PILOT-PFAD UND ENTSCHIEDENES: Einladung per Mail mit Annahmeseite im
+#   BLOCK A (11)  — PILOT-PFAD UND ENTSCHIEDENES: Einladung per Mail mit Annahmeseite im
 #                   Gateway plus E2E, `notification.send` über den Event-Bus, CSAT-Token beim
 #                   Versand, Personalakte für manager, Aufnahme-Einwilligung auf pending,
 #                   Abo-Rechnung nicht vor Fälligkeit, Schäden für manager, Vorlagen-Anlage.
@@ -81,8 +81,8 @@
 #                   sich. Reviews r3 und r4 dazwischen.
 #   BLOCK D (7)   — COVERAGE-AUFFÜLLER, nur wenn alles davor durch ist.
 #
-#   ZUSAMMENSETZUNG: 44 Units gestaged, davon 13 opus (45/14, wenn am Abend
-#   `harden-share-tokens-hashed-berichte` dazukommt). Scans und Reviews legen Fix-Units nach;
+#   ZUSAMMENSETZUNG: 45 Units gestaged, davon 14 opus (`harden-share-tokens-hashed-berichte` kam am
+#   Abend dazu, nachdem der Desktop-Teil gemergt war). Scans und Reviews legen Fix-Units nach;
 #   die Nacht hat Platz für rund 85 Iterationen (22:00 bis 08:45).
 #   Reihenfolge = Dateireihenfolge = Priorität. Was ein Scan, ein Review oder ein E2E-Flow als
 #   Totalausfall oder Leck findet, gehört VOR die erste `todo`-Unit.
@@ -474,6 +474,34 @@ units:
       `/email/templates`-Routen. Die Rechte wirken, sobald das FE angebunden ist.
     done_when:
       - 'Router-Test gegen den echten Seed: member POST shared -> 403, member POST personal -> 201, admin POST shared -> 201'
+
+  - id: harden-share-tokens-hashed-berichte
+    phase: 4
+    service: berichte
+    model: opus
+    deps: []
+    status: todo
+    decided: '2026-10-26'
+    decision: >
+      ENTSCHEIDUNG LUKE, 2026-10-25, präzisiert 2026-10-26 (Morgen-Check Lauf 17, Variante a): Hash-Ablage für
+      Berichte-Token, erst nachdem `fe-berichte-share-link-shown-once` gemergt ist (sonst ist „Link kopieren“ tot).
+    target: kein Berichte-Link-Token mehr im Klartext
+    coverage_start: n.a.
+    scope: >
+      Berichte-Share-Secret (`berichte/service.go:newShareSecret`) auf `internal/linksecret` und Hash-Ablage umstellen,
+      Migrationsmuster wie 000351 (Backfill per `sha256`, Bestandslinks bleiben gültig). Die Liste liefert kein Token
+      mehr; das Klartext-Token verlässt den Server nur in der Create-Antwort. Herkunft: Lauf 17 Iteration 17 hat die
+      Sammel-Unit `harden-share-tokens-hashed-berichte-csat` blockiert (Begründung im Journal).
+    notes: >
+      Vorbedingungen erfüllt: `harden-share-tokens-hashed-wiki-formulare` (Lauf 17, archive/lauf-17) und
+      `fe-berichte-share-link-shown-once` (Desktop, `4e5c830d`, 2026-10-29: Link nur aus der Create-Antwort, die Liste
+      liest kein `token` mehr). Der Desktop-Mock liefert die Liste schon ohne Token.
+    sources:
+      - backend/internal/berichte/service.go
+      - backend/migrations/000351_share_token_hashes.up.sql
+    done_when:
+      - 'DB-Test: Bestands-Token gültig, Klartext-Spalte entfernt, Liste ohne Token'
+      - Keine Kopie des Generators mehr in berichte (grep belegt das)
 
   - id: review-run18-r1
     phase: 4

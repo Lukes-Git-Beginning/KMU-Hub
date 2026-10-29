@@ -24,7 +24,8 @@ Alle inkl. Laufbilanz.
 - **Migrationen:** Repo-Kopf **364**. Nummer immer zur Laufzeit ermitteln:
   `ls backend/migrations | grep -E "^[0-9]{6}" | sort | tail -1`
 - **Coverage-Start:** **76,8 %** gesamt (Run 40300605217 auf `90b03133`). Paketwerte je Unit.
-- **Queue:** 44 Units, roter Faden „Fehlerklassen-Zwillinge“. Pilot-Pfad und Entschiedenes (10),
+- **Queue:** 45 Units, roter Faden „Fehlerklassen-Zwillinge“. Pilot-Pfad und Entschiedenes (11, inkl.
+  Berichte-Token als Hash, seit der Desktop-Teil `4e5c830d` gemergt ist),
   Einzelfälle aus Lauf 17 (14), Zwillings-Scans (11 plus 2 Reviews), Coverage-Auffüller (7).
   Begründung, Regeln und Sperren im Kopf von `BACKLOG.yml`.
 - **Neu:** Scans legen ihre Fix-Units direkt hinter sich (Regel 1). `IST:`-Subtests aus Lauf 17
