@@ -73,9 +73,8 @@ import {
   type CapabilityDef,
   type ModuleCategory,
 } from '@/config/capability-catalog'
-import { capabilityLabel, moduleLabel, rbacErrorMessage, roleDisplayName } from '@/lib/rbac-format'
+import { capabilityLabel, moduleLabel, rbacErrorMessage, roleDescription, roleDisplayName } from '@/lib/rbac-format'
 import { diffCount, diffGrants, diffKeySet, type GrantsDiff } from '@/lib/rbac-diff'
-import { roleDescriptionKey } from '@/config/roles'
 import CloneRoleDialog from './CloneRoleDialog'
 
 const CATEGORY_ORDER: ModuleCategory[] = ['standard', 'industry', 'verwaltung']
@@ -286,7 +285,7 @@ export default function RoleEditorPage() {
               )}
             </div>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {role.isSystem ? t(roleDescriptionKey(role.id)) : role.description}
+              {roleDescription(t, role)}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">

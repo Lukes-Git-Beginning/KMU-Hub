@@ -201,7 +201,7 @@
   "admin.users.invite.sending": "Sending…",
   "admin.users.invite.send": "Send invitation",
   "admin.users.invite.sent": "Invitation sent to {email}",
-  "admin.users.invite.errorExists": "This email already has an account.",
+  "admin.users.invite.errorExists": "This email address already has an account or a pending invitation.",
   "admin.users.invite.errorGeneric": "Could not send the invitation.",
   "admin.users.detail.roleSection": "Role",
   "admin.users.detail.accountSection": "Account",

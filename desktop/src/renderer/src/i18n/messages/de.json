@@ -201,7 +201,7 @@
   "admin.users.invite.sending": "Wird gesendet…",
   "admin.users.invite.send": "Einladung senden",
   "admin.users.invite.sent": "Einladung an {email} gesendet",
-  "admin.users.invite.errorExists": "Diese E-Mail-Adresse hat bereits ein Konto.",
+  "admin.users.invite.errorExists": "Für diese E-Mail-Adresse gibt es schon ein Konto oder eine offene Einladung.",
   "admin.users.invite.errorGeneric": "Einladung konnte nicht gesendet werden.",
   "admin.users.detail.roleSection": "Rolle",
   "admin.users.detail.accountSection": "Konto",

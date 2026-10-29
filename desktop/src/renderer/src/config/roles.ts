@@ -21,6 +21,21 @@ export type RoleId =
   | 'readonly'
   | 'extern'
 
+const PRESET_ROLE_KEYS: ReadonlySet<string> = new Set<RoleId>([
+  'admin',
+  'it_admin',
+  'hr_admin',
+  'manager',
+  'member',
+  'readonly',
+  'extern',
+])
+
+/** True when the string is one of the seven system preset keys. */
+export function isPresetRoleKey(key: string): key is RoleId {
+  return PRESET_ROLE_KEYS.has(key)
+}
+
 /** i18n label key for a system preset; custom roles (R-2) render their own name. */
 export function roleLabelKey(roleId: string): string {
   return `rbac.roles.${roleId}.label`
