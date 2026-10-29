@@ -508,7 +508,7 @@ units:
     service: auth
     model: opus
     deps: []
-    status: todo
+    status: done
     target: die Commits aus Block A gegen Grenzen, echte Tokens und Datenschutz abgenommen
     coverage_start: n.a.
     scope: >

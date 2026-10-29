@@ -1776,3 +1776,68 @@ units:
       - 'Plan mit next_run morgen: Button deaktiviert mit Fälligkeitsdatum, Screenshot-QA'
       - 'Plan fällig heute/überfällig: Button aktiv und erzeugt die Rechnung'
       - gescopter Typecheck grün
+
+  # ----------------------------------------------------------------------------------------
+  # AUS LAUF 18, REVIEW r1 (Iteration 11, 2026-10-30) — braucht deploy/ bzw. eine Entscheidung
+  # ----------------------------------------------------------------------------------------
+
+  - id: fix-caddy-route-invite-page-to-gateway
+    phase: 4
+    service: deploy
+    model: sonnet
+    deps: []
+    status: todo
+    priority: VOR DEM NÄCHSTEN DEPLOY MIT 45a73611 — Totalausfall Pilot-Onboarding
+    target: der Link aus der Einladungsmail öffnet in Produktion die /invite-Seite des Gateways statt der Web-App
+    scope: >-
+      VERIFIZIERTER TOTALAUSFALL (Review r1, Lauf 18). `45a73611` registriert GET/HEAD/POST `/invite` im Gateway
+      (`internal/gateway/reset_password_page.go`, `RegisterPublicRoutes`) und mailt `https://app.zentria.tech/invite?token=…`
+      (`auth.Service.inviteLink`). `deploy/docker/Caddyfile` (`cosmi_routes`) leitet außer `/api/*` aber nur `/rtc*`,
+      `/guest/*`, `/health`, `/reset-password` und `/webhooks/*` ans Gateway; alles andere geht an `webapp:80`. Die Web-App
+      hat keine `/invite`-Route (grep `desktop/src/renderer/src`: kein Treffer). Folge in Produktion: JEDER Eingeladene
+      landet in der SPA, GET zeigt kein Formular, der POST erreicht das Gateway nie — kein Konto kann über die Mail
+      angelegt werden. Lokal und im E2E (`test/e2e/invite_onboarding_test.go`) unsichtbar, weil beide das Gateway direkt
+      ansprechen. Der Caddyfile-Kopf warnt genau davor ("A NEW gateway route outside /api/ must be added here").
+      Fix: `handle /invite { reverse_proxy gateway:8080 }` neben `/reset-password` in `cosmi_routes`, Kopfkommentar
+      (Liste der Nicht-/api-Pfade, Datum) nachziehen. Prüfen, dass der Deploy Caddy neu lädt (Caddyfile ist ein Mount,
+      kein Image-Bestandteil) — sonst nach dem Deploy `caddy reload` bzw. Container-Restart.
+      Dazu ein dauerhafter Wächter im Backend: Test in `internal/gateway`, der jede Nicht-`/api`-Route aus dem chi-Router
+      (`chi.Walk`) gegen die `handle`-Blöcke in `deploy/docker/Caddyfile` abgleicht (Muster `TestOpenAPIRouteDrift`).
+      Der Test wäre ohne den Caddy-Fix rot und gehört deshalb in DENSELBEN Commit.
+    sources:
+      - deploy/docker/Caddyfile
+      - backend/internal/gateway/reset_password_page.go
+      - backend/internal/gateway/invite_page.go
+      - backend/internal/auth/service.go
+    notes: >-
+      Gesperrt für den Loop, weil `deploy/` in Lauf 18 ohne Ausnahme gesperrt ist und der Guard Deploy-Dateien blockt.
+      Wartet auf Luke. Solange der Fix fehlt, ist der Toast "Einladung gesendet" zwar wahr (die Mail geht raus), der Link
+      darin aber tot. Workaround bis dahin: `invite_token` aus der Admin-Antwort direkt an `/invite` über das Gateway — in
+      Produktion nicht erreichbar, also faktisch keiner.
+    done_when:
+      - '`curl -sI https://app.zentria.tech/invite?token=x` liefert die Gateway-Header (`X-Robots-Tag: noindex`, CSP ohne script-src), nicht die SPA'
+      - Routen-Wächter-Test grün, und rot, wenn die `/invite`-Zeile aus dem Caddyfile entfernt wird (Mutationsprobe)
+
+  - id: decide-meeting-recording-consent-set-invited-vs-joined
+    phase: 4
+    service: video
+    model: sonnet
+    deps: []
+    status: todo
+    target: Luke entscheidet, wessen Zustimmung eine Meeting-Aufnahme braucht — eingeladen oder anwesend
+    scope: >-
+      Beobachtung aus Review r1 (Lauf 18), keine Regression von `bc73a3ae`. Für ein Meeting baut `StartRecording`
+      (`internal/server/video_grpc.go:251-270`) den Einwilligungs-Snapshot aus `mwa.Attendees`, also aus allen
+      eingeladenen `meeting_attendees` — unabhängig von RSVP und Anwesenheit. Seit `bc73a3ae` startet der Egress erst,
+      wenn JEDER im Snapshot außer dem Initiator mit ja zugestimmt hat. Ein abgesagter oder abwesender Eingeladener sieht
+      den Dialog nie (er ist nicht im Raum) und blockiert die Aufnahme damit dauerhaft (Bestätigung immer 409). Bei Calls
+      ist der Snapshot `call_participants` und damit die Anwesenden. Optionen: (a) Snapshot für Meetings aus den
+      tatsächlich verbundenen Teilnehmern (LiveKit-Raum oder Join-Tabelle), (b) nur `rsvp_status = accepted`, (c) so lassen.
+    sources:
+      - backend/internal/server/video_grpc.go
+      - backend/internal/work/recording/postgres_repository.go
+    notes: >-
+      Prod unberührt, solange `LIVEKIT_EGRESS_TEMPLATE_URL` leer ist (Start antwortet 503). DSGVO-Frage: Einwilligung
+      muss von allen AUFGEZEICHNETEN Personen vorliegen — das spricht für (a).
+    done_when:
+      - Entscheidung mit Datum in dieser Unit, danach als Build-Unit nach BACKLOG.yml
