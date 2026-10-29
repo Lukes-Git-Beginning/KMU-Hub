@@ -1718,3 +1718,38 @@ units:
       - desktop/src/renderer/src/styles/globals.css
     done_when:
       - 'Entscheidung Luke: Indigo bleibt (mit Begründung) oder Standard-Theme zieht auf die Sand-Werte'
+
+  - id: fe-recording-consent-dialog-on-pending
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: Teilnehmer sehen den Einwilligungsdialog für eine pending-Aufnahme, und der Initiator kann erst danach starten
+    scope: >-
+      Seit `fix-recording-participant-consent-on-pending` (Lauf 18) gilt im Backend: `POST /video/recordings/start`
+      legt die Aufnahme `pending` an, ohne Egress. Die übrigen Teilnehmer willigen per `POST
+      /video/recordings/{id}/consent` auf genau diese ID ein. `POST /video/recordings/{id}/initiator-consent` startet
+      den Egress erst, wenn jeder Teilnehmer des Start-Snapshots außer dem Initiator „ja" gesagt hat, sonst 409 und
+      die Aufnahme bleibt `pending` (erneutes Bestätigen ist erlaubt). Der Recording-`status` kommt jetzt als Wort
+      (`pending|active|processing|completed|failed|deleted`), nicht mehr als Enum-Zahl. Desktop-Lücken: (1)
+      `useActiveMeetingRecording` (`api/hooks/useVideo.ts`) sucht nur `status === 'active'`, der
+      Teilnehmer-Dialog (`VideoCallView.tsx`, `showInCallConsent`) öffnet für `pending` also nie — ohne ihn kann
+      niemand einwilligen und jeder Start mit einem zweiten Teilnehmer endet beim Initiator in 409. (2)
+      `RecordingStatus` in `api/video-types.ts` kennt `pending` nicht. (3) `CallControls.tsx handleConfirmStart`
+      zeigt bei 409 nur einen allgemeinen Fehler-Toast; besser: „Warte auf Zustimmung aller Teilnehmer" mit
+      erneutem Bestätigen. (4) Call-Kontext: `recording.started` per WS feuert nur für Meetings, Call-Teilnehmer
+      brauchen eine andere Quelle (Polling der pending-Aufnahme per `GET /video/recordings?call_id=`).
+    sources:
+      - desktop/src/renderer/src/api/hooks/useVideo.ts
+      - desktop/src/renderer/src/api/video-types.ts
+      - desktop/src/renderer/src/features/video/VideoCallView.tsx
+      - desktop/src/renderer/src/features/video/CallControls.tsx
+      - backend/internal/work/recording/service.go
+    notes: >-
+      Prod ist unberührt, solange `LIVEKIT_EGRESS_TEMPLATE_URL` leer ist (Start antwortet 503). i18n ×4 für den
+      neuen Warte-Hinweis.
+    done_when:
+      - 'Teilnehmer sieht den Einwilligungsdialog für eine pending-Aufnahme (Meeting und Call), Screenshot-QA'
+      - 'Initiator bekommt bei 409 einen eigenen Hinweis und kann nach der Zustimmung erneut bestätigen'
+      - '`RecordingStatus` enthält `pending`, gescopter Typecheck grün'

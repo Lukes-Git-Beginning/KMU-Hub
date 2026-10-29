@@ -212,7 +212,6 @@ type recordingMockRepo struct {
 	byEgress         map[string]uuid.UUID
 	consents         map[uuid.UUID][]recording.RecordingConsent
 	participantUsers map[uuid.UUID][]uuid.UUID // recordingID -> ACL'd user IDs
-	pendingOverride  *int
 }
 
 func newRecordingMockRepo() *recordingMockRepo {
@@ -326,9 +325,6 @@ func (m *recordingMockRepo) GetConsentsWithUser(_ context.Context, recordingID u
 }
 
 func (m *recordingMockRepo) CountPendingConsents(_ context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (int, error) {
-	if m.pendingOverride != nil {
-		return *m.pendingOverride, nil
-	}
 	responded := make(map[uuid.UUID]bool)
 	for _, c := range m.consents[recordingID] {
 		responded[c.UserID] = true
@@ -382,6 +378,16 @@ func (m *recordingMockRepo) MarkInitiatorConsent(_ context.Context, recordingID,
 	// Mirrors status = 'pending': only the first stamp claims the row.
 	if rec.Status != recording.RecordingStatusPending {
 		return "", false, nil
+	}
+	// Mirrors the consent gate: every snapshot participant but the initiator said yes.
+	yes := make(map[uuid.UUID]bool)
+	for _, c := range m.consents[recordingID] {
+		yes[c.UserID] = c.Consented
+	}
+	for _, p := range rec.ConsentSnapshot {
+		if p.UserID != userID && !yes[p.UserID] {
+			return "", false, recording.ErrConsentPending
+		}
 	}
 	now := time.Now()
 	rec.PreRecordingConsentAt = &now
@@ -1115,11 +1121,6 @@ func TestStartRecording_CallContext_Success(t *testing.T) {
 	_, err = ts.srv.JoinCall(context.Background(), &videov1.JoinCallRequest{CallId: created.Id, UserId: target.String()})
 	require.NoError(t, err)
 
-	// Bypass the participant-consent gate (tested separately at the recording-service
-	// level) so this test proves the call-context participant snapshot wiring only.
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
-
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{
 		UserId: initiator.String(),
 		CallId: &created.Id,
@@ -1129,6 +1130,12 @@ func TestStartRecording_CallContext_Success(t *testing.T) {
 	require.NotNil(t, rec.StartedBy)
 	assert.Equal(t, initiator.String(), *rec.StartedBy)
 	assert.Equal(t, 0, ts.egress.startCalls, "start alone records nothing")
+
+	// The other participant of the call snapshot consents to the pending recording.
+	_, err = ts.srv.SetRecordingConsent(callCtxTenant(tenantID), &videov1.SetRecordingConsentRequest{
+		RecordingId: rec.Id, UserId: target.String(), Consented: true,
+	})
+	require.NoError(t, err)
 
 	// The initiator's confirmation is what starts the egress — once.
 	for range 2 {
@@ -1153,8 +1160,6 @@ func TestStartRecording_MeetingContext_Success(t *testing.T) {
 
 	meetingResp := seedMeeting(t, ts.srv, ts.meetingRepo, tenantID, organizer)
 
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{
 		UserId:    starter.String(),
@@ -1165,7 +1170,11 @@ func TestStartRecording_MeetingContext_Success(t *testing.T) {
 	assert.Equal(t, meetingResp.Id, *rec.MeetingId)
 }
 
-func TestStartRecording_ConsentPendingByDefault(t *testing.T) {
+// TestStartRecording_ParticipantsConsentToThePendingRecording walks the whole gate over
+// gRPC: start answers with a pending recording (no egress), the initiator's confirm is
+// FailedPrecondition until the other participant said yes on that ID, then exactly one
+// egress starts.
+func TestStartRecording_ParticipantsConsentToThePendingRecording(t *testing.T) {
 	ts := newTestVideoCallServer()
 	tenantID := uuid.New()
 	initiator := uuid.New()
@@ -1180,12 +1189,29 @@ func TestStartRecording_ConsentPendingByDefault(t *testing.T) {
 	_, err = ts.srv.JoinCall(context.Background(), &videov1.JoinCallRequest{CallId: created.Id, UserId: target.String()})
 	require.NoError(t, err)
 
-	// No consents pre-populated -> every participant is "pending" by default.
-	_, err = ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{
+	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{
 		UserId: initiator.String(),
 		CallId: &created.Id,
 	})
-	requireGRPCCode(t, err, codes.FailedPrecondition)
+	require.NoError(t, err)
+	assert.Equal(t, videov1.RecordingStatus_RECORDING_STATUS_PENDING, rec.GetStatus())
+	assert.Equal(t, 0, ts.egress.startCalls, "no egress at start")
+
+	confirm := func() error {
+		_, confirmErr := ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{
+			RecordingId: rec.GetId(), UserId: initiator.String(), TenantId: tenantID.String(),
+		})
+		return confirmErr
+	}
+	requireGRPCCode(t, confirm(), codes.FailedPrecondition)
+	assert.Equal(t, 0, ts.egress.startCalls, "no egress while the participant has not said yes")
+
+	_, err = ts.srv.SetRecordingConsent(callCtxTenant(tenantID), &videov1.SetRecordingConsentRequest{
+		RecordingId: rec.GetId(), UserId: target.String(), Consented: true,
+	})
+	require.NoError(t, err)
+	require.NoError(t, confirm())
+	assert.Equal(t, 1, ts.egress.startCalls)
 }
 
 func TestStartRecording_EgressNotConfigured(t *testing.T) {
@@ -1212,8 +1238,6 @@ func TestStopRecording_AuthorizedInitiator(t *testing.T) {
 
 	created, err := ts.srv.CreateCall(callCtxTenant(tenantID), &videov1.CreateCallRequest{InitiatorId: initiator.String(), ParticipantIds: []string{uuid.New().String()}, CallType: videov1.CallType_CALL_TYPE_ONE_TO_ONE})
 	require.NoError(t, err)
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: initiator.String(), CallId: &created.Id})
 	require.NoError(t, err)
 	_, err = ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{RecordingId: rec.Id, UserId: initiator.String(), TenantId: tenantID.String()})
@@ -1236,9 +1260,10 @@ func TestStopRecording_AuthorizedMeetingHost(t *testing.T) {
 	starter := uuid.New()
 
 	meetingResp := seedMeeting(t, ts.srv, ts.meetingRepo, tenantID, organizer)
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: starter.String(), MeetingId: &meetingResp.Id})
+	require.NoError(t, err)
+	// The organizer is an attendee of the snapshot and has to say yes first.
+	_, err = ts.srv.SetRecordingConsent(callCtxTenant(tenantID), &videov1.SetRecordingConsentRequest{RecordingId: rec.Id, UserId: organizer.String(), Consented: true})
 	require.NoError(t, err)
 	_, err = ts.srv.ConfirmInitiatorConsent(callCtxTenant(tenantID), &videov1.ConfirmInitiatorConsentRequest{RecordingId: rec.Id, UserId: starter.String(), TenantId: tenantID.String()})
 	require.NoError(t, err)
@@ -1256,8 +1281,6 @@ func TestStopRecording_UnauthorizedCallerDenied(t *testing.T) {
 
 	created, err := ts.srv.CreateCall(callCtxTenant(tenantID), &videov1.CreateCallRequest{InitiatorId: initiator.String(), ParticipantIds: []string{uuid.New().String()}, CallType: videov1.CallType_CALL_TYPE_ONE_TO_ONE})
 	require.NoError(t, err)
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: initiator.String(), CallId: &created.Id})
 	require.NoError(t, err)
 
@@ -1520,8 +1543,6 @@ func TestDeleteRecording_MeetingHostAllowed(t *testing.T) {
 	starter := uuid.New()
 
 	meetingResp := seedMeeting(t, ts.srv, ts.meetingRepo, tenantID, organizer)
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: starter.String(), MeetingId: &meetingResp.Id})
 	require.NoError(t, err)
 
@@ -1594,8 +1615,6 @@ func TestStopRecording_AdminKeyIsNoWaiver(t *testing.T) {
 
 	created, err := ts.srv.CreateCall(callCtxTenant(tenantID), &videov1.CreateCallRequest{InitiatorId: initiator.String(), ParticipantIds: []string{uuid.New().String()}, CallType: videov1.CallType_CALL_TYPE_ONE_TO_ONE})
 	require.NoError(t, err)
-	zero := 0
-	ts.recRepo.pendingOverride = &zero
 	rec, err := ts.srv.StartRecording(callCtxTenant(tenantID), &videov1.StartRecordingRequest{UserId: initiator.String(), CallId: &created.Id})
 	require.NoError(t, err)
 

@@ -8952,10 +8952,12 @@ paths:
       tags: [recordings]
       operationId: startRecording
       description: >-
-        Creates the recording in status pending (RECORDING_STATUS_PENDING). Nothing
-        is recorded yet: the LiveKit egress starts only when the initiator confirms
-        via POST /api/v1/video/recordings/{id}/initiator-consent. A pending
-        recording that is never confirmed records nothing.
+        Creates the recording in status `pending`. Nothing is recorded yet: the
+        other participants consent to this recording ID via
+        POST /api/v1/video/recordings/{id}/consent, and the LiveKit egress starts
+        only when the initiator confirms via
+        POST /api/v1/video/recordings/{id}/initiator-consent after every one of
+        them said yes. A pending recording that is never confirmed records nothing.
       security:
         - bearerAuth: []
       requestBody:
@@ -38231,9 +38233,11 @@ paths:
       summary: Confirm the initiator's pre-recording consent and start the recording (requires recording:write or meetings:write)
       description: >-
         Stamps the initiator's confirmation on a pending recording, moves it to
-        active and starts the LiveKit egress. Only the stamp that moves the
-        recording out of pending starts an egress; repeating the call answers
-        200 and starts nothing.
+        active and starts the LiveKit egress — only once every participant of
+        the start snapshot other than the initiator has consented with yes;
+        otherwise 409 and the recording stays pending, so the initiator can
+        confirm again. Only the stamp that moves the recording out of pending
+        starts an egress; repeating the call answers 200 and starts nothing.
       tags: [recordings]
       operationId: confirmInitiatorConsent
       security:
@@ -38266,7 +38270,14 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          description: >-
+            A participant has not consented with yes yet (the recording stays
+            pending, no egress), or a request with this Idempotency-Key is still
+            being processed (then with Retry-After).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "412":
           description: >-
             Pre-recording consent could not be confirmed: the service answered
@@ -43529,7 +43540,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [RECORDING_STATUS_RECORDING, RECORDING_STATUS_COMPLETED, RECORDING_STATUS_FAILED]
+          enum: [pending, active, processing, completed, failed, deleted]
         file_path:
           type: string
         file_size_bytes:

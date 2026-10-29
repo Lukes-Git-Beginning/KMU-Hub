@@ -181,13 +181,20 @@ func TestHandleListRecordings_BareArray(t *testing.T) {
 	assertStatus(t, rec, http.StatusOK)
 	assert.JSONEq(t, `[]`, rec.Body.String(), "empty list is [] not {}")
 
-	stub.recordings = []*videov1.Recording{{Id: "r-1"}}
+	// The status leaves as the word the desktop compares (useActiveMeetingRecording
+	// looks for status === 'active'), not as the enum number.
+	stub.recordings = []*videov1.Recording{
+		{Id: "r-1", Status: videov1.RecordingStatus_RECORDING_STATUS_ACTIVE},
+		{Id: "r-2", Status: videov1.RecordingStatus_RECORDING_STATUS_PENDING},
+	}
 	rec = httptest.NewRecorder()
 	routes.HandleListRecordings(rec, videoReq(t, http.MethodGet, "/api/v1/video/recordings", nil, nil))
 	var got []map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	require.Len(t, got, 1)
+	require.Len(t, got, 2)
 	assert.Equal(t, "r-1", got[0]["id"])
+	assert.Equal(t, "active", got[0]["status"])
+	assert.Equal(t, "pending", got[1]["status"])
 }
 
 func TestWriteMeetingRecordings_EnvelopeWithArray(t *testing.T) {
@@ -197,7 +204,7 @@ func TestWriteMeetingRecordings_EnvelopeWithArray(t *testing.T) {
 
 	rec = httptest.NewRecorder()
 	writeMeetingRecordings(rec, &videov1.ListRecordingsByMeetingResponse{
-		Recordings: []*videov1.Recording{{Id: "r-1"}}, Total: 7,
+		Recordings: []*videov1.Recording{{Id: "r-1", Status: videov1.RecordingStatus_RECORDING_STATUS_COMPLETED}}, Total: 7,
 	})
 	var got struct {
 		Recordings []map[string]any `json:"recordings"`
@@ -206,6 +213,7 @@ func TestWriteMeetingRecordings_EnvelopeWithArray(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	require.Len(t, got.Recordings, 1)
 	assert.Equal(t, "r-1", got.Recordings[0]["id"])
+	assert.Equal(t, "completed", got.Recordings[0]["status"])
 	assert.Equal(t, 7, got.Total)
 }
 

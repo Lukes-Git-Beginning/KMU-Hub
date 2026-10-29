@@ -13,6 +13,7 @@ import (
 	bizv1 "github.com/kmuhub/kmuhub/proto/biz/v1"
 	dialerv1 "github.com/kmuhub/kmuhub/proto/dialer/v1"
 	inventarv1 "github.com/kmuhub/kmuhub/proto/inventar/v1"
+	videov1 "github.com/kmuhub/kmuhub/proto/video/v1"
 	"github.com/kmuhub/kmuhub/internal/server/response"
 )
 
@@ -170,6 +171,19 @@ func TestProto_DunningAndCreditNoteStatusIsString(t *testing.T) {
 	} {
 		if got := status(&bizv1.CreditNote{Id: "c", Status: number}); got != want {
 			t.Errorf("credit note %v: status = %v, want %s", number, got, want)
+		}
+	}
+	// The desktop's RecordingStatus words; useActiveMeetingRecording compares 'active'.
+	for number, want := range map[videov1.RecordingStatus]string{
+		videov1.RecordingStatus_RECORDING_STATUS_ACTIVE:     "active",
+		videov1.RecordingStatus_RECORDING_STATUS_PROCESSING: "processing",
+		videov1.RecordingStatus_RECORDING_STATUS_COMPLETED:  "completed",
+		videov1.RecordingStatus_RECORDING_STATUS_FAILED:     "failed",
+		videov1.RecordingStatus_RECORDING_STATUS_DELETED:    "deleted",
+		videov1.RecordingStatus_RECORDING_STATUS_PENDING:    "pending",
+	} {
+		if got := status(&videov1.Recording{Id: "r", Status: number}); got != want {
+			t.Errorf("recording %v: status = %v, want %s", number, got, want)
 		}
 	}
 	// An unknown number is left alone rather than named wrongly.

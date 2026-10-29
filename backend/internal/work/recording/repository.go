@@ -26,7 +26,8 @@ type Repository interface {
 	GetRecordingParticipants(ctx context.Context, recordingID uuid.UUID) ([]uuid.UUID, error)
 	// Pre-recording consent (Migration 000107)
 	// MarkInitiatorConsent returns claimed=true (plus the room name) only for the
-	// stamp that moves a pending recording to active.
+	// stamp that moves a pending recording to active, and only once every other
+	// snapshot participant has consented; otherwise ErrConsentPending.
 	MarkInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) (roomName string, claimed bool, err error)
 	GetPreConsentStatus(ctx context.Context, recordingID, tenantID uuid.UUID) (bool, error)
 }

@@ -343,6 +343,10 @@ func (r *PostgresRepository) listRecordings(ctx context.Context, query string, a
 // the egress exactly then. A repeated (or concurrent) stamp on the same row finds
 // no pending row and returns claimed=false: the row lock serialises the UPDATEs,
 // the loser re-checks status = 'pending' and matches nothing.
+// The move is gated in the same statement on participant consent: every user in
+// consent_snapshot other than the initiator needs a recording_consents row with
+// consented = true for this recording. If one is missing or a no, the row stays
+// pending and ErrConsentPending is returned — no window between check and claim.
 // The sentinel UUID 00000000-0000-0000-0000-000000000001 is used as initiator_consent_id.
 // tenant_id and started_by are enforced in the WHERE clause: a recording of
 // another user or tenant returns ErrNotFound.
@@ -358,6 +362,17 @@ func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recording
 		   AND started_by = $3
 		   AND tenant_id = $4
 		   AND status = 'pending'
+		   AND NOT EXISTS (
+		     SELECT 1
+		     FROM jsonb_array_elements(COALESCE(recordings.consent_snapshot, '[]'::jsonb)) AS p(entry)
+		     WHERE (p.entry->>'user_id')::uuid <> recordings.started_by
+		       AND NOT EXISTS (
+		         SELECT 1 FROM recording_consents rc
+		         WHERE rc.recording_id = recordings.id
+		           AND rc.user_id = (p.entry->>'user_id')::uuid
+		           AND rc.consented
+		       )
+		   )
 		 RETURNING COALESCE(room_name, '')`,
 		sentinelConsentID, recordingID, userID, tenantID,
 	).Scan(&roomName)
@@ -368,15 +383,19 @@ func (r *PostgresRepository) MarkInitiatorConsent(ctx context.Context, recording
 		return "", false, err
 	}
 
-	var exists bool
-	if err := r.pool.QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM recordings WHERE id = $1 AND started_by = $2 AND tenant_id = $3)`,
+	var status string
+	err = r.pool.QueryRow(ctx,
+		`SELECT status FROM recordings WHERE id = $1 AND started_by = $2 AND tenant_id = $3`,
 		recordingID, userID, tenantID,
-	).Scan(&exists); err != nil {
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, ErrNotFound
+	}
+	if err != nil {
 		return "", false, err
 	}
-	if !exists {
-		return "", false, ErrNotFound
+	if status == RecordingStatusPending {
+		return "", false, ErrConsentPending
 	}
 	return "", false, nil
 }

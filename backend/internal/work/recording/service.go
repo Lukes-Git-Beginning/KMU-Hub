@@ -2,6 +2,7 @@ package recording
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -61,16 +62,17 @@ func NewService(repo Repository, egressManager EgressManager, templateURL string
 }
 
 // StartRecording creates a pending recording for a call or meeting. It does NOT
-// start the LiveKit egress: nothing is recorded until the initiator confirms the
-// pre-recording dialog via ConfirmInitiatorConsent, which starts the egress. A
-// pending row the initiator never confirms (dialog cancelled) records nothing.
-// All participants must have responded to the consent prompt before the row is created.
+// start the LiveKit egress and does not wait for anyone's consent: the pending row
+// is what the participants consent to (SetConsent on its ID). Nothing is recorded
+// until the initiator confirms via ConfirmInitiatorConsent, which starts the egress
+// only once every other participant has said yes. A pending row that is never
+// confirmed records nothing.
 // startedBy is the user who triggered the recording (stored for audit).
-// participants is the full list of call/meeting participants at start time; their IDs are
-// used for the consent gate and the list is persisted as an immutable DSGVO snapshot.
+// participants is the full list of call/meeting participants at start time; it is
+// persisted as an immutable DSGVO snapshot and is the set the confirm step gates on.
 // roomName is stored on the row so the confirm step can start the egress on it.
 // Sets a 30-day retention period on the recording.
-// tenantID is required for tenant-scoped consent lookup and recording creation.
+// tenantID is required for tenant-scoped recording creation.
 func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meetingID *uuid.UUID, roomName string, startedBy uuid.UUID, participants []ParticipantConsentInfo, tenantID ...uuid.UUID) (*Recording, error) {
 	if !s.enabled {
 		return nil, ErrEgressNotConfigured
@@ -82,12 +84,6 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 
 	if len(participants) == 0 {
 		return nil, ErrNoParticipants
-	}
-
-	// Extract participant IDs for the consent gate
-	participantIDs := make([]uuid.UUID, len(participants))
-	for i, p := range participants {
-		participantIDs[i] = p.UserID
 	}
 
 	now := time.Now()
@@ -118,33 +114,10 @@ func (s *Service) StartRecording(ctx context.Context, callID *uuid.UUID, meeting
 		return nil, fmt.Errorf("create recording: %w", err)
 	}
 
-	// Check consent: all current participants must have responded.
-	// If pending > 0 we delete the just-created recording row to avoid orphans.
-	pending, err := s.repo.CountPendingConsents(ctx, rec.ID, participantIDs)
-	if err != nil {
-		// Best-effort cleanup
-		if delErr := s.repo.DeleteRecording(ctx, rec.ID); delErr != nil {
-			slog.Error("failed to delete orphaned recording after consent-check error",
-				"recording_id", rec.ID, "error", delErr)
-		}
-		return nil, fmt.Errorf("check consents: %w", err)
-	}
-
-	if pending > 0 {
-		// Consent still pending — delete the recording row so no orphan is left.
-		if delErr := s.repo.DeleteRecording(ctx, rec.ID); delErr != nil {
-			slog.Error("failed to delete orphaned recording on ErrConsentPending",
-				"recording_id", rec.ID, "error", delErr)
-		}
-		slog.Info("recording consent pending — row cleaned up",
-			"pending_count", pending,
-		)
-		return nil, ErrConsentPending
-	}
-
-	slog.Info("recording pending initiator confirmation",
+	slog.Info("recording pending participant consent and initiator confirmation",
 		"recording_id", rec.ID,
 		"room_name", roomName,
+		"participants", len(participants),
 	)
 
 	return rec, nil
@@ -190,6 +163,10 @@ func (s *Service) StopRecording(ctx context.Context, recordingID uuid.UUID) (*Re
 // pre-recording consent dialog and only then starts the LiveKit egress. The stamp
 // moves the row from pending to active; exactly the stamp that performs that move
 // starts the egress, so a repeated confirm is a no-op and never starts a second one.
+// The move only happens once every participant of the start snapshot other than the
+// initiator has consented (SetConsent with yes); otherwise ErrConsentPending is
+// returned, no egress starts and the recording stays pending, so the initiator can
+// confirm again after the missing answers came in.
 // Returns ErrNotFound if the recording does not exist or does not belong to userID.
 // If the egress cannot start, the recording is marked failed and the error returned.
 func (s *Service) ConfirmInitiatorConsent(ctx context.Context, recordingID, userID, tenantID uuid.UUID) error {
@@ -198,6 +175,12 @@ func (s *Service) ConfirmInitiatorConsent(ctx context.Context, recordingID, user
 	}
 
 	roomName, claimed, err := s.repo.MarkInitiatorConsent(ctx, recordingID, userID, tenantID)
+	if errors.Is(err, ErrConsentPending) {
+		slog.Info("initiator confirmed but participant consent missing, egress not started",
+			"recording_id", recordingID,
+		)
+		return ErrConsentPending
+	}
 	if err != nil {
 		return fmt.Errorf("mark initiator consent: %w", err)
 	}

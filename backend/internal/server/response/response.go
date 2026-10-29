@@ -154,6 +154,7 @@ var statusNames = map[protoreflect.FullName]map[string]string{
 	"hr.v1.WorkTimeEntry":  {"1": "active", "2": "completed", "3": "correction_pending", "4": "correction_approved", "5": "superseded"},
 	"biz.v1.DunningRecord": {"1": "draft", "2": "sent", "3": "paid"},
 	"biz.v1.CreditNote":    {"1": "draft", "2": "sent"},
+	"video.v1.Recording":   {"1": "active", "2": "processing", "3": "completed", "4": "failed", "5": "deleted", "6": "pending"},
 }
 
 // rewriteStatus replaces a numeric top-level `status` member. An unknown number (a future

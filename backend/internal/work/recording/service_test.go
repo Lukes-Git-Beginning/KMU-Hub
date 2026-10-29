@@ -61,7 +61,6 @@ func makeParticipants(ids ...uuid.UUID) []ParticipantConsentInfo {
 type mockRepo struct {
 	recordings       map[uuid.UUID]*Recording
 	consents         map[uuid.UUID][]RecordingConsent
-	pendingOverride  *int  // if set, override CountPendingConsents result
 	participantUsers []uuid.UUID
 	createErr        error
 }
@@ -142,9 +141,6 @@ func (m *mockRepo) GetConsents(_ context.Context, recordingID uuid.UUID) ([]Reco
 }
 
 func (m *mockRepo) CountPendingConsents(_ context.Context, recordingID uuid.UUID, participantIDs []uuid.UUID) (int, error) {
-	if m.pendingOverride != nil {
-		return *m.pendingOverride, nil
-	}
 	// Count participants who have NOT responded
 	respondedSet := make(map[uuid.UUID]bool)
 	for _, c := range m.consents[recordingID] {
@@ -227,7 +223,8 @@ func (m *mockRepo) GetConsentsWithUser(_ context.Context, recordingID uuid.UUID)
 }
 
 // MarkInitiatorConsent mirrors the SQL claim: only the stamp that moves a
-// pending row to active reports claimed=true.
+// pending row to active reports claimed=true, and only once every snapshot
+// participant other than the initiator has said yes.
 func (m *mockRepo) MarkInitiatorConsent(_ context.Context, recordingID, _ uuid.UUID, _ uuid.UUID) (string, bool, error) {
 	rec, ok := m.recordings[recordingID]
 	if !ok {
@@ -235,6 +232,15 @@ func (m *mockRepo) MarkInitiatorConsent(_ context.Context, recordingID, _ uuid.U
 	}
 	if rec.Status != RecordingStatusPending {
 		return "", false, nil
+	}
+	yes := make(map[uuid.UUID]bool)
+	for _, c := range m.consents[recordingID] {
+		yes[c.UserID] = c.Consented
+	}
+	for _, p := range rec.ConsentSnapshot {
+		if (rec.StartedBy == nil || p.UserID != *rec.StartedBy) && !yes[p.UserID] {
+			return "", false, ErrConsentPending
+		}
 	}
 	now := time.Now()
 	rec.PreRecordingConsentAt = &now
@@ -252,22 +258,10 @@ func (m *mockRepo) GetPreConsentStatus(_ context.Context, recordingID, _ uuid.UU
 
 // --- Tests ---
 
-func TestStartRecording_FailsWhenConsentPending(t *testing.T) {
-	repo := newMockRepo()
-	egress := newMockEgressManager()
-	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
-
-	callID := uuid.New()
-	user1 := uuid.New()
-	user2 := uuid.New()
-	starter := uuid.New()
-
-	// No consents set -> pending
-	_, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(user1, user2))
-	assert.ErrorIs(t, err, ErrConsentPending)
-}
-
-func TestStartRecording_SucceedsWhenAllConsented(t *testing.T) {
+// TestStartRecording_PendingWithoutConsents is the reverse of the old gate: the
+// participants consent to the pending recording, so starting must not need their
+// answers first — it can't, their consents hang off the ID created here.
+func TestStartRecording_PendingWithoutConsents(t *testing.T) {
 	repo := newMockRepo()
 	egress := newMockEgressManager()
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
@@ -276,19 +270,13 @@ func TestStartRecording_SucceedsWhenAllConsented(t *testing.T) {
 	user1 := uuid.New()
 	user2 := uuid.New()
 	starter := user1
-	participants := makeParticipants(user1, user2)
 
-	// Pre-create a recording ID to set consents on
-	// We need to use pendingOverride since we can't know the recording ID in advance
-	zero := 0
-	repo.pendingOverride = &zero
-
-	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, participants)
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(user1, user2))
 	require.NoError(t, err)
-	assert.NotNil(t, rec)
 	assert.Equal(t, RecordingStatusPending, rec.Status)
 	assert.Nil(t, rec.EgressID, "no egress before the initiator confirms")
 	assert.Equal(t, 0, egress.startCalls)
+	assert.Contains(t, repo.recordings, rec.ID, "the pending row stays for the participants to consent to")
 }
 
 func TestStartRecording_Sets30DayRetention(t *testing.T) {
@@ -298,8 +286,6 @@ func TestStartRecording_Sets30DayRetention(t *testing.T) {
 
 	callID := uuid.New()
 	starter := uuid.New()
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	require.NoError(t, err)
@@ -338,8 +324,6 @@ func TestStartRecording_WithMeetingID(t *testing.T) {
 
 	meetingID := uuid.New()
 	starter := uuid.New()
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), nil, &meetingID, "meeting-room", starter, makeParticipants(starter))
 	require.NoError(t, err)
@@ -355,8 +339,6 @@ func TestStopRecording_TransitionsToProcessing(t *testing.T) {
 
 	callID := uuid.New()
 	starter := uuid.New()
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "call-abc123", starter, makeParticipants(starter))
 	require.NoError(t, err)
@@ -647,9 +629,9 @@ func TestNewService_DisabledMode(t *testing.T) {
 // New tests for S1.R2.3: consent-snapshot, started_by, multi-participant gate
 // ============================================================================
 
-// TestStartRecording_AllThreeParticipantsRequireConsent verifies that recording
-// cannot start when 3 participants are present but none has consented yet.
-func TestStartRecording_AllThreeParticipantsRequireConsent(t *testing.T) {
+// TestConfirmInitiatorConsent_NoAnswersNoEgress verifies that the egress cannot
+// start when 3 participants are present but none of the others has consented yet.
+func TestConfirmInitiatorConsent_NoAnswersNoEgress(t *testing.T) {
 	repo := newMockRepo()
 	egress := newMockEgressManager()
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{})
@@ -660,47 +642,46 @@ func TestStartRecording_AllThreeParticipantsRequireConsent(t *testing.T) {
 	user3 := uuid.New()
 	starter := user1
 
-	// No consents yet — all 3 pending
-	_, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, makeParticipants(user1, user2, user3))
-	assert.ErrorIs(t, err, ErrConsentPending)
+	// No consents yet: the initiator's confirm alone starts nothing.
+	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, makeParticipants(user1, user2, user3))
+	require.NoError(t, err)
+	assert.ErrorIs(t, svc.ConfirmInitiatorConsent(context.Background(), rec.ID, starter, uuid.Nil), ErrConsentPending)
+	assert.Equal(t, 0, egress.startCalls)
 }
 
-// TestStartRecording_BlocksUntilAllThreeConsent verifies the consent gate:
-// one consent is not enough, two are not enough, only all three allow recording.
-func TestStartRecording_BlocksUntilAllThreeConsent(t *testing.T) {
+// TestConfirmInitiatorConsent_BlocksUntilEveryParticipantSaysYes verifies the consent gate:
+// one yes is not enough, a no is not enough, only a yes from every other participant starts.
+func TestConfirmInitiatorConsent_BlocksUntilEveryParticipantSaysYes(t *testing.T) {
 	repo := newMockRepo()
 	egress := newMockEgressManager()
 	svc := NewService(repo, egress, "https://template.example.com", S3Config{Bucket: "recordings"})
+	ctx := context.Background()
 
 	callID := uuid.New()
 	user1 := uuid.New()
 	user2 := uuid.New()
 	user3 := uuid.New()
 	starter := user1
-	participants := makeParticipants(user1, user2, user3)
 
-	// We need a recording ID upfront to register consents.
-	// Use a temporary recording with known ID in the mock.
-	tempRecID := uuid.New()
-	repo.recordings[tempRecID] = &Recording{ID: tempRecID, CallID: &callID, Status: RecordingStatusActive}
-
-	// Register consents against that ID
-	require.NoError(t, svc.SetConsent(context.Background(), tempRecID, user1, true))
-	require.NoError(t, svc.SetConsent(context.Background(), tempRecID, user2, true))
-	// user3 has NOT consented yet
-
-	// One missing consent: still blocked. Use pendingOverride = 1
-	one := 1
-	repo.pendingOverride = &one
-	_, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
-	assert.ErrorIs(t, err, ErrConsentPending)
-
-	// All three consented: now allowed
-	zero := 0
-	repo.pendingOverride = &zero
-	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
+	rec, err := svc.StartRecording(ctx, &callID, nil, "room-x", starter, makeParticipants(user1, user2, user3))
 	require.NoError(t, err)
-	assert.Equal(t, RecordingStatusPending, rec.Status)
+
+	// user2 says yes, user3 has not answered: no egress, still pending.
+	require.NoError(t, svc.SetConsent(ctx, rec.ID, user2, true))
+	assert.ErrorIs(t, svc.ConfirmInitiatorConsent(ctx, rec.ID, starter, uuid.Nil), ErrConsentPending)
+	assert.Equal(t, 0, egress.startCalls)
+	assert.Equal(t, RecordingStatusPending, repo.recordings[rec.ID].Status)
+
+	// user3 says no: still blocked — an answer is not a yes.
+	require.NoError(t, svc.SetConsent(ctx, rec.ID, user3, false))
+	assert.ErrorIs(t, svc.ConfirmInitiatorConsent(ctx, rec.ID, starter, uuid.Nil), ErrConsentPending)
+	assert.Equal(t, 0, egress.startCalls)
+
+	// user3 changes to yes: the initiator's own consent is the confirmation itself.
+	require.NoError(t, svc.SetConsent(ctx, rec.ID, user3, true))
+	require.NoError(t, svc.ConfirmInitiatorConsent(ctx, rec.ID, starter, uuid.Nil))
+	assert.Equal(t, 1, egress.startCalls)
+	assert.Equal(t, RecordingStatusActive, repo.recordings[rec.ID].Status)
 }
 
 // TestStartRecording_PersistsStartedBy verifies that started_by is stored on the recording.
@@ -711,8 +692,6 @@ func TestStartRecording_PersistsStartedBy(t *testing.T) {
 
 	callID := uuid.New()
 	starter := uuid.New()
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, makeParticipants(starter))
 	require.NoError(t, err)
@@ -741,8 +720,6 @@ func TestStartRecording_ConsentSnapshotContainsAllParticipants(t *testing.T) {
 	starter := user1
 	participants := makeParticipants(user1, user2, user3)
 
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-x", starter, participants)
 	require.NoError(t, err)
@@ -931,8 +908,6 @@ func TestRecordingsCrossTenantIsolation_DBLevel(t *testing.T) {
 	tenantB := uuid.New()
 
 	base := newMockRepo()
-	zero := 0
-	base.pendingOverride = &zero
 
 	repoA := &tenantAwareRepo{mockRepo: base, allowedTenantID: tenantA}
 	egress := newMockEgressManager()
@@ -972,8 +947,6 @@ func TestStartRecording_TenantIsolation(t *testing.T) {
 	tenantB := uuid.New()
 
 	base := newMockRepo()
-	zero := 0
-	base.pendingOverride = &zero
 
 	// Use a tenant-aware repo scoped to TenantA
 	repoA := &tenantAwareRepo{mockRepo: base, allowedTenantID: tenantA}
@@ -1019,8 +992,6 @@ func TestConfirmInitiatorConsent_StartsEgressExactlyOnce(t *testing.T) {
 	callID := uuid.New()
 	starter := uuid.New()
 	tenantID := uuid.New()
-	zero := 0
-	repo.pendingOverride = &zero
 
 	rec, err := svc.StartRecording(context.Background(), &callID, nil, "room-confirm", starter, makeParticipants(starter), tenantID)
 	require.NoError(t, err)

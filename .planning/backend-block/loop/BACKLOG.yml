@@ -345,7 +345,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29 (aus `decide-recording-participant-consent-before-egress`, Variante a): Die
