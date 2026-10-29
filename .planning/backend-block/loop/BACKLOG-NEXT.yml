@@ -1753,3 +1753,26 @@ units:
       - 'Teilnehmer sieht den Einwilligungsdialog für eine pending-Aufnahme (Meeting und Call), Screenshot-QA'
       - 'Initiator bekommt bei 409 einen eigenen Hinweis und kann nach der Zustimmung erneut bestätigen'
       - '`RecordingStatus` enthält `pending`, gescopter Typecheck grün'
+
+  - id: fe-recurring-generate-now-only-when-due
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: '"Jetzt erzeugen" ist nur bei fälligen Abo-Rechnungen anklickbar, und ein 409 erklärt sich selbst'
+    scope: >-
+      Seit `fix-recurring-generate-rejects-future-period` (Lauf 18) antwortet `POST /finance/recurring/{id}/generate`
+      mit 409 "recurring invoice period is not due yet", wenn `next_run` nach heute liegt. Beide Aufrufer
+      (`RecurringDetailPanel.tsx:260`, `RecurringInvoicesTab.tsx:63`) zeigen bei Fehler nur `err.message` als Toast,
+      der Button bleibt für jeden nicht beendeten Plan sichtbar. Gewünscht: Button/Menüeintrag nur bei
+      `next_run <= heute` (aktiv), sonst ausgegraut mit Hinweis "Fällig am {date}"; 409 als eigener, übersetzter Hinweis.
+    sources:
+      - desktop/src/renderer/src/modules/finanzen/RecurringDetailPanel.tsx
+      - desktop/src/renderer/src/modules/finanzen/RecurringInvoicesTab.tsx
+    notes: >-
+      i18n ×4 für den Hinweis. Paused-Pläne liefern weiter 409 "not active" (eigene Meldung prüfen).
+    done_when:
+      - 'Plan mit next_run morgen: Button deaktiviert mit Fälligkeitsdatum, Screenshot-QA'
+      - 'Plan fällig heute/überfällig: Button aktiv und erzeugt die Rechnung'
+      - gescopter Typecheck grün

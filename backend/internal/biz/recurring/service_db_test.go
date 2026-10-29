@@ -196,6 +196,51 @@ func TestGenerate_RealSQL_ConcurrentRunsProduceExactlyOneInvoice(t *testing.T) {
 		"concurrent Generate calls for the same period must emit exactly one invoice")
 }
 
+// A schedule whose next period lies in the future is refused before anything is claimed
+// or billed; one that is due today is billed exactly once, and a follow-up call that
+// reads the advanced schedule (next month) is refused instead of billing the next period.
+func TestGenerate_RealSQL_FuturePeriodIsNotBilled(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID, userID := seedRecurringFixture(t, pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+	svc, repo, _ := newRealService(pool)
+	today := dateOnly(time.Now())
+
+	future := newRecurringFixture(tenantID, userID)
+	future.LineItems = billableLineItems(t)
+	future.StartDate = today.AddDate(0, 0, 1)
+	future.NextRun = future.StartDate
+	require.NoError(t, repo.Create(ctx, future))
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_recurring_invoices", future.ID) })
+
+	_, _, err := svc.Generate(ctx, tenantID, future.ID, userID)
+	require.ErrorIs(t, err, ErrNotDueYet)
+	assert.Equal(t, 0, countInvoicesForSchedule(t, pool, ctx, future.ID))
+	reloaded, err := repo.GetByID(ctx, tenantID, future.ID)
+	require.NoError(t, err)
+	assert.Equal(t, future.NextRun.Format(dateLayout), reloaded.NextRun.Format(dateLayout), "a refused run must not move the schedule")
+
+	due := newRecurringFixture(tenantID, userID)
+	due.LineItems = billableLineItems(t)
+	due.StartDate = today
+	due.NextRun = today
+	require.NoError(t, repo.Create(ctx, due))
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_recurring_invoices", due.ID) })
+
+	inv, _, err := svc.Generate(ctx, tenantID, due.ID, userID)
+	require.NoError(t, err)
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "finance_invoices", inv.ID) })
+
+	_, _, err = svc.Generate(ctx, tenantID, due.ID, userID)
+	require.ErrorIs(t, err, ErrNotDueYet)
+	assert.Equal(t, 1, countInvoicesForSchedule(t, pool, ctx, due.ID))
+}
+
 // Ended and paused schedules must refuse generation even when the schedule
 // was loaded fresh from Postgres, not from an in-memory fixture.
 func TestGenerate_RealSQL_EndedAndPausedSchedulesRefuse(t *testing.T) {

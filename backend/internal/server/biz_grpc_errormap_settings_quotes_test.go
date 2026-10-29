@@ -46,6 +46,7 @@ func TestMapBizError(t *testing.T) {
 		{"recurring invalid date range", recurring.ErrInvalidDateRange, codes.InvalidArgument},
 		{"recurring not active", recurring.ErrNotActive, codes.FailedPrecondition},
 		{"recurring schedule exhausted", recurring.ErrScheduleExhausted, codes.FailedPrecondition},
+		{"recurring not due yet", recurring.ErrNotDueYet, codes.FailedPrecondition},
 		// Open items (Offene Posten)
 		{"unknown aging bucket", models.ErrUnknownAgingBucket, codes.InvalidArgument},
 		// Invoice errors

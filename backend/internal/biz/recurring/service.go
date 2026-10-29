@@ -265,7 +265,9 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 
 // Generate emits the invoice for the schedule's current period and advances the
 // schedule. It is idempotent: calling it twice for the same period returns the
-// same invoice and never emits a second one.
+// same invoice and never emits a second one. A period that lies in the future
+// is refused (ErrNotDueYet) — a second call that reads the schedule after the
+// first one advanced it must not claim the following period.
 func (s *Service) Generate(ctx context.Context, tenantID, id, userID uuid.UUID) (*models.Invoice, *models.RecurringInvoice, error) {
 	rec, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
@@ -277,6 +279,9 @@ func (s *Service) Generate(ctx context.Context, tenantID, id, userID uuid.UUID) 
 	period := dateOnly(rec.NextRun)
 	if rec.EndDate != nil && period.After(*rec.EndDate) {
 		return nil, nil, ErrScheduleExhausted
+	}
+	if period.After(dateOnly(time.Now())) {
+		return nil, nil, ErrNotDueYet
 	}
 
 	run, claimed, err := s.repo.ClaimPeriod(ctx, tenantID, rec.ID, period)

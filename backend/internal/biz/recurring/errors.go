@@ -19,4 +19,9 @@ var (
 	ErrNotActive = errors.New("recurring invoice is not active")
 	// ErrScheduleExhausted is returned when the next run would fall past the end date.
 	ErrScheduleExhausted = errors.New("recurring invoice has reached its end date")
+	// ErrNotDueYet is returned when the schedule's next period lies in the future.
+	// "Generate now" bills a period that is due, it never pulls one forward: a
+	// double click would otherwise bill two months, and a GoBD invoice cannot be
+	// deleted again.
+	ErrNotDueYet = errors.New("recurring invoice period is not due yet")
 )

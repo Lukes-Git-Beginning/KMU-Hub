@@ -308,6 +308,44 @@ func TestGenerate_EmitsInvoiceAndAdvancesSchedule(t *testing.T) {
 	}
 }
 
+// "Generate now" bills a period that is due, it never pulls a future one forward.
+func TestGenerate_RefusesAPeriodThatIsNotDueYet(t *testing.T) {
+	svc, repo, invoices := newTestService()
+	tenantID := uuid.New()
+	tomorrow := dateOnly(time.Now()).AddDate(0, 0, 1)
+	rec := createSchedule(t, svc, tenantID, CreateInput{StartDate: tomorrow})
+
+	_, _, err := svc.Generate(context.Background(), tenantID, rec.ID, uuid.New())
+	if !errors.Is(err, ErrNotDueYet) {
+		t.Fatalf("generate err = %v, want ErrNotDueYet", err)
+	}
+	if len(invoices.created) != 0 {
+		t.Errorf("emitted %d invoices for a period that is not due", len(invoices.created))
+	}
+	if got := repo.schedules[rec.ID]; got.GeneratedCount != 0 || !got.NextRun.Equal(tomorrow) {
+		t.Errorf("schedule moved: generated_count=%d next_run=%s", got.GeneratedCount, got.NextRun.Format(dateLayout))
+	}
+}
+
+// A schedule due today is billed once. The follow-up call (a double click that read the
+// schedule after the first one advanced it) sees next month and must not bill it.
+func TestGenerate_DueTodayBillsOnceAndTheSecondCallIsRefused(t *testing.T) {
+	svc, _, invoices := newTestService()
+	tenantID := uuid.New()
+	rec := createSchedule(t, svc, tenantID, CreateInput{StartDate: dateOnly(time.Now())})
+
+	if _, _, err := svc.Generate(context.Background(), tenantID, rec.ID, uuid.New()); err != nil {
+		t.Fatalf("first generate: %v", err)
+	}
+	_, _, err := svc.Generate(context.Background(), tenantID, rec.ID, uuid.New())
+	if !errors.Is(err, ErrNotDueYet) {
+		t.Fatalf("second generate err = %v, want ErrNotDueYet", err)
+	}
+	if len(invoices.created) != 1 {
+		t.Errorf("emitted %d invoices, want 1", len(invoices.created))
+	}
+}
+
 // A retried request, a double click or a second scheduler pass must not bill the
 // customer twice. The second call has to hand back the very same invoice.
 func TestGenerate_IsIdempotentPerPeriod(t *testing.T) {

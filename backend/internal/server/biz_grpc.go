@@ -2810,7 +2810,8 @@ func mapBizError(err error) error {
 		errors.Is(err, recurring.ErrInvalidDateRange):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, recurring.ErrNotActive),
-		errors.Is(err, recurring.ErrScheduleExhausted):
+		errors.Is(err, recurring.ErrScheduleExhausted),
+		errors.Is(err, recurring.ErrNotDueYet):
 		return status.Error(codes.FailedPrecondition, err.Error())
 
 	// Open items (Offene Posten)

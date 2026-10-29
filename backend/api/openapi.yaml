@@ -11028,7 +11028,8 @@ paths:
           description: Schedule not found
         "409":
           description: >-
-            Schedule is paused, ended or past its end date. Also returned when a
+            Schedule is paused, ended, past its end date, or its next period is
+            not due yet (nothing is billed ahead of time). Also returned when a
             request carrying the same Idempotency-Key is still in flight; retry
             after the delay in Retry-After with the same key and body.
           headers:
