@@ -24,8 +24,9 @@ interface ShareLinkDialogProps {
   onClose: () => void
 }
 
-type ExpiryChoice = '30' | '90' | 'never'
-const EXPIRY_CHOICES: ExpiryChoice[] = ['30', '90', 'never']
+// The server caps every link at 365 days, so there is no "never" here.
+type ExpiryChoice = '30' | '90' | '365'
+const EXPIRY_CHOICES: ExpiryChoice[] = ['30', '90', '365']
 
 /** Build the demo share URL for a token (real public host is Luke's gap). */
 export function shareUrl(token: string): string {
@@ -34,7 +35,9 @@ export function shareUrl(token: string): string {
 
 /**
  * R-5c / B6-5 — manage external read-only share links for a released report:
- * list active tokens (expiry, views, revoke, copy) and mint new ones.
+ * list active links (expiry, views, revoke) and mint new ones. The server keeps
+ * only a hash of the token, so a new link is shown once, right after creation;
+ * the list cannot hand it out again.
  * Demo-only — the actual unauthenticated public page is a backend gap (Luke).
  */
 export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
@@ -45,7 +48,8 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
   const [expiry, setExpiry] = useState<ExpiryChoice>('30')
   const [usePassword, setUsePassword] = useState(false)
   const [password, setPassword] = useState('')
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [fresh, setFresh] = useState<{ id: string; url: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const shares = data?.shares ?? []
 
@@ -54,7 +58,8 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
       setExpiry('30')
       setUsePassword(false)
       setPassword('')
-      setCopiedId(null)
+      setFresh(null)
+      setCopied(false)
     }
   }, [open])
 
@@ -63,13 +68,15 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
       {
         documentId: doc.id,
         input: {
-          expires_in_days: expiry === 'never' ? null : Number(expiry),
+          expires_in_days: Number(expiry),
           password: usePassword ? password : undefined,
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: ({ share }) => {
           toast.success(t('berichte.docs.share.created'))
+          setFresh(share.token ? { id: share.id, url: shareUrl(share.token) } : null)
+          setCopied(false)
           setUsePassword(false)
           setPassword('')
         },
@@ -78,12 +85,12 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
     )
   }
 
-  const handleCopy = async (token: string, id: string) => {
+  const handleCopy = async (url: string) => {
     try {
-      await navigator.clipboard.writeText(shareUrl(token))
-      setCopiedId(id)
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
       toast.success(t('berichte.docs.share.linkCopied'))
-      setTimeout(() => setCopiedId(null), 2000)
+      setTimeout(() => setCopied(false), 2000)
     } catch {
       toast.error(t('berichte.docs.share.copyError'))
     }
@@ -91,7 +98,10 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
 
   const handleRevoke = (id: string) => {
     revoke.mutate(id, {
-      onSuccess: () => toast.success(t('berichte.docs.share.revoked')),
+      onSuccess: () => {
+        if (fresh?.id === id) setFresh(null)
+        toast.success(t('berichte.docs.share.revoked'))
+      },
       onError: (err) => toast.error((err as Error).message),
     })
   }
@@ -112,6 +122,31 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
         </DialogHeader>
 
         <div className="max-h-[70vh] space-y-5 overflow-y-auto px-6 py-5">
+          {/* The link just made — the only moment it can be copied */}
+          {fresh && (
+            <div className="rounded-lg border border-primary/30 bg-primary-light px-3 py-3">
+              <p className="mb-2 text-xs font-medium text-foreground">
+                {t('berichte.docs.share.newLinkReady')}
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-md bg-card px-2 py-1.5 font-mono text-xs text-foreground">
+                  {fresh.url}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(fresh.url)}
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground transition-colors hover:bg-button-primary-hover"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {t('berichte.docs.share.copy')}
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {t('berichte.docs.share.onceHint')}
+              </p>
+            </div>
+          )}
+
           {/* Active links */}
           <div>
             <p className="mb-2 text-xs font-medium text-muted-foreground">
@@ -130,21 +165,9 @@ export function ShareLinkDialog({ doc, open, onClose }: ShareLinkDialogProps) {
                   >
                     <div className="flex items-center gap-2">
                       <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
-                        {shareUrl(s.token)}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(s.token, s.id)}
-                        aria-label={t('berichte.docs.share.copy')}
-                        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                      >
-                        {copiedId === s.id ? (
-                          <Check className="h-3.5 w-3.5 text-success" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </button>
+                      <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+                        {t('berichte.docs.share.createdOn', { date: formatDate(s.created_at) })}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRevoke(s.id)}
