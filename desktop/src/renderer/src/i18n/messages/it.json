@@ -3554,7 +3554,6 @@
   "finanzen.creditNote.stornoConfirm": "Storna",
   "finanzen.creditNote.stornoDone": "Fattura {number} stornata",
   "finanzen.creditNote.stornoNotice": "Viene creata una nota di credito di storno per l'intero importo e la fattura {number} viene impostata su «annullata».",
-  "finanzen.creditNote.stornoReasonDefault": "Storno della fattura {number}",
   "finanzen.creditNote.stornoTitle": "Storna fattura",
   "finanzen.creditNoteDetail.auditCreated": "Creato",
   "finanzen.creditNoteDetail.auditCreatedDetail": "Numero: {number}",

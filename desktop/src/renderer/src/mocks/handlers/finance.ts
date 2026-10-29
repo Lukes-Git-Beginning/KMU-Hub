@@ -384,10 +384,34 @@ export const financeHandlers = [
   }),
 
   // Cancel invoice — stateful
+  // Like the server's CancelInvoice: a draft is just cancelled, an issued
+  // invoice gets a storno credit note over its full amount (GoBD).
   http.post(`${API}/api/v1/finance/invoices/:id/cancel`, ({ params }) => {
     const existing = mockInvoices.invoices.find((inv) => inv.id === params.id) as Record<string, unknown> | undefined
     if (!existing) {
       return HttpResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
+    if (existing.status !== 'draft') {
+      const items = ((existing.line_items ?? existing.items) as RawLineItem[] | undefined) ?? []
+      const seq = mockCreditNotes.credit_notes.length + 1
+      const number = `GS-2026-${String(seq).padStart(3, '0')}`
+      mockCreditNotes.credit_notes.unshift({
+        id: `cn-${Date.now()}`,
+        number,
+        credit_note_number: number,
+        status: 'sent',
+        original_invoice_id: existing.id,
+        invoice_number: existing.invoice_number,
+        customer: existing.customer,
+        customer_name: (existing.customer as Record<string, unknown> | undefined)?.name ?? '',
+        tax_mode: existing.tax_mode ?? 'standard',
+        currency: existing.currency ?? 'EUR',
+        is_storno: true,
+        reason: `Storno der Rechnung ${String(existing.invoice_number ?? '')}`,
+        ...computeTotals(items),
+        created_at: new Date().toISOString(),
+      } as never)
+      mockCreditNotes.total = mockCreditNotes.credit_notes.length
     }
     existing.status = 'cancelled'
     return HttpResponse.json({ invoice: existing })
@@ -608,17 +632,15 @@ export const financeHandlers = [
       customer_name: (linked?.customer as Record<string, unknown> | undefined)?.name ?? '',
       tax_mode: body.tax_mode ?? 'standard',
       currency: linked?.currency ?? 'EUR',
-      is_storno: Boolean(body.is_storno),
+      // The server knows no is_storno on this route; a storno goes through
+      // POST /invoices/{id}/cancel.
+      is_storno: false,
       reason: body.reason ?? '',
       ...totals,
       created_at: new Date().toISOString(),
     }
     mockCreditNotes.credit_notes.unshift(newNote as never)
     mockCreditNotes.total = mockCreditNotes.credit_notes.length
-    // Storno semantics: a full credit note cancels the original invoice.
-    if (body.is_storno && linked) {
-      linked.status = 'cancelled'
-    }
     return HttpResponse.json({ credit_note: newNote }, { status: 201 })
   }),
 

@@ -3554,7 +3554,6 @@
   "finanzen.creditNote.stornoConfirm": "Stornieren",
   "finanzen.creditNote.stornoDone": "Rechnung {number} storniert",
   "finanzen.creditNote.stornoNotice": "Es wird eine Storno-Gutschrift über den vollen Betrag erstellt und Rechnung {number} auf „storniert\" gesetzt.",
-  "finanzen.creditNote.stornoReasonDefault": "Storno der Rechnung {number}",
   "finanzen.creditNote.stornoTitle": "Rechnung stornieren",
   "finanzen.creditNoteDetail.auditCreated": "Erstellt",
   "finanzen.creditNoteDetail.auditCreatedDetail": "Nummer: {number}",

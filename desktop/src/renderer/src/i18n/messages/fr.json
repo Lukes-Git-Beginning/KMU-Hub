@@ -3554,7 +3554,6 @@
   "finanzen.creditNote.stornoConfirm": "Annuler",
   "finanzen.creditNote.stornoDone": "Facture {number} annulée",
   "finanzen.creditNote.stornoNotice": "Un avoir d'annulation pour le montant total est créé et la facture {number} passe à « annulée ».",
-  "finanzen.creditNote.stornoReasonDefault": "Annulation de la facture {number}",
   "finanzen.creditNote.stornoTitle": "Annuler la facture",
   "finanzen.creditNoteDetail.auditCreated": "Créé",
   "finanzen.creditNoteDetail.auditCreatedDetail": "Numéro : {number}",

@@ -3554,7 +3554,6 @@
   "finanzen.creditNote.stornoConfirm": "Reverse",
   "finanzen.creditNote.stornoDone": "Invoice {number} reversed",
   "finanzen.creditNote.stornoNotice": "A full reversal credit note is created and invoice {number} is set to “cancelled”.",
-  "finanzen.creditNote.stornoReasonDefault": "Reversal of invoice {number}",
   "finanzen.creditNote.stornoTitle": "Reverse invoice",
   "finanzen.creditNoteDetail.auditCreated": "Created",
   "finanzen.creditNoteDetail.auditCreatedDetail": "Number: {number}",
