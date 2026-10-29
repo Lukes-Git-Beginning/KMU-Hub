@@ -2,21 +2,19 @@ package helpdesk
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-// CsatSurvey is a pending survey invitation: the one-click rating link handed
-// out when a ticket closes. It carries no rating -- the rating arrives later,
+// CsatSurvey is a pending survey invitation scheduled when a ticket closes. It
+// carries no link secret: the dispatcher mints the one-click rating link when
+// it sends the mail and stores only its hash. The rating arrives later,
 // through the public redeem endpoint, and lands on the same
 // ticket_csat_responses row.
 type CsatSurvey struct {
 	TicketID uuid.UUID
-	Token    string
 	// SendAfter is when the invitation mail becomes due: close time plus the
 	// tenant's configured delay. The dispatcher polls against it.
 	SendAfter time.Time
@@ -33,7 +31,7 @@ type CsatSurveyToken struct {
 	TicketID   uuid.UUID
 	ExpiresAt  *time.Time
 	// SubmittedAt is non-nil once the ticket has been rated. Redemption clears
-	// the token, so this only differs from "row not found" in the window where
+	// the hash, so this only differs from "row not found" in the window where
 	// a rating was submitted through the authenticated route while the link
 	// was still out.
 	SubmittedAt *time.Time
@@ -66,14 +64,9 @@ const (
 	csatCommentMaxLength = 2000
 
 	// csatSurveyTokenMaxLength is the longest token string worth a database
-	// round trip. Real tokens are 43 characters (32 bytes base64url); anything
-	// past this is a probe, and answering it costs a query.
+	// round trip. Real tokens are 43 characters (linksecret: 32 bytes
+	// base64url); anything past this is a probe, and answering it costs a query.
 	csatSurveyTokenMaxLength = 128
-
-	// csatSurveyTokenBytes matches the report share links (000252): 32 bytes of
-	// crypto/rand, base64url-encoded to 43 URL-safe characters. The token IS
-	// the credential for the public endpoint, so it is drawn the same way.
-	csatSurveyTokenBytes = 32
 
 	// CsatSurveyTokenTTL is how long a survey link stays valid AFTER it would
 	// be sent out (send time = close + CsatConfig.SurveyDelayMinutes). Expiry
@@ -82,17 +75,10 @@ const (
 	CsatSurveyTokenTTL = 30 * 24 * time.Hour
 )
 
-// newCsatSurveyToken draws a survey link secret from crypto/rand. base64url
-// keeps it usable as a URL path segment without escaping.
-func newCsatSurveyToken() (string, error) {
-	buf := make([]byte, csatSurveyTokenBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("generate csat survey token: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
-// IssueCsatSurveyToken mints a survey link for a ticket that was just closed.
+// IssueCsatSurveyToken schedules a survey for a ticket that was just closed.
+// The link secret itself is minted later, by CsatSurveyDispatcher at send
+// time (decision 2026-10-26): until the mail goes out nothing redeemable
+// exists, and the database only ever holds the secret's hash.
 //
 // It returns (nil, nil) -- not an error -- for every legitimate reason not to
 // survey: the tenant has surveys switched off, or the ticket already carries a
@@ -100,7 +86,7 @@ func newCsatSurveyToken() (string, error) {
 // nil survey as "nothing to send", so the ticket close itself is never
 // affected by this decision.
 //
-// An existing *pending* token on the same ticket is replaced: the fresh close
+// An existing *pending* survey on the same ticket is replaced: the fresh close
 // restarts the delay, and a link from a previous close would expire against an
 // obsolete schedule. Replacement invalidates the older link, which is intended.
 func (s *Service) IssueCsatSurveyToken(ctx context.Context, t *Ticket, cfg CsatConfig) (*CsatSurvey, error) {
@@ -114,11 +100,6 @@ func (s *Service) IssueCsatSurveyToken(ctx context.Context, t *Ticket, cfg CsatC
 		return nil, err
 	}
 
-	token, err := newCsatSurveyToken()
-	if err != nil {
-		return nil, err
-	}
-
 	now := time.Now().UTC()
 	sendAfter := now.Add(time.Duration(cfg.SurveyDelayMinutes) * time.Minute)
 	expiresAt := sendAfter.Add(CsatSurveyTokenTTL)
@@ -126,20 +107,20 @@ func (s *Service) IssueCsatSurveyToken(ctx context.Context, t *Ticket, cfg CsatC
 	// The repository re-checks "not yet rated" in the same statement; the check
 	// above only saves the write in the common case. A rating submitted between
 	// the two is the reason the authoritative check has to sit in SQL.
-	issued, err := s.repo.IssueCsatSurveyTokenTx(ctx, t.TenantID, t.ID, token, sendAfter, expiresAt, now)
+	issued, err := s.repo.IssueCsatSurveyTokenTx(ctx, t.TenantID, t.ID, sendAfter, expiresAt, now)
 	if err != nil {
-		return nil, fmt.Errorf("issue csat survey token: %w", err)
+		return nil, fmt.Errorf("schedule csat survey: %w", err)
 	}
 	if !issued {
 		return nil, nil
 	}
 
-	s.log.InfoContext(ctx, "helpdesk: csat survey token issued",
+	s.log.InfoContext(ctx, "helpdesk: csat survey scheduled",
 		"ticket_id", t.ID,
 		"expires_at", expiresAt,
 		"delay_minutes", cfg.SurveyDelayMinutes,
 	)
-	return &CsatSurvey{TicketID: t.ID, Token: token, SendAfter: sendAfter, ExpiresAt: expiresAt}, nil
+	return &CsatSurvey{TicketID: t.ID, SendAfter: sendAfter, ExpiresAt: expiresAt}, nil
 }
 
 // SubmitCsatByToken redeems a survey link. This is the one path in the service

@@ -52,17 +52,19 @@ type Repository interface {
 	// Returns ErrTicketNotFound if the ticket does not belong to tenantID.
 	SubmitCsatTx(ctx context.Context, tenantID, ticketID uuid.UUID, rating int16, comment *string, submittedAt time.Time) error
 
-	// IssueCsatSurveyTokenTx stores a pending survey token on the ticket's CSAT
-	// response row, creating that row if the ticket has none yet. It reports
-	// false (without error) when no token was stored, which happens for a
+	// IssueCsatSurveyTokenTx schedules a pending survey on the ticket's CSAT
+	// response row, creating that row if the ticket has none yet. No link
+	// secret exists yet: the dispatcher mints it at send time. It reports
+	// false (without error) when nothing was scheduled, which happens for a
 	// ticket of another tenant and for a ticket that already carries a rating --
 	// both are ordinary outcomes, not failures.
-	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, token string, sendAfter, expiresAt, now time.Time) (bool, error)
+	IssueCsatSurveyTokenTx(ctx context.Context, tenantID, ticketID uuid.UUID, sendAfter, expiresAt, now time.Time) (bool, error)
 
 	// GetCsatSurveyByToken resolves a survey link. It runs in the system
 	// context -- the caller is an unauthenticated customer and has no tenant
 	// yet, so RLS would filter away the one row that says which tenant they
-	// may touch. It is pinned to an equality match on the unique token column,
+	// may touch. It hashes the presented token and is pinned to an equality
+	// match on the unique token_hash column,
 	// is never a listing and takes no filter. Returns ErrCsatSurveyNotFound
 	// for an unknown token; the expired/already-rated verdict belongs to the
 	// service, so a dead link still resolves far enough to be logged.

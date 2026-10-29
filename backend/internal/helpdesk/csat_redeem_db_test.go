@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
@@ -49,11 +50,12 @@ func TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant(t *testing.T) {
 
 	token := "redeem-" + uuid.NewString()
 	issued, err := repo.IssueCsatSurveyTokenTx(
-		ctxOwn, tenantOwn, ticket.ID, token, now, now.Add(CsatSurveyTokenTTL), now,
+		ctxOwn, tenantOwn, ticket.ID, now, now.Add(CsatSurveyTokenTTL), now,
 	)
 	if err != nil || !issued {
 		t.Fatalf("IssueCsatSurveyTokenTx: issued=%v err=%v", issued, err)
 	}
+	claimCsatSurveyLink(t, pool, repo, ticket.ID, token, now)
 
 	// The redemption itself carries NO tenant: this is the unauthenticated
 	// customer's context, exactly as the gateway hands it over. If the lookup
@@ -69,9 +71,9 @@ func TestSubmitCsatByToken_RedeemsOnceAndScopesToTenant(t *testing.T) {
 	}
 
 	// The rating landed on both the response row and the ticket mirror, and the
-	// token is gone -- the link is spent.
-	if got := csatTokenOf(t, pool, sysCtx, ticket.ID); got != "" {
-		t.Fatalf("token survived redemption: %q", got)
+	// link hash is gone -- the link is spent.
+	if got := csatTokenHashOf(t, pool, sysCtx, ticket.ID); got != "" {
+		t.Fatalf("link hash survived redemption: %q", got)
 	}
 	var (
 		rowRating   *int16
@@ -161,15 +163,17 @@ func TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated(t *testing.T) {
 	run := uuid.NewString()
 	tokenA, tokenB := "cross-a-"+run, "cross-b-"+run
 	if issued, err := repo.IssueCsatSurveyTokenTx(
-		ctxA, tenantA, ticketA.ID, tokenA, now, now.Add(CsatSurveyTokenTTL), now,
+		ctxA, tenantA, ticketA.ID, now, now.Add(CsatSurveyTokenTTL), now,
 	); err != nil || !issued {
 		t.Fatalf("IssueCsatSurveyTokenTx (A): issued=%v err=%v", issued, err)
 	}
 	if issued, err := repo.IssueCsatSurveyTokenTx(
-		ctxB, tenantB, ticketB.ID, tokenB, now, now.Add(CsatSurveyTokenTTL), now,
+		ctxB, tenantB, ticketB.ID, now, now.Add(CsatSurveyTokenTTL), now,
 	); err != nil || !issued {
 		t.Fatalf("IssueCsatSurveyTokenTx (B): issued=%v err=%v", issued, err)
 	}
+	claimCsatSurveyLink(t, pool, repo, ticketA.ID, tokenA, now)
+	claimCsatSurveyLink(t, pool, repo, ticketB.ID, tokenB, now)
 
 	// Redeem A's token. If the token lookup or the write that follows ever
 	// slipped tenant scope, this is where B's ticket would get hit instead of
@@ -195,8 +199,8 @@ func TestSubmitCsatByToken_TwoTenantsRedemptionStaysIsolated(t *testing.T) {
 	if storedB.CsatRating != nil {
 		t.Fatalf("ticket B was rated by tenant A's redemption: %v", *storedB.CsatRating)
 	}
-	if got := csatTokenOf(t, pool, ctxB, ticketB.ID); got != tokenB {
-		t.Fatalf("ticket B's token is %q, expected untouched %q", got, tokenB)
+	if got := csatTokenHashOf(t, pool, ctxB, ticketB.ID); got != linksecret.Hash(tokenB) {
+		t.Fatalf("ticket B's link hash is %q, expected the untouched hash of its token", got)
 	}
 
 	if _, err := svc.SubmitCsatByToken(context.Background(), tokenB, 2, nil); err != nil {
@@ -250,11 +254,12 @@ func TestSubmitCsatByToken_RefusesDeadLinks(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "tickets", expiredTicket.ID)
 	expiredToken := "expired-" + run
 	if _, err := repo.IssueCsatSurveyTokenTx(
-		ctx, tenantID, expiredTicket.ID, expiredToken,
+		ctx, tenantID, expiredTicket.ID,
 		now.Add(-48*time.Hour), now.Add(-time.Hour), now,
 	); err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (expired): %v", err)
 	}
+	claimCsatSurveyLink(t, pool, repo, expiredTicket.ID, expiredToken, now.Add(-47*time.Hour))
 
 	// Link on a ticket that was rated through the authenticated route in the
 	// meantime: the token is still out there, the row is no longer pending.
@@ -262,10 +267,11 @@ func TestSubmitCsatByToken_RefusesDeadLinks(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "tickets", ratedTicket.ID)
 	ratedToken := "rated-" + run
 	if _, err := repo.IssueCsatSurveyTokenTx(
-		ctx, tenantID, ratedTicket.ID, ratedToken, now, now.Add(CsatSurveyTokenTTL), now,
+		ctx, tenantID, ratedTicket.ID, now, now.Add(CsatSurveyTokenTTL), now,
 	); err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (rated): %v", err)
 	}
+	claimCsatSurveyLink(t, pool, repo, ratedTicket.ID, ratedToken, now)
 	if err := repo.SubmitCsatTx(ctx, tenantID, ratedTicket.ID, 5, nil, now); err != nil {
 		t.Fatalf("SubmitCsatTx: %v", err)
 	}

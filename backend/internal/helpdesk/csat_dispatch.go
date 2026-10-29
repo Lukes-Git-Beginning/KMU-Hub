@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/safego"
 )
@@ -28,7 +29,6 @@ type DueCsatSurvey struct {
 	TicketID       uuid.UUID
 	TicketNumber   int
 	Subject        string
-	Token          string
 	RecipientEmail string
 	RecipientName  string
 }
@@ -40,7 +40,9 @@ type DueCsatSurvey struct {
 // berichte/scheduler.ScheduleRepository).
 type CsatDispatchRepository interface {
 	ListDueCsatSurveys(ctx context.Context, now time.Time, maxAttempts int16, limit int) ([]*DueCsatSurvey, error)
-	ClaimCsatSurveyDispatch(ctx context.Context, responseID uuid.UUID, now time.Time) (bool, error)
+	// ClaimCsatSurveyDispatch stores tokenHash with the claim: the link secret
+	// is minted at send time and only its hash is persisted.
+	ClaimCsatSurveyDispatch(ctx context.Context, responseID uuid.UUID, now time.Time, tokenHash string) (bool, error)
 	ReleaseCsatSurveyDispatch(ctx context.Context, responseID uuid.UUID, claimedAt time.Time) error
 	CancelCsatSurvey(ctx context.Context, responseID uuid.UUID, now time.Time) error
 }
@@ -77,7 +79,7 @@ type CsatConfigLoader interface {
 const (
 	// csatSurveyMaxDispatchAttempts bounds delivery retries. Without a cap a
 	// permanently undeliverable address would be retried on every tick until
-	// the token expires 30 days later.
+	// the survey expires 30 days later.
 	csatSurveyMaxDispatchAttempts int16 = 3
 
 	// csatSurveyDefaultTick is how often due surveys are looked for. The delay
@@ -246,7 +248,17 @@ func (d *CsatSurveyDispatcher) dispatchOne(ctx context.Context, s *DueCsatSurvey
 		return
 	}
 
-	claimed, err := d.repo.ClaimCsatSurveyDispatch(ctx, s.ResponseID, now)
+	// The link secret is drawn here and leaves this function only in the mail:
+	// the claim persists its hash. A retry after a failed send draws a new one
+	// and its claim replaces the hash, so the link of the failed attempt dies.
+	token, err := linksecret.New()
+	if err != nil {
+		d.log.ErrorContext(ctx, "helpdesk csat dispatcher: token generation failed",
+			"ticket_id", s.TicketID, "error", err)
+		return
+	}
+
+	claimed, err := d.repo.ClaimCsatSurveyDispatch(ctx, s.ResponseID, now, linksecret.Hash(token))
 	if err != nil {
 		d.log.ErrorContext(ctx, "helpdesk csat dispatcher: claim failed",
 			"ticket_id", s.TicketID, "error", err)
@@ -258,7 +270,7 @@ func (d *CsatSurveyDispatcher) dispatchOne(ctx context.Context, s *DueCsatSurvey
 		return
 	}
 
-	if err := d.mailer.SendCsatSurvey(ctx, d.render(s, cfg)); err != nil {
+	if err := d.mailer.SendCsatSurvey(ctx, d.render(s, cfg, token)); err != nil {
 		d.log.WarnContext(ctx, "helpdesk csat dispatcher: send failed, claim released",
 			"ticket_id", s.TicketID, "error", err)
 		if relErr := d.repo.ReleaseCsatSurveyDispatch(ctx, s.ResponseID, now); relErr != nil {
@@ -280,12 +292,12 @@ func (d *CsatSurveyDispatcher) dispatchOne(ctx context.Context, s *DueCsatSurvey
 // the tenant's own question, deliberately not through email/template.Service:
 // that renders a tenant-owned template row looked up by ID with visibility
 // rules, and there is no CSAT template row to look up.
-func (d *CsatSurveyDispatcher) render(s *DueCsatSurvey, cfg CsatConfig) CsatSurveyMail {
+func (d *CsatSurveyDispatcher) render(s *DueCsatSurvey, cfg CsatConfig, token string) CsatSurveyMail {
 	question := strings.TrimSpace(cfg.SurveyQuestion)
 	if question == "" {
 		question = DefaultCsatConfig().SurveyQuestion
 	}
-	link := d.surveyLink(s.Token)
+	link := d.surveyLink(token)
 
 	greeting := "Hallo"
 	if name := strings.TrimSpace(s.RecipientName); name != "" {

@@ -121,7 +121,7 @@ func TestSearchByQuery_ContactCrmValuesCsatAndWebhooks_Integration(t *testing.T)
 	})
 	seed("ticket_csat_responses", map[string]any{
 		"tenant_id": tenantOwn, "ticket_id": ticketPending,
-		"token": "geheimes-umfrage-token-" + uuid.NewString(), "token_expires_at": time.Now().Add(time.Hour),
+		"token_hash": "geheimes-umfrage-token-" + uuid.NewString(), "token_expires_at": time.Now().Add(time.Hour),
 	})
 	ticketColleague := seed("tickets", map[string]any{
 		"tenant_id": tenantOwn, "subject": "Kollegen-Ticket", "requester_id": agentID, "contact_id": colleagueID,

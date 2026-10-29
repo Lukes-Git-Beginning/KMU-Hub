@@ -15,11 +15,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
 // seedDueSurvey creates a tenant, a requester with an address, a closed ticket
-// and a pending survey token whose send time lies sendOffset from now.
+// and a pending survey whose send time lies sendOffset from now.
 func seedDueSurvey(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, label string, now time.Time, sendOffset time.Duration) (*PostgresRepository, uuid.UUID) {
 	t.Helper()
 
@@ -47,7 +48,7 @@ func seedDueSurvey(t *testing.T, pool *pgxpool.Pool, tenantID uuid.UUID, label s
 
 	sendAfter := now.Add(sendOffset)
 	issued, err := repo.IssueCsatSurveyTokenTx(
-		ctx, tenantID, ticket.ID, "tok-"+uuid.New().String(),
+		ctx, tenantID, ticket.ID,
 		sendAfter, sendAfter.Add(CsatSurveyTokenTTL), now,
 	)
 	if err != nil || !issued {
@@ -137,7 +138,7 @@ func TestListDueCsatSurveys_ReachesExternalRequester(t *testing.T) {
 
 	sendAfter := now.Add(-time.Hour)
 	issued, err := repo.IssueCsatSurveyTokenTx(
-		ctx, tenantID, ticket.ID, "tok-"+uuid.New().String(),
+		ctx, tenantID, ticket.ID,
 		sendAfter, sendAfter.Add(CsatSurveyTokenTTL), now,
 	)
 	if err != nil || !issued {
@@ -180,17 +181,28 @@ func TestClaimCsatSurveyDispatch_OnlyOneClaimWinsAndReleaseRestores(t *testing.T
 	}
 	row := mustSurveyFor(t, due, ticketID)
 
-	claimed, err := repo.ClaimCsatSurveyDispatch(sysCtx, row.ResponseID, now)
+	// Scheduling stored no link: the hash only arrives with the claim.
+	if got := csatTokenHashOf(t, pool, sysCtx, ticketID); got != "" {
+		t.Fatalf("an unclaimed survey already carries a link hash %q", got)
+	}
+	claimed, err := repo.ClaimCsatSurveyDispatch(sysCtx, row.ResponseID, now, linksecret.Hash("first"))
 	if err != nil || !claimed {
 		t.Fatalf("first claim: claimed=%v err=%v", claimed, err)
 	}
-	// Second claim on the same row: this is the double-send guard.
-	claimed, err = repo.ClaimCsatSurveyDispatch(sysCtx, row.ResponseID, now.Add(time.Second))
+	if got := csatTokenHashOf(t, pool, sysCtx, ticketID); got != linksecret.Hash("first") {
+		t.Fatalf("the claim stored %q, expected the hash it was given", got)
+	}
+	// Second claim on the same row: this is the double-send guard. Losing it
+	// must not touch the winner's hash either.
+	claimed, err = repo.ClaimCsatSurveyDispatch(sysCtx, row.ResponseID, now.Add(time.Second), linksecret.Hash("second"))
 	if err != nil {
 		t.Fatalf("second claim: %v", err)
 	}
 	if claimed {
 		t.Fatal("a second claim succeeded -- the same survey would be mailed twice")
+	}
+	if got := csatTokenHashOf(t, pool, sysCtx, ticketID); got != linksecret.Hash("first") {
+		t.Fatal("a lost claim overwrote the winner's link hash")
 	}
 
 	// A claimed row is no longer due, so a later tick does not even see it.
@@ -263,11 +275,20 @@ func TestCancelCsatSurvey_RevokesLinkAndKeepsRating(t *testing.T) {
 	}
 	row := mustSurveyFor(t, due, ticketID)
 
+	// A failed send left a link behind: claimed with its hash, then released.
+	claimed, err := repo.ClaimCsatSurveyDispatch(sysCtx, row.ResponseID, now, linksecret.Hash("failed-send"))
+	if err != nil || !claimed {
+		t.Fatalf("claim: claimed=%v err=%v", claimed, err)
+	}
+	if err := repo.ReleaseCsatSurveyDispatch(sysCtx, row.ResponseID, now); err != nil {
+		t.Fatalf("ReleaseCsatSurveyDispatch: %v", err)
+	}
+
 	if err := repo.CancelCsatSurvey(sysCtx, row.ResponseID, now); err != nil {
 		t.Fatalf("CancelCsatSurvey: %v", err)
 	}
-	if got := csatTokenOf(t, pool, sysCtx, ticketID); got != "" {
-		t.Fatalf("token survived the cancellation: %q", got)
+	if got := csatTokenHashOf(t, pool, sysCtx, ticketID); got != "" {
+		t.Fatalf("link hash survived the cancellation: %q", got)
 	}
 	after, err := repo.ListDueCsatSurveys(sysCtx, now.Add(time.Minute), csatSurveyMaxDispatchAttempts, 100)
 	if err != nil {

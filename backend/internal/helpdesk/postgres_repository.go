@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/database"
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // PostgresRepository implements Repository backed by a pgxpool.Pool.
@@ -338,8 +339,8 @@ func (r *PostgresRepository) SubmitCsatTx(
 		return ErrTicketNotFound
 	}
 
-	// DO UPDATE deliberately leaves token/token_expires_at alone: a survey link
-	// handed out on ticket close stays valid for its own redemption flow.
+	// DO UPDATE deliberately leaves token_hash/token_expires_at alone: a survey
+	// link scheduled on ticket close stays valid for its own redemption flow.
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO ticket_csat_responses
 		     (id, tenant_id, ticket_id, rating, comment, submitted_at, created_at, updated_at)
@@ -360,7 +361,10 @@ func (r *PostgresRepository) SubmitCsatTx(
 	return nil
 }
 
-// IssueCsatSurveyTokenTx parks a pending survey token on the ticket's CSAT row.
+// IssueCsatSurveyTokenTx parks a pending survey on the ticket's CSAT row: send
+// time and expiry, but no link secret yet. The dispatcher mints the token when
+// it claims the row (ClaimCsatSurveyDispatch), so nothing redeemable exists
+// before the mail goes out, and the database only ever holds its hash.
 //
 // The INSERT selects from tickets instead of taking tenant_id from the caller:
 // that makes the tenant the ticket's own, so a ticket belonging to a different
@@ -370,33 +374,33 @@ func (r *PostgresRepository) SubmitCsatTx(
 // "already rated" check, since the service's own check races with a rating
 // submitted in between.
 //
-// A pending token from an earlier close is overwritten on purpose: the new
-// close restarts the delay, and the previous link would run on a stale one.
+// A pending survey from an earlier close is overwritten on purpose: the new
+// close restarts the delay and clears the hash, so a link mailed after the
+// previous close dies instead of running on a stale schedule.
 // That restart also resets the dispatch bookkeeping (survey_sent_at,
 // survey_dispatch_attempts): the new link has not been mailed out yet, and a
 // row still marked sent would never reach the poller.
 func (r *PostgresRepository) IssueCsatSurveyTokenTx(
 	ctx context.Context,
 	tenantID, ticketID uuid.UUID,
-	token string,
 	sendAfter, expiresAt, now time.Time,
 ) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO ticket_csat_responses
-		     (id, tenant_id, ticket_id, token, token_expires_at, survey_send_after,
+		     (id, tenant_id, ticket_id, token_expires_at, survey_send_after,
 		      created_at, updated_at)
-		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $6, $6
+		 SELECT gen_random_uuid(), t.tenant_id, t.id, $3, $4, $5, $5
 		   FROM tickets t
 		  WHERE t.id = $2 AND t.tenant_id = $1
 		 ON CONFLICT (tenant_id, ticket_id) DO UPDATE
-		 SET token                    = EXCLUDED.token,
+		 SET token_hash               = NULL,
 		     token_expires_at         = EXCLUDED.token_expires_at,
 		     survey_send_after        = EXCLUDED.survey_send_after,
 		     survey_sent_at           = NULL,
 		     survey_dispatch_attempts = 0,
 		     updated_at               = EXCLUDED.updated_at
 		 WHERE ticket_csat_responses.submitted_at IS NULL`,
-		tenantID, ticketID, token, expiresAt, sendAfter, now,
+		tenantID, ticketID, expiresAt, sendAfter, now,
 	)
 	if err != nil {
 		return false, fmt.Errorf("issue csat survey token: %w", err)
@@ -409,9 +413,10 @@ func (r *PostgresRepository) IssueCsatSurveyTokenTx(
 // This is the one read in this service that runs without a tenant in the
 // session, because the public request has none: RLS would filter away the
 // single row that answers which tenant the caller may see. It is therefore
-// pinned to an equality match on the unique token column and is never a
-// listing. The usable/expired verdict stays with the service so a dead link
-// still resolves far enough to be logged -- same split as
+// pinned to an equality match on the unique token_hash column and is never a
+// listing. The presented token is hashed here, so the clear secret never
+// reaches a query. The usable/expired verdict stays with the service so a dead
+// link still resolves far enough to be logged -- same split as
 // berichte.GetShareTokenBySecret.
 func (r *PostgresRepository) GetCsatSurveyByToken(ctx context.Context, token string) (*CsatSurveyToken, error) {
 	if token == "" {
@@ -421,8 +426,8 @@ func (r *PostgresRepository) GetCsatSurveyByToken(ctx context.Context, token str
 	err := r.pool.QueryRow(database.WithSystemContext(ctx),
 		`SELECT id, tenant_id, ticket_id, token_expires_at, submitted_at
 		   FROM ticket_csat_responses
-		  WHERE token = $1`,
-		token,
+		  WHERE token_hash = $1`,
+		linksecret.Hash(token),
 	).Scan(&t.ResponseID, &t.TenantID, &t.TicketID, &t.ExpiresAt, &t.SubmittedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrCsatSurveyNotFound
@@ -438,8 +443,8 @@ func (r *PostgresRepository) GetCsatSurveyByToken(ctx context.Context, token str
 //
 // Both statements are tenant-scoped on the tenant the token itself resolved
 // to; the system context ends at the lookup and never reaches this write. The
-// response UPDATE runs first and carries the single-use guard: `token IS NOT
-// NULL AND submitted_at IS NULL` means a second redemption -- or one racing
+// response UPDATE runs first and carries the single-use guard: `token_hash IS
+// NOT NULL AND submitted_at IS NULL` means a second redemption -- or one racing
 // the first -- affects zero rows and comes back as ErrCsatSurveyNotFound
 // rather than overwriting a rating that is already in.
 func (r *PostgresRepository) RedeemCsatSurveyTx(
@@ -460,13 +465,13 @@ func (r *PostgresRepository) RedeemCsatSurveyTx(
 		    SET rating            = $1,
 		        comment           = $2,
 		        submitted_at      = $3,
-		        token             = NULL,
+		        token_hash        = NULL,
 		        token_expires_at  = NULL,
 		        survey_send_after = NULL,
 		        updated_at        = $3
 		  WHERE id = $4
 		    AND tenant_id = $5
-		    AND token IS NOT NULL
+		    AND token_hash IS NOT NULL
 		    AND submitted_at IS NULL`,
 		rating, comment, submittedAt, responseID, tenantID,
 	)
@@ -516,7 +521,7 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 	limit int,
 ) ([]*DueCsatSurvey, error) {
 	rows, err := r.pool.Query(ctx,
-		`SELECT r.id, r.tenant_id, r.ticket_id, r.token,
+		`SELECT r.id, r.tenant_id, r.ticket_id,
 		        t.ticket_number, t.subject,
 		        COALESCE(NULLIF(t.requester_email, ''), req.email),
 		        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', req.first_name, req.last_name)), ''), req.email,
@@ -524,7 +529,7 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 		   FROM ticket_csat_responses r
 		   JOIN tickets t        ON t.id = r.ticket_id AND t.tenant_id = r.tenant_id
 		   LEFT JOIN users   req ON req.id = t.requester_id
-		  WHERE r.token IS NOT NULL
+		  WHERE r.token_expires_at IS NOT NULL
 		    AND r.submitted_at IS NULL
 		    AND r.survey_sent_at IS NULL
 		    AND r.survey_send_after IS NOT NULL
@@ -545,7 +550,7 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 	for rows.Next() {
 		var d DueCsatSurvey
 		if err := rows.Scan(
-			&d.ResponseID, &d.TenantID, &d.TicketID, &d.Token,
+			&d.ResponseID, &d.TenantID, &d.TicketID,
 			&d.TicketNumber, &d.Subject, &d.RecipientEmail, &d.RecipientName,
 		); err != nil {
 			return nil, fmt.Errorf("scan due csat survey: %w", err)
@@ -561,21 +566,27 @@ func (r *PostgresRepository) ListDueCsatSurveys(
 // mailing the same survey twice (same recipe as ClaimSchedule and
 // ClaimTimeTrigger). The attempt counter advances with the claim, so a row
 // that is claimed and then never released still stops retrying eventually.
+//
+// The claim also stores the hash of the link the dispatcher is about to mail.
+// Every claim writes a fresh one, so a retry after a failed send replaces the
+// hash and the link of the failed attempt dies with it.
 func (r *PostgresRepository) ClaimCsatSurveyDispatch(
 	ctx context.Context,
 	responseID uuid.UUID,
 	now time.Time,
+	tokenHash string,
 ) (bool, error) {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE ticket_csat_responses
 		    SET survey_sent_at           = $2,
 		        survey_dispatch_attempts = survey_dispatch_attempts + 1,
+		        token_hash               = $3,
 		        updated_at               = $2
 		  WHERE id = $1
 		    AND survey_sent_at IS NULL
 		    AND submitted_at IS NULL
-		    AND token IS NOT NULL`,
-		responseID, now,
+		    AND token_expires_at IS NOT NULL`,
+		responseID, now, tokenHash,
 	)
 	if err != nil {
 		return false, fmt.Errorf("claim csat survey dispatch: %w", err)
@@ -615,7 +626,7 @@ func (r *PostgresRepository) CancelCsatSurvey(
 ) error {
 	if _, err := r.pool.Exec(ctx,
 		`UPDATE ticket_csat_responses
-		    SET token             = NULL,
+		    SET token_hash        = NULL,
 		        token_expires_at  = NULL,
 		        survey_send_after = NULL,
 		        updated_at        = $2

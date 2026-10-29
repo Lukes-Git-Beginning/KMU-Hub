@@ -275,7 +275,7 @@ units:
     service: helpdesk
     model: opus
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-26'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-26 (Morgen-Check Lauf 17, Variante b): Das CSAT-Token entsteht erst beim Versand im

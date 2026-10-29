@@ -2,7 +2,6 @@ package helpdesk
 
 import (
 	"context"
-	"encoding/base64"
 	"testing"
 	"time"
 
@@ -48,15 +47,6 @@ func TestIssueCsatSurveyToken_Success(t *testing.T) {
 		t.Errorf("survey belongs to ticket %s, expected %s", survey.TicketID, ticket.ID)
 	}
 
-	// 32 bytes of crypto/rand, base64url without padding -> 43 characters.
-	raw, err := base64.RawURLEncoding.DecodeString(survey.Token)
-	if err != nil {
-		t.Fatalf("token is not base64url: %v", err)
-	}
-	if len(raw) != csatSurveyTokenBytes {
-		t.Errorf("token carries %d bytes of entropy, expected %d", len(raw), csatSurveyTokenBytes)
-	}
-
 	// Expiry is close + configured delay + link lifetime, enforced server-side.
 	wantAtLeast := before.Add(time.Duration(cfg.SurveyDelayMinutes) * time.Minute).Add(CsatSurveyTokenTTL)
 	if survey.ExpiresAt.Before(wantAtLeast) {
@@ -65,29 +55,15 @@ func TestIssueCsatSurveyToken_Success(t *testing.T) {
 
 	stored, ok := h.repo.csatTokens[ticket.ID]
 	if !ok {
-		t.Fatal("no token was persisted")
+		t.Fatal("no survey was scheduled")
 	}
-	if stored.token != survey.Token || !stored.expiresAt.Equal(survey.ExpiresAt) {
-		t.Errorf("persisted token/expiry %+v does not match returned survey %+v", stored, survey)
+	if !stored.expiresAt.Equal(survey.ExpiresAt) || !stored.sendAfter.Equal(survey.SendAfter) {
+		t.Errorf("persisted schedule %+v does not match returned survey %+v", stored, survey)
 	}
-}
-
-func TestIssueCsatSurveyToken_TokensAreUnique(t *testing.T) {
-	h := newTestHarness()
-	tenantID := uuid.New()
-	cfg := enabledCsatConfig()
-
-	seen := make(map[string]bool, 16)
-	for i := range 16 {
-		ticket := seedClosedTicket(h, tenantID)
-		survey, err := h.svc.IssueCsatSurveyToken(context.Background(), ticket, cfg)
-		if err != nil || survey == nil {
-			t.Fatalf("issue #%d: survey=%v err=%v", i, survey, err)
-		}
-		if seen[survey.Token] {
-			t.Fatalf("token %q was handed out twice", survey.Token)
-		}
-		seen[survey.Token] = true
+	// Decision 2026-10-26: the link secret is minted at dispatch, so closing a
+	// ticket stores nothing redeemable.
+	if stored.tokenHash != "" {
+		t.Errorf("closing the ticket persisted a link hash %q; it belongs to the dispatch claim", stored.tokenHash)
 	}
 }
 

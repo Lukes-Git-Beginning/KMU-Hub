@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
@@ -46,26 +47,29 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 	// The CSAT row hangs off the ticket with ON DELETE CASCADE.
 	defer testutil.CleanupRow(t, pool, "tickets", ticket.ID)
 
-	// A foreign tenant cannot mint a token even while passing the ticket's real
-	// tenant id -- so only RLS, not the WHERE clause, can be what stops it.
-	issued, err := repo.IssueCsatSurveyTokenTx(ctxOther, tenantOwn, ticket.ID, "foreign-token", sendAfter, expiresAt, now)
+	// A foreign tenant cannot schedule a survey even while passing the ticket's
+	// real tenant id -- so only RLS, not the WHERE clause, can be what stops it.
+	issued, err := repo.IssueCsatSurveyTokenTx(ctxOther, tenantOwn, ticket.ID, sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (foreign ctx): %v", err)
 	}
 	if issued {
-		t.Fatal("a foreign-tenant caller minted a survey token")
+		t.Fatal("a foreign-tenant caller scheduled a survey")
 	}
 
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-one", sendAfter, expiresAt, now)
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (own ctx): %v", err)
 	}
 	if !issued {
-		t.Fatal("expected the owning tenant to mint a survey token")
+		t.Fatal("expected the owning tenant to schedule a survey")
 	}
-	if got := csatTokenOf(t, pool, sysCtx, ticket.ID); got != "token-one" {
-		t.Fatalf("stored token is %q, expected token-one", got)
+	// Decision 2026-10-26: closing stores no link secret; the dispatch claim
+	// adds the hash of the link it mails.
+	if got := csatTokenHashOf(t, pool, sysCtx, ticket.ID); got != "" {
+		t.Fatalf("scheduling stored a link hash %q", got)
 	}
+	claimCsatSurveyLink(t, pool, repo, ticket.ID, "token-one", now)
 
 	// Cross-tenant read of the CSAT row itself: RLS must hide it entirely.
 	var visible int
@@ -78,45 +82,65 @@ func TestIssueCsatSurveyTokenTx_TenantScopedAndRatingAware(t *testing.T) {
 		t.Fatalf("foreign tenant sees %d csat row(s), expected 0", visible)
 	}
 
-	// Closing again replaces a pending link rather than piling up rows.
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-two", sendAfter, expiresAt, now)
+	// Closing again replaces the pending survey rather than piling up rows,
+	// and the link mailed after the first close dies with it.
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (second close): %v", err)
 	}
 	if !issued {
-		t.Fatal("expected a pending token to be replaced")
+		t.Fatal("expected a pending survey to be replaced")
 	}
-	if got := csatTokenOf(t, pool, sysCtx, ticket.ID); got != "token-two" {
-		t.Fatalf("stored token is %q, expected token-two", got)
+	if got := csatTokenHashOf(t, pool, sysCtx, ticket.ID); got != "" {
+		t.Fatalf("the link of the first close survived the second close: %q", got)
 	}
+	claimCsatSurveyLink(t, pool, repo, ticket.ID, "token-two", now)
 
 	// Once a rating is in, no further survey goes out for this ticket.
 	if err := repo.SubmitCsatTx(ctxOwn, tenantOwn, ticket.ID, 5, nil, now); err != nil {
 		t.Fatalf("SubmitCsatTx: %v", err)
 	}
-	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, "token-three", sendAfter, expiresAt, now)
+	issued, err = repo.IssueCsatSurveyTokenTx(ctxOwn, tenantOwn, ticket.ID, sendAfter, expiresAt, now)
 	if err != nil {
 		t.Fatalf("IssueCsatSurveyTokenTx (after rating): %v", err)
 	}
 	if issued {
-		t.Fatal("an already rated ticket was handed a new survey token")
+		t.Fatal("an already rated ticket was handed a new survey")
 	}
-	if got := csatTokenOf(t, pool, sysCtx, ticket.ID); got != "token-two" {
-		t.Fatalf("the rating overwrote the token: %q", got)
+	if got := csatTokenHashOf(t, pool, sysCtx, ticket.ID); got != linksecret.Hash("token-two") {
+		t.Fatalf("the rating overwrote the link hash: %q", got)
 	}
 }
 
-// csatTokenOf reads the token column of a ticket's CSAT row under ctx.
-func csatTokenOf(t *testing.T, pool *pgxpool.Pool, ctx context.Context, ticketID uuid.UUID) string {
+// csatTokenHashOf reads the token_hash column of a ticket's CSAT row under ctx.
+func csatTokenHashOf(t *testing.T, pool *pgxpool.Pool, ctx context.Context, ticketID uuid.UUID) string {
 	t.Helper()
-	var token *string
+	var hash *string
 	if err := pool.QueryRow(ctx,
-		`SELECT token FROM ticket_csat_responses WHERE ticket_id = $1`, ticketID,
-	).Scan(&token); err != nil {
-		t.Fatalf("read csat token: %v", err)
+		`SELECT token_hash FROM ticket_csat_responses WHERE ticket_id = $1`, ticketID,
+	).Scan(&hash); err != nil {
+		t.Fatalf("read csat token hash: %v", err)
 	}
-	if token == nil {
+	if hash == nil {
 		return ""
 	}
-	return *token
+	return *hash
+}
+
+// claimCsatSurveyLink does what the dispatcher does at send time: it claims
+// the ticket's pending survey and stores the hash of token, which from then on
+// is the redeemable link. Tests that redeem pick their own token this way.
+func claimCsatSurveyLink(t *testing.T, pool *pgxpool.Pool, repo *PostgresRepository, ticketID uuid.UUID, token string, now time.Time) {
+	t.Helper()
+	sysCtx := testutil.WithSystemCtx(context.Background())
+	var responseID uuid.UUID
+	if err := pool.QueryRow(sysCtx,
+		`SELECT id FROM ticket_csat_responses WHERE ticket_id = $1`, ticketID,
+	).Scan(&responseID); err != nil {
+		t.Fatalf("read csat response id: %v", err)
+	}
+	claimed, err := repo.ClaimCsatSurveyDispatch(sysCtx, responseID, now, linksecret.Hash(token))
+	if err != nil || !claimed {
+		t.Fatalf("ClaimCsatSurveyDispatch: claimed=%v err=%v", claimed, err)
+	}
 }

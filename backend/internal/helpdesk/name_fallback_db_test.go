@@ -102,7 +102,7 @@ func TestListDueCsatSurveys_BlankNamedRequesterFallsBackToEmail(t *testing.T) {
 
 	sendAfter := now.Add(-time.Hour)
 	issued, err := repo.IssueCsatSurveyTokenTx(
-		ctx, tenantID, ticket.ID, "tok-"+uuid.New().String(),
+		ctx, tenantID, ticket.ID,
 		sendAfter, sendAfter.Add(CsatSurveyTokenTTL), now,
 	)
 	if err != nil || !issued {

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // ---------------------------------------------------------------------------
@@ -36,7 +38,7 @@ type mockRepo struct {
 	// invalid rating never reaches persistence.
 	csatCalls int
 
-	// csatTokens holds the pending survey tokens written by
+	// csatTokens holds the pending surveys scheduled by
 	// IssueCsatSurveyTokenTx, keyed by ticket.
 	csatTokens map[uuid.UUID]csatTokenRow
 
@@ -50,10 +52,11 @@ type mockRepo struct {
 	repoErr error
 }
 
-// csatTokenRow is the mock's stand-in for the token columns on
-// ticket_csat_responses.
+// csatTokenRow is the mock's stand-in for the survey columns on
+// ticket_csat_responses. tokenHash stays empty until a dispatch claim would
+// set it -- scheduling a survey stores no link secret.
 type csatTokenRow struct {
-	token     string
+	tokenHash string
 	sendAfter time.Time
 	expiresAt time.Time
 }
@@ -190,7 +193,6 @@ func (r *mockRepo) SubmitCsatTx(
 func (r *mockRepo) IssueCsatSurveyTokenTx(
 	_ context.Context,
 	tenantID, ticketID uuid.UUID,
-	token string,
 	sendAfter, expiresAt, _ time.Time,
 ) (bool, error) {
 	t, ok := r.tickets[ticketID]
@@ -200,15 +202,16 @@ func (r *mockRepo) IssueCsatSurveyTokenTx(
 	if t.CsatRating != nil {
 		return false, nil
 	}
-	r.csatTokens[ticketID] = csatTokenRow{token: token, sendAfter: sendAfter, expiresAt: expiresAt}
+	r.csatTokens[ticketID] = csatTokenRow{sendAfter: sendAfter, expiresAt: expiresAt}
 	return true, nil
 }
 
-// GetCsatSurveyByToken mirrors the SQL: an equality match on the token column,
-// nothing else, and a pending row resolves regardless of the caller's tenant.
+// GetCsatSurveyByToken mirrors the SQL: an equality match on the hash of the
+// presented token, nothing else, and a pending row resolves regardless of the
+// caller's tenant.
 func (r *mockRepo) GetCsatSurveyByToken(_ context.Context, token string) (*CsatSurveyToken, error) {
 	for ticketID, row := range r.csatTokens {
-		if row.token != token || token == "" {
+		if token == "" || row.tokenHash != linksecret.Hash(token) {
 			continue
 		}
 		t := r.tickets[ticketID]
@@ -243,7 +246,7 @@ func (r *mockRepo) RedeemCsatSurveyTx(
 		return 0, ErrCsatSurveyNotFound
 	}
 	row, ok := r.csatTokens[ticketID]
-	if !ok || row.token == "" || t.CsatRating != nil {
+	if !ok || row.tokenHash == "" || t.CsatRating != nil {
 		return 0, ErrCsatSurveyNotFound
 	}
 	delete(r.csatTokens, ticketID)

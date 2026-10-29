@@ -63,14 +63,13 @@ func TestGetHelpdeskStats_CsatAverage(t *testing.T) {
 		}
 	}
 
-	// A pending survey (token issued, no rating yet) must not skew the average
+	// A pending survey (scheduled, no rating yet) must not skew the average
 	// or count as an answer -- rating/submitted_at are both NULL here.
 	pendingTicket := newClosedTicket(ctxRated, tenantRated)
-	pendingToken := "pending-survey-token-" + uuid.NewString()
 	if _, err := pool.Exec(ctxRated,
-		`INSERT INTO ticket_csat_responses (tenant_id, ticket_id, token, token_expires_at)
-		 VALUES ($1, $2, $3, $4)`,
-		tenantRated, pendingTicket.ID, pendingToken, now.Add(72*time.Hour),
+		`INSERT INTO ticket_csat_responses (tenant_id, ticket_id, token_expires_at)
+		 VALUES ($1, $2, $3)`,
+		tenantRated, pendingTicket.ID, now.Add(72*time.Hour),
 	); err != nil {
 		t.Fatalf("insert pending survey row: %v", err)
 	}

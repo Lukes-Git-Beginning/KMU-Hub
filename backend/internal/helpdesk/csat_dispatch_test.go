@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/kmuhub/kmuhub/internal/linksecret"
 )
 
 // ---------------------------------------------------------------------------
@@ -35,6 +37,8 @@ type fakeSurveyRow struct {
 	sentAt    *time.Time
 	attempts  int16
 	cancelled bool
+	// tokenHash is what the claim persisted -- the only trace of the link.
+	tokenHash string
 }
 
 func newFakeDispatchRepo() *fakeDispatchRepo {
@@ -45,7 +49,7 @@ func (r *fakeDispatchRepo) add(tenantID uuid.UUID, sendAfter time.Time) *fakeSur
 	row := &fakeSurveyRow{
 		survey: DueCsatSurvey{
 			ResponseID: uuid.New(), TenantID: tenantID, TicketID: uuid.New(),
-			TicketNumber: 42, Subject: "Drucker <klemmt>", Token: "tok-abc",
+			TicketNumber: 42, Subject: "Drucker <klemmt>",
 			RecipientEmail: "cara@example.test", RecipientName: "Cara Customer",
 		},
 		sendAfter: sendAfter,
@@ -72,7 +76,7 @@ func (r *fakeDispatchRepo) ListDueCsatSurveys(_ context.Context, now time.Time, 
 	return due, nil
 }
 
-func (r *fakeDispatchRepo) ClaimCsatSurveyDispatch(_ context.Context, responseID uuid.UUID, now time.Time) (bool, error) {
+func (r *fakeDispatchRepo) ClaimCsatSurveyDispatch(_ context.Context, responseID uuid.UUID, now time.Time, tokenHash string) (bool, error) {
 	if r.claimErr != nil {
 		return false, r.claimErr
 	}
@@ -83,6 +87,7 @@ func (r *fakeDispatchRepo) ClaimCsatSurveyDispatch(_ context.Context, responseID
 	stamp := now
 	row.sentAt = &stamp
 	row.attempts++
+	row.tokenHash = tokenHash
 	return true, nil
 }
 
@@ -146,7 +151,7 @@ func TestDispatcher_SendsOnceAndNotAgainOnTheNextTick(t *testing.T) {
 	now := time.Now().UTC()
 	repo := newFakeDispatchRepo()
 	tenantID := uuid.New()
-	repo.add(tenantID, now.Add(-time.Hour))
+	row := repo.add(tenantID, now.Add(-time.Hour))
 
 	mailer := &fakeMailer{}
 	loader := &fakeConfigLoader{cfg: CsatConfig{
@@ -165,8 +170,14 @@ func TestDispatcher_SendsOnceAndNotAgainOnTheNextTick(t *testing.T) {
 	if mail.Recipient != "cara@example.test" {
 		t.Fatalf("recipient = %q", mail.Recipient)
 	}
-	if !strings.Contains(mail.BodyText, "https://app.example.test/csat/tok-abc") {
-		t.Fatalf("survey link missing from text body:\n%s", mail.BodyText)
+	// The link secret is minted at dispatch: 32 bytes base64url, and the
+	// claim persisted its hash, never the secret itself.
+	token := mailedToken(t, mail)
+	if len(token) != 43 {
+		t.Fatalf("mailed token %q has %d characters, expected 43", token, len(token))
+	}
+	if row.tokenHash != linksecret.Hash(token) {
+		t.Fatalf("claim stored %q, expected the hash of the mailed token", row.tokenHash)
 	}
 	if !strings.Contains(mail.BodyText, "Wie war's?") {
 		t.Fatalf("tenant question missing from text body:\n%s", mail.BodyText)
@@ -217,6 +228,10 @@ func TestDispatcher_FailedSendReleasesTheClaimAndRetries(t *testing.T) {
 	if row.sentAt != nil {
 		t.Fatal("a failed send left the survey marked as sent")
 	}
+	failedHash := row.tokenHash
+	if failedHash == "" {
+		t.Fatal("the claim of the failed attempt stored no hash")
+	}
 	if row.attempts != 1 {
 		t.Fatalf("attempts = %d after one failed send, expected 1", row.attempts)
 	}
@@ -230,6 +245,30 @@ func TestDispatcher_FailedSendReleasesTheClaimAndRetries(t *testing.T) {
 	if row.sentAt == nil {
 		t.Fatal("a successful send did not stick")
 	}
+	// The retry drew a new secret and its claim replaced the hash: the link of
+	// the failed attempt is dead, the mailed one is the one that redeems.
+	if row.tokenHash == failedHash {
+		t.Fatal("the retry kept the hash of the failed attempt")
+	}
+	if row.tokenHash != linksecret.Hash(mailedToken(t, mailer.sent[0])) {
+		t.Fatal("the stored hash does not belong to the mailed link")
+	}
+}
+
+// mailedToken cuts the link secret out of the text body: it is the last path
+// segment after the dispatcher's base URL.
+func mailedToken(t *testing.T, mail CsatSurveyMail) string {
+	t.Helper()
+	const prefix = "https://app.example.test/csat/"
+	i := strings.Index(mail.BodyText, prefix)
+	if i < 0 {
+		t.Fatalf("survey link missing from text body:\n%s", mail.BodyText)
+	}
+	rest := mail.BodyText[i+len(prefix):]
+	if j := strings.IndexAny(rest, " \n"); j >= 0 {
+		rest = rest[:j]
+	}
+	return rest
 }
 
 func TestDispatcher_DisabledTenantCancelsInsteadOfSending(t *testing.T) {

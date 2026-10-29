@@ -177,7 +177,7 @@ func (r *stubHelpdeskRepo) SubmitCsatTx(_ context.Context, _, ticketID uuid.UUID
 	return nil
 }
 
-func (r *stubHelpdeskRepo) IssueCsatSurveyTokenTx(_ context.Context, _, _ uuid.UUID, _ string, _, _, _ time.Time) (bool, error) {
+func (r *stubHelpdeskRepo) IssueCsatSurveyTokenTx(_ context.Context, _, _ uuid.UUID, _, _, _ time.Time) (bool, error) {
 	return true, nil
 }
 
