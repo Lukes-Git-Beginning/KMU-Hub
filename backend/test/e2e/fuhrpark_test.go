@@ -22,12 +22,11 @@ import (
 //   - booking:read|write and license:read|write are held by member AND manager at scope own
 //     (migration 339): the gateway rewrites the body's user_id/driver_id to the caller and narrows
 //     every list to the caller, whatever the query names;
-//   - damage:read is held by member at scope all (migration 360) and by manager at scope own;
+//   - damage:read is held by member (migration 360) and manager (migration 366) at scope all;
 //     reported_by is the caller for everyone without damage:write;
 //   - a foreign booking/license is NotFound (404) rather than forbidden, so its existence does not
 //     leak; damage update/resolve needs damage:write, which only admin holds (member 403);
 //   - vehicle create is vehicle:manage (manager, admin), a member only reads vehicles;
-//   - the manager is narrowed too: it does not see a member's damage in /damages, only admin does.
 func TestFuhrparkMemberFlow(t *testing.T) {
 	base := gatewayURL()
 	waitForHealth(t, base)
@@ -235,8 +234,8 @@ func TestFuhrparkMemberFlow(t *testing.T) {
 			if !has(list(t, url, memberBToken, "damages"), damageID) {
 				t.Fatalf("member B must see a colleague's damage in the %s list (damage:read all)", name)
 			}
-			if has(list(t, url, managerToken, "damages"), damageID) {
-				t.Fatalf("IST: the manager is narrowed to own damages as well (%s list)", name)
+			if !has(list(t, url, managerToken, "damages"), damageID) {
+				t.Fatalf("manager must see a member's damage in the %s list (damage:read all, migration 366)", name)
 			}
 			if !has(list(t, url, adminToken, "damages"), damageID) {
 				t.Fatalf("admin must see every damage in the %s list", name)

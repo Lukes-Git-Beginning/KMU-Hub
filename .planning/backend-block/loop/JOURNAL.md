@@ -144,3 +144,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine im Loop-Backlog; FE-Unit `fe-recurring-generate-now-only-when-due` in BACKLOG-NEXT.yml (done_when der Unit)
 - desktop-aufrufer: `POST /finance/recurring/{id}/generate` -> `RecurringDetailPanel.tsx:260` und `RecurringInvoicesTab.tsx:63` (beide `toast.error(err.message)`) -> passt (409 kommt als Toast an); Button bleibt aber für nicht fällige Pläne sichtbar -> FE-Unit in NEXT
 - offen: (1) Verhaltensänderung: Vorziehen einer künftigen Periode gibt es nicht mehr (Entscheidung Luke 2026-10-29). Ein überfälliger Plan erzeugt weiter genau eine Periode je Klick, die älteste zuerst. (2) „Heute" ist die Serverzeit (`dateOnly(time.Now())`, wie bei `Create`), nicht die Tenant-Zeitzone; um Mitternacht kann ein Plan für den Folgetag in der Zeitzone des Tenants noch als nicht fällig gelten. (3) Die bestehenden Tests nutzen feste Daten im März 2026 (Vergangenheit) und bleiben deshalb grün.
+
+## Iteration 8 — seed-fuhrpark-damage-read-all-for-managers — done — 2026-10-30 00:18
+- commit: siehe Commit `feat(fuhrpark): let managers read the damages of every vehicle` (git log)
+- gebaut: Migration 000366 hebt `fuhrpark:damage:read` für die Systemrolle `manager` von `own` auf `all` (Muster 000360, Down zurück auf `own`, nur manager). Router-Test gegen den echten Seed (Token über `ResolveTokenPermissions`): manager sieht den fremden Schaden in beiden Listen, meldet weiter unter sich selbst (Melder-Bindung hängt an `damage:write`); E2E-Subtest `IST: the manager is narrowed ...` ist zur Erwartung geworden.
+- gate: build n.a. (kein Produktivcode) | vet ok (gateway, `-tags=e2e` test/e2e) | lint ok (0 issues, gateway) | test ok (internal/gateway komplett inkl. TestOpenAPIRouteDrift, internal/fuhrpark; DATABASE_URL als kmuhub_app, DB-Test real gelaufen) | migration ok (up, down 1, up; Scope vorher/nachher per psql: manager own -> all) | rls-smoke n.a. (keine Tabelle/Policy angefasst) | e2e ok (lokal, `TestFuhrparkMemberFlow`, Stack 21 Prozesse, ~3 min Build)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: Migration 366 per `migrate down 1` zurückgedreht -> `manager reads a colleague's damage in both lists` rot (beide Listen), danach wieder `up`, Diff sauber.
+- verify vorgaenger: sauber (Commit `6e3348ad`: kein Proto, keine Route, kein Guard; Spec-Eintrag für den 409 vorhanden, `ErrNotDueYet` im `mapBizError`, DB-Test dabei)
+- neue-units: keine
+- desktop-aufrufer: n.a. (Antwortform und Validierung unverändert, nur der Umfang der Liste für manager wächst; Desktop-Fuhrpark-Client liest `damages` unverändert)
+- offen: (1) Neuer Scope wirkt erst nach Re-Login der manager (im JWT gebacken). (2) Bestehende Mandanten mit eigenen Rollen-Overrides sind nicht betroffen (nur Systemrollen `tenant_id IS NULL`).

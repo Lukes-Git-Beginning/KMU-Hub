@@ -421,7 +421,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29 (aus `decide-fuhrpark-damage-read-scope-for-managers`): manager liest Schäden mit

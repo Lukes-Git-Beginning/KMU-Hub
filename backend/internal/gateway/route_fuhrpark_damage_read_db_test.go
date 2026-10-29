@@ -23,7 +23,7 @@ import (
 	fuhrparkv1 "github.com/kmuhub/kmuhub/proto/fuhrpark/v1"
 )
 
-// Since migration 360 a member holds fuhrpark:damage:read at scope all: the
+// Since migration 360 a member (and since 366 a manager) holds fuhrpark:damage:read at scope all: the
 // known damages of a pool vehicle are visible before taking it, whoever
 // reported them. Update and resolve stay with damage:write (admin), and the
 // reporter of a new damage stays the caller even though the read scope no
@@ -99,7 +99,7 @@ func TestFuhrparkDamageRead_MemberAgainstRealSeed(t *testing.T) {
 
 	memberID, memberToken := tokenFor("member")
 	colleagueID, _ := tokenFor("member")
-	_, managerToken := tokenFor("manager")
+	managerID, managerToken := tokenFor("manager")
 	_, adminToken := tokenFor("admin")
 
 	vehicleID := testutil.SeedRow(t, pool, "vehicles", map[string]any{
@@ -173,10 +173,10 @@ func TestFuhrparkDamageRead_MemberAgainstRealSeed(t *testing.T) {
 		}
 	})
 
-	t.Run("manager keeps the own scope", func(t *testing.T) {
+	t.Run("manager reads a colleague's damage in both lists", func(t *testing.T) {
 		for name, path := range lists {
-			if contains(listIDs(t, path, managerToken), damageID.String()) {
-				t.Errorf("%s list: manager sees the member's damage, scope own expected", name)
+			if !contains(listIDs(t, path, managerToken), damageID.String()) {
+				t.Errorf("%s list: manager does not see the member's damage", name)
 			}
 		}
 	})
@@ -221,6 +221,12 @@ func TestFuhrparkDamageRead_MemberAgainstRealSeed(t *testing.T) {
 	t.Run("member files a damage under themselves whatever the body names", func(t *testing.T) {
 		if got := report(t, memberToken); got != memberID.String() {
 			t.Errorf("reported_by = %q, want the caller %s, not the colleague named in the body", got, memberID)
+		}
+	})
+
+	t.Run("manager files a damage under themselves too, reading all does not let them name a colleague", func(t *testing.T) {
+		if got := report(t, managerToken); got != managerID.String() {
+			t.Errorf("reported_by = %q, want the caller %s, not the colleague named in the body", got, managerID)
 		}
 	})
 
