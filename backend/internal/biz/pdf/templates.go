@@ -330,7 +330,7 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 		bodyText = fmt.Sprintf(
 			"Sehr geehrte Damen und Herren,\n\n"+
 				"wir moechten Sie hoeflich daran erinnern, dass die Rechnung %s "+
-				"ueber %s EUR noch nicht beglichen wurde. "+
+				"ueber %s noch nicht beglichen wurde. "+
 				"Bitte ueberweisen Sie den offenen Betrag in den naechsten Tagen.",
 			invoiceNumber, formatEUR(invoiceGrossTotal),
 		)

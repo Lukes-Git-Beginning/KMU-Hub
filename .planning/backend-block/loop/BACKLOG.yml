@@ -893,7 +893,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Mahnung Stufe 1 druckt den Betrag nicht mehr als "238.00 EUR EUR"
     scope: >
       Fund aus `cov-biz-pdf` (Lauf 17, Iteration 102), per Test-Render verifiziert: `buildDunningBody`

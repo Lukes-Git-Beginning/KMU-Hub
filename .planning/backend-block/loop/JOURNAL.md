@@ -320,3 +320,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PUT /work/labels/{id}` -> `api/work-labels-client.ts` (`updateWorkLabel(id, {name, color})`, sendet die Farbe immer) -> passt; Antwortform unverändert
 - offen: (1) Verhaltensänderung: fehlende Farbe beim Update ist 200 mit alter Farbe (vorher 500). (2) `Service.Create` mit leerer Farbe scheitert weiter am CHECK, wenn ein Caller nicht über `work_grpc.go` kommt (Default `#6b7280` dort); einziger Caller ist der gRPC-Handler.
+
+## Iteration 24 — fix-dunning-pdf-level1-duplicate-eur — done — 2026-10-30 02:20
+- commit: siehe Commit `fix(biz): print the dunning level 1 amount with a single EUR unit` (git log)
+- gebaut: `buildDunningBody` (`internal/biz/pdf/templates.go`, Stufe 1) hängt kein eigenes " EUR" mehr an `formatEUR` an: der Satz lautet „ueber 238.00 EUR noch nicht beglichen“. Test `TestDunningPDF_Level1NamesTheOpenAmount` prüft jetzt die exakte Wendung plus Gegenprobe „EUR EUR“. Level-Guard nicht gebaut: die DB prüft `chk_finance_dunning_level CHECK (level BETWEEN 1 AND 3)` (000045), `MaxDunningLevel = 3`, andere Werte sind nicht erreichbar.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/biz/pdf, internal/biz/dunning/…; DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a. | gateway-Test n.a. (keine Route berührt)
+- coverage: internal/biz/pdf 95,6 % -> 95,6 % (Textänderung, keine neuen Zeilen)
+- mutations-probe: „%s EUR“ im Format-String zurückgesetzt -> `TestDunningPDF_Level1NamesTheOpenAmount` rot (beide Assertions, Text zeigt „238.00 EUR EUR“), zurückgedreht (Test wieder grün, Diff nur die gewollte Zeile).
+- verify vorgaenger: sauber (Commit `235b0c5c`: SQL-only `COALESCE(NULLIF($4,''), color)`, kein Proto, keine Route, kein Guard, keine Tabelle; DB-Test mit Mutationsprobe)
+- neue-units: keine
+- desktop-aufrufer: `GET /finance/dunning/{id}/pdf` -> `api/finance-client.ts` (`requestBlob`) -> passt (nur PDF-Inhalt, Antwortform unverändert)
+- offen: Verhaltensänderung nur im Brieftext von Stufe 1; bereits versendete Erinnerungen bleiben unverändert.

@@ -454,7 +454,8 @@ func TestDunningPDF_Level1NamesTheOpenAmount(t *testing.T) {
 	g := NewGenerator(fullTestSettings())
 
 	level1 := structureTexts(t, g.buildDunningDoc(d, inv, 1))
-	assertContainsOnce(t, level1, "ueber 238.00 EUR")
+	assertContainsOnce(t, level1, "ueber 238.00 EUR noch nicht beglichen")
+	assertNotContains(t, level1, "EUR EUR")
 }
 
 func TestDunningPDF_FeeInterestAndTotalDemand(t *testing.T) {
