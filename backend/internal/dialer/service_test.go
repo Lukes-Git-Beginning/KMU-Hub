@@ -114,8 +114,8 @@ func (r *mockCampaignRepo) UpdateContactStatus(_ context.Context, _, _ uuid.UUID
 func (r *mockCampaignRepo) SetContactCallback(_ context.Context, _, _ uuid.UUID, _ time.Time) error {
 	return nil
 }
-func (r *mockCampaignRepo) SkipContact(_ context.Context, _, _ uuid.UUID) error    { return nil }
-func (r *mockCampaignRepo) RequeueContact(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (r *mockCampaignRepo) SkipContact(_ context.Context, _, _, _ uuid.UUID) error    { return nil }
+func (r *mockCampaignRepo) RequeueContact(_ context.Context, _, _, _ uuid.UUID) error { return nil }
 func (r *mockCampaignRepo) IncrementContactCallCount(_ context.Context, _, _ uuid.UUID) error {
 	return nil
 }
@@ -1450,14 +1450,14 @@ func TestUpdateCallOutcome_NotFound(t *testing.T) {
 
 func TestSkipContact_Happy(t *testing.T) {
 	h := newTestHarness()
-	if err := h.svc.SkipContact(context.Background(), uuid.New(), uuid.New()); err != nil {
+	if err := h.svc.SkipContact(context.Background(), uuid.New(), uuid.New(), uuid.New()); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestRequeueContact_Happy(t *testing.T) {
 	h := newTestHarness()
-	if err := h.svc.RequeueContact(context.Background(), uuid.New(), uuid.New()); err != nil {
+	if err := h.svc.RequeueContact(context.Background(), uuid.New(), uuid.New(), uuid.New()); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

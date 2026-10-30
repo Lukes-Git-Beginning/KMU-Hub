@@ -1945,8 +1945,10 @@ type SkipContactRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	CampaignContactId string                 `protobuf:"bytes,1,opt,name=campaign_contact_id,json=campaignContactId,proto3" json:"campaign_contact_id,omitempty"`
 	AgentId           string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Campaign from the route path; a queue entry of another campaign is NotFound.
+	CampaignId    string `protobuf:"bytes,3,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SkipContactRequest) Reset() {
@@ -1993,12 +1995,21 @@ func (x *SkipContactRequest) GetAgentId() string {
 	return ""
 }
 
+func (x *SkipContactRequest) GetCampaignId() string {
+	if x != nil {
+		return x.CampaignId
+	}
+	return ""
+}
+
 type RequeueContactRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	CampaignContactId string                 `protobuf:"bytes,1,opt,name=campaign_contact_id,json=campaignContactId,proto3" json:"campaign_contact_id,omitempty"`
 	AgentId           string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Campaign from the route path; a queue entry of another campaign is NotFound.
+	CampaignId    string `protobuf:"bytes,3,opt,name=campaign_id,json=campaignId,proto3" json:"campaign_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RequeueContactRequest) Reset() {
@@ -2041,6 +2052,13 @@ func (x *RequeueContactRequest) GetCampaignContactId() string {
 func (x *RequeueContactRequest) GetAgentId() string {
 	if x != nil {
 		return x.AgentId
+	}
+	return ""
+}
+
+func (x *RequeueContactRequest) GetCampaignId() string {
+	if x != nil {
+		return x.CampaignId
 	}
 	return ""
 }
@@ -3813,13 +3831,17 @@ const file_proto_dialer_v1_dialer_proto_rawDesc = "" +
 	"\x15GetNextContactRequest\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\"_\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\"\x80\x01\n" +
 	"\x12SkipContactRequest\x12.\n" +
 	"\x13campaign_contact_id\x18\x01 \x01(\tR\x11campaignContactId\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\"b\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1f\n" +
+	"\vcampaign_id\x18\x03 \x01(\tR\n" +
+	"campaignId\"\x83\x01\n" +
 	"\x15RequeueContactRequest\x12.\n" +
 	"\x13campaign_contact_id\x18\x01 \x01(\tR\x11campaignContactId\x12\x19\n" +
-	"\bagent_id\x18\x02 \x01(\tR\aagentId\"\xcd\x01\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1f\n" +
+	"\vcampaign_id\x18\x03 \x01(\tR\n" +
+	"campaignId\"\xcd\x01\n" +
 	"\x1bListCampaignContactsRequest\x12\x1f\n" +
 	"\vcampaign_id\x18\x01 \x01(\tR\n" +
 	"campaignId\x12J\n" +

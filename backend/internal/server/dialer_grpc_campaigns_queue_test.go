@@ -482,7 +482,7 @@ func TestSkipContact_Happy(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 	ctx := ctxWithTenant(uuid.New())
 
-	_, err := srv.SkipContact(ctx, &dialerv1.SkipContactRequest{CampaignContactId: uuid.New().String()})
+	_, err := srv.SkipContact(ctx, &dialerv1.SkipContactRequest{CampaignContactId: uuid.New().String(), CampaignId: uuid.New().String()})
 	requireGRPCOK(t, err)
 }
 
@@ -490,14 +490,14 @@ func TestSkipContact_InvalidID(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 	ctx := ctxWithTenant(uuid.New())
 
-	_, err := srv.SkipContact(ctx, &dialerv1.SkipContactRequest{CampaignContactId: "not-a-uuid"})
+	_, err := srv.SkipContact(ctx, &dialerv1.SkipContactRequest{CampaignContactId: "not-a-uuid", CampaignId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestSkipContact_MissingTenant(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 
-	_, err := srv.SkipContact(context.Background(), &dialerv1.SkipContactRequest{CampaignContactId: uuid.New().String()})
+	_, err := srv.SkipContact(context.Background(), &dialerv1.SkipContactRequest{CampaignContactId: uuid.New().String(), CampaignId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.Unauthenticated)
 }
 
@@ -509,7 +509,7 @@ func TestRequeueContact_Happy(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 	ctx := ctxWithTenant(uuid.New())
 
-	_, err := srv.RequeueContact(ctx, &dialerv1.RequeueContactRequest{CampaignContactId: uuid.New().String()})
+	_, err := srv.RequeueContact(ctx, &dialerv1.RequeueContactRequest{CampaignContactId: uuid.New().String(), CampaignId: uuid.New().String()})
 	requireGRPCOK(t, err)
 }
 
@@ -517,14 +517,14 @@ func TestRequeueContact_InvalidID(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 	ctx := ctxWithTenant(uuid.New())
 
-	_, err := srv.RequeueContact(ctx, &dialerv1.RequeueContactRequest{CampaignContactId: "not-a-uuid"})
+	_, err := srv.RequeueContact(ctx, &dialerv1.RequeueContactRequest{CampaignContactId: "not-a-uuid", CampaignId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 }
 
 func TestRequeueContact_MissingTenant(t *testing.T) {
 	srv, _, _, _, _ := newDialerTestServer()
 
-	_, err := srv.RequeueContact(context.Background(), &dialerv1.RequeueContactRequest{CampaignContactId: uuid.New().String()})
+	_, err := srv.RequeueContact(context.Background(), &dialerv1.RequeueContactRequest{CampaignContactId: uuid.New().String(), CampaignId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.Unauthenticated)
 }
 

@@ -509,6 +509,10 @@ func (dr *DialerRoutes) HandleSkipContact(w http.ResponseWriter, r *http.Request
 
 	userID := middleware.GetUserID(r.Context())
 
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	contactID, ok := validateUUIDParam(w, r, "cid")
 	if !ok {
 		return
@@ -516,6 +520,7 @@ func (dr *DialerRoutes) HandleSkipContact(w http.ResponseWriter, r *http.Request
 
 	_, err = client.SkipContact(r.Context(), &dialerv1.SkipContactRequest{
 		CampaignContactId: contactID,
+		CampaignId:        campaignID,
 		AgentId:           userID,
 	})
 	if err != nil {
@@ -535,6 +540,10 @@ func (dr *DialerRoutes) HandleRequeueContact(w http.ResponseWriter, r *http.Requ
 
 	userID := middleware.GetUserID(r.Context())
 
+	campaignID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	contactID, ok := validateUUIDParam(w, r, "cid")
 	if !ok {
 		return
@@ -542,6 +551,7 @@ func (dr *DialerRoutes) HandleRequeueContact(w http.ResponseWriter, r *http.Requ
 
 	_, err = client.RequeueContact(r.Context(), &dialerv1.RequeueContactRequest{
 		CampaignContactId: contactID,
+		CampaignId:        campaignID,
 		AgentId:           userID,
 	})
 	if err != nil {

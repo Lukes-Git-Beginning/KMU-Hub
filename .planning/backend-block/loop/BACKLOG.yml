@@ -1160,7 +1160,7 @@ units:
     service: dialer
     model: opus
     deps: [scan-nested-route-parent-id-ignored]
-    status: todo
+    status: done
     target: Skip und Requeue eines Queue-Eintrags greifen nur in der Kampagne aus dem Pfad
     coverage_start: n.a.
     scope: >

@@ -420,7 +420,7 @@ func TestCampaignRepository_RequeueContact_UnsticksAbandonedInProgressContact(t 
 	repo := NewPostgresCampaignRepository(pool)
 	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
 
-	if err := repo.RequeueContact(ctxOwn, ccID, tenantOwn); err != nil {
+	if err := repo.RequeueContact(ctxOwn, ccID, campID, tenantOwn); err != nil {
 		t.Fatalf("RequeueContact on an in_progress contact: %v", err)
 	}
 

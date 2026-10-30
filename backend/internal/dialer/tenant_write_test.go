@@ -199,14 +199,14 @@ func TestCampaignContactWrites_LandInCallerTenant(t *testing.T) {
 	}
 
 	// SkipContact
-	if err := repo.SkipContact(ctxOther, ccID, tenantOwn); err == nil {
+	if err := repo.SkipContact(ctxOther, ccID, campID, tenantOwn); err == nil {
 		t.Fatalf("SkipContact (foreign ctx): expected an error, got nil")
 	}
 	got, _ = repo.GetCampaignContactByID(sysCtx, ccID, tenantOwn)
 	if got.Status == ContactStatusSkipped {
 		t.Fatalf("a foreign-tenant SkipContact reached the contact")
 	}
-	if err := repo.SkipContact(ctxOwn, ccID, tenantOwn); err != nil {
+	if err := repo.SkipContact(ctxOwn, ccID, campID, tenantOwn); err != nil {
 		t.Fatalf("SkipContact (own ctx): %v", err)
 	}
 	got, _ = repo.GetCampaignContactByID(ctxOwn, ccID, tenantOwn)
@@ -215,14 +215,14 @@ func TestCampaignContactWrites_LandInCallerTenant(t *testing.T) {
 	}
 
 	// RequeueContact
-	if err := repo.RequeueContact(ctxOther, ccID, tenantOwn); err == nil {
+	if err := repo.RequeueContact(ctxOther, ccID, campID, tenantOwn); err == nil {
 		t.Fatalf("RequeueContact (foreign ctx): expected an error, got nil")
 	}
 	got, _ = repo.GetCampaignContactByID(sysCtx, ccID, tenantOwn)
 	if got.Status == ContactStatusPending {
 		t.Fatalf("a foreign-tenant RequeueContact reached the contact")
 	}
-	if err := repo.RequeueContact(ctxOwn, ccID, tenantOwn); err != nil {
+	if err := repo.RequeueContact(ctxOwn, ccID, campID, tenantOwn); err != nil {
 		t.Fatalf("RequeueContact (own ctx): %v", err)
 	}
 	got, _ = repo.GetCampaignContactByID(ctxOwn, ccID, tenantOwn)

@@ -320,12 +320,12 @@ func (r *PostgresCampaignRepository) SetContactCallback(ctx context.Context, id,
 	return nil
 }
 
-func (r *PostgresCampaignRepository) SkipContact(ctx context.Context, id, tenantID uuid.UUID) error {
+func (r *PostgresCampaignRepository) SkipContact(ctx context.Context, id, campaignID, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = 'skipped', updated_at = NOW()
-		 WHERE id = $1 AND tenant_id = $2`,
-		id, tenantID,
+		 WHERE id = $1 AND tenant_id = $2 AND campaign_id = $3`,
+		id, tenantID, campaignID,
 	)
 	if err != nil {
 		return err
@@ -336,12 +336,12 @@ func (r *PostgresCampaignRepository) SkipContact(ctx context.Context, id, tenant
 	return nil
 }
 
-func (r *PostgresCampaignRepository) RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error {
+func (r *PostgresCampaignRepository) RequeueContact(ctx context.Context, id, campaignID, tenantID uuid.UUID) error {
 	tag, err := r.pool.Exec(ctx,
 		`UPDATE dialer_campaign_contacts
 		 SET status = 'pending', outcome_id = NULL, callback_at = NULL, updated_at = NOW()
-		 WHERE id = $1 AND tenant_id = $2`,
-		id, tenantID,
+		 WHERE id = $1 AND tenant_id = $2 AND campaign_id = $3`,
+		id, tenantID, campaignID,
 	)
 	if err != nil {
 		return err

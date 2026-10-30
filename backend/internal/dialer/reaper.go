@@ -42,7 +42,7 @@ func (s *Service) RequeueStaleContacts(ctx context.Context, staleAfter time.Dura
 		if cc.Status != ContactStatusInProgress || !cc.UpdatedAt.Before(cutoff) {
 			continue
 		}
-		if err := s.RequeueContact(ctx, sc.ID, sc.TenantID); err != nil {
+		if err := s.RequeueContact(ctx, sc.ID, cc.CampaignID, sc.TenantID); err != nil {
 			slog.WarnContext(ctx, "dialer: stale-contact requeue failed", "campaign_contact_id", sc.ID, "error", err)
 			continue
 		}

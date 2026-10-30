@@ -29,8 +29,8 @@ type CampaignRepository interface {
 	ListContacts(ctx context.Context, tenantID, campaignID uuid.UUID, statusFilter *string, page, pageSize int) ([]*CampaignContact, int, error)
 	UpdateContactStatus(ctx context.Context, id, tenantID uuid.UUID, status string, outcomeID *uuid.UUID) error
 	SetContactCallback(ctx context.Context, id, tenantID uuid.UUID, callbackAt time.Time) error
-	SkipContact(ctx context.Context, id, tenantID uuid.UUID) error
-	RequeueContact(ctx context.Context, id, tenantID uuid.UUID) error
+	SkipContact(ctx context.Context, id, campaignID, tenantID uuid.UUID) error
+	RequeueContact(ctx context.Context, id, campaignID, tenantID uuid.UUID) error
 	IncrementContactCallCount(ctx context.Context, id, tenantID uuid.UUID) error
 	GetCampaignContactByID(ctx context.Context, id, tenantID uuid.UUID) (*CampaignContact, error)
 	// ListStaleInProgressContacts returns, across all tenants, contacts that have

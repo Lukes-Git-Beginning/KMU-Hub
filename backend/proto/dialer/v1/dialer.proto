@@ -302,11 +302,15 @@ message GetNextContactRequest {
 message SkipContactRequest {
   string campaign_contact_id = 1;
   string agent_id = 2;
+  // Campaign from the route path; a queue entry of another campaign is NotFound.
+  string campaign_id = 3;
 }
 
 message RequeueContactRequest {
   string campaign_contact_id = 1;
   string agent_id = 2;
+  // Campaign from the route path; a queue entry of another campaign is NotFound.
+  string campaign_id = 3;
 }
 
 message ListCampaignContactsRequest {

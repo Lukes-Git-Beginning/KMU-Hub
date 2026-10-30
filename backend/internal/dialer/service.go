@@ -16,13 +16,13 @@ import (
 // Service is the thick service layer for the Cosmi Dialer. All business logic
 // lives here; handlers only parse requests and format responses.
 type Service struct {
-	campaigns       CampaignRepository
-	calls           CallRepository
-	outcomes        OutcomeRepository
-	agentRepo       AgentStatusRepository
-	agentStore      *AgentStatusStore
-	crmBridge       CRMBridge
-	emitter         *PGEventEmitter // nil-safe; events are skipped when nil
+	campaigns  CampaignRepository
+	calls      CallRepository
+	outcomes   OutcomeRepository
+	agentRepo  AgentStatusRepository
+	agentStore *AgentStatusStore
+	crmBridge  CRMBridge
+	emitter    *PGEventEmitter // nil-safe; events are skipped when nil
 	// consentAsserter enforces active phone consent before initiating a call.
 	// InitiateDialerCall fails closed when this is nil — see NewServiceWithConsent.
 	consentAsserter *consent.Asserter
@@ -466,17 +466,17 @@ func (s *Service) GetNextContact(ctx context.Context, campaignID, tenantID uuid.
 	return cc, nil
 }
 
-// SkipContact marks a contact as skipped in the campaign queue and refreshes
-// the campaign's denormalized counts.
-func (s *Service) SkipContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
-	if err := s.campaigns.SkipContact(ctx, campaignContactID, tenantID); err != nil {
+// SkipContact marks a queue entry of the given campaign as skipped. An entry
+// of another campaign is ErrCampaignContactNotFound. No counts are refreshed
+// here: the campaign dashboard aggregates them per request.
+func (s *Service) SkipContact(ctx context.Context, campaignContactID, campaignID, tenantID uuid.UUID) error {
+	if err := s.campaigns.SkipContact(ctx, campaignContactID, campaignID, tenantID); err != nil {
 		return fmt.Errorf("skip contact: %w", err)
 	}
 
-	// Best-effort count refresh — we do not have campaignID here so we rely on
-	// the repository to derive it from campaignContactID internally.
 	slog.InfoContext(ctx, "dialer: contact skipped",
 		"campaign_contact_id", campaignContactID,
+		"campaign_id", campaignID,
 	)
 
 	return nil
@@ -487,13 +487,15 @@ func (s *Service) SkipContact(ctx context.Context, campaignContactID, tenantID u
 // not gate on the current status — it also doubles as the manual unstick path
 // for a contact left in_progress by an abandoned call session, since there is
 // no automatic timeout for that case (see cov-dialer-service-call-session-paths).
-func (s *Service) RequeueContact(ctx context.Context, campaignContactID, tenantID uuid.UUID) error {
-	if err := s.campaigns.RequeueContact(ctx, campaignContactID, tenantID); err != nil {
+// An entry of another campaign is ErrCampaignContactNotFound.
+func (s *Service) RequeueContact(ctx context.Context, campaignContactID, campaignID, tenantID uuid.UUID) error {
+	if err := s.campaigns.RequeueContact(ctx, campaignContactID, campaignID, tenantID); err != nil {
 		return fmt.Errorf("requeue contact: %w", err)
 	}
 
 	slog.InfoContext(ctx, "dialer: contact requeued",
 		"campaign_contact_id", campaignContactID,
+		"campaign_id", campaignID,
 	)
 
 	return nil

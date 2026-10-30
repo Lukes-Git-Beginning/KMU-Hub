@@ -108,8 +108,8 @@ func (r *stubCampaignRepo) ListContacts(_ context.Context, _, _ uuid.UUID, _ *st
 }
 func (r *stubCampaignRepo) UpdateContactStatus(_ context.Context, _, _ uuid.UUID, _ string, _ *uuid.UUID) error { return nil }
 func (r *stubCampaignRepo) SetContactCallback(_ context.Context, _, _ uuid.UUID, _ time.Time) error            { return nil }
-func (r *stubCampaignRepo) SkipContact(_ context.Context, _, _ uuid.UUID) error                                { return nil }
-func (r *stubCampaignRepo) RequeueContact(_ context.Context, _, _ uuid.UUID) error                             { return nil }
+func (r *stubCampaignRepo) SkipContact(_ context.Context, _, _, _ uuid.UUID) error                                { return nil }
+func (r *stubCampaignRepo) RequeueContact(_ context.Context, _, _, _ uuid.UUID) error                             { return nil }
 func (r *stubCampaignRepo) IncrementContactCallCount(_ context.Context, _, _ uuid.UUID) error                  { return nil }
 func (r *stubCampaignRepo) ListStaleInProgressContacts(_ context.Context, _ time.Time, _ int) ([]dialer.StaleContact, error) {
 	return nil, nil
