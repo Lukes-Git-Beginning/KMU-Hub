@@ -794,6 +794,8 @@ message RemoveDealTagsResponse {
 message DeleteDealRequest {
   string id = 1;
   string tenant_id = 2;
+  // Narrows the delete to the caller's scope of crm:deal:delete; unset deletes tenant-wide.
+  DealEditor editor = 3;
 }
 
 message DeleteDealResponse {}

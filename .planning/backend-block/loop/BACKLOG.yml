@@ -1591,7 +1591,7 @@ units:
     service: crm
     model: opus
     deps: []
-    status: todo
+    status: done
     target: '`DELETE /deals/{id}` hält den team-Scope von `crm:deal:delete` ein wie Bearbeiten und Stufenwechsel'
     coverage_start: n.a. (Bugfix)
     scope: >

@@ -45,8 +45,8 @@ func (s *Service) SetEventEmitter(emitter EventEmitter) {
 	s.eventEmitter = emitter
 }
 
-// Editor narrows a deal write to the caller's scope of crm:deal:create or
-// crm:deal:edit; nil writes tenant-wide. With Team the deal's owner may be the
+// Editor narrows a deal write to the caller's scope of crm:deal:create,
+// crm:deal:edit or crm:deal:delete; nil writes tenant-wide. With Team the deal's owner may be the
 // caller or one of their direct reports, otherwise only the caller.
 type Editor struct {
 	UserID uuid.UUID
@@ -421,11 +421,15 @@ func (s *Service) Update(ctx context.Context, tenantID, id uuid.UUID, input Upda
 	return s.getWithRelations(ctx, deal)
 }
 
-// Delete removes a deal, scoped to the given tenant.
-func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
+// Delete removes a deal, scoped to the given tenant and to editor's scope of
+// crm:deal:delete (nil deletes tenant-wide).
+func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID, editor *Editor) error {
 	deal, err := s.repo.GetByID(ctx, id, tenantID)
 	if err != nil {
 		return err
+	}
+	if scopeErr := s.checkEditor(ctx, tenantID, ownerOf(deal), editor); scopeErr != nil {
+		return scopeErr
 	}
 
 	if deleteErr := s.repo.Delete(ctx, id, tenantID); deleteErr != nil {

@@ -166,7 +166,8 @@ func TestCRMDealTeamWrite_MemberAgainstRealSeed(t *testing.T) {
 	}
 
 	manager := userFor("manager", nil)
-	lead := userFor("member", nil)
+	admin := userFor("admin", nil)
+	lead := userFor("member", &manager.id)
 	report := userFor("member", &lead.id)
 	peer := userFor("member", nil)
 
@@ -231,6 +232,32 @@ func TestCRMDealTeamWrite_MemberAgainstRealSeed(t *testing.T) {
 	t.Run("deleting stays with manager, even the member's own deal", func(t *testing.T) {
 		if code, out := do(http.MethodDelete, lead.token, "/deals/"+own, ""); code != http.StatusForbidden {
 			t.Errorf("member DELETE own deal = %d %v, want 403", code, out)
+		}
+	})
+
+	// manager holds deals:write but not deals:delete and deletes at
+	// crm:deal:delete=team: their own deals and their direct reports', not a
+	// peer's outside the reporting line. admin deletes tenant-wide.
+	t.Run("manager deletes only deals of their team", func(t *testing.T) {
+		outside := createDeal(t, peer.token, dealBody("Deal ausserhalb der Linie", nil), http.StatusCreated)
+		if code, out := do(http.MethodDelete, manager.token, "/deals/"+outside, ""); code != http.StatusForbidden {
+			t.Errorf("manager DELETE deal outside the line = %d %v, want 403", code, out)
+		}
+		if got := nameOf(t, manager.token, outside); got != "Deal ausserhalb der Linie" {
+			t.Errorf("deal outside the line = %q after refused DELETE", got)
+		}
+		mine := createDeal(t, manager.token, dealBody("Deal des Managers", nil), http.StatusCreated)
+		leads := createDeal(t, lead.token, dealBody("Deal des Berichts", nil), http.StatusCreated)
+		for _, id := range []string{mine, leads} {
+			if code, out := do(http.MethodDelete, manager.token, "/deals/"+id, ""); code != http.StatusOK {
+				t.Errorf("manager DELETE team deal %s = %d %v, want 200", id, code, out)
+			}
+			if code, _ := do(http.MethodGet, manager.token, "/deals/"+id, ""); code != http.StatusNotFound {
+				t.Errorf("GET deleted team deal %s = %d, want 404", id, code)
+			}
+		}
+		if code, out := do(http.MethodDelete, admin.token, "/deals/"+outside, ""); code != http.StatusOK {
+			t.Errorf("admin DELETE deal outside any line = %d %v, want 200", code, out)
 		}
 	})
 

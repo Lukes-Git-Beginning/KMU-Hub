@@ -6157,9 +6157,11 @@ func (x *RemoveDealTagsResponse) GetDeal() *DealInfo {
 }
 
 type DeleteDealRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	TenantId string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	// Narrows the delete to the caller's scope of crm:deal:delete; unset deletes tenant-wide.
+	Editor        *DealEditor `protobuf:"bytes,3,opt,name=editor,proto3" json:"editor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6206,6 +6208,13 @@ func (x *DeleteDealRequest) GetTenantId() string {
 		return x.TenantId
 	}
 	return ""
+}
+
+func (x *DeleteDealRequest) GetEditor() *DealEditor {
+	if x != nil {
+		return x.Editor
+	}
+	return nil
 }
 
 type DeleteDealResponse struct {
@@ -13441,10 +13450,11 @@ const file_proto_crm_v1_crm_proto_rawDesc = "" +
 	"\atag_ids\x18\x02 \x03(\tR\x06tagIds\x12*\n" +
 	"\x06editor\x18\x03 \x01(\v2\x12.crm.v1.DealEditorR\x06editor\">\n" +
 	"\x16RemoveDealTagsResponse\x12$\n" +
-	"\x04deal\x18\x01 \x01(\v2\x10.crm.v1.DealInfoR\x04deal\"@\n" +
+	"\x04deal\x18\x01 \x01(\v2\x10.crm.v1.DealInfoR\x04deal\"l\n" +
 	"\x11DeleteDealRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\"\x14\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12*\n" +
+	"\x06editor\x18\x03 \x01(\v2\x12.crm.v1.DealEditorR\x06editor\"\x14\n" +
 	"\x12DeleteDealResponse\"\x95\x01\n" +
 	"\x16MoveDealToStageRequest\x12\x17\n" +
 	"\adeal_id\x18\x01 \x01(\tR\x06dealId\x12\x19\n" +
@@ -14451,230 +14461,231 @@ var file_proto_crm_v1_crm_proto_depIdxs = []int32{
 	77,  // 49: crm.v1.AddDealTagsResponse.deal:type_name -> crm.v1.DealInfo
 	79,  // 50: crm.v1.RemoveDealTagsRequest.editor:type_name -> crm.v1.DealEditor
 	77,  // 51: crm.v1.RemoveDealTagsResponse.deal:type_name -> crm.v1.DealInfo
-	79,  // 52: crm.v1.MoveDealToStageRequest.editor:type_name -> crm.v1.DealEditor
-	77,  // 53: crm.v1.MoveDealToStageResponse.deal:type_name -> crm.v1.DealInfo
-	95,  // 54: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	95,  // 55: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	95,  // 56: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.ActivityInfo
-	95,  // 57: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	95,  // 58: crm.v1.CompleteActivityResponse.activity:type_name -> crm.v1.ActivityInfo
-	95,  // 59: crm.v1.AddActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
-	95,  // 60: crm.v1.RemoveActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
-	112, // 61: crm.v1.SearchResponse.results:type_name -> crm.v1.SearchResult
-	115, // 62: crm.v1.CreateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	115, // 63: crm.v1.GetSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	115, // 64: crm.v1.ListSavedFiltersResponse.filters:type_name -> crm.v1.SavedFilterInfo
-	115, // 65: crm.v1.UpdateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
-	126, // 66: crm.v1.GetPipelineReportResponse.stages:type_name -> crm.v1.PipelineStageValue
-	129, // 67: crm.v1.GetConversionReportResponse.metrics:type_name -> crm.v1.ConversionMetric
-	132, // 68: crm.v1.GetActivityReportResponse.metrics:type_name -> crm.v1.ActivityMetric
-	23,  // 69: crm.v1.DuplicateContactCandidate.contact:type_name -> crm.v1.ContactInfo
-	135, // 70: crm.v1.FindContactDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateContactCandidate
-	23,  // 71: crm.v1.MergeContactsResponse.contact:type_name -> crm.v1.ContactInfo
-	51,  // 72: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
-	140, // 73: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
-	51,  // 74: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
-	203, // 75: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
-	145, // 76: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
-	146, // 77: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
-	149, // 78: crm.v1.PreviewContactDeletionResponse.impacts:type_name -> crm.v1.ContactDeletionImpact
-	204, // 79: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
-	153, // 80: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
-	152, // 81: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
-	152, // 82: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
-	152, // 83: crm.v1.GetConsentHistoryResponse.history:type_name -> crm.v1.ConsentRecord
-	162, // 84: crm.v1.RequestDeletionResponse.deletion_request:type_name -> crm.v1.GDPRDeletionRequest
-	167, // 85: crm.v1.AdvisoryProtocolProto.products:type_name -> crm.v1.AdvisoryProductProto
-	168, // 86: crm.v1.CreateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	168, // 87: crm.v1.GetAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	168, // 88: crm.v1.ListAdvisoryProtocolsResponse.protocols:type_name -> crm.v1.AdvisoryProtocolProto
-	168, // 89: crm.v1.UpdateAdvisoryProtocolRequest.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	168, // 90: crm.v1.UpdateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	168, // 91: crm.v1.HandOverAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
-	183, // 92: crm.v1.GetReferralReportResponse.entries:type_name -> crm.v1.ReferralReportEntry
-	186, // 93: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.LeadInfo
-	186, // 94: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	186, // 95: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	186, // 96: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	186, // 97: crm.v1.PromoteContactToLeadResponse.lead:type_name -> crm.v1.LeadInfo
-	152, // 98: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
-	1,   // 99: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
-	3,   // 100: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
-	5,   // 101: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
-	7,   // 102: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
-	9,   // 103: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
-	12,  // 104: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
-	14,  // 105: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
-	16,  // 106: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
-	18,  // 107: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
-	20,  // 108: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
-	24,  // 109: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
-	26,  // 110: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
-	28,  // 111: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
-	30,  // 112: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
-	32,  // 113: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
-	34,  // 114: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
-	36,  // 115: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
-	38,  // 116: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
-	39,  // 117: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
-	40,  // 118: crm.v1.CRMService.ImportContactsXLSX:input_type -> crm.v1.ImportContactsXLSXRequest
-	43,  // 119: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
-	44,  // 120: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
-	46,  // 121: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
-	49,  // 122: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
-	52,  // 123: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
-	54,  // 124: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
-	56,  // 125: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
-	58,  // 126: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
-	60,  // 127: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
-	62,  // 128: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
-	65,  // 129: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
-	67,  // 130: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
-	69,  // 131: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
-	71,  // 132: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
-	73,  // 133: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
-	75,  // 134: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
-	78,  // 135: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
-	81,  // 136: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
-	83,  // 137: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
-	85,  // 138: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
-	91,  // 139: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
-	93,  // 140: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
-	87,  // 141: crm.v1.CRMService.AddDealTags:input_type -> crm.v1.AddDealTagsRequest
-	89,  // 142: crm.v1.CRMService.RemoveDealTags:input_type -> crm.v1.RemoveDealTagsRequest
-	96,  // 143: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
-	98,  // 144: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
-	100, // 145: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
-	102, // 146: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
-	104, // 147: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
-	106, // 148: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
-	108, // 149: crm.v1.CRMService.AddActivityTags:input_type -> crm.v1.AddActivityTagsRequest
-	110, // 150: crm.v1.CRMService.RemoveActivityTags:input_type -> crm.v1.RemoveActivityTagsRequest
-	113, // 151: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
-	116, // 152: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
-	118, // 153: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
-	120, // 154: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
-	122, // 155: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
-	124, // 156: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
-	127, // 157: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
-	130, // 158: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
-	133, // 159: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
-	136, // 160: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
-	138, // 161: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
-	141, // 162: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
-	143, // 163: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
-	147, // 164: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
-	150, // 165: crm.v1.CRMService.PreviewContactDeletion:input_type -> crm.v1.PreviewContactDeletionRequest
-	154, // 166: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
-	156, // 167: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
-	158, // 168: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
-	160, // 169: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
-	163, // 170: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
-	165, // 171: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
-	169, // 172: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
-	171, // 173: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
-	173, // 174: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
-	175, // 175: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
-	177, // 176: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
-	179, // 177: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
-	181, // 178: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
-	184, // 179: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
-	187, // 180: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
-	189, // 181: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
-	191, // 182: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
-	193, // 183: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
-	195, // 184: crm.v1.CRMService.PromoteContactToLead:input_type -> crm.v1.PromoteContactToLeadRequest
-	2,   // 185: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
-	4,   // 186: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
-	6,   // 187: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
-	8,   // 188: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
-	10,  // 189: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
-	13,  // 190: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
-	15,  // 191: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
-	17,  // 192: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
-	19,  // 193: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
-	21,  // 194: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
-	25,  // 195: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
-	27,  // 196: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
-	29,  // 197: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
-	31,  // 198: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
-	33,  // 199: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
-	35,  // 200: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
-	37,  // 201: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
-	41,  // 202: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
-	41,  // 203: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
-	41,  // 204: crm.v1.CRMService.ImportContactsXLSX:output_type -> crm.v1.ImportContactsResponse
-	45,  // 205: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
-	45,  // 206: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
-	47,  // 207: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
-	50,  // 208: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
-	53,  // 209: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
-	55,  // 210: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
-	57,  // 211: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
-	59,  // 212: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
-	61,  // 213: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
-	63,  // 214: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
-	66,  // 215: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
-	68,  // 216: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
-	70,  // 217: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
-	72,  // 218: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
-	74,  // 219: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
-	76,  // 220: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
-	80,  // 221: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
-	82,  // 222: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
-	84,  // 223: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
-	86,  // 224: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
-	92,  // 225: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
-	94,  // 226: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
-	88,  // 227: crm.v1.CRMService.AddDealTags:output_type -> crm.v1.AddDealTagsResponse
-	90,  // 228: crm.v1.CRMService.RemoveDealTags:output_type -> crm.v1.RemoveDealTagsResponse
-	97,  // 229: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
-	99,  // 230: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
-	101, // 231: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
-	103, // 232: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
-	105, // 233: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
-	107, // 234: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
-	109, // 235: crm.v1.CRMService.AddActivityTags:output_type -> crm.v1.AddActivityTagsResponse
-	111, // 236: crm.v1.CRMService.RemoveActivityTags:output_type -> crm.v1.RemoveActivityTagsResponse
-	114, // 237: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
-	117, // 238: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
-	119, // 239: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
-	121, // 240: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
-	123, // 241: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
-	125, // 242: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
-	128, // 243: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
-	131, // 244: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
-	134, // 245: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
-	137, // 246: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
-	139, // 247: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
-	142, // 248: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
-	144, // 249: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
-	148, // 250: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
-	151, // 251: crm.v1.CRMService.PreviewContactDeletion:output_type -> crm.v1.PreviewContactDeletionResponse
-	155, // 252: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
-	157, // 253: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
-	159, // 254: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
-	161, // 255: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
-	164, // 256: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
-	166, // 257: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
-	170, // 258: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
-	172, // 259: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
-	174, // 260: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
-	176, // 261: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
-	178, // 262: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
-	180, // 263: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
-	182, // 264: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
-	185, // 265: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
-	188, // 266: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
-	190, // 267: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
-	192, // 268: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
-	194, // 269: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
-	196, // 270: crm.v1.CRMService.PromoteContactToLead:output_type -> crm.v1.PromoteContactToLeadResponse
-	185, // [185:271] is the sub-list for method output_type
-	99,  // [99:185] is the sub-list for method input_type
-	99,  // [99:99] is the sub-list for extension type_name
-	99,  // [99:99] is the sub-list for extension extendee
-	0,   // [0:99] is the sub-list for field type_name
+	79,  // 52: crm.v1.DeleteDealRequest.editor:type_name -> crm.v1.DealEditor
+	79,  // 53: crm.v1.MoveDealToStageRequest.editor:type_name -> crm.v1.DealEditor
+	77,  // 54: crm.v1.MoveDealToStageResponse.deal:type_name -> crm.v1.DealInfo
+	95,  // 55: crm.v1.CreateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	95,  // 56: crm.v1.GetActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	95,  // 57: crm.v1.ListActivitiesResponse.activities:type_name -> crm.v1.ActivityInfo
+	95,  // 58: crm.v1.UpdateActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	95,  // 59: crm.v1.CompleteActivityResponse.activity:type_name -> crm.v1.ActivityInfo
+	95,  // 60: crm.v1.AddActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
+	95,  // 61: crm.v1.RemoveActivityTagsResponse.activity:type_name -> crm.v1.ActivityInfo
+	112, // 62: crm.v1.SearchResponse.results:type_name -> crm.v1.SearchResult
+	115, // 63: crm.v1.CreateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	115, // 64: crm.v1.GetSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	115, // 65: crm.v1.ListSavedFiltersResponse.filters:type_name -> crm.v1.SavedFilterInfo
+	115, // 66: crm.v1.UpdateSavedFilterResponse.filter:type_name -> crm.v1.SavedFilterInfo
+	126, // 67: crm.v1.GetPipelineReportResponse.stages:type_name -> crm.v1.PipelineStageValue
+	129, // 68: crm.v1.GetConversionReportResponse.metrics:type_name -> crm.v1.ConversionMetric
+	132, // 69: crm.v1.GetActivityReportResponse.metrics:type_name -> crm.v1.ActivityMetric
+	23,  // 70: crm.v1.DuplicateContactCandidate.contact:type_name -> crm.v1.ContactInfo
+	135, // 71: crm.v1.FindContactDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateContactCandidate
+	23,  // 72: crm.v1.MergeContactsResponse.contact:type_name -> crm.v1.ContactInfo
+	51,  // 73: crm.v1.DuplicateCompanyCandidate.company:type_name -> crm.v1.CompanyInfo
+	140, // 74: crm.v1.FindCompanyDuplicatesResponse.duplicates:type_name -> crm.v1.DuplicateCompanyCandidate
+	51,  // 75: crm.v1.MergeCompaniesResponse.company:type_name -> crm.v1.CompanyInfo
+	203, // 76: crm.v1.TimelineEventMetadata.data:type_name -> crm.v1.TimelineEventMetadata.DataEntry
+	145, // 77: crm.v1.TimelineEvent.metadata:type_name -> crm.v1.TimelineEventMetadata
+	146, // 78: crm.v1.GetContactTimelineResponse.events:type_name -> crm.v1.TimelineEvent
+	149, // 79: crm.v1.PreviewContactDeletionResponse.impacts:type_name -> crm.v1.ContactDeletionImpact
+	204, // 80: crm.v1.ConsentSummary.consents:type_name -> crm.v1.ConsentSummary.ConsentsEntry
+	153, // 81: crm.v1.GetContactConsentsResponse.summary:type_name -> crm.v1.ConsentSummary
+	152, // 82: crm.v1.GrantConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	152, // 83: crm.v1.RevokeConsentResponse.record:type_name -> crm.v1.ConsentRecord
+	152, // 84: crm.v1.GetConsentHistoryResponse.history:type_name -> crm.v1.ConsentRecord
+	162, // 85: crm.v1.RequestDeletionResponse.deletion_request:type_name -> crm.v1.GDPRDeletionRequest
+	167, // 86: crm.v1.AdvisoryProtocolProto.products:type_name -> crm.v1.AdvisoryProductProto
+	168, // 87: crm.v1.CreateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	168, // 88: crm.v1.GetAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	168, // 89: crm.v1.ListAdvisoryProtocolsResponse.protocols:type_name -> crm.v1.AdvisoryProtocolProto
+	168, // 90: crm.v1.UpdateAdvisoryProtocolRequest.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	168, // 91: crm.v1.UpdateAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	168, // 92: crm.v1.HandOverAdvisoryProtocolResponse.protocol:type_name -> crm.v1.AdvisoryProtocolProto
+	183, // 93: crm.v1.GetReferralReportResponse.entries:type_name -> crm.v1.ReferralReportEntry
+	186, // 94: crm.v1.ListLeadsResponse.leads:type_name -> crm.v1.LeadInfo
+	186, // 95: crm.v1.CreateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	186, // 96: crm.v1.UpdateLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	186, // 97: crm.v1.ConvertLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	186, // 98: crm.v1.PromoteContactToLeadResponse.lead:type_name -> crm.v1.LeadInfo
+	152, // 99: crm.v1.ConsentSummary.ConsentsEntry.value:type_name -> crm.v1.ConsentRecord
+	1,   // 100: crm.v1.CRMService.CreateCustomField:input_type -> crm.v1.CreateCustomFieldRequest
+	3,   // 101: crm.v1.CRMService.GetCustomField:input_type -> crm.v1.GetCustomFieldRequest
+	5,   // 102: crm.v1.CRMService.ListCustomFields:input_type -> crm.v1.ListCustomFieldsRequest
+	7,   // 103: crm.v1.CRMService.UpdateCustomField:input_type -> crm.v1.UpdateCustomFieldRequest
+	9,   // 104: crm.v1.CRMService.DeleteCustomField:input_type -> crm.v1.DeleteCustomFieldRequest
+	12,  // 105: crm.v1.CRMService.CreateTag:input_type -> crm.v1.CreateTagRequest
+	14,  // 106: crm.v1.CRMService.GetTag:input_type -> crm.v1.GetTagRequest
+	16,  // 107: crm.v1.CRMService.ListTags:input_type -> crm.v1.ListTagsRequest
+	18,  // 108: crm.v1.CRMService.UpdateTag:input_type -> crm.v1.UpdateTagRequest
+	20,  // 109: crm.v1.CRMService.DeleteTag:input_type -> crm.v1.DeleteTagRequest
+	24,  // 110: crm.v1.CRMService.CreateContact:input_type -> crm.v1.CreateContactRequest
+	26,  // 111: crm.v1.CRMService.GetContact:input_type -> crm.v1.GetContactRequest
+	28,  // 112: crm.v1.CRMService.ListContacts:input_type -> crm.v1.ListContactsRequest
+	30,  // 113: crm.v1.CRMService.UpdateContact:input_type -> crm.v1.UpdateContactRequest
+	32,  // 114: crm.v1.CRMService.DeleteContact:input_type -> crm.v1.DeleteContactRequest
+	34,  // 115: crm.v1.CRMService.AddContactTags:input_type -> crm.v1.AddContactTagsRequest
+	36,  // 116: crm.v1.CRMService.RemoveContactTags:input_type -> crm.v1.RemoveContactTagsRequest
+	38,  // 117: crm.v1.CRMService.ImportContactsCSV:input_type -> crm.v1.ImportContactsCSVRequest
+	39,  // 118: crm.v1.CRMService.ImportContactsVCard:input_type -> crm.v1.ImportContactsVCardRequest
+	40,  // 119: crm.v1.CRMService.ImportContactsXLSX:input_type -> crm.v1.ImportContactsXLSXRequest
+	43,  // 120: crm.v1.CRMService.ExportContactsCSV:input_type -> crm.v1.ExportContactsCSVRequest
+	44,  // 121: crm.v1.CRMService.ExportContactsVCard:input_type -> crm.v1.ExportContactsVCardRequest
+	46,  // 122: crm.v1.CRMService.PreviewImportCSV:input_type -> crm.v1.PreviewImportCSVRequest
+	49,  // 123: crm.v1.CRMService.UpdateContactVisibility:input_type -> crm.v1.UpdateContactVisibilityRequest
+	52,  // 124: crm.v1.CRMService.CreateCompany:input_type -> crm.v1.CreateCompanyRequest
+	54,  // 125: crm.v1.CRMService.GetCompany:input_type -> crm.v1.GetCompanyRequest
+	56,  // 126: crm.v1.CRMService.ListCompanies:input_type -> crm.v1.ListCompaniesRequest
+	58,  // 127: crm.v1.CRMService.UpdateCompany:input_type -> crm.v1.UpdateCompanyRequest
+	60,  // 128: crm.v1.CRMService.DeleteCompany:input_type -> crm.v1.DeleteCompanyRequest
+	62,  // 129: crm.v1.CRMService.GetCompanyContacts:input_type -> crm.v1.GetCompanyContactsRequest
+	65,  // 130: crm.v1.CRMService.CreatePipelineStage:input_type -> crm.v1.CreatePipelineStageRequest
+	67,  // 131: crm.v1.CRMService.GetPipelineStage:input_type -> crm.v1.GetPipelineStageRequest
+	69,  // 132: crm.v1.CRMService.ListPipelineStages:input_type -> crm.v1.ListPipelineStagesRequest
+	71,  // 133: crm.v1.CRMService.UpdatePipelineStage:input_type -> crm.v1.UpdatePipelineStageRequest
+	73,  // 134: crm.v1.CRMService.DeletePipelineStage:input_type -> crm.v1.DeletePipelineStageRequest
+	75,  // 135: crm.v1.CRMService.ReorderPipelineStages:input_type -> crm.v1.ReorderPipelineStagesRequest
+	78,  // 136: crm.v1.CRMService.CreateDeal:input_type -> crm.v1.CreateDealRequest
+	81,  // 137: crm.v1.CRMService.GetDeal:input_type -> crm.v1.GetDealRequest
+	83,  // 138: crm.v1.CRMService.ListDeals:input_type -> crm.v1.ListDealsRequest
+	85,  // 139: crm.v1.CRMService.UpdateDeal:input_type -> crm.v1.UpdateDealRequest
+	91,  // 140: crm.v1.CRMService.DeleteDeal:input_type -> crm.v1.DeleteDealRequest
+	93,  // 141: crm.v1.CRMService.MoveDealToStage:input_type -> crm.v1.MoveDealToStageRequest
+	87,  // 142: crm.v1.CRMService.AddDealTags:input_type -> crm.v1.AddDealTagsRequest
+	89,  // 143: crm.v1.CRMService.RemoveDealTags:input_type -> crm.v1.RemoveDealTagsRequest
+	96,  // 144: crm.v1.CRMService.CreateActivity:input_type -> crm.v1.CreateActivityRequest
+	98,  // 145: crm.v1.CRMService.GetActivity:input_type -> crm.v1.GetActivityRequest
+	100, // 146: crm.v1.CRMService.ListActivities:input_type -> crm.v1.ListActivitiesRequest
+	102, // 147: crm.v1.CRMService.UpdateActivity:input_type -> crm.v1.UpdateActivityRequest
+	104, // 148: crm.v1.CRMService.DeleteActivity:input_type -> crm.v1.DeleteActivityRequest
+	106, // 149: crm.v1.CRMService.CompleteActivity:input_type -> crm.v1.CompleteActivityRequest
+	108, // 150: crm.v1.CRMService.AddActivityTags:input_type -> crm.v1.AddActivityTagsRequest
+	110, // 151: crm.v1.CRMService.RemoveActivityTags:input_type -> crm.v1.RemoveActivityTagsRequest
+	113, // 152: crm.v1.CRMService.Search:input_type -> crm.v1.SearchRequest
+	116, // 153: crm.v1.CRMService.CreateSavedFilter:input_type -> crm.v1.CreateSavedFilterRequest
+	118, // 154: crm.v1.CRMService.GetSavedFilter:input_type -> crm.v1.GetSavedFilterRequest
+	120, // 155: crm.v1.CRMService.ListSavedFilters:input_type -> crm.v1.ListSavedFiltersRequest
+	122, // 156: crm.v1.CRMService.UpdateSavedFilter:input_type -> crm.v1.UpdateSavedFilterRequest
+	124, // 157: crm.v1.CRMService.DeleteSavedFilter:input_type -> crm.v1.DeleteSavedFilterRequest
+	127, // 158: crm.v1.CRMService.GetPipelineReport:input_type -> crm.v1.GetPipelineReportRequest
+	130, // 159: crm.v1.CRMService.GetConversionReport:input_type -> crm.v1.GetConversionReportRequest
+	133, // 160: crm.v1.CRMService.GetActivityReport:input_type -> crm.v1.GetActivityReportRequest
+	136, // 161: crm.v1.CRMService.FindContactDuplicates:input_type -> crm.v1.FindContactDuplicatesRequest
+	138, // 162: crm.v1.CRMService.MergeContacts:input_type -> crm.v1.MergeContactsRequest
+	141, // 163: crm.v1.CRMService.FindCompanyDuplicates:input_type -> crm.v1.FindCompanyDuplicatesRequest
+	143, // 164: crm.v1.CRMService.MergeCompanies:input_type -> crm.v1.MergeCompaniesRequest
+	147, // 165: crm.v1.CRMService.GetContactTimeline:input_type -> crm.v1.GetContactTimelineRequest
+	150, // 166: crm.v1.CRMService.PreviewContactDeletion:input_type -> crm.v1.PreviewContactDeletionRequest
+	154, // 167: crm.v1.CRMService.GetContactConsents:input_type -> crm.v1.GetContactConsentsRequest
+	156, // 168: crm.v1.CRMService.GrantConsent:input_type -> crm.v1.GrantConsentRequest
+	158, // 169: crm.v1.CRMService.RevokeConsent:input_type -> crm.v1.RevokeConsentRequest
+	160, // 170: crm.v1.CRMService.GetConsentHistory:input_type -> crm.v1.GetConsentHistoryRequest
+	163, // 171: crm.v1.CRMService.RequestDeletion:input_type -> crm.v1.RequestDeletionRequest
+	165, // 172: crm.v1.CRMService.ProcessDeletion:input_type -> crm.v1.ProcessDeletionRequest
+	169, // 173: crm.v1.CRMService.CreateAdvisoryProtocol:input_type -> crm.v1.CreateAdvisoryProtocolRequest
+	171, // 174: crm.v1.CRMService.GetAdvisoryProtocol:input_type -> crm.v1.GetAdvisoryProtocolRequest
+	173, // 175: crm.v1.CRMService.ListAdvisoryProtocols:input_type -> crm.v1.ListAdvisoryProtocolsRequest
+	175, // 176: crm.v1.CRMService.UpdateAdvisoryProtocol:input_type -> crm.v1.UpdateAdvisoryProtocolRequest
+	177, // 177: crm.v1.CRMService.DeleteAdvisoryProtocol:input_type -> crm.v1.DeleteAdvisoryProtocolRequest
+	179, // 178: crm.v1.CRMService.HandOverAdvisoryProtocol:input_type -> crm.v1.HandOverAdvisoryProtocolRequest
+	181, // 179: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:input_type -> crm.v1.GenerateAdvisoryProtocolPDFRequest
+	184, // 180: crm.v1.CRMService.GetReferralReport:input_type -> crm.v1.GetReferralReportRequest
+	187, // 181: crm.v1.CRMService.ListLeads:input_type -> crm.v1.ListLeadsRequest
+	189, // 182: crm.v1.CRMService.CreateLead:input_type -> crm.v1.CreateLeadRequest
+	191, // 183: crm.v1.CRMService.UpdateLead:input_type -> crm.v1.UpdateLeadRequest
+	193, // 184: crm.v1.CRMService.ConvertLead:input_type -> crm.v1.ConvertLeadRequest
+	195, // 185: crm.v1.CRMService.PromoteContactToLead:input_type -> crm.v1.PromoteContactToLeadRequest
+	2,   // 186: crm.v1.CRMService.CreateCustomField:output_type -> crm.v1.CreateCustomFieldResponse
+	4,   // 187: crm.v1.CRMService.GetCustomField:output_type -> crm.v1.GetCustomFieldResponse
+	6,   // 188: crm.v1.CRMService.ListCustomFields:output_type -> crm.v1.ListCustomFieldsResponse
+	8,   // 189: crm.v1.CRMService.UpdateCustomField:output_type -> crm.v1.UpdateCustomFieldResponse
+	10,  // 190: crm.v1.CRMService.DeleteCustomField:output_type -> crm.v1.DeleteCustomFieldResponse
+	13,  // 191: crm.v1.CRMService.CreateTag:output_type -> crm.v1.CreateTagResponse
+	15,  // 192: crm.v1.CRMService.GetTag:output_type -> crm.v1.GetTagResponse
+	17,  // 193: crm.v1.CRMService.ListTags:output_type -> crm.v1.ListTagsResponse
+	19,  // 194: crm.v1.CRMService.UpdateTag:output_type -> crm.v1.UpdateTagResponse
+	21,  // 195: crm.v1.CRMService.DeleteTag:output_type -> crm.v1.DeleteTagResponse
+	25,  // 196: crm.v1.CRMService.CreateContact:output_type -> crm.v1.CreateContactResponse
+	27,  // 197: crm.v1.CRMService.GetContact:output_type -> crm.v1.GetContactResponse
+	29,  // 198: crm.v1.CRMService.ListContacts:output_type -> crm.v1.ListContactsResponse
+	31,  // 199: crm.v1.CRMService.UpdateContact:output_type -> crm.v1.UpdateContactResponse
+	33,  // 200: crm.v1.CRMService.DeleteContact:output_type -> crm.v1.DeleteContactResponse
+	35,  // 201: crm.v1.CRMService.AddContactTags:output_type -> crm.v1.AddContactTagsResponse
+	37,  // 202: crm.v1.CRMService.RemoveContactTags:output_type -> crm.v1.RemoveContactTagsResponse
+	41,  // 203: crm.v1.CRMService.ImportContactsCSV:output_type -> crm.v1.ImportContactsResponse
+	41,  // 204: crm.v1.CRMService.ImportContactsVCard:output_type -> crm.v1.ImportContactsResponse
+	41,  // 205: crm.v1.CRMService.ImportContactsXLSX:output_type -> crm.v1.ImportContactsResponse
+	45,  // 206: crm.v1.CRMService.ExportContactsCSV:output_type -> crm.v1.ExportContactsResponse
+	45,  // 207: crm.v1.CRMService.ExportContactsVCard:output_type -> crm.v1.ExportContactsResponse
+	47,  // 208: crm.v1.CRMService.PreviewImportCSV:output_type -> crm.v1.PreviewImportCSVResponse
+	50,  // 209: crm.v1.CRMService.UpdateContactVisibility:output_type -> crm.v1.UpdateContactVisibilityResponse
+	53,  // 210: crm.v1.CRMService.CreateCompany:output_type -> crm.v1.CreateCompanyResponse
+	55,  // 211: crm.v1.CRMService.GetCompany:output_type -> crm.v1.GetCompanyResponse
+	57,  // 212: crm.v1.CRMService.ListCompanies:output_type -> crm.v1.ListCompaniesResponse
+	59,  // 213: crm.v1.CRMService.UpdateCompany:output_type -> crm.v1.UpdateCompanyResponse
+	61,  // 214: crm.v1.CRMService.DeleteCompany:output_type -> crm.v1.DeleteCompanyResponse
+	63,  // 215: crm.v1.CRMService.GetCompanyContacts:output_type -> crm.v1.GetCompanyContactsResponse
+	66,  // 216: crm.v1.CRMService.CreatePipelineStage:output_type -> crm.v1.CreatePipelineStageResponse
+	68,  // 217: crm.v1.CRMService.GetPipelineStage:output_type -> crm.v1.GetPipelineStageResponse
+	70,  // 218: crm.v1.CRMService.ListPipelineStages:output_type -> crm.v1.ListPipelineStagesResponse
+	72,  // 219: crm.v1.CRMService.UpdatePipelineStage:output_type -> crm.v1.UpdatePipelineStageResponse
+	74,  // 220: crm.v1.CRMService.DeletePipelineStage:output_type -> crm.v1.DeletePipelineStageResponse
+	76,  // 221: crm.v1.CRMService.ReorderPipelineStages:output_type -> crm.v1.ReorderPipelineStagesResponse
+	80,  // 222: crm.v1.CRMService.CreateDeal:output_type -> crm.v1.CreateDealResponse
+	82,  // 223: crm.v1.CRMService.GetDeal:output_type -> crm.v1.GetDealResponse
+	84,  // 224: crm.v1.CRMService.ListDeals:output_type -> crm.v1.ListDealsResponse
+	86,  // 225: crm.v1.CRMService.UpdateDeal:output_type -> crm.v1.UpdateDealResponse
+	92,  // 226: crm.v1.CRMService.DeleteDeal:output_type -> crm.v1.DeleteDealResponse
+	94,  // 227: crm.v1.CRMService.MoveDealToStage:output_type -> crm.v1.MoveDealToStageResponse
+	88,  // 228: crm.v1.CRMService.AddDealTags:output_type -> crm.v1.AddDealTagsResponse
+	90,  // 229: crm.v1.CRMService.RemoveDealTags:output_type -> crm.v1.RemoveDealTagsResponse
+	97,  // 230: crm.v1.CRMService.CreateActivity:output_type -> crm.v1.CreateActivityResponse
+	99,  // 231: crm.v1.CRMService.GetActivity:output_type -> crm.v1.GetActivityResponse
+	101, // 232: crm.v1.CRMService.ListActivities:output_type -> crm.v1.ListActivitiesResponse
+	103, // 233: crm.v1.CRMService.UpdateActivity:output_type -> crm.v1.UpdateActivityResponse
+	105, // 234: crm.v1.CRMService.DeleteActivity:output_type -> crm.v1.DeleteActivityResponse
+	107, // 235: crm.v1.CRMService.CompleteActivity:output_type -> crm.v1.CompleteActivityResponse
+	109, // 236: crm.v1.CRMService.AddActivityTags:output_type -> crm.v1.AddActivityTagsResponse
+	111, // 237: crm.v1.CRMService.RemoveActivityTags:output_type -> crm.v1.RemoveActivityTagsResponse
+	114, // 238: crm.v1.CRMService.Search:output_type -> crm.v1.SearchResponse
+	117, // 239: crm.v1.CRMService.CreateSavedFilter:output_type -> crm.v1.CreateSavedFilterResponse
+	119, // 240: crm.v1.CRMService.GetSavedFilter:output_type -> crm.v1.GetSavedFilterResponse
+	121, // 241: crm.v1.CRMService.ListSavedFilters:output_type -> crm.v1.ListSavedFiltersResponse
+	123, // 242: crm.v1.CRMService.UpdateSavedFilter:output_type -> crm.v1.UpdateSavedFilterResponse
+	125, // 243: crm.v1.CRMService.DeleteSavedFilter:output_type -> crm.v1.DeleteSavedFilterResponse
+	128, // 244: crm.v1.CRMService.GetPipelineReport:output_type -> crm.v1.GetPipelineReportResponse
+	131, // 245: crm.v1.CRMService.GetConversionReport:output_type -> crm.v1.GetConversionReportResponse
+	134, // 246: crm.v1.CRMService.GetActivityReport:output_type -> crm.v1.GetActivityReportResponse
+	137, // 247: crm.v1.CRMService.FindContactDuplicates:output_type -> crm.v1.FindContactDuplicatesResponse
+	139, // 248: crm.v1.CRMService.MergeContacts:output_type -> crm.v1.MergeContactsResponse
+	142, // 249: crm.v1.CRMService.FindCompanyDuplicates:output_type -> crm.v1.FindCompanyDuplicatesResponse
+	144, // 250: crm.v1.CRMService.MergeCompanies:output_type -> crm.v1.MergeCompaniesResponse
+	148, // 251: crm.v1.CRMService.GetContactTimeline:output_type -> crm.v1.GetContactTimelineResponse
+	151, // 252: crm.v1.CRMService.PreviewContactDeletion:output_type -> crm.v1.PreviewContactDeletionResponse
+	155, // 253: crm.v1.CRMService.GetContactConsents:output_type -> crm.v1.GetContactConsentsResponse
+	157, // 254: crm.v1.CRMService.GrantConsent:output_type -> crm.v1.GrantConsentResponse
+	159, // 255: crm.v1.CRMService.RevokeConsent:output_type -> crm.v1.RevokeConsentResponse
+	161, // 256: crm.v1.CRMService.GetConsentHistory:output_type -> crm.v1.GetConsentHistoryResponse
+	164, // 257: crm.v1.CRMService.RequestDeletion:output_type -> crm.v1.RequestDeletionResponse
+	166, // 258: crm.v1.CRMService.ProcessDeletion:output_type -> crm.v1.ProcessDeletionResponse
+	170, // 259: crm.v1.CRMService.CreateAdvisoryProtocol:output_type -> crm.v1.CreateAdvisoryProtocolResponse
+	172, // 260: crm.v1.CRMService.GetAdvisoryProtocol:output_type -> crm.v1.GetAdvisoryProtocolResponse
+	174, // 261: crm.v1.CRMService.ListAdvisoryProtocols:output_type -> crm.v1.ListAdvisoryProtocolsResponse
+	176, // 262: crm.v1.CRMService.UpdateAdvisoryProtocol:output_type -> crm.v1.UpdateAdvisoryProtocolResponse
+	178, // 263: crm.v1.CRMService.DeleteAdvisoryProtocol:output_type -> crm.v1.DeleteAdvisoryProtocolResponse
+	180, // 264: crm.v1.CRMService.HandOverAdvisoryProtocol:output_type -> crm.v1.HandOverAdvisoryProtocolResponse
+	182, // 265: crm.v1.CRMService.GenerateAdvisoryProtocolPDF:output_type -> crm.v1.GenerateAdvisoryProtocolPDFResponse
+	185, // 266: crm.v1.CRMService.GetReferralReport:output_type -> crm.v1.GetReferralReportResponse
+	188, // 267: crm.v1.CRMService.ListLeads:output_type -> crm.v1.ListLeadsResponse
+	190, // 268: crm.v1.CRMService.CreateLead:output_type -> crm.v1.CreateLeadResponse
+	192, // 269: crm.v1.CRMService.UpdateLead:output_type -> crm.v1.UpdateLeadResponse
+	194, // 270: crm.v1.CRMService.ConvertLead:output_type -> crm.v1.ConvertLeadResponse
+	196, // 271: crm.v1.CRMService.PromoteContactToLead:output_type -> crm.v1.PromoteContactToLeadResponse
+	186, // [186:272] is the sub-list for method output_type
+	100, // [100:186] is the sub-list for method input_type
+	100, // [100:100] is the sub-list for extension type_name
+	100, // [100:100] is the sub-list for extension extendee
+	0,   // [0:100] is the sub-list for field type_name
 }
 
 func init() { file_proto_crm_v1_crm_proto_init() }

@@ -1467,7 +1467,12 @@ func (s *CRMGRPCServer) DeleteDeal(ctx context.Context, req *crmv1.DeleteDealReq
 		return nil, status.Error(codes.InvalidArgument, "invalid deal id")
 	}
 
-	if err := s.dealService.Delete(ctx, tenantID, id); err != nil {
+	editor, err := toDealEditor(req.Editor)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.dealService.Delete(ctx, tenantID, id, editor); err != nil {
 		return nil, mapCRMError(err)
 	}
 

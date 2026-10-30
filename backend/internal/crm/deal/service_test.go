@@ -680,7 +680,7 @@ func TestService_Delete_Success(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	err := svc.Delete(context.Background(), uuid.Nil, dealID)
+	err := svc.Delete(context.Background(), uuid.Nil, dealID, nil)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.deals, dealID)
@@ -690,7 +690,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	repo := NewMockRepository()
 	svc := NewService(repo)
 
-	err := svc.Delete(context.Background(), uuid.Nil, uuid.New())
+	err := svc.Delete(context.Background(), uuid.Nil, uuid.New(), nil)
 
 	assert.ErrorIs(t, err, ErrDealNotFound)
 }
@@ -1484,7 +1484,7 @@ func TestService_Delete_RepoError(t *testing.T) {
 	}
 
 	repo.deleteErr = errors.New("db error")
-	err := svc.Delete(context.Background(), uuid.Nil, dealID)
+	err := svc.Delete(context.Background(), uuid.Nil, dealID, nil)
 
 	assert.Error(t, err)
 }
@@ -1841,6 +1841,18 @@ func TestService_EditorScope(t *testing.T) {
 		other := addDeal(repo, stageID, lead, nil)
 		_, err = svc.Update(ctx, tenantID, other, UpdateInput{OwnerID: &report, Editor: team})
 		require.NoError(t, err)
+	})
+
+	t.Run("team editor deletes deals of the team, never a peer's", func(t *testing.T) {
+		svc, repo, stageID := setup()
+		foreign := addDeal(repo, stageID, lead, &peer)
+		assert.ErrorIs(t, svc.Delete(ctx, tenantID, foreign, team), ErrOutsideEditorScope)
+		assert.Contains(t, repo.deals, foreign, "refused delete removed the deal")
+		for _, id := range []uuid.UUID{addDeal(repo, stageID, lead, nil), addDeal(repo, stageID, report, nil)} {
+			require.NoError(t, svc.Delete(ctx, tenantID, id, team))
+			assert.NotContains(t, repo.deals, id)
+		}
+		require.NoError(t, svc.Delete(ctx, tenantID, foreign, nil))
 	})
 
 	t.Run("team editor creates for themselves or a report, not for a peer", func(t *testing.T) {

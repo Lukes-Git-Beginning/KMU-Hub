@@ -193,8 +193,15 @@ func (c *CRMRoutes) HandleReorderPipelineStages(w http.ResponseWriter, r *http.R
 // or one of their direct reports. Holding the legacy deals:write beyond own
 // keeps the write tenant-wide (manager, admin), as does scope all.
 func dealEditor(w http.ResponseWriter, r *http.Request, action string) (*crmv1.DealEditor, bool) {
+	return dealScopeEditor(w, r, "write", action)
+}
+
+// dealScopeEditor is dealEditor with the legacy deals:<legacyAction> that keeps
+// the write tenant-wide. Deleting checks deals:delete, so manager, who holds
+// deals:write but deletes at crm:deal:delete=team, deletes only team deals.
+func dealScopeEditor(w http.ResponseWriter, r *http.Request, legacyAction, action string) (*crmv1.DealEditor, bool) {
 	ctx := r.Context()
-	if middleware.HoldsAnyPermission(ctx, [2]string{"deals", "write"}) && middleware.PermissionScope(ctx, "deals", "write") != auth.ScopeOwn {
+	if middleware.HoldsAnyPermission(ctx, [2]string{"deals", legacyAction}) && middleware.PermissionScope(ctx, "deals", legacyAction) != auth.ScopeOwn {
 		return nil, true
 	}
 	scope := middleware.PermissionScope(ctx, "crm:deal", action)
@@ -467,7 +474,12 @@ func (c *CRMRoutes) HandleDeleteDeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = client.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID, TenantId: tenantID.String()})
+	editor, ok := dealScopeEditor(w, r, "delete", "delete")
+	if !ok {
+		return
+	}
+
+	_, err = client.DeleteDeal(r.Context(), &crmv1.DeleteDealRequest{Id: dealID, TenantId: tenantID.String(), Editor: editor})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
