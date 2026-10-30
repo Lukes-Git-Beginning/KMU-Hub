@@ -325,7 +325,8 @@ func (s *Service) GetVersion(ctx context.Context, tenantID, versionID uuid.UUID)
 
 // RestoreVersion restores an article to a previous version's content. ownerID
 // narrows it like UpdateArticleInput.OwnerID; the article is checked before the
-// version, so a foreign article never confirms that a version id exists.
+// version, so a foreign article never confirms that a version id exists. A
+// version of another article answers ErrVersionNotFound.
 func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versionID uuid.UUID, editorID uuid.UUID, ownerID *uuid.UUID) (*Article, error) {
 	if _, err := s.loadEditableArticle(ctx, tenantID, articleID, ownerID); err != nil {
 		return nil, err
@@ -333,6 +334,9 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, articleID, versi
 	version, err := s.repo.GetVersion(ctx, tenantID, versionID)
 	if err != nil {
 		return nil, err
+	}
+	if version.ArticleID != articleID {
+		return nil, ErrVersionNotFound
 	}
 
 	return s.UpdateArticle(ctx, UpdateArticleInput{

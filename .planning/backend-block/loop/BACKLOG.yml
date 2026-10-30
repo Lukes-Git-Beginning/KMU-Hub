@@ -1070,7 +1070,7 @@ units:
     service: wiki
     model: sonnet
     deps: [scan-nested-route-parent-id-ignored]
-    status: todo
+    status: done
     target: POST /wiki/articles/{id}/versions/{versionId}/restore mit einer Version eines anderen Artikels ist 404
     coverage_start: n.a.
     scope: >

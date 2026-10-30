@@ -399,3 +399,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-wiki-restore-version-of-foreign-article` (sonnet), `fix-einkauf-child-routes-ignore-parent` (opus, Proto), `fix-vertraege-child-routes-ignore-contract` (opus, Proto), `fix-dialer-queue-actions-ignore-campaign` (opus, Proto) — alle direkt hinter dem Scan (kein Leck, kein Totalausfall)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung); für die Fix-Units geprüft: `api/wiki-client.ts:157`, `api/einkauf-client.ts:175,181,237,283,291`, `api/vertraege-client.ts:156,183,191`, `api/dialer-client.ts:285,292` senden die echte Eltern-ID → die Fixes brechen das FE nicht
 - offen: (1) Nebenbefund ohne Unit: `dialer/service.go:475` behauptet eine Count-Aktualisierung beim Skip, die es nicht gibt (in der Dialer-Unit als Kommentar-Korrektur mitgenommen). (2) Ob die einkauf-Services den Status der Bestellung (z. B. nur Entwurf änderbar) über die echte `po_id` der Position prüfen, ist nicht nachgelesen — für die Unit irrelevant, für ein Review interessant.
+
+## Iteration 32 — fix-wiki-restore-version-of-foreign-article — done — 2026-10-30 03:11
+- commit: siehe Commit `fix(wiki): reject restoring a version of another article` (git log)
+- gebaut: `Service.RestoreVersion` (`internal/wiki/service.go`) vergleicht `version.ArticleID` mit dem Pfad-Artikel und liefert bei Abweichung `ErrVersionNotFound` (404, bestehendes Mapping). Der Artikel wird weiterhin vor der Version geprüft (kein Existenz-Orakel). Kein Proto, keine Route, kein Guard.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/wiki/..., internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. | e2e nicht gelaufen
+- coverage: internal/wiki n.a. -> 80,7 % (kein Coverage-Ziel, Vorher-Wert nicht gemessen)
+- mutations-probe: Bedingung auf `if false && …` gesetzt -> `TestService_RestoreVersion_RejectsVersionOfAnotherArticle` rot („Expected error … got nil“), Datei aus Backup zurück, Test wieder grün, Diff sauber.
+- verify vorgaenger: sauber (Commit `f09d09db`: nur BACKLOG.yml/JOURNAL.md)
+- neue-units: keine
+- desktop-aufrufer: `POST /wiki/articles/{id}/versions/{versionId}/restore` -> `api/wiki-client.ts:157` sendet die echte articleId zur versionId aus der Versionsliste des Artikels -> passt
+- offen: (1) Test läuft gegen den Mock-Repo des Service (die Prüfung sitzt im Service, nicht im SQL), nicht als DB-Test. (2) Der E2E-Subtest „fremde Version -> 404“ aus den `notes` ist nicht ergänzt; `TestWiki` unverändert, E2E erst in CI abgenommen.

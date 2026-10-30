@@ -656,6 +656,31 @@ func TestService_RestoreVersion_Success(t *testing.T) {
 	assert.Equal(t, string(oldContent), string(restored.Content))
 }
 
+func TestService_RestoreVersion_RejectsVersionOfAnotherArticle(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	a := addArticle(repo, tenantID, "Article A", "art-a", false)
+	b := addArticle(repo, tenantID, "Article B", "art-b", false)
+	before := string(a.Content)
+
+	vID := uuid.New()
+	repo.versions[vID] = &Version{
+		ID:            vID,
+		ArticleID:     b.ID,
+		VersionNumber: 1,
+		Content:       json.RawMessage(`{"type":"doc","content":[{"text":"belongs to B"}]}`),
+		ChangedAt:     time.Now(),
+	}
+
+	_, err := svc.RestoreVersion(context.Background(), tenantID, a.ID, vID, uuid.New(), nil)
+
+	require.ErrorIs(t, err, ErrVersionNotFound)
+	assert.Equal(t, before, string(repo.articles[a.ID].Content), "article A must keep its content")
+	assert.Len(t, repo.versions, 1, "no snapshot for a refused restore")
+}
+
 // ============================================================================
 // ListCategories Tests
 // ============================================================================
