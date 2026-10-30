@@ -2387,7 +2387,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/biz/creditnote über 60 % (kritischer Pfad), sofern der Wert nicht nur Tag-Rauschen ist
     coverage_start: internal/biz/creditnote 51,6 % (ohne Build-Tag integration)
     scope: >

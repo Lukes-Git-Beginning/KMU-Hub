@@ -972,3 +972,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (nur Tests, keine Validierungs- oder Antwortform-Änderung)
 - offen: Der STARTTLS-Erfolgspfad (TLS-Handshake mit echtem Zertifikat) ist nicht abgedeckt (2 verbleibende Statements in `deliver`); Test bräuchte ein selbstsigniertes Zertifikat und einen Cfg-Hook für `tls.Config`, der im Produktivcode fehlt — bewusst nicht eingebaut. Im Test wurde die Verifikation der Server-Identität (`ServerName: Host`) nicht geprüft.
+
+## Iteration 79 — cov-biz-creditnote — done — 2026-10-30 08:30
+- commit: siehe Commit `test(creditnote): cover repository read queries in the untagged test run` (git log)
+- gebaut: Tag-Frage beantwortet: `integration_test.go`, `repository_coverage_integration_test.go` und `send_atomic_integration_test.go` liegen hinter `//go:build integration` (Testcontainers) und zählen weder zur PR-Coverage noch zu einem normalen `go test`; die dort getesteten Funktionen `List`, `GetByInvoiceID`, `ListForDATEVExport`, `scanCreditNoteFromRows` standen untagged bei 0 %. Neue untagged Datei `postgres_repository_queries_real_sql_test.go` (lokale DB als `kmuhub_app`): List (Status-/Rechnungsfilter, Sortierung, Paging, Total, Limit-Fallback, fremder Tenant), GetByInvoiceID (neueste zuerst, fremder Tenant leer — Double-Storno-Guard), ListForDATEVExport (nur `sent`, inklusiver Endtag, Keyset-Seiten, fremder Tenant, Service-Durchreichung), SumGrossByInvoiceInTx (Entwürfe zählen, Tenant-scoped, 0 ohne Gutschriften), `parseTaxMode` tabellarisch.
+- gate: build n.a. (nur Testdatei) | vet ok | lint ok (0 issues) | test ok (`./internal/biz/creditnote/...`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/biz/creditnote 51,6 % -> 83,1 %
+- mutations-probe: (1) `AND status = 'sent'` aus ListForDATEVExport entfernt: `ListForDATEVExport_RangeStatusAndKeysetPaging` rot. (2) ORDER BY in GetByInvoiceID von DESC auf ASC: `GetByInvoiceID_TenantScopedAndNewestFirst` rot. (3) Tenant-Prädikat aus SumGrossByInvoiceInTx entfernt: `SumGrossByInvoiceInTx_CountsDraftsAndIsTenantScoped` rot. Alle zurückgedreht, `postgres_repository.go` unverändert.
+- verify vorgaenger: sauber (Commit `5d0e2545`: nur Testdatei `systemmail/sender_protocol_test.go`, kein Produktivcode)
+- neue-units: keine
+- desktop-aufrufer: n.a. (nur Tests, keine Validierungs- oder Antwortform-Änderung)
+- offen: Die Tenant-Prädikat-Mutation (3) wird auch durch RLS nicht verdeckt, weil `pool.Begin` im Test keinen Tenant-GUC setzt; für `List`/`GetByInvoiceID` wurde das Prädikat nicht einzeln mutiert (dort läuft der Tenant-Kontext über `WithTenantCtx`, RLS kann es zusätzlich abfangen). Die Integration-Tests mit Testcontainers bleiben unverändert bestehen.
