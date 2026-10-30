@@ -2282,7 +2282,7 @@ units:
     service: security
     model: sonnet
     deps: [fix-rapporte-soft-delete-keeps-gps-signature]
-    status: todo
+    status: done
     target: Chat-Erasure blendet auch die hochgeladenen Dateien des Nutzers aus
     coverage_start: n.a. (Fix)
     scope: >

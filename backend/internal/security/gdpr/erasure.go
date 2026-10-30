@@ -321,7 +321,8 @@ func (h *ChatErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUI
 		   (SELECT COUNT(*) FROM messages WHERE created_by = $1) +
 		   (SELECT COUNT(*) FROM channel_memberships WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM message_bookmarks WHERE user_id = $1) +
-		   (SELECT COUNT(*) FROM message_mentions WHERE user_id = $1)
+		   (SELECT COUNT(*) FROM message_mentions WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM chat_files WHERE uploaded_by = $1 AND NOT is_deleted)
 		`, userID,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
@@ -396,6 +397,18 @@ func (h *ChatErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	)
 	if err != nil {
 		return 0, fmt.Errorf("chat erasure: failed to delete message mentions: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Hide the subject's uploads: file name, preview and download stay visible
+	// to the channel otherwise (chat/file/service.go refuses is_deleted files).
+	// The MinIO object itself stays; the handler only holds the DB pool.
+	res, err = tx.Exec(ctx,
+		`UPDATE chat_files SET is_deleted = TRUE, deleted_at = NOW()
+		 WHERE uploaded_by = $1 AND NOT is_deleted`, userID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("chat erasure: failed to hide uploaded files: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

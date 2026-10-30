@@ -927,3 +927,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: Löschen-Aktion `rapporte-client.ts` -> Antwort unverändert (nur Spaltenwerte der unsichtbaren Zeile ändern sich, kein Lesepfad liefert sie) -> passt
 - offen: Gelöschte Rapporte bleiben als Zeile (mit Titel, Beschreibung, Autor) stehen; ein endgültiges Entfernen gehört zur Retention-Entscheidung. Die Kindtabellen (Positionen, Anhänge, Arbeiter) wurden hier nicht angefasst.
+
+## Iteration 75 — fix-erasure-chat-files-of-erased-user — done — 2026-10-30 08:14
+- commit: siehe Commit `fix(gdpr): hide uploaded chat files on user erasure` (git log)
+- gebaut: `ChatErasureHandler.ExecuteErasure` setzt `chat_files.is_deleted`/`deleted_at` für alle Uploads des Nutzers (Guard `NOT is_deleted`, damit der Zweitlauf 0 zählt); `PreviewErasure` zählt die noch sichtbaren Uploads mit. Neuer Test `TestChatErasureHandler_ExecuteErasure_HidesUploadedFiles` (zwei eigene Dateien, eine des Kollegen; Preview 2, Execute 2, Kollegen-Datei bleibt, Zweitlauf 0).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/security/gdpr/...`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/security/gdpr 76,5 % -> 76,5 % (Fix an Statements, die der Test erstmals trifft, Gesamtwert rundet gleich; Beweis liegt in der Mutations-Probe)
+- mutations-probe: (1) UPDATE mit `AND false` neutralisiert: neuer Test rot (Execute 0 statt 2, is_deleted/deleted_at nicht gesetzt). (2) Guard `NOT is_deleted` im UPDATE entfernt: Test rot (Zweitlauf zählt 2 statt 0). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `4cf4d478`: nur `rapporte/postgres_repository.go` + DB-Test, UPDATE tenant-gescopt, kein Proto/Route/Guard/Tabelle)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Wire-Änderung; Erasure-Handler intern, `chat/file/service.go` lehnt `is_deleted` bereits ab)
+- offen: Das MinIO-Objekt (`storage_key`, `thumbnail_key`) bleibt bestehen — der Handler hat nur den Pool; Löschung gehört zur Retention-Entscheidung. `chat_files.is_deleted`-Zeilen behalten Dateiname und Metadaten in der DB.
