@@ -649,7 +649,8 @@ func (s *Service) CancelPO(ctx context.Context, tenantID, poID uuid.UUID) (*Purc
 // received status. Lines, status and — for a PO bound to a framework contract —
 // the call-off for the newly received value are written in one transaction
 // (Repository.ApplyGoodsReceipt). If an InventarAdjuster is configured, it also
-// increments the inventar stock level for each line's SKU by the ordered quantity.
+// increments the inventar stock level for each line's SKU by the quantity still open
+// (ordered minus what PartialReceive already booked).
 // Missing SKUs in inventar are silently skipped (graceful degradation).
 func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*PurchaseOrder, error) {
 	po, err := s.repo.GetPO(ctx, tenantID, poID)
@@ -666,9 +667,20 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 	}
 
 	// Full delivery: every line's received quantity becomes its ordered quantity.
+	// The stock delta is what is still open (ordered minus already received via
+	// PartialReceive), captured before the write while lines hold the old values.
 	receipt := &GoodsReceipt{TenantID: tenantID, POID: poID, Status: POStatusReceived}
+	stockDelta := make(map[uuid.UUID]int64, len(lines))
 	for _, line := range lines {
 		receipt.Lines = append(receipt.Lines, PartialReceiveItem{LineID: line.ID, ReceivedQuantity: line.Quantity})
+		qty, parseErr := strconv.ParseFloat(line.Quantity, 64)
+		if parseErr != nil {
+			continue
+		}
+		prev, _ := strconv.ParseFloat(line.ReceivedQuantity, 64)
+		if open := qty - prev; open > 0 {
+			stockDelta[line.ID] = int64(open)
+		}
 	}
 	callOff, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
 	if err != nil {
@@ -682,11 +694,11 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 	if s.inventarAdj != nil {
 		reason := fmt.Sprintf("goods receipt PO %s", po.PONumber)
 		for _, line := range lines {
-			qty, parseErr := strconv.ParseFloat(line.Quantity, 64)
-			if parseErr != nil || qty <= 0 {
+			delta := stockDelta[line.ID]
+			if delta <= 0 {
 				continue
 			}
-			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, line.SKU, int64(qty), reason); adjErr != nil {
+			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, line.SKU, delta, reason); adjErr != nil {
 				slog.Warn("inventar stock adjustment failed during ReceiveGoods",
 					"po_id", poID, "line_id", line.ID, "sku", line.SKU, "error", adjErr)
 			}

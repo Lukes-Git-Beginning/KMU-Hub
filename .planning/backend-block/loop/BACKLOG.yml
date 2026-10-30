@@ -567,7 +567,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: '`ReceiveGoods` bucht ins Inventar nur die noch offene Menge je Zeile, nicht die volle Bestellmenge'
     coverage_start: 'internal/einkauf 81,3 % (nach feat-einkauf-po-framework-contract-call-off-wiring)'
     scope: >

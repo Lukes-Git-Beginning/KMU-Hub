@@ -199,3 +199,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PATCH /fuhrpark/trip-logs/{id}` -> `api/fuhrpark-client.ts:366` (`UpdateTripLogRequest`, alle Felder optional) und `useUpdateTripLog` (`hooks/useFuhrpark.ts:405`) -> passt, es gibt keine Komponente, die den Hook aufruft; Antwortform unverändert
 - offen: (1) Verhaltensänderung: ein `date` im falschen Format ergibt 400 (vorher stilles Nullen). (2) Leerer PATCH-Body ist ein No-Op, der nur `updated_at` setzt. (3) Ändert der PATCH `driver_user_id` ohne `driver_name`, bleibt der gespeicherte Name stehen (vorher: Name leer gesendet -> Kontoname).
+
+## Iteration 13 — fix-einkauf-receive-goods-stock-delta — done — 2026-10-30 01:01
+- commit: siehe Commit `fix(einkauf): book only the open quantity into stock on a full goods receipt` (git log)
+- gebaut: `Service.ReceiveGoods` berechnet je Zeile das Delta (Bestellmenge minus bisher erhaltene Menge, nur > 0) aus den vor `ApplyGoodsReceipt` gelesenen Zeilen und bucht nur dieses per `AdjustStockBySKU`; bisher ging die volle Bestellmenge ins Inventar, also 4 + 10 = 14 nach Teillieferung 4 von 10. Neuer Service-Test mit aufzeichnendem Adjuster (Teilzeile 4+6, unberührte Zeile voll, bereits vollständige Zeile 0).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/einkauf/... 146 PASS/0 SKIP als kmuhub_app) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestInventarEinkaufFlow`, ~3:30 inkl. Build) | gateway-Test n.a. (keine Route)
+- coverage: internal/einkauf 81,3 % (coverage_start, Vorher-Wert nicht separat gemessen) -> 82,3 %
+- mutations-probe: Delta ohne `prev` (`qty - 0*prev`) -> `TestService_ReceiveGoods_AfterPartial_BooksOnlyOpenQuantity` rot (Teilzeile und bereits vollständige Zeile), zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `0f5e2d9e`: Proto samt `.pb.go` regeneriert, keine neue Route, kein Guard, keine Tabelle; Spec-Beschreibung am PATCH vorhanden)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; nur die Höhe der Inventarbuchung)
+- offen: (1) Der bestehende E2E-Flow bucht keine Teillieferung vor der Vollbuchung; der Beweis liegt im Service-Test. (2) ReceiveGoods prüft weiter nicht auf leere SKU (wie vorher); der Adjuster überspringt unbekannte SKUs.

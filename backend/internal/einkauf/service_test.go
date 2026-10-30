@@ -674,6 +674,51 @@ func TestService_ReceiveGoods_Success(t *testing.T) {
 	}
 }
 
+// recordingInventarAdjuster remembers the total stock delta booked per SKU.
+type recordingInventarAdjuster struct {
+	booked map[string]int64
+}
+
+func (r *recordingInventarAdjuster) AdjustStockBySKU(_ context.Context, _ uuid.UUID, sku string, delta int64, _ string) error {
+	if r.booked == nil {
+		r.booked = map[string]int64{}
+	}
+	r.booked[sku] += delta
+	return nil
+}
+
+// A partial delivery followed by "fully received" must book the ordered
+// quantity once (4 + 6), not the partial plus the whole order (4 + 10).
+func TestService_ReceiveGoods_AfterPartial_BooksOnlyOpenQuantity(t *testing.T) {
+	repo := newMockRepository()
+	adj := &recordingInventarAdjuster{}
+	svc := NewService(repo).WithInventarAdjuster(adj)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-STOCK-DELTA", POStatusSubmitted)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+	l1.SKU = "SKU-A"
+	l2 := addPOLine(repo, tenantID, po.ID, "Gadget", "5")
+	l2.SKU = "SKU-B"
+	l3 := addPOLine(repo, tenantID, po.ID, "Done", "3")
+	l3.SKU = "SKU-C"
+	l3.ReceivedQuantity = "3"
+
+	_, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "4"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), adj.booked["SKU-A"])
+
+	_, err = svc.ReceiveGoods(context.Background(), tenantID, po.ID)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(10), adj.booked["SKU-A"], "4 partial + 6 open, not 14")
+	assert.Equal(t, int64(5), adj.booked["SKU-B"], "untouched line books its full quantity")
+	assert.Zero(t, adj.booked["SKU-C"], "an already complete line books nothing")
+}
+
 func TestService_ReceiveGoods_WrongStatus(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
