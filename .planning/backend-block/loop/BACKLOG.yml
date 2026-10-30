@@ -1212,7 +1212,7 @@ units:
     service: notification
     model: opus
     deps: []
-    status: todo
+    status: done
     target: eine Antwort auf eine Chat-DM oder Erwähnung in der Inbox landet als Nachricht im Chat-Kanal
     coverage_start: n.a. (Bugfix)
     scope: >

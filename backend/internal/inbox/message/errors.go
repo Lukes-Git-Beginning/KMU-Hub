@@ -28,6 +28,14 @@ var (
 	// has no concept of forwarding to an arbitrary recipient.
 	ErrForwardNotSupported = errors.New("forward is not supported for this channel")
 
+	// ErrChannelUnavailable is returned when the reply cannot be delivered because
+	// the originating system (e.g. the chat service) is not configured or not reachable.
+	ErrChannelUnavailable = errors.New("the originating channel is not reachable, reply not sent")
+
+	// ErrReplyNotPermitted is returned when the originating system refuses the
+	// reply for this user (e.g. not a member of the chat channel).
+	ErrReplyNotPermitted = errors.New("the originating channel refused the reply for this user")
+
 	// ErrRecipientNotInTenant is returned by Create when the message's user is not a user of the
 	// message's tenant. The user_id foreign key does not check that (FK lookups bypass RLS), and
 	// the consumer would otherwise file -- and push over WebSocket -- a message for a foreign user.

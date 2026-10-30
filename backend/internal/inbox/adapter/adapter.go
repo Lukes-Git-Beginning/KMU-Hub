@@ -15,6 +15,14 @@ import (
 // concept of forwarding to an arbitrary recipient (chat, guest, notification).
 var ErrForwardNotSupported = errors.New("forward not supported for this channel")
 
+// ErrChannelUnavailable is returned when the originating system of a channel
+// is not configured or not reachable, so a reply cannot be delivered.
+var ErrChannelUnavailable = errors.New("originating channel is not reachable")
+
+// ErrReplyNotPermitted is returned when the originating system refuses the
+// reply for this user (e.g. the replier is not a member of the chat channel).
+var ErrReplyNotPermitted = errors.New("originating channel refused the reply for this user")
+
 // ChannelAdapter normalizes messages from a specific source (email, chat, notification)
 // into the unified InboxMessage format.
 type ChannelAdapter interface {

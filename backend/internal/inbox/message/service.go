@@ -205,7 +205,16 @@ func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, u
 		return ErrAdapterNotFound
 	}
 
-	return a.HandleReply(ctx, msg.SourceID, userID, body)
+	if err := a.HandleReply(ctx, msg.SourceID, userID, body); err != nil {
+		switch {
+		case errors.Is(err, adapter.ErrChannelUnavailable):
+			return fmt.Errorf("%w: %v", ErrChannelUnavailable, err)
+		case errors.Is(err, adapter.ErrReplyNotPermitted):
+			return fmt.Errorf("%w: %v", ErrReplyNotPermitted, err)
+		}
+		return err
+	}
+	return nil
 }
 
 // Forward routes a message to a new recipient through the originating channel's

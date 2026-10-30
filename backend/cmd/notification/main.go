@@ -40,6 +40,7 @@ import (
 	"github.com/kmuhub/kmuhub/internal/notification/notification"
 	"github.com/kmuhub/kmuhub/internal/notification/preference"
 	"github.com/kmuhub/kmuhub/internal/server"
+	chatv1 "github.com/kmuhub/kmuhub/proto/chat/v1"
 	emailv1 "github.com/kmuhub/kmuhub/proto/email/v1"
 	inboxv1 "github.com/kmuhub/kmuhub/proto/inbox/v1"
 	notificationv1 "github.com/kmuhub/kmuhub/proto/notification/v1"
@@ -164,10 +165,10 @@ func main() {
 	inboxRoutingRepo := routing.NewPostgresRepository(pool)
 	inboxThreadRepo := thread.NewPostgresRepository(pool)
 
-	// Initialize channel adapters. Email is wired to the real email service
-	// (below); chat and notification stay nil-safe stubs until their own
-	// cross-service clients are wired (they degrade gracefully -- empty
-	// fetch results, no-op reply/forward).
+	// Initialize channel adapters. Email and chat are wired to their real
+	// services (below); notification stays a nil-safe stub (no originating
+	// system to reply to). A missing email/chat client degrades gracefully:
+	// replies fail with a clear Unavailable instead of a bare 500.
 	var emailClient adapter.EmailClient
 	if cfg.EmailGRPCAddress != "" {
 		emailConn, emailErr := grpc.NewClient(
@@ -190,9 +191,30 @@ func main() {
 		}
 	}
 
+	var chatClient adapter.ChatClient
+	if cfg.ChatGRPCAddress != "" {
+		chatConn, chatErr := grpc.NewClient(
+			cfg.ChatGRPCAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			// Propagate tenant from the inbound inbox context to chat -- the
+			// chat handlers read tenant from metadata.
+			grpc.WithUnaryInterceptor(middleware.TenantOutboundUnaryInterceptor()),
+		)
+		if chatErr != nil {
+			slog.Warn("failed to connect to chat service, inbox chat reply disabled",
+				"address", cfg.ChatGRPCAddress,
+				"error", chatErr,
+			)
+		} else {
+			defer chatConn.Close()
+			chatClient = &chatGRPCClient{client: chatv1.NewChatServiceClient(chatConn)}
+			slog.Info("chat client enabled (inbox reply)", "address", cfg.ChatGRPCAddress)
+		}
+	}
+
 	adapterRegistry := adapter.NewAdapterRegistry()
 	adapterRegistry.Register(adapter.NewEmailAdapter(emailClient))
-	adapterRegistry.Register(adapter.NewChatAdapter(nil))
+	adapterRegistry.Register(adapter.NewChatAdapter(chatClient))
 	adapterRegistry.Register(adapter.NewNotificationAdapter(nil))
 
 	// Initialize inbox services

@@ -98,7 +98,7 @@ func (a *ChatAdapter) FetchNewMessages(ctx context.Context, userID uuid.UUID, si
 // HandleReply sends a reply via the chat service.
 func (a *ChatAdapter) HandleReply(ctx context.Context, sourceID string, userID uuid.UUID, body string) error {
 	if a.client == nil {
-		return fmt.Errorf("chat adapter: client not configured")
+		return fmt.Errorf("chat adapter: client not configured: %w", ErrChannelUnavailable)
 	}
 	return a.client.CreateMessage(ctx, sourceID, userID, body)
 }
