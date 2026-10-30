@@ -1916,6 +1916,24 @@ units:
       - go test -count=1 für internal/biz/... grün, 0 Skips
       - Mutationsprobe belegt
 
+  - id: fix-server-stub-payment-repo-credit-notes
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: done
+    target: das Test-Build von internal/server kompiliert wieder
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Verify-Fund Iteration 61 zu `fc36b29b`: `payment.Repository` bekam `SumSentCreditNotesInTx`, aber
+      `stubPaymentRepo` in `internal/server/biz_grpc_invoices_creditnotes_payments_test.go` nicht; `go vet`/`go test` auf
+      `internal/server` brach mit "does not implement payment.Repository". Die Iteration hatte nur biz/... und gateway
+      getestet.
+    sources:
+      - backend/internal/server/biz_grpc_invoices_creditnotes_payments_test.go
+    done_when:
+      - go test -count=1 ./internal/server/... grün, 0 Skips
+
   - id: scan-enum-and-fk-violation-500
     phase: 4
     service: gateway
@@ -1931,6 +1949,23 @@ units:
       auf InvalidArgument/NotFound im gRPC-Fehlermapping oder im Repository-Helper? Wenn nicht und wenn es ohne
       Informationsleck geht, ist DAS die eine Fix-Unit (Regel 1), mit Test je Code. Danach die Stellen auflisten, die
       das Mapping umgehen (eigene `fmt.Errorf` ohne Wrap). Belegen per Router-Test mit ungültigem Enum.
+    notes: >
+      VORARBEIT Iteration 61 (nicht verloren gehen lassen): Es gibt KEIN zentrales Postgres-Fehlermapping. Gemeinsame Stelle
+      sind die `default:`-Zweige der 41 `map*Error`/`*Error`-Funktionen in `internal/server/*_grpc*.go` (automation, berichte,
+      bexio, biz + bankaccount/banking/einvoice/expense/gobd, calendar, chat, crm, datev, dialer, document, einkauf, email,
+      formulare, fuhrpark, auth `mapError`, helpdesk, hr, inbox, inventar, lexware, notification, plugin, produktion,
+      rapporte, schichten, security, vermietung, vertraege, video x4, wiki, work x2): alle enden in `codes.Internal`,
+      `pgconn.PgError` mit 23503/23514/22P02 wird nirgends erkannt (nur auth/fuhrpark/helpdesk/produktion/schichten/
+      vermietung/banking/invoice u. a. prüfen 23505 oder einzelne 23514 im Repository). Fix = EIN Helfer in `internal/server`
+      (z. B. `pgConstraintStatus(err) error`, nil wenn kein PgError; ohne pg-Meldung im Text, sonst Leck von Tabellen-/
+      Constraintnamen) und dessen Aufruf als erste Zeile jedes `default:`; 23514/22P02 -> InvalidArgument, 23503 ->
+      InvalidArgument bei INSERT/UPDATE (unbekannte Referenz), FailedPrecondition bei DELETE ("still referenced"; nur über
+      `pgErr.Detail`/`TableName` unterscheidbar, locale-abhängig, im Zweifel FailedPrecondition). Einzige Unit statt 41.
+      Zusätzlich Umgehungen zu listen: direkte `status.Error(codes.Internal, err.Error())` (biz_grpc.go:2843, crm_grpc.go:3207,
+      email_grpc.go:2037, plugin_grpc.go:602) geben die Roh-Meldung nach außen. Gateway-`validate:"oneof=..."` fängt die
+      meisten Enums vorab (Beispiel fuhrpark doc_type); `contacts.client_segment` hat keinen Go-Code. Beleg-Test dafür:
+      Wegwerf-Tabellentest über alle 41 Funktionen mit `fmt.Errorf("x: %w", &pgconn.PgError{Code: "23503"})` erwartet heute
+      überall Internal.
     sources:
       - backend/internal/server/
       - backend/internal/gateway/

@@ -741,3 +741,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `GET /invoices/open-items` und Zahlungen -> Finance-Client -> passt: Felder unverändert, nur `open_amount` ist bei teilgutgeschriebenen Rechnungen kleiner
 - offen: Annahme „versandte Gutschrift mindert die Forderung, keine Auszahlung im Modell" übernommen (Lesart der Belegkette). Nicht angefasst: `AggregatePaymentStats` (`invoice/postgres_repository.go:595`, Dashboard-Kennzahl „offen") rechnet weiter `Brutto - bezahlt` und weicht bei Gutschriften jetzt von den offenen Posten ab. Außerdem wird eine Rechnung nicht automatisch `paid`, wenn die Gutschrift NACH der letzten Zahlung versandt wird (Übergang läuft nur bei Zahlungen); die offenen Posten blenden sie aber aus.
+
+## Iteration 61 — fix-server-stub-payment-repo-credit-notes — done — 2026-10-30 07:17
+- commit: siehe Commit `fix(server): add the credit note sum to the payment repo stub` (git log)
+- gebaut: `stubPaymentRepo` (Test in `internal/server`) implementiert `SumSentCreditNotesInTx`. Seit `fc36b29b` kompilierte `go test ./internal/server/` nicht mehr ("does not implement payment.Repository"); Iteration 60 hatte nur `biz/...` und `gateway` getestet. Die Vorarbeit zum eigentlich gezogenen `scan-enum-and-fk-violation-500` (keine zentrale pg-Fehlerstelle, 41 `default:`-Zweige enden in `codes.Internal`) steht als `notes:` an der Scan-Unit, die wieder `todo` ist.
+- gate: build ok | vet ok (server, biz, einkauf, gateway, cmd/biz) | lint ok (0 issues, internal/server) | test ok (internal/server/... 5062 PASS, 0 SKIP, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a.
+- coverage: n.a. (Test-Stub, kein Coverage-Ziel)
+- mutations-probe: n.a. (Compile-Fehler vor dem Fix ist der Beleg; ohne die Methode bricht der Build des Testpakets)
+- verify vorgaenger: BEFUND — `fc36b29b` brach das Test-Build von `internal/server` (Interface um `SumSentCreditNotesInTx` erweitert, Stub in `internal/server` vergessen). Fix-Unit `fix-server-stub-payment-repo-credit-notes` vorn angelegt und sofort abgearbeitet. Produktivcode und Tenant-Scoping des Commits sonst sauber (beide SELECTs mit `tenant_id`, kein Proto/Route/Guard/Tabelle).
+- neue-units: `fix-server-stub-payment-repo-credit-notes` (done)
+- desktop-aufrufer: n.a. (nur Test-Datei)
+- offen: Lehre für die nächsten Interface-Erweiterungen: nach einer Änderung an einem Repository-Interface `go vet ./internal/server/... ./internal/gateway/...` mitfahren, weil die gRPC-Tests dort eigene Stubs führen. Die Scan-Unit `scan-enum-and-fk-violation-500` ist die nächste.

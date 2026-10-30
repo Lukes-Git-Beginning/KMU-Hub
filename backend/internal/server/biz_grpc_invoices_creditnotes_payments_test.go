@@ -330,6 +330,12 @@ func (r *stubPaymentRepo) SumByInvoiceIDInTx(_ context.Context, _ pgx.Tx, tenant
 	return r.sumByInvoiceID(tenantID, invoiceID)
 }
 
+// SumSentCreditNotesInTx reports no sent credit notes: these gRPC tests pay
+// invoices without a credit-note chain (the netting is covered in biz/payment).
+func (r *stubPaymentRepo) SumSentCreditNotesInTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (decimal.Decimal, error) {
+	return decimal.Zero, nil
+}
+
 // stubInvoiceNumberSeqRepo satisfies invoice.NumberSequenceRepo (NextNumber,
 // NextNumberInTx, GetSequenceInfo) — a superset of quote/creditnote's
 // two-method NumberSequenceRepo, so it is dedicated to the invoice service
