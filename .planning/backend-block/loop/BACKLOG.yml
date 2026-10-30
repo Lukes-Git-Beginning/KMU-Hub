@@ -1397,7 +1397,7 @@ units:
     service: gateway
     model: opus
     deps: [fix-helpdesk-sla-status-own-scope]
-    status: todo
+    status: done
     target: jede Nebenroute einer Ressource mit Own-/Team-Scope hält denselben Scope ein
     coverage_start: n.a. (Scan)
     scope: >
@@ -1414,6 +1414,104 @@ units:
     done_when:
       - Liste der Ressourcen mit Scope und ihrer Nebenrouten mit Ergebnis im Journal
       - Fix-Units vor die erste todo-Unit
+
+  - id: fix-rapporte-delete-measurement-position-author-scope
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: []
+    status: todo
+    target: '`DELETE /rapporte/measurements/positions/{pos_id}` hält die Autor-Grenze ein wie das Anlegen einer Position'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      LECK IM TENANT (Own-Scope), gefunden in `scan-own-scope-sibling-routes` (Lauf 18, Iteration 43). member hält
+      `rapporte:measurement:manage=all` und `rapporte:report:edit=own`. `HandleAddMeasurementPosition` und alle anderen
+      Aufmaß-Schreibrouten setzen `RestrictToAuthor` über `restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)`
+      (`internal/gateway/route_rapporte.go:1264`), `HandleDeleteMeasurementPosition` (`:1286-1311`) ruft den RPC ohne
+      das Feld. Der gRPC-Server wertet `restrict_to_author` längst aus (`internal/server/rapporte_grpc.go:847-872`:
+      `MeasurementIDOfPosition` + `authorizeMeasurementByID`), bekommt es aber nie. Folge: ein member löscht per
+      Positions-ID Aufmaßpositionen an Rapporten anderer Autoren. Fix im Gateway: `restrictToAuthor` mit
+      `rapporteMeasurementScopeKeys` und `RestrictToAuthor` im Request setzen.
+    sources:
+      - backend/internal/gateway/route_rapporte.go
+      - backend/internal/server/rapporte_grpc.go
+    notes: >
+      Kein Proto, keine Route, kein Seed. Router-Test mit echtem member-Token (Regel b): der Request am Fake-Client trägt
+      `restrict_to_author=true`; mit admin/manager-Token false. Dazu ein Server-Test, falls noch keiner belegt, dass
+      eine fremde Position unter `restrict_to_author` NotFound liefert und die Zeile bleibt.
+    done_when:
+      - 'Router-Test: member-Token -> RestrictToAuthor=true am RPC, manager-Token -> false'
+      - go test -count=1 ./internal/gateway/ grün
+      - Mutationsprobe belegt
+
+  - id: fix-work-task-edit-own-scope
+    phase: 4
+    service: work
+    model: opus
+    deps: []
+    status: todo
+    target: '`PUT /tasks/{id}` und die Edit-Nebenrouten einer Aufgabe halten `work:task:edit` im Scope own ein wie das Löschen'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      LECK IM TENANT (Own-Scope), gefunden in `scan-own-scope-sibling-routes` (Lauf 18, Iteration 43). `HandleDeleteTask`
+      narrowt über `ownerFilterUnlessAltKey(tasks:delete, work:task:delete)` (`internal/gateway/route_work_tasks.go:316`),
+      `HandleUpdateTask` (`:223-293`) reicht nur `UpdatedBy` durch, `UpdateTaskRequest` hat kein Owner-Feld. Dasselbe
+      gilt für die Nebenrouten hinter `taskEdit`/`taskEditDel`/`labelEdit` (`route_work.go:134-171,194,209,215`:
+      dependencies, links, files, custom-fields, labels). Betroffen ist jede Rolle mit `work:task:edit=own` ohne
+      Legacy-`tasks:write`: im Seed `hr_admin` (lokal geprüft: `work:task:edit=own`, kein `tasks:*`). member hält
+      `tasks:write=all` und bleibt über den Alt-Key tenant-weit (Semantik von `ownerFilterUnlessAltKey`). Fix: Owner-
+      Feld analog `DeleteTaskRequest.owner_id` an Update (und an den Nebenrouten-RPCs bzw. einer gemeinsamen
+      Prüfmethode im Task-Service), Gateway setzt es über `ownerFilterUnlessAltKey(tasks:write, work:task:edit)`.
+    sources:
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/internal/gateway/route_work.go
+      - backend/proto/work/v1/
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+    notes: >
+      Proto ändern UND regenerieren. Semantik von own: `DeleteTask` nimmt den Ersteller. Ob own beim Bearbeiten auch
+      den Zuständigen einschließen soll (hr_admin hat `work:task:be_assigned=own`), ist nicht entschieden: gibt der Code
+      oder `desktop/.../TaskDetailPage.tsx` keinen Beleg, nur den Ersteller nehmen und die Frage in `offen:` stellen.
+      Mehr als fünf Dateien Nebenrouten: dann Update allein bauen und die Nebenrouten als eigene Unit ans Ende.
+    done_when:
+      - 'Router-Test mit echtem hr_admin-Token: Owner-Feld gesetzt; mit member-Token (tasks:write=all) nicht gesetzt'
+      - 'DB-Test: fremde Aufgabe unter Owner-Filter -> NotFound, Zeile unverändert'
+      - Proto regeneriert, go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-crm-delete-deal-team-scope
+    phase: 4
+    service: crm
+    model: opus
+    deps: []
+    status: todo
+    target: '`DELETE /deals/{id}` hält den team-Scope von `crm:deal:delete` ein wie Bearbeiten und Stufenwechsel'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      LECK IM TENANT (team-Scope), gefunden in `scan-own-scope-sibling-routes` (Lauf 18, Iteration 43). Anlegen,
+      Ändern, Stufe und Tags reichen `dealEditor(w, r, action)` durch (`internal/gateway/route_crm_pipeline.go:245,406,
+      506,546,581`), der Server löst `team` auf (`internal/server/crm_grpc.go:1519`). `HandleDeleteDeal` (`:452-475`)
+      ruft `DeleteDeal` ohne Editor, `DeleteDealRequest` hat kein Feld dafür, `CRMGRPCServer.DeleteDeal`
+      (`crm_grpc.go:1459`) löscht tenant-weit. Der Guard `dealDelete` (`route_crm.go:59`) lässt manager nur über
+      `crm:deal:delete=team` herein (lokal geprüft: manager hat `deals:read/write`, kein `deals:delete`). Folge: ein
+      manager löscht Deals außerhalb seiner Berichtslinie.
+    sources:
+      - backend/internal/gateway/route_crm_pipeline.go
+      - backend/internal/gateway/route_crm.go
+      - backend/proto/crm/v1/
+      - backend/internal/server/crm_grpc.go
+      - backend/internal/crm/deal/
+    notes: >
+      Proto ändern UND regenerieren (`DealEditor editor` an `DeleteDealRequest`). Offene Abgrenzung, nicht eigenmächtig
+      entscheiden: `dealEditor` macht Schreibzugriffe mit Legacy-`deals:write` tenant-weit. Für das Löschen ist der
+      Legacy-Key des Guards `deals:delete`; die naheliegende Regel ist daher „Alt-Key `deals:delete` außer own ->
+      tenant-weit, sonst Scope von `crm:deal:delete`“. Widerspricht das einem Kommentar oder Test, der `deals:write`
+      auch fürs Löschen als Freigabe meint, `blocked` mit dieser Frage an Luke.
+    done_when:
+      - 'Router-Test mit echtem manager-Token: Editor mit Scope team am RPC'
+      - 'DB-Test: Deal außerhalb der Berichtslinie unter team -> NotFound, Zeile bleibt; eigener bzw. Bericht -> gelöscht'
+      - Proto regeneriert, go test -count=1 für internal/crm/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
 
   - id: scan-create-without-parent-existence-check
     phase: 4
@@ -1800,4 +1898,57 @@ units:
       `*string` als NULL oder als `''` schreibt, und das im Test festhalten.
     done_when:
       - 'Test: Update mit `description: ""` leert die Beschreibung, ohne Feld bleibt sie'
+      - Mutationsprobe belegt
+
+  - id: fix-rapporte-stats-own-scope
+    phase: 4
+    service: rapporte
+    model: opus
+    deps: []
+    status: todo
+    target: '`GET /rapporte/stats` zählt bei `rapporte:report:read=own` nur die eigenen Rapporte'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      AGGREGAT OHNE SCOPE, gefunden in `scan-own-scope-sibling-routes` (Lauf 18, Iteration 43). Liste und Freigabe-
+      Queue narrowen auf den Autor (`route_rapporte.go:278,966`), `HandleGetReportStats` (`:928-948`) fragt
+      `GetReportStats` nur mit `tenant_id`; `GetReportStatsRequest` hat kein Autor-Feld. Ein member sieht so die
+      Gesamtzahlen je Status aller Rapporte des Tenants, die ihm die Liste verweigert, und die Kacheln passen nicht zur
+      Liste. Keine Zeilendaten, deshalb hinten. Fix: optionales `author_id` im Request, Repo-Query filtert, Gateway
+      setzt es über `ownerFilterForScope(w, r, "rapporte:report", "read")`.
+    sources:
+      - backend/internal/gateway/route_rapporte.go
+      - backend/proto/rapporte/v1/
+      - backend/internal/server/rapporte_grpc.go
+      - backend/internal/rapporte/postgres_repository.go
+    notes: Proto ändern UND regenerieren. Desktop-Aufrufer der Stats greppen (`api/types.ts:12215` kennt die Route).
+    done_when:
+      - 'DB-Test: Stats mit author_id zählen nur dessen Rapporte'
+      - 'Router-Test mit member-Token: author_id gesetzt; manager-Token: nicht gesetzt'
+      - Mutationsprobe belegt
+
+  - id: fix-schichten-compliance-own-scope
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    target: '`GET /schichten/compliance` beantwortet bei `schichten:assignment:read=own` nur Prüfungen für den Aufrufer selbst'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      ORAKEL AUF FREMDE ZUWEISUNGEN, gefunden in `scan-own-scope-sibling-routes` (Lauf 18, Iteration 43). member sieht
+      Zuweisungen nur eigene (`route_schichten.go:445`), `HandleCheckArbzgCompliance` (`:717-757`, Guard
+      `schichten:shift:read`, member all) nimmt aber jede `employee_id` aus der Query und antwortet mit `compliant` und
+      `violation_reason` — daraus lässt sich ablesen, ob ein Kollege um einen Zeitpunkt herum eingeplant ist. Fix im
+      Gateway: bei `ownerFilterForScope(w, r, "schichten:assignment", "read") != nil` und fremder `employee_id` ablehnen
+      (403 oder 404 wie die übrigen own-Routen, Nachbarmuster übernehmen).
+    sources:
+      - backend/internal/gateway/route_schichten.go
+      - desktop/src/renderer/src/api/schichten-client.ts
+      - desktop/src/renderer/src/api/hooks/useSchichten.ts
+    notes: >
+      Niedrige Priorität: Schichten-Flag in Produktion aus. Vorher greppen, wo der Desktop die Prüfung aufruft
+      (`useSchichten.ts:110`); ruft ein member-Pfad sie für Kollegen auf (z. B. Tauschanfrage), ist das eine
+      Fachfrage für Luke -> `blocked`.
+    done_when:
+      - 'Router-Test mit echtem member-Token: fremde employee_id abgelehnt, eigene erreicht den RPC; manager unverändert'
       - Mutationsprobe belegt
