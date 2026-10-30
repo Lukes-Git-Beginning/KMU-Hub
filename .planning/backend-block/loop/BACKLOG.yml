@@ -2152,7 +2152,7 @@ units:
     service: security
     model: sonnet
     deps: []
-    status: todo
+    status: done
     decided: '2026-10-29'
     decision: >
       ENTSCHEIDUNG LUKE, 2026-10-29 (Retention): Keine neuen Fristen ohne anwaltliche Beratung. Geprüft wird, ob
@@ -2176,6 +2176,130 @@ units:
     done_when:
       - Tabelle je Kindtabelle (Elternteil, ON DELETE, Soft-Delete, Scrub-Abdeckung) im Journal
       - Fix-Units nach Regel 1
+
+  - id: fix-erasure-document-file-comments
+    phase: 4
+    service: security
+    model: sonnet
+    deps: [scan-child-tables-cascade-on-parent-delete-and-scrub]
+    status: todo
+    target: Nutzer-Löschung anonymisiert Kommentare an Dokumenten wie schon Aufgaben-Kommentare
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-child-tables-cascade-on-parent-delete-and-scrub`. `document_file_comments.content` ist Freitext des
+      Autors (`author_id` -> users, NO ACTION; die users-Zeile wird nur anonymisiert, nie gelöscht). Kein
+      ErasureHandler berührt die Tabelle (`gdpr/erasure.go` kennt auth, crm, chat, work, calendar, notifications,
+      settings, audit), der Text bleibt wörtlich stehen. Zwilling: `WorkErasureHandler` anonymisiert
+      `task_comments` (erasure.go:509). Gleiches Muster dort ergänzen (Platzhalter-Label, Idempotenz-Guard wie bei
+      messages) und in `PreviewErasure` mitzählen. DSAR-Gegenstück (`dsar_search_documents_chat.go:90`) liest die
+      Tabelle bereits. Keine neue Frist.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/security/gdpr/erasure_work_test.go
+      - backend/internal/document/file/postgres_repository.go
+    done_when:
+      - Erasure-Test: Kommentar des Nutzers ist ersetzt, Kommentar eines anderen bleibt, zweiter Lauf ändert nichts
+      - Mutations-Probe
+      - desktop-aufrufer: Kommentar-Anzeige im Dokument-Panel verträgt den Platzhalter
+
+  - id: fix-erasure-integration-account-links
+    phase: 4
+    service: security
+    model: sonnet
+    deps: [fix-erasure-document-file-comments]
+    status: todo
+    target: Nutzer-Löschung entfernt die verknüpften Fremdkonten (Slack/Teams usw.)
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-child-tables-cascade-on-parent-delete-and-scrub`. `integration_account_links` hält
+      `external_user_id` und `external_display_name` des Nutzers bei der Fremdplattform; `kmuhub_user_id` hat
+      NO ACTION, die users-Zeile bleibt bestehen, die Zeile also auch. Kein Erasure-Handler löscht sie (einziger
+      DELETE: `notification/integration/postgres_repository.go:420`, nur der manuelle Unlink). Eigene Daten des
+      Nutzers ohne Dritte: `DELETE ... WHERE kmuhub_user_id = $1` im NotificationErasureHandler (Muster: Zeilen
+      834-855) oder SettingsErasureHandler, samt Preview-Zählung. Tabelle ist tenant-gescoped, auf RLS-Verhalten
+      des Handler-Pools achten (Muster der Nachbar-DELETEs).
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/notification/integration/postgres_repository.go
+    done_when:
+      - Erasure-Test mit zwei Nutzern: nur die Links des gelöschten verschwinden
+      - Mutations-Probe
+      - desktop-aufrufer: n.a. erwartet (keine Wire-Änderung)
+
+  - id: fix-contact-scrub-csat-comment
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: [fix-erasure-integration-account-links]
+    status: todo
+    target: Kontakt-Scrub und Kontakt-Löschung leeren CSAT-Freitext zu dessen Tickets
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-child-tables-cascade-on-parent-delete-and-scrub`. `ticket_csat_responses.comment` ist der Freitext des
+      Kontakts. `tickets.contact_id` ist ON DELETE SET NULL, das Ticket bleibt, nach der Kontakt-Löschung ist die
+      Zeile nicht mehr dem Kontakt zuordenbar und `ScrubDependentPII` (`crm/consent/scrub.go`) kennt die Tabelle
+      nicht (nur `tickets.requester_*`). Ergänzen:
+      `UPDATE ticket_csat_responses SET comment = NULL WHERE tenant_id=$2 AND comment IS NOT NULL AND ticket_id IN
+      (SELECT id FROM tickets WHERE contact_id=$1 AND tenant_id=$2)` und Header-Kommentar der Funktion nachziehen.
+      Beide Wege (Delete und AnonymizeContact) rufen die Funktion. CSAT-Versand bleibt gesperrt, nur der
+      Lösch-Pfad wird angefasst.
+    sources:
+      - backend/internal/crm/consent/scrub.go
+      - backend/internal/crm/consent/scrub_test.go
+      - backend/internal/helpdesk/csat_survey.go
+    done_when:
+      - Test: Kontakt mit Ticket und CSAT-Kommentar -> nach Delete und nach Anonymize ist comment NULL, Rating bleibt
+      - Mutations-Probe
+      - desktop-aufrufer: n.a. erwartet
+
+  - id: fix-rapporte-soft-delete-keeps-gps-signature
+    phase: 4
+    service: rapporte
+    model: sonnet
+    deps: [fix-contact-scrub-csat-comment]
+    status: todo
+    target: gelöschter Rapport behält Standort, Unterschrift und Unterzeichner nicht mehr
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-child-tables-cascade-on-parent-delete-and-scrub`. `SoftDeleteReport` (`rapporte/postgres_repository.go:72`)
+      setzt nur `deleted_at`. Kein Lesepfad liefert die Zeile danach noch aus (alle Reads filtern
+      `deleted_at IS NULL`), aber `lat`, `lon`, `signature_data` und `signed_by` (der getippte Name des
+      Unterzeichners) bleiben unbefristet stehen; kein Retention-Job und kein DELETE FROM work_reports existiert.
+      Beim Soft-Delete im selben UPDATE `lat=NULL, lon=NULL, signature_data=NULL, signed_by=NULL` setzen. Vorher klären:
+      Rapport-PDF/Archiv (`gobdarchive`) liest nicht aus der gelöschten Zeile, und ein signierter Rapport darf
+      nicht löschbar sein, wenn das Modul das heute verbietet (Status-Guard prüfen, nicht ändern). KEINE neue Frist.
+    sources:
+      - backend/internal/rapporte/postgres_repository.go
+      - backend/internal/rapporte/service.go
+      - backend/internal/security/gdpr/dsar_search_reports_shifts.go
+    done_when:
+      - Test: nach Soft-Delete sind die vier Spalten NULL, andere Rapporte unberührt
+      - Mutations-Probe
+      - desktop-aufrufer: Löschen-Aktion und Listenantwort in api/ rapporte prüfen
+
+  - id: fix-erasure-chat-files-of-erased-user
+    phase: 4
+    service: security
+    model: sonnet
+    deps: [fix-rapporte-soft-delete-keeps-gps-signature]
+    status: todo
+    target: Chat-Erasure blendet auch die hochgeladenen Dateien des Nutzers aus
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-child-tables-cascade-on-parent-delete-and-scrub`. `ChatErasureHandler` ersetzt die Nachrichten des
+      Nutzers durch das Label und setzt `is_deleted`, lässt `chat_files` (`uploaded_by`) aber unberührt: Dateiname,
+      Vorschau und Download bleiben für den Kanal bestehen (`chat/file/service.go:235,258,307` prüft `is_deleted`,
+      also wirkt das Setzen). Im selben Handler `UPDATE chat_files SET is_deleted=TRUE, deleted_at=NOW() WHERE
+      uploaded_by=$1 AND NOT is_deleted` mit Zählung in Preview. Das MinIO-Objekt selbst bleibt (Handler hat nur den
+      Pool): als Restrisiko in `offen:` melden, keine neue Löschlogik für Objekte bauen.
+    sources:
+      - backend/internal/security/gdpr/erasure.go
+      - backend/internal/chat/file/postgres_repository.go
+      - backend/internal/security/gdpr/erasure_crm_chat_test.go
+    done_when:
+      - Test: Dateien des Nutzers sind is_deleted, die anderer bleiben, zweiter Lauf zählt 0
+      - Mutations-Probe
+      - desktop-aufrufer: n.a. erwartet
 
   - id: review-run18-r4
     phase: 4

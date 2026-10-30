@@ -859,3 +859,27 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `unit` -> `desktop/.../api/berichte-types.ts:130` + `modules/berichte/components/KPICard.tsx:71,89` rendern den String unverändert, kein Vergleich auf "EUR" -> passt
 - offen: Beobachtung ohne Unit: `percent`/Wert-Formatierung im FE nutzt `chart-format.ts` mit festem `currency: 'EUR'` (Charts, nicht KPI-Karten); gehört ins Frontend und wurde nicht geprüft. `dachfmt.FormatMoneyFloat` liefert bei NaN/Inf "" (DSAR-Rechnungsbetrag zeigt dann leer statt Panic) – bewusst.
+
+## Iteration 70 — scan-child-tables-cascade-on-parent-delete-and-scrub — done — 2026-10-30 07:57
+- commit: siehe Commit `docs(loop): record scan of child tables on parent delete and scrub` (git log)
+- gebaut: Scan, kein Produktivcode. Suchstrategie: `pg_constraint` auf der lokalen DB (Migrationskopf 368) für ON DELETE je Kindtabelle; `DELETE FROM`/`UPDATE ... SET deleted_at` je Elterntabelle per Grep über `internal/`; alle Erasure-Handler (`gdpr/erasure.go`: auth, crm, chat, work, calendar, calendar_booking_pages, notifications, settings, audit) und `ScrubDependentPII` auf die elf Tabellen gegengelesen. Grundbefund: die Nutzer-Löschung ist eine **Anonymisierung** (`UPDATE users`, Zeile bleibt), die NO-ACTION-FKs auf `users` blockieren also nie; ein Kontakt wird dagegen **hart gelöscht** (`contact/postgres_repository.go:369`, vorher `ScrubDependentPII`), dort ist SET NULL auf `tickets.contact_id` das Problem.
+  | Tabelle | Elternteil, ON DELETE | Soft-Delete beim Elternteil | Abdeckung | Urteil |
+  |---|---|---|---|---|
+  | message_reactions | messages CASCADE, user NO ACTION | messages `is_deleted` (Reaktionen bleiben) | nur user_id+emoji, nach Anonymisierung ohne Personenbezug | ok |
+  | chat_files | channels CASCADE, messages SET NULL, uploaded_by NO ACTION | messages `is_deleted`, Datei selbst `is_deleted` | Chat-Erasure fasst die Datei nicht an, Name und Download bleiben | **Fund 5** |
+  | document_file_comments | document_files CASCADE, author NO ACTION | document_files `is_deleted` (kein Purge) | kein Handler, Freitext bleibt wörtlich; Zwilling `task_comments` wird anonymisiert | **Fund 1** |
+  | meeting_attendees | meetings CASCADE | meetings Hard-Delete | nur Verknüpfung, nach Anonymisierung ohne Personenbezug | ok |
+  | meeting_action_items | meetings CASCADE | Hard-Delete | Aufgabentext ist Geschäftsinhalt, assignee_id nur Verknüpfung | ok (Restrisiko wie `meetings.description` im Scrub-Header) |
+  | call_participants | call_sessions CASCADE, Retention löscht Sessions | Hard-Delete | nur user_id+Zeiten | ok |
+  | ticket_csat_responses | tickets CASCADE | Ticket Hard-Delete | `comment` ist Freitext des Kontakts; `tickets.contact_id` SET NULL, Scrub kennt die Tabelle nicht | **Fund 3** |
+  | inbox_thread_messages | inbox_messages CASCADE | Hard-Delete | Scrub deckt inbound ab; outbound liest den Namen live aus `users` (anonymisiert) | ok |
+  | shift_swap_requests | shifts/assignments CASCADE; **kein FK** auf employees | - | Es existiert gar kein Löschweg für Mitarbeiter (`DELETE FROM employees` fehlt); `reason` bleibt. Gehört zur HR-Aufbewahrung (BACKLOG-NEXT), keine Fix-Unit | Beobachtung |
+  | work_reports | kein Hard-Delete | `deleted_at` (SoftDeleteReport setzt nur das) | `lat`, `lon`, `signature_data`, `signed_by` bleiben unbefristet; Reads filtern, aber nichts räumt | **Fund 4** |
+  | integration_account_links | users NO ACTION | - | `external_user_id`/`external_display_name` des Nutzers, kein Erasure-Handler | **Fund 2** |
+- gate: n.a. (kein Code geändert); `backlog-check --preflight` sauber
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (Commit `4cda5214`: `KPISnapshot.Currency` nur in `berichte`, kein Proto/Route/Guard/Tabelle; Tests und Mutations-Probe dokumentiert)
+- neue-units: `fix-erasure-document-file-comments`, `fix-erasure-integration-account-links`, `fix-contact-scrub-csat-comment`, `fix-rapporte-soft-delete-keeps-gps-signature`, `fix-erasure-chat-files-of-erased-user` (direkt hinter dem Scan; Retention-Lücken, kein Leck/Totalausfall, daher nicht vor die erste todo-Unit)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; die Fix-Units nennen ihre Aufrufer)
+- offen: Für Mitarbeiter-Daten (Schichten-Tausch, HR) gibt es keinen Löschweg; das ist eine Aufbewahrungsentscheidung und bleibt bei `decide-retention-periods-unbounded-personal-tables`. MinIO-Objekte hochgeladener Chat-/Dokumentdateien werden von keinem Erasure-Pfad entfernt (nur `is_deleted`). `document_files` mit `is_deleted` werden nirgends endgültig gelöscht, samt Kommentaren. Nicht per Test belegt: die FK-Werte stammen aus der lokalen DB (Migrationskopf 368 = Repo-Kopf).
