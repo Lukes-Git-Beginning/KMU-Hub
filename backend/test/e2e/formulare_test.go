@@ -326,10 +326,12 @@ func TestFormulareMemberFlow(t *testing.T) {
 	})
 
 	t.Run("public fill-out through the link: object body, base64 body, unknown token", func(t *testing.T) {
-		// The natural body, a JSON object, is refused: the route reads `answers` as bytes and so only takes the
-		// base64 string. IST, see fix-formulare-public-submit-accepts-json-answers; flip to 201 with the fix.
+		// The natural body, a JSON object, is stored (the base64 string still works, see publicSubmit below).
 		resp, b := postJSON(t, base+"/api/v1/public/formulare/submit/"+shareToken,
 			map[string]interface{}{"answers": map[string]interface{}{"f1": "Extern-Objekt"}}, "")
+		requireStatus(t, resp, b, http.StatusCreated)
+		resp, b = postJSON(t, base+"/api/v1/public/formulare/submit/"+shareToken,
+			map[string]interface{}{"answers": []interface{}{"not", "an", "object"}}, "")
 		requireStatus(t, resp, b, http.StatusBadRequest)
 
 		resp, b = publicSubmit(t, shareToken, map[string]interface{}{"f1": "Extern", "f2": "über den Link"})
@@ -343,7 +345,7 @@ func TestFormulareMemberFlow(t *testing.T) {
 		requireStatus(t, resp, b, http.StatusNotFound)
 
 		rows, total := items(t, schemaURL()+"/submissions", managerToken)
-		want := 3
+		want := 4
 		if len(rows) != want || total != want {
 			t.Fatalf("expected %d stored submissions after the public fill-out, got %d / %d", want, len(rows), total)
 		}

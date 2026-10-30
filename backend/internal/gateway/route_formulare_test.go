@@ -1,6 +1,8 @@
 package gateway
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1007,4 +1009,55 @@ func TestHandleSubmitByShareToken_ReachesRPC(t *testing.T) {
 	req = withChiURLParam(req, "token", "some-token")
 	routes.HandleSubmitByShareToken(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+// TestPublicSubmitAnswers_ObjectAndBase64AreTheSameSubmission: the natural JSON object and the
+// legacy base64 string reach the service as the same bytes.
+func TestPublicSubmitAnswers_ObjectAndBase64AreTheSameSubmission(t *testing.T) {
+	object, ok := publicSubmitAnswers(json.RawMessage(`{"f1":"x"}`))
+	if !ok {
+		t.Fatal("a JSON object must be accepted")
+	}
+	legacy, ok := publicSubmitAnswers(json.RawMessage(`"` + base64.StdEncoding.EncodeToString([]byte(`{"f1":"x"}`)) + `"`))
+	if !ok {
+		t.Fatal("the base64 form of an object must still be accepted")
+	}
+	if string(object) != string(legacy) {
+		t.Fatalf("object %q and base64 %q must reach the service as the same bytes", object, legacy)
+	}
+}
+
+func TestPublicSubmitAnswers_RefusesWhatIsNotAnObject(t *testing.T) {
+	for name, raw := range map[string]string{
+		"null":           `null`,
+		"number":         `5`,
+		"array":          `[1]`,
+		"plain string":   `"not base64 ä"`,
+		"base64 of text": `"` + base64.StdEncoding.EncodeToString([]byte("hello")) + `"`,
+	} {
+		if _, ok := publicSubmitAnswers(json.RawMessage(raw)); ok {
+			t.Errorf("%s: %s must be refused", name, raw)
+		}
+	}
+}
+
+func TestHandleSubmitByShareToken_ObjectBodyReachesRPC(t *testing.T) {
+	routes := newFormulareRoutes(registryWithService("formulare"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/public/formulare/submit/some-token",
+		strings.NewReader(`{"answers":{"f1":"x"}}`))
+	req = withChiURLParam(req, "token", "some-token")
+	routes.HandleSubmitByShareToken(rec, req)
+	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestHandleSubmitByShareToken_NonObjectAnswers(t *testing.T) {
+	routes := newFormulareRoutes(registryWithService("formulare"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/v1/public/formulare/submit/some-token",
+		strings.NewReader(`{"answers":[1,2]}`))
+	req = withChiURLParam(req, "token", "some-token")
+	routes.HandleSubmitByShareToken(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "JSON object")
 }

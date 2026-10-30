@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -1030,8 +1031,17 @@ type createFormShareLinkRequest struct {
 	MaxSubmissionsCamel *int32 `json:"maxSubmissions,omitempty"  validate:"omitempty,min=1"`
 }
 
+// publicSubmitRequest takes `answers` as the JSON object the authenticated route takes; a JSON
+// string is still read as the base64 the old body shape used (see jsonBlob).
 type publicSubmitRequest struct {
-	Answers []byte `json:"answers" validate:"required"`
+	Answers json.RawMessage `json:"answers" validate:"required"`
+}
+
+// publicSubmitAnswers returns the answer bytes the service stores: the JSON object as sent, or the
+// object behind the legacy base64 string. Anything that is not a JSON object is refused.
+func publicSubmitAnswers(raw json.RawMessage) ([]byte, bool) {
+	answers := jsonBlob(raw)
+	return answers, bytes.HasPrefix(bytes.TrimSpace(answers), []byte("{"))
 }
 
 func (fr *FormulareRoutes) HandleListShareLinks(w http.ResponseWriter, r *http.Request) {
@@ -1172,6 +1182,12 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 		return
 	}
 
+	answers, ok := publicSubmitAnswers(req.Answers)
+	if !ok {
+		response.Error(w, http.StatusBadRequest, "answers must be a JSON object")
+		return
+	}
+
 	// The submitter's IP is the only forensic handle on an unauthenticated
 	// write. It is taken from the context middleware.ClientInfo filled under
 	// the configured proxy-trust setting, never from the raw header, so a
@@ -1180,7 +1196,7 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 
 	grpcReq := &formularev1.SubmitFormByShareTokenRequest{
 		Token:   token,
-		Answers: req.Answers,
+		Answers: answers,
 	}
 	if submitIP != "" {
 		grpcReq.IpAddress = &submitIP
@@ -1221,7 +1237,7 @@ func (fr *FormulareRoutes) HandleSubmitByShareToken(w http.ResponseWriter, r *ht
 		external := true
 		fr.dispatchIntake(
 			withGatewayTenant(r.Context(), tenantID),
-			client, tenantID, resp.GetFormSchemaId(), resp.GetSubmissionId(), req.Answers,
+			client, tenantID, resp.GetFormSchemaId(), resp.GetSubmissionId(), answers,
 			intakeOrigin{
 				Channel: intakeChannelExternal,
 				// No RequesterID: nobody is logged in. The requester's identity
