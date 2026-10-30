@@ -2051,7 +2051,7 @@ units:
     service: biz
     model: sonnet
     deps: [fix-dunning-pdf-level1-duplicate-eur]
-    status: todo
+    status: done
     target: kein Dokument druckt eine Währung doppelt oder einen Betrag im falschen Format
     coverage_start: n.a. (Scan)
     scope: >
@@ -2067,6 +2067,83 @@ units:
     done_when:
       - Liste der Formatstellen mit Ergebnis im Journal
       - Fix-Units nach Regel 1
+
+  - id: fix-money-format-de-and-document-currency
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: [scan-money-format-double-currency]
+    status: todo
+    target: Rechnung, Angebot, Gutschrift und Mahnung drucken Beträge de-DE ("1.234,50 EUR") und in der Währung des Belegs
+    coverage_start: n.a. (Fix an gemeinsamer Funktion)
+    scope: >
+      Aus `scan-money-format-double-currency`. `formatEUR` (`internal/biz/pdf/templates.go:420`) ist die EINE Stelle, an
+      der alle fünf PDF-Typen (Angebot, Rechnung, Gutschrift, Mahnung, ZUGFeRD) ihre Beträge drucken. Sie liefert
+      `d.StringFixed(2) + " EUR"`: "1234.50 EUR" statt "1.234,50 EUR", während dieselben Dokumente Daten als `02.01.2006`
+      drucken. Außerdem ist "EUR" fest verdrahtet, obwohl der Mandant über `company_settings.default_currency` eine andere
+      Währung haben kann (`internal/biz/invoice/service.go:199-209`, `Invoice.Currency`/`Quote.Currency`/
+      `CreditNote.Currency` existieren, XRechnung und DATEV lesen sie): eine CHF-Rechnung druckt im PDF "EUR", im
+      XRechnung-XML "CHF". Fix: `formatEUR` wird `formatMoney(d decimal.Decimal, currency string)` (leere Währung ->
+      `models.DefaultCurrency`), de-DE mit Tausenderpunkt und Komma (rein per Stdlib/`StringFixed` plus Gruppierung, keine
+      neue Dependency; negative Beträge der Gutschrift beachten), alle Aufrufer reichen die Belegwährung durch
+      (`buildDunningBody`, `buildTotalsSection`, `buildLineItemRow`). Der Helfer soll in ein kleines exportiertes
+      Paket (z. B. `internal/format`, `Money(d, currency)`), weil `fix-advisory-dsar-money-format-de` ihn braucht.
+      Betroffene Tests erwarten heute "238.00 EUR" (`generator_documents_test.go`, `invoice_ustg14_test.go`): sie werden
+      zur Erwartung "238,00 EUR" umgeschrieben. Neuer Test mit Betrag >= 1000 und mit CHF-Beleg.
+    sources:
+      - backend/internal/biz/pdf/templates.go
+      - backend/internal/biz/pdf/generator.go
+      - backend/internal/biz/pdf/generator_documents_test.go
+      - backend/internal/biz/pdf/invoice_ustg14_test.go
+    done_when:
+      - kein Betrag im Beleg-PDF mit Punkt als Dezimaltrenner; Tausender gruppiert
+      - Belegwährung wird gedruckt (CHF-Test), Fallback EUR
+      - Mutations-Probe (Gruppierung oder Währung entfernen -> Test rot)
+      - desktop-aufrufer: PDF-Bytes, keine Wire-Änderung
+
+  - id: fix-advisory-dsar-money-format-de
+    phase: 4
+    service: crm
+    model: sonnet
+    deps: [fix-money-format-de-and-document-currency]
+    status: todo
+    target: Beratungsprotokoll und DSAR-Auskunft drucken Beträge im deutschen Format
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-money-format-double-currency`. Gleiche Klasse wie die PDF-Belege, eigene Stellen mit `fmt.Sprintf("%.2f
+      EUR", float)`: `internal/crm/advisoryprotocol/service.go:390,393` (Nettoeinkommen, Liquide Mittel; deutschsprachiges
+      Protokoll) und `internal/security/gdpr/dsar_search.go:2341` (Beratungsprotokoll-Beträge), `:2511` (Rechnungsbetrag),
+      `:2989` (Deal-Wert mit `currency`). Auf den Helfer aus `fix-money-format-de-and-document-currency` umstellen
+      (float -> `decimal.NewFromFloat`). Prozentwerte (`%.1f%%`, `%.2f %%`) mit Komma mitziehen. CSV-Exporte
+      (`vermietung_grpc.go:607`, DATEV) bleiben maschinenlesbar und sind NICHT Teil der Unit.
+    sources:
+      - backend/internal/crm/advisoryprotocol/service.go
+      - backend/internal/security/gdpr/dsar_search.go
+    done_when:
+      - fünf Stellen de-DE, Tests je Stelle (Betrag >= 1000)
+      - Mutations-Probe
+      - desktop-aufrufer: DSAR-Felder sind Anzeigetext; Desktop-Aufrufer greppen (Parser auf "." im Betrag?)
+
+  - id: fix-berichte-kpi-unit-tenant-currency
+    phase: 4
+    service: berichte
+    model: sonnet
+    deps: [fix-advisory-dsar-money-format-de]
+    status: todo
+    target: Dashboard-KPIs tragen die Mandantenwährung als Einheit statt festem "EUR"
+    coverage_start: n.a. (Fix)
+    scope: >
+      Aus `scan-money-format-double-currency`. `internal/berichte/executor/executor.go:446,463` setzt `Unit: "EUR"` fest,
+      obwohl die Zahlen aus `kpi_postgres.go:65-147` auf `company_settings.default_currency` gefiltert sind: ein
+      CHF-Mandant sieht CHF-Summen mit Einheit "EUR". Einheit aus derselben Quelle lesen (Fallback EUR). Vor dem Bauen
+      prüfen, wie das FE `unit` rendert (`desktop/src/renderer/src/api/` berichte-types) — Wire-Typ bleibt String.
+      Nicht Teil: gespeicherte Dokument-KPI-Blöcke (`export/document_pdf.go:313`), deren Wert/Einheit kommt aus dem FE.
+    sources:
+      - backend/internal/berichte/executor/executor.go
+      - backend/internal/berichte/downstream/kpi_postgres.go
+    done_when:
+      - Test mit CHF-Mandant liefert Unit "CHF", ohne Settings "EUR"
+      - Mutations-Probe
 
   - id: scan-child-tables-cascade-on-parent-delete-and-scrub
     phase: 4

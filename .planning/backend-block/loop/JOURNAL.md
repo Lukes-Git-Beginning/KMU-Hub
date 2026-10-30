@@ -807,3 +807,22 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Eingabevalidierung geändert; bisher 500 bei Exclusion/Deadlock aus Repos ohne eigenes Mapping, jetzt 409 — der Desktop behandelt beides als Fehler)
 - offen: Backstop ist nicht reproduziert (siehe Iteration 64), sondern defensiv. Aborted -> 409 setzt voraus, dass der Client erneut versucht; automatisches Retry gibt es nirgends.
+
+## Iteration 66 — scan-money-format-double-currency — done — 2026-10-30 07:40
+- commit: siehe Commit `docs(loop): record scan of money format and document currency` (git log)
+- gebaut: nichts am Produktivcode (Scan). Drei Fix-Units direkt hinter den Scan gelegt.
+- scan-ergebnis: Suchstrategie: alle `StringFixed`/`%.2f`/`FormatFloat`/`formatEUR`/`formatMoney`-Stellen in `internal` und `cmd` (ohne bexio/lexware, ohne Tests), dazu alle Literale `EUR`/`€` mit Platzhalter, `Sprintf` mit Betragsbegriffen (Betrag, Summe, Total, amount, Rechnung) und die Mail-/Benachrichtigungs-Pakete. Ergebnis je Stelle:
+  - Doppelte Währung: `"EUR"` kommt im ganzen PDF-Paket nur noch in `formatEUR` (`templates.go:421`) vor, kein Aufrufer hängt eigenes " EUR" an (Fix `bc40e41d` hält). `systemmail` und `email/template` enthalten keine Beträge. 0 weitere Doppelungen.
+  - `formatEUR` -> "1234.50 EUR": Punkt, kein Tausenderpunkt, im selben Dokument sind Daten `02.01.2006`. Eine Stelle, fünf PDF-Typen (Angebot, Rechnung, Gutschrift, Mahnung, ZUGFeRD). Tests zementieren "238.00 EUR". -> Fix-Unit `fix-money-format-de-and-document-currency`.
+  - Gleiche Funktion druckt "EUR" fest, `Invoice/Quote/CreditNote.Currency` und `company_settings.default_currency` (`invoice/service.go:199-209`) existieren; XRechnung/DATEV nutzen sie, das PDF nicht -> im selben Fix.
+  - `advisoryprotocol/service.go:390,393` und `gdpr/dsar_search.go:2341,2511,2989`: `%.2f EUR` bzw. `%.2f <currency>` -> Fix-Unit `fix-advisory-dsar-money-format-de`.
+  - `executor.go:446,463` `Unit: "EUR"` fest, Summen aber auf Mandantenwährung gefiltert (`kpi_postgres.go`) -> `fix-berichte-kpi-unit-tenant-currency`.
+  - Bewusst ohne Fund: DATEV (`formatDecimalForDATEV`, Komma korrekt), XRechnung/CII/UBL (Punkt vorgeschrieben), `vermietung_grpc.go:607` (CSV, maschinenlesbar, RFC3339-Daten), `rapporte/pdf.go:152` (Menge, kein Betrag), Berichte-Dokument-KPI (`document_pdf.go:313`, Wert und Einheit kommen aus dem FE-Block, `—`-Platzhalter in `templates_data.go`).
+  - Nicht per Render-Test belegt: der Ist-Zustand folgt direkt aus `d.StringFixed(2)` und den bestehenden Test-Erwartungen ("238.00 EUR"); ein Betrag >= 1000 hat keinen Test.
+- gate: n.a. (kein Code geändert); `backlog-check --preflight` sauber
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (Commit `fa26621d`: `pgConstraintError` um drei SQLSTATE ergänzt, kein Proto/Route/Guard/Tabelle, Tests je Code und Vorrang des Domänenfehlers)
+- neue-units: `fix-money-format-de-and-document-currency`, `fix-advisory-dsar-money-format-de`, `fix-berichte-kpi-unit-tenant-currency` (alle hinter dem Scan, kein Leck/Totalausfall)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; die Fix-Units prüfen ihre Aufrufer selbst)
+- offen: Die Format-Änderung (Komma statt Punkt im PDF) ist eine sichtbare Änderung an Kundenbelegen; Luke sollte ein erzeugtes Rechnungs-PDF ansehen. Währung der Mandanten ist laut Produktionsdaten vermutlich überall EUR, der CHF-Fall ist vom Code her möglich, nicht gemessen.
