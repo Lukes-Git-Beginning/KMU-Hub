@@ -1040,6 +1040,18 @@ func TestCreateComment_CrossTenant_FileNotFound(t *testing.T) {
 	assert.ErrorIs(t, err, ErrFileNotFound, "a file from another tenant must not accept comments")
 }
 
+func TestCreateComment_DeletedFile_Rejected(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	require.NoError(t, svc.Delete(context.Background(), file.ID, tenant))
+
+	c, err := svc.CreateComment(context.Background(), tenant, file.ID, uuid.New(), "hello")
+
+	require.ErrorIs(t, err, ErrFileDeleted)
+	assert.Nil(t, c)
+}
+
 func TestUpdateComment_AuthorCanEdit(t *testing.T) {
 	svc, repo, _ := newTestService()
 	tenant := uuid.New()

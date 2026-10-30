@@ -317,6 +317,13 @@ func (s *DocumentGRPCServer) RegisterUploadedFile(ctx context.Context, req *docu
 		return nil, status.Error(codes.InvalidArgument, "invalid owner id")
 	}
 
+	// The record points at a folder: resolve it tenant-scoped first, as
+	// UploadFile does. A blank insert would answer 500 from the FK for an
+	// unknown folder and accept one that belongs to another tenant.
+	if _, err := s.folderService.GetByID(ctx, tenantID, folderID); err != nil {
+		return nil, mapDocumentError(err)
+	}
+
 	f, err := s.fileService.Register(ctx, file.RegisterInput{
 		TenantID:   tenantID,
 		FolderID:   folderID,

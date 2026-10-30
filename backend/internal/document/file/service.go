@@ -124,8 +124,14 @@ func (s *Service) CreateComment(ctx context.Context, tenantID, fileID, authorID 
 	}
 
 	// Verify the file exists and belongs to the tenant before attaching a comment.
-	if _, err := s.repo.GetByID(ctx, fileID, tenantID); err != nil {
+	// GetByID does not filter is_deleted, so a trashed file is refused here the
+	// same way CreateShareLink and CreateVersion refuse it.
+	f, err := s.repo.GetByID(ctx, fileID, tenantID)
+	if err != nil {
 		return nil, err
+	}
+	if f.IsDeleted {
+		return nil, ErrFileDeleted
 	}
 
 	now := time.Now()
