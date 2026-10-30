@@ -1,6 +1,8 @@
 package dachfmt
 
 import (
+	"math"
+	"strconv"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -32,4 +34,19 @@ func FormatMoney(d decimal.Decimal, currency string) string {
 		b.WriteRune(c)
 	}
 	return sign + b.String() + "," + frac + " " + currency
+}
+
+// FormatMoneyFloat is FormatMoney for float64 columns. NaN and Inf (reachable
+// from a Postgres NUMERIC 'NaN') yield "" instead of panicking in decimal.
+func FormatMoneyFloat(f float64, currency string) string {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return ""
+	}
+	return FormatMoney(decimal.NewFromFloat(f), currency)
+}
+
+// FormatFloatDE renders f with the given number of decimals and a decimal
+// comma, without grouping ("12,5"), for percentages and similar ratios.
+func FormatFloatDE(f float64, places int) string {
+	return strings.Replace(strconv.FormatFloat(f, 'f', places, 64), ".", ",", 1)
 }

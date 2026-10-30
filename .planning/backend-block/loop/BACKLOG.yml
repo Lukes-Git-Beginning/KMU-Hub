@@ -2106,7 +2106,7 @@ units:
     service: crm
     model: sonnet
     deps: [fix-money-format-de-and-document-currency]
-    status: todo
+    status: done
     target: Beratungsprotokoll und DSAR-Auskunft drucken Beträge im deutschen Format
     coverage_start: n.a. (Fix)
     # Hinweis aus fix-money-format-de-and-document-currency: der Helfer heisst `dachfmt.FormatMoney(d, currency)`

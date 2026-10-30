@@ -1,6 +1,7 @@
 package dachfmt
 
 import (
+	"math"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -30,5 +31,26 @@ func TestFormatMoney(t *testing.T) {
 		if got != c.want {
 			t.Errorf("FormatMoney(%s, %q) = %q, want %q", c.in, c.currency, got, c.want)
 		}
+	}
+}
+
+func TestFormatMoneyFloat(t *testing.T) {
+	if got := FormatMoneyFloat(12345.5, "EUR"); got != "12.345,50 EUR" {
+		t.Errorf("got %q", got)
+	}
+	if got := FormatMoneyFloat(math.NaN(), "EUR"); got != "" {
+		t.Errorf("NaN: got %q, want empty", got)
+	}
+	if got := FormatMoneyFloat(math.Inf(1), "EUR"); got != "" {
+		t.Errorf("Inf: got %q, want empty", got)
+	}
+}
+
+func TestFormatFloatDE(t *testing.T) {
+	if got := FormatFloatDE(35.5, 1); got != "35,5" {
+		t.Errorf("got %q", got)
+	}
+	if got := FormatFloatDE(1234.567, 2); got != "1234,57" {
+		t.Errorf("got %q", got)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kmuhub/kmuhub/internal/crm/advisoryprotocol"
+	"github.com/kmuhub/kmuhub/internal/dachfmt"
 	"github.com/kmuhub/kmuhub/internal/sysctx"
 )
 
@@ -2338,14 +2339,14 @@ func moneyOrEmpty(v *float64) string {
 	// lean: EUR hardcoded, same reasoning as financeModule below -- the
 	// product is DACH/EUR-only and advisory_protocols carries no currency
 	// column of its own.
-	return fmt.Sprintf("%.2f EUR", *v)
+	return dachfmt.FormatMoneyFloat(*v, "EUR")
 }
 
 func percentOrEmpty(v *float64) string {
 	if v == nil {
 		return ""
 	}
-	return fmt.Sprintf("%.2f %%", *v)
+	return dachfmt.FormatFloatDE(*v, 2) + " %"
 }
 
 // formFieldMeta is a partial decode of one entry in form_schemas.fields --
@@ -2508,7 +2509,7 @@ func financeModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID 
 			// lean: EUR hardcoded — finance_invoices carries no currency column
 			// because the product is DACH/EUR-only; revisit if multi-currency
 			// billing lands.
-			{Key: "Betrag", Value: fmt.Sprintf("%.2f EUR", gross)},
+			{Key: "Betrag", Value: dachfmt.FormatMoneyFloat(gross, "EUR")},
 		}})
 	}
 	if err := rows.Err(); err != nil {
@@ -2986,7 +2987,7 @@ func dealsModule(ctx context.Context, pool *pgxpool.Pool, tenantID, contactID uu
 		}
 		mod.Records = append(mod.Records, DSARRecord{Fields: []DSARField{
 			{Key: "Bezeichnung", Value: name},
-			{Key: "Wert", Value: fmt.Sprintf("%.2f %s", value, currency)},
+			{Key: "Wert", Value: dachfmt.FormatMoneyFloat(value, currency)},
 			{Key: "Phase", Value: stage},
 			{Key: "Erstellt", Value: at.Format(dsarTimeLayout)},
 		}})

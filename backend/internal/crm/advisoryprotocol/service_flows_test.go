@@ -36,7 +36,7 @@ func TestGeneratePDF_FullProtocolRendersEveryField(t *testing.T) {
 	for _, want := range []string{
 		"Max Mustermann", "Zentria Beratung", "Erika Musterberaterin", "2026-03-15",
 		"09:00", "10:00", "Aktienfonds seit 2015", "Bankkaufmann", "10 Jahre Finanzbranche",
-		"4200.50 EUR", "12000.00 EUR", "35.5%", "stocks, etf", "retirement, growth",
+		"4.200,50 EUR", "12.000,00 EUR", "35,5%", "stocks, etf", "retirement, growth",
 		"4 / 7", "Nachhaltige Fonds bevorzugt", "Breit gestreutes ETF-Portfolio",
 		"Passt zu Zielen und Risikoprofil", "Altersvorsorge", "risk, costs", "2026-03-20",
 		"E. Musterberaterin", "FinVermV",

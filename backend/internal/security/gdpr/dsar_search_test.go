@@ -654,7 +654,7 @@ func TestSearchByQuery_ContactAdvisoryProtocols_Integration(t *testing.T) {
 	assert.Equal(t, "stocks, etf", oldFields["Bekannte Anlageklassen"], "an array column must render as readable text, not Postgres array syntax")
 	assert.Equal(t, "retirement, growth", oldFields["Anlagezweck"])
 	assert.Equal(t, "risk, costs", oldFields["Erteilte Warnhinweise"])
-	assert.Equal(t, "4200.50 EUR", oldFields["Monatliches Nettoeinkommen"])
+	assert.Equal(t, "4.200,50 EUR", oldFields["Monatliches Nettoeinkommen"])
 	assert.Equal(t, "Global Equity ETF (SRI 4, empfohlen)", oldFields["Besprochene Produkte"],
 		"a JSONB product list must render as readable text, not raw JSON")
 
@@ -1876,7 +1876,7 @@ func TestSearchByQuery_UserHRProfile_Integration(t *testing.T) {
 	assert.Equal(t, "Ines Brennecke", profile["Notfallkontakt"])
 	assert.Equal(t, "+49 151 2233445", profile["Notfallkontakt Telefon"])
 	assert.Equal(t, "Kastanienallee 9, 04109 Leipzig, DE", profile["Adresse"])
-	assert.Equal(t, "21.50 EUR", profile["Stundenlohn"])
+	assert.Equal(t, "21,50 EUR", profile["Stundenlohn"])
 	assert.Equal(t, "active", profile["Status"])
 	assert.Equal(t, "Nein", profile["Minderjährig"])
 	assert.Equal(t, "", profile["Austrittsdatum"], "an active employee has no exit date")

@@ -837,3 +837,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (PDF-Bytes, keine Wire-Änderung; Desktop lädt/zeigt PDFs nur an, parst keine Beträge daraus)
 - offen: Sichtbare Änderung an Kundenbelegen (Punkt -> Komma, Tausenderpunkt, Belegwährung). Luke sollte ein erzeugtes Rechnungs-PDF ansehen. Die ZUGFeRD-XML (Punkt vorgeschrieben) ist unverändert. Die PDF-Fließtexte bleiben ASCII ("moechten", "ueber") — nicht Teil dieser Unit.
+
+## Iteration 68 — fix-advisory-dsar-money-format-de — done — 2026-10-30 07:50
+- commit: siehe Commit `fix(crm): print advisory protocol and DSAR amounts in de-DE format` (git log)
+- gebaut: `dachfmt.FormatMoneyFloat(f, currency)` (NaN/Inf -> "" statt Panic in `decimal.NewFromFloat`) und `dachfmt.FormatFloatDE(f, places)` für Prozentwerte. Umgestellt: `advisoryprotocol/service.go` (Nettoeinkommen, Liquide Mittel, Verlusttragfähigkeit %), `gdpr/dsar_search.go` (`moneyOrEmpty`, `percentOrEmpty`, Rechnungsbetrag, Deal-Wert mit Dealwährung). Leere Deal-Währung fällt jetzt auf EUR statt leer. Bestehende Test-Erwartungen (PDF, 2 DSAR-Tests) auf de-DE angepasst.
+- gate: build ok | vet ok | lint ok (0 issues, advisoryprotocol + gdpr + dachfmt) | test ok (`./internal/security/gdpr/`, `./internal/crm/advisoryprotocol/`, `./internal/dachfmt/`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: n.a. (Fix; neuer Code in dachfmt vollständig getestet, Betragsstellen >= 1000 je Stelle belegt)
+- mutations-probe: Deal-Wert, `percentOrEmpty` und Verlusttragfähigkeit auf `Sprintf("%.2f")` zurückgedreht: `TestMoneyAndPercentOrEmpty_GermanFormat`, `TestFinanceAndDealsModule_GermanMoneyFormat_Integration` und `TestGeneratePDF_FullProtocolRendersEveryField` rot. Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `9e625142`: nur `dachfmt`/`biz/pdf`, kein Proto/Route/Guard/Tabelle; Tests je Belegtyp und CHF)
+- neue-units: keine
+- desktop-aufrufer: DSAR-Felder -> `modules/security/DSARSearchPage.tsx` zeigt die Werte als Text, kein `parseFloat`/`Number` auf Betragsfeldern -> passt
+- offen: Sichtbare Änderung in Beratungsprotokoll-PDF und DSAR-Auskunft (Komma, Tausenderpunkt). Der Rechnungsbetrag im DSAR bleibt fest EUR (keine Währungsspalte in `finance_invoices`).

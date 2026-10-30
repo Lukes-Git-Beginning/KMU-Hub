@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/kmuhub/kmuhub/internal/dachfmt"
 	"github.com/johnfercher/maroto/v2"
 	"github.com/johnfercher/maroto/v2/pkg/components/row"
 	"github.com/johnfercher/maroto/v2/pkg/components/text"
@@ -387,13 +388,13 @@ func (s *Service) GeneratePDF(ctx context.Context, p *Protocol, contactName, com
 	// § 4
 	addSection("Finanzielle Situation")
 	if p.MonthlyNetIncome != nil {
-		addField("Nettoeinkommen/Monat", fmt.Sprintf("%.2f EUR", *p.MonthlyNetIncome))
+		addField("Nettoeinkommen/Monat", dachfmt.FormatMoneyFloat(*p.MonthlyNetIncome, "EUR"))
 	}
 	if p.LiquidAssets != nil {
-		addField("Liquide Mittel", fmt.Sprintf("%.2f EUR", *p.LiquidAssets))
+		addField("Liquide Mittel", dachfmt.FormatMoneyFloat(*p.LiquidAssets, "EUR"))
 	}
 	if p.MaxLossCapacityPct != nil {
-		addField("Max. Verlusttragfähigkeit", fmt.Sprintf("%.1f%%", *p.MaxLossCapacityPct))
+		addField("Max. Verlusttragfähigkeit", dachfmt.FormatFloatDE(*p.MaxLossCapacityPct, 1)+"%")
 	}
 
 	// § 5
