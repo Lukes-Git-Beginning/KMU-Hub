@@ -1556,7 +1556,7 @@ units:
     service: work
     model: opus
     deps: [fix-work-task-edit-own-scope-subroutes]
-    status: todo
+    status: done
     target: '`PUT /tasks/{id}/labels` und `PUT /tasks/{id}/custom-fields` halten `work:task:edit` im Scope own ein'
     coverage_start: n.a. (Bugfix)
     scope: >

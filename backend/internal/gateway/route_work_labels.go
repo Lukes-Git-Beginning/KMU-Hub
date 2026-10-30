@@ -161,10 +161,17 @@ func (w *WorkRoutes) HandleSetTaskLabels(wr http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	// Legacy work_labels:write beyond own keeps the edit tenant-wide (member
+	// holds it); work:task:edit at own limits it to the caller's tasks.
+	ownerID, ok := ownerFilterUnlessAltKey(wr, r, [2]string{"work_labels", "write"}, "work:task", "edit")
+	if !ok {
+		return
+	}
 
 	_, err = client.SetTaskLabels(r.Context(), &workv1.SetTaskLabelsRequest{
 		TaskId:   taskID,
 		LabelIds: req.LabelIDs,
+		OwnerId:  ownerID,
 	})
 	if err != nil {
 		respondGRPCError(wr, err)

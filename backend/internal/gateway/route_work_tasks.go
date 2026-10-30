@@ -860,6 +860,11 @@ func (w *WorkRoutes) HandleSetTaskCustomFieldValues(wr http.ResponseWriter, r *h
 		return
 	}
 
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
+
 	var values []*workv1.CustomFieldValueInput
 	for _, v := range req.Values {
 		values = append(values, &workv1.CustomFieldValueInput{
@@ -869,8 +874,9 @@ func (w *WorkRoutes) HandleSetTaskCustomFieldValues(wr http.ResponseWriter, r *h
 	}
 
 	resp, err := client.SetTaskCustomFieldValues(r.Context(), &workv1.SetTaskCustomFieldValuesRequest{
-		TaskId: taskID,
-		Values: values,
+		TaskId:  taskID,
+		Values:  values,
+		OwnerId: ownerID,
 	})
 	if err != nil {
 		respondGRPCError(wr, err)

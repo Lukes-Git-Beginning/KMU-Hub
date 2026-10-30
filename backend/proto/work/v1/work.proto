@@ -741,6 +741,10 @@ message GetTaskFileDownloadURLResponse {
 message SetTaskCustomFieldValuesRequest {
   string task_id = 1;
   repeated CustomFieldValueInput values = 2;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 3;
 }
 
 message SetTaskCustomFieldValuesResponse {
@@ -1031,6 +1035,10 @@ message DeleteLabelResponse {}
 message SetTaskLabelsRequest {
   string task_id = 1;
   repeated string label_ids = 2;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 3;
 }
 
 message SetTaskLabelsResponse {}

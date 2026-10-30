@@ -35,7 +35,8 @@ import (
 // ResolveTokenPermissions, the real Auth middleware and route registration, a
 // real work gRPC server behind TenantInboundUnaryInterceptor and the Postgres
 // repositories. The same scope holds on the edit sub-routes of a task:
-// dependencies, entity links and files, including their top-level deletes.
+// dependencies, entity links and files, including their top-level deletes,
+// and the label and custom-field PUTs.
 
 var ownTaskEditTenant = uuid.MustParse("e4fec700-0000-4000-8000-0000000000d4")
 
@@ -329,6 +330,72 @@ func TestWorkOwnTaskEdit_HRAdminAgainstRealSeed(t *testing.T) {
 			if code, out := do(http.MethodDelete, memberToken, c.del+c.id, ""); code != http.StatusOK || rows(c.table, c.id) != 0 {
 				t.Errorf("member DELETE %s on hr_admin's task = %d %v", c.del, code, out)
 			}
+		}
+	})
+
+	// Labels and custom-field values replace the task's set in one PUT.
+	labelID := testutil.SeedRow(t, pool, "work_labels", map[string]any{
+		"id": uuid.New(), "tenant_id": ownTaskEditTenant, "name": "Dringend-" + uuid.NewString(),
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "work_labels", labelID) })
+	fieldID := testutil.SeedRow(t, pool, "work_custom_field_definitions", map[string]any{
+		"id": uuid.New(), "tenant_id": ownTaskEditTenant, "name": "Kostenstelle-" + uuid.NewString(), "field_type": "text",
+	})
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "work_custom_field_definitions", fieldID) })
+	labelBody := `{"label_ids":["` + labelID.String() + `"]}`
+	fieldBody := `{"values":[{"field_id":"` + fieldID.String() + `","value":"\"4711\""}]}`
+	labelsOn := func(taskID string) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(sysCtx, `SELECT count(*) FROM task_labels WHERE task_id = $1`, taskID).Scan(&n); err != nil {
+			t.Fatalf("count task_labels: %v", err)
+		}
+		return n
+	}
+	fieldsOn := func(taskID string) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(sysCtx, `SELECT count(*) FROM task_custom_field_values WHERE task_id = $1`, taskID).Scan(&n); err != nil {
+			t.Fatalf("count task_custom_field_values: %v", err)
+		}
+		return n
+	}
+
+	t.Run("hr_admin sets labels and custom fields on the tasks they own or are assigned to", func(t *testing.T) {
+		for _, taskID := range []string{own, assigned} {
+			if code, out := do(http.MethodPut, hrToken, "/tasks/"+taskID+"/labels", labelBody); code != http.StatusNoContent || labelsOn(taskID) != 1 {
+				t.Errorf("PUT own labels = %d %v, labels %d", code, out, labelsOn(taskID))
+			}
+			if code, out := do(http.MethodPut, hrToken, "/tasks/"+taskID+"/custom-fields", fieldBody); code != http.StatusOK || fieldsOn(taskID) != 1 {
+				t.Errorf("PUT own custom fields = %d %v, values %d", code, out, fieldsOn(taskID))
+			}
+		}
+	})
+
+	t.Run("hr_admin cannot set labels or custom fields on a colleague's task", func(t *testing.T) {
+		if code, out := do(http.MethodPut, memberToken, "/tasks/"+other+"/labels", labelBody); code != http.StatusNoContent {
+			t.Fatalf("member PUT labels = %d %v", code, out)
+		}
+		if code, out := do(http.MethodPut, hrToken, "/tasks/"+other+"/labels", `{"label_ids":[]}`); code != http.StatusNotFound {
+			t.Errorf("PUT foreign labels = %d %v, want 404", code, out)
+		}
+		if n := labelsOn(other); n != 1 {
+			t.Errorf("refused PUT labels left %d labels on the foreign task, want 1", n)
+		}
+		if code, out := do(http.MethodPut, hrToken, "/tasks/"+members+"/custom-fields", fieldBody); code != http.StatusNotFound {
+			t.Errorf("PUT foreign custom fields = %d %v, want 404", code, out)
+		}
+		if n := fieldsOn(members); n != 0 {
+			t.Errorf("refused PUT custom fields wrote %d values on the foreign task", n)
+		}
+	})
+
+	t.Run("member sets labels and custom fields tenant-wide", func(t *testing.T) {
+		if code, out := do(http.MethodPut, memberToken, "/tasks/"+own+"/labels", `{"label_ids":[]}`); code != http.StatusNoContent || labelsOn(own) != 0 {
+			t.Errorf("member PUT labels on hr_admin's task = %d %v, labels %d", code, out, labelsOn(own))
+		}
+		if code, out := do(http.MethodPut, memberToken, "/tasks/"+members+"/custom-fields", fieldBody); code != http.StatusOK || fieldsOn(members) != 1 {
+			t.Errorf("member PUT custom fields = %d %v, values %d", code, out, fieldsOn(members))
 		}
 	})
 }

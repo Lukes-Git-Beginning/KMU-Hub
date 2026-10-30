@@ -1605,6 +1605,14 @@ func (s *WorkGRPCServer) SetTaskCustomFieldValues(ctx context.Context, req *work
 		values[fieldID] = val
 	}
 
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.taskService.RequireOwnTask(ctx, tenantID, taskID, ownerID); err != nil {
+		return nil, mapWorkError(err)
+	}
+
 	if err := s.taskRepo.SetCustomFieldValues(ctx, taskID, tenantID, values); err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -2591,6 +2599,20 @@ func (s *WorkGRPCServer) SetTaskLabels(ctx context.Context, req *workv1.SetTaskL
 	tenantID, err := middleware.GetTenantID(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
+
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != nil {
+		taskID, parseErr := uuid.Parse(req.TaskId)
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid task_id")
+		}
+		if err := s.taskService.RequireOwnTask(ctx, tenantID, taskID, ownerID); err != nil {
+			return nil, mapWorkError(err)
+		}
 	}
 
 	if err := s.labelService.SetTaskLabels(ctx, tenantID.String(), req.TaskId, req.LabelIds); err != nil {

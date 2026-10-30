@@ -7057,6 +7057,10 @@ paths:
     put:
       summary: Set task custom field values
       tags: [tasks]
+      description: >-
+        Replaces the custom-field values of the task. Holding work:task:edit only at scope own (and
+        no legacy tasks:write beyond own) limits this to tasks the caller created or
+        is assigned to; any other task answers 404 and stays unchanged.
       operationId: setTaskCustomFieldValues
       security:
         - bearerAuth: []
@@ -7093,6 +7097,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -17042,6 +17048,10 @@ paths:
     put:
       summary: Replace all labels assigned to a task
       tags: [work-labels]
+      description: >-
+        Replaces the label assignments of the task. Holding work:task:edit only at scope own (and
+        no legacy work_labels:write beyond own) limits this to tasks the caller created or
+        is assigned to; any other task answers 404 and stays unchanged.
       operationId: setTaskLabels
       security:
         - bearerAuth: []

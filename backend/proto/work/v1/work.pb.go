@@ -5626,9 +5626,13 @@ func (x *GetTaskFileDownloadURLResponse) GetUrl() string {
 }
 
 type SetTaskCustomFieldValuesRequest struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	TaskId        string                   `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Values        []*CustomFieldValueInput `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
+	state  protoimpl.MessageState   `protogen:"open.v1"`
+	TaskId string                   `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Values []*CustomFieldValueInput `protobuf:"bytes,2,rep,name=values,proto3" json:"values,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5675,6 +5679,13 @@ func (x *SetTaskCustomFieldValuesRequest) GetValues() []*CustomFieldValueInput {
 		return x.Values
 	}
 	return nil
+}
+
+func (x *SetTaskCustomFieldValuesRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
 }
 
 type SetTaskCustomFieldValuesResponse struct {
@@ -8357,9 +8368,13 @@ func (*DeleteLabelResponse) Descriptor() ([]byte, []int) {
 }
 
 type SetTaskLabelsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	LabelIds      []string               `protobuf:"bytes,2,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	TaskId   string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	LabelIds []string               `protobuf:"bytes,2,rep,name=label_ids,json=labelIds,proto3" json:"label_ids,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8406,6 +8421,13 @@ func (x *SetTaskLabelsRequest) GetLabelIds() []string {
 		return x.LabelIds
 	}
 	return nil
+}
+
+func (x *SetTaskLabelsRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
 }
 
 type SetTaskLabelsResponse struct {
@@ -9545,10 +9567,12 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x1dGetTaskFileDownloadURLRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"2\n" +
 	"\x1eGetTaskFileDownloadURLResponse\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\"r\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\"\x9f\x01\n" +
 	"\x1fSetTaskCustomFieldValuesRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x126\n" +
-	"\x06values\x18\x02 \x03(\v2\x1e.work.v1.CustomFieldValueInputR\x06values\"\xc5\x01\n" +
+	"\x06values\x18\x02 \x03(\v2\x1e.work.v1.CustomFieldValueInputR\x06values\x12\x1e\n" +
+	"\bowner_id\x18\x03 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\xc5\x01\n" +
 	" SetTaskCustomFieldValuesResponse\x12`\n" +
 	"\rcustom_fields\x18\x01 \x03(\v2;.work.v1.SetTaskCustomFieldValuesResponse.CustomFieldsEntryR\fcustomFields\x1a?\n" +
 	"\x11CustomFieldsEntry\x12\x10\n" +
@@ -9757,10 +9781,12 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x05label\x18\x01 \x01(\v2\x13.work.v1.LabelProtoR\x05label\"$\n" +
 	"\x12DeleteLabelRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x15\n" +
-	"\x13DeleteLabelResponse\"L\n" +
+	"\x13DeleteLabelResponse\"y\n" +
 	"\x14SetTaskLabelsRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
-	"\tlabel_ids\x18\x02 \x03(\tR\blabelIds\"\x17\n" +
+	"\tlabel_ids\x18\x02 \x03(\tR\blabelIds\x12\x1e\n" +
+	"\bowner_id\x18\x03 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x17\n" +
 	"\x15SetTaskLabelsResponse\"\x95\x01\n" +
 	"\x1aCustomFieldDefinitionProto\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -10311,6 +10337,7 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[75].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[83].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[85].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[91].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[97].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[99].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[101].OneofWrappers = []any{}
@@ -10318,6 +10345,7 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[109].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[110].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[112].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[141].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
