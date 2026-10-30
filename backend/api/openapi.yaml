@@ -31737,7 +31737,9 @@ paths:
                 expires_in_days:
                   type: integer
                   nullable: true
-                  description: Absent, null or 0 means the link never expires. Max 365.
+                  description: >-
+                    Absent, null or 0 means the link expires after 365 days; no link is minted
+                    without an end. Values above 365 or below 0 are refused with 400.
                 password:
                   type: string
                   maxLength: 72

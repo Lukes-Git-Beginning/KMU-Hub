@@ -298,3 +298,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; ein verlorenes Rennen liefert 409 statt 500, `ErrBookingConflict` war am Gateway schon auf 409 gemappt)
 - offen: (1) Der Deadlock-Abbruch verwirft das Statement ohne Retry: der Verlierer bekommt 409 und kann neu buchen. (2) `asBookingConflict` ist in produktion und fuhrpark dupliziert; ein gemeinsamer Helfer lohnt erst bei einem dritten Paket (z. B. vermietung).
+
+## Iteration 22 — harden-document-share-links-max-365-days — done — 2026-10-30 02:11
+- commit: siehe Commit `fix(document): expire every document share link within 365 days` (git log)
+- gebaut: `CreateShareLink` (`internal/document/file/service.go`) setzt bei fehlendem oder 0 `expires_in_days` jetzt +365 Tage, `<0` oder `>365` bleibt `ErrShareLinkExpiryInvalid` (gRPC InvalidArgument, Gateway 400, Mapping existierte). Migration 000368: Bestand ohne Ablauf auf `created_at + 365 days`, danach `expires_at SET NOT NULL` (up/down/up lokal sauber, Kopf 368). Spec-Beschreibung von `createDocumentShareLink` angepasst.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/document/..., internal/server, internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app) | migration ok | rls-smoke n.a. (Policy unverändert, nur Spalten-Constraint)
+- coverage: internal/document/file 84,9 % (vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: Default `days := int32(maxShareLinkExpiryDays)` auf 0 gesetzt -> `TestCreateShareLink_NoPasswordDefaultExpiry/absent` und `/zero` rot; zurückgedreht (Datei entspricht Backup). Neuer DB-Test `…RefusesLinkWithoutExpiry` belegt die NOT-NULL-Eigenschaft der Tabelle.
+- verify vorgaenger: sauber (Commit `bd38d3d5`: kein Proto, keine Route, kein Guard, keine Tabelle; Mapping 40P01 mit Test)
+- neue-units: keine
+- desktop-aufrufer: `POST /documents/files/{id}/share-links` -> kein Aufrufer in `api/`/`hooks/` (nur generierte `api/types.ts`) -> passt
+- offen: (1) Anzahl sofort abgelaufener Bestandslinks lokal nicht gezählt, in Produktion vor dem Deploy zählbar: `SELECT count(*) FROM document_share_links WHERE expires_at IS NULL AND created_at < now() - interval '365 days'` (Lesen auf Prod ist Lukes Sache). (2) Der Proto-Kommentar an `CreateShareLinkRequest.expires_in_days` sagt noch „absent or 0 = never expires"; nur Kommentar, kein Regen angestoßen. (3) Das Token liegt bei Dokument-Links weiter im Klartext (000266, bewusst); Hash-Umstellung wäre eine eigene Unit. (4) Verhaltensänderung: Antwort auf „kein Ablauf" liefert jetzt ein `expires_at`.

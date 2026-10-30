@@ -70,7 +70,7 @@ func TestPostgresRepository_ListShareLinks_TenantIsolation(t *testing.T) {
 
 	if err := repo.CreateShareLink(ctx, &models.DocumentShareLink{
 		ID: uuid.New(), TenantID: fx.tenant, FileID: fx.file,
-		Token: uuid.NewString(), CreatedAt: time.Now(),
+		Token: uuid.NewString(), ExpiresAt: inOneDay(), CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestPostgresRepository_GetShareLinkByToken_NoTenantInSession(t *testing.T) 
 	token := uuid.NewString()
 	if err := repo.CreateShareLink(tenantCtx, &models.DocumentShareLink{
 		ID: uuid.New(), TenantID: fx.tenant, FileID: fx.file,
-		Token: token, CreatedAt: time.Now(),
+		Token: token, ExpiresAt: inOneDay(), CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestPostgresRepository_RevokeShareLink(t *testing.T) {
 	linkID := uuid.New()
 	if err := repo.CreateShareLink(ctx, &models.DocumentShareLink{
 		ID: linkID, TenantID: fx.tenant, FileID: fx.file,
-		Token: uuid.NewString(), CreatedAt: time.Now(),
+		Token: uuid.NewString(), ExpiresAt: inOneDay(), CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestPostgresRepository_RevokeShareLink_WrongTenant(t *testing.T) {
 	linkID := uuid.New()
 	if err := repo.CreateShareLink(ctx, &models.DocumentShareLink{
 		ID: linkID, TenantID: fx.tenant, FileID: fx.file,
-		Token: uuid.NewString(), CreatedAt: time.Now(),
+		Token: uuid.NewString(), ExpiresAt: inOneDay(), CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestPostgresRepository_IncrementShareLinkView(t *testing.T) {
 	linkID := uuid.New()
 	if err := repo.CreateShareLink(ctx, &models.DocumentShareLink{
 		ID: linkID, TenantID: fx.tenant, FileID: fx.file,
-		Token: uuid.NewString(), CreatedAt: time.Now(),
+		Token: uuid.NewString(), ExpiresAt: inOneDay(), CreatedAt: time.Now(),
 	}); err != nil {
 		t.Fatalf("CreateShareLink: %v", err)
 	}
@@ -229,5 +229,29 @@ func TestPostgresRepository_IncrementShareLinkView(t *testing.T) {
 	}
 	if len(links) != 1 || links[0].ViewCount != 2 {
 		t.Fatalf("ListShareLinks after two increments = %+v, want ViewCount=2", links)
+	}
+}
+
+func inOneDay() *time.Time {
+	t := time.Now().Add(24 * time.Hour)
+	return &t
+}
+
+// 000368: no link without an end is a property of the table, not only of the service.
+func TestPostgresRepository_CreateShareLink_RefusesLinkWithoutExpiry(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	repo := NewPostgresRepository(pool)
+	fx := seedActivityFixture(t, pool, "sharelink-no-expiry")
+	ctx := testutil.WithTenantCtx(context.Background(), fx.tenant)
+
+	err := repo.CreateShareLink(ctx, &models.DocumentShareLink{
+		ID: uuid.New(), TenantID: fx.tenant, FileID: fx.file,
+		Token: uuid.NewString(), CreatedAt: time.Now(),
+	})
+	if err == nil {
+		t.Fatal("CreateShareLink without ExpiresAt succeeded, want a NOT NULL violation")
 	}
 }

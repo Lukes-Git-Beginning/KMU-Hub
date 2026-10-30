@@ -211,7 +211,7 @@ const (
 type CreateShareLinkInput struct {
 	TenantID      uuid.UUID
 	FileID        uuid.UUID
-	ExpiresInDays *int32 // nil or 0 = never expires
+	ExpiresInDays *int32 // nil or 0 = maxShareLinkExpiryDays; no link is minted without an end
 	Password      string // empty = no password
 	CreatedBy     *uuid.UUID
 }
@@ -240,14 +240,15 @@ func (s *Service) CreateShareLink(ctx context.Context, in CreateShareLinkInput) 
 		CreatedAt: now,
 	}
 
+	days := int32(maxShareLinkExpiryDays)
 	if in.ExpiresInDays != nil && *in.ExpiresInDays != 0 {
-		days := *in.ExpiresInDays
+		days = *in.ExpiresInDays
 		if days < 0 || days > maxShareLinkExpiryDays {
 			return nil, ErrShareLinkExpiryInvalid
 		}
-		expiry := now.AddDate(0, 0, int(days))
-		link.ExpiresAt = &expiry
 	}
+	expiry := now.AddDate(0, 0, int(days))
+	link.ExpiresAt = &expiry
 
 	if in.Password != "" {
 		if len(in.Password) > maxSharePasswordLen {

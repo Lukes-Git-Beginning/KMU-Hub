@@ -1154,16 +1154,34 @@ func TestCreateShareLink_Success(t *testing.T) {
 	assert.Equal(t, file.ID, link.FileID)
 }
 
-func TestCreateShareLink_NoPasswordNoExpiry(t *testing.T) {
+// No link is minted without an end: an absent or zero expiry means the 365-day cap.
+func TestCreateShareLink_NoPasswordDefaultExpiry(t *testing.T) {
 	svc, repo, _ := newTestService()
 	tenant := uuid.New()
 	file := seedFileForTenant(repo, tenant)
+	zero := int32(0)
 
-	link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID})
+	for name, days := range map[string]*int32{"absent": nil, "zero": &zero} {
+		t.Run(name, func(t *testing.T) {
+			link, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: days})
 
-	require.NoError(t, err)
-	assert.Nil(t, link.PasswordHash)
-	assert.Nil(t, link.ExpiresAt)
+			require.NoError(t, err)
+			assert.Nil(t, link.PasswordHash)
+			require.NotNil(t, link.ExpiresAt)
+			assert.WithinDuration(t, time.Now().AddDate(0, 0, maxShareLinkExpiryDays), *link.ExpiresAt, time.Minute)
+		})
+	}
+}
+
+func TestCreateShareLink_NegativeExpiry(t *testing.T) {
+	svc, repo, _ := newTestService()
+	tenant := uuid.New()
+	file := seedFileForTenant(repo, tenant)
+	days := int32(-1)
+
+	_, err := svc.CreateShareLink(context.Background(), CreateShareLinkInput{TenantID: tenant, FileID: file.ID, ExpiresInDays: &days})
+
+	assert.ErrorIs(t, err, ErrShareLinkExpiryInvalid)
 }
 
 func TestCreateShareLink_CrossTenant_FileNotFound(t *testing.T) {
