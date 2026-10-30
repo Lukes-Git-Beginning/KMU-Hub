@@ -1049,7 +1049,7 @@ units:
     service: gateway
     model: opus
     deps: [fix-produktion-workstep-order-path-check]
-    status: todo
+    status: done
     target: jede verschachtelte Route, die die Eltern-ID im Pfad nicht prüft, ist gefunden
     coverage_start: n.a. (Scan)
     scope: >
@@ -1064,6 +1064,124 @@ units:
     done_when:
       - Liste aller Routen mit mehreren Pfad-Parametern und Ergebnis im Journal
       - Fix-Units nach Regel 1, Lecks vor die erste todo-Unit
+
+  - id: fix-wiki-restore-version-of-foreign-article
+    phase: 4
+    service: wiki
+    model: sonnet
+    deps: [scan-nested-route-parent-id-ignored]
+    status: todo
+    target: POST /wiki/articles/{id}/versions/{versionId}/restore mit einer Version eines anderen Artikels ist 404
+    coverage_start: n.a.
+    scope: >
+      Fund aus `scan-nested-route-parent-id-ignored` (Iteration 31). `Service.RestoreVersion` (`internal/wiki/service.go:329`)
+      prüft den Artikel im Pfad (inkl. Own-Scope über `loadEditableArticle`), lädt die Version dann aber nur über
+      `tenant_id + id` (`postgres_repository.go:239`) und vergleicht `version.ArticleID` nie mit `articleID`. Ein Restore mit
+      der Version-ID eines anderen Artikels überschreibt den Inhalt des Pfad-Artikels still mit fremdem Inhalt, Antwort 200.
+      Kein Leck (Lesen ist für alle mit wiki-read offen), aber Datenverlust am Pfad-Artikel. Fix im Service: Version gehört
+      nicht zum Artikel -> `ErrVersionNotFound` (404). Kein Proto, keine Route.
+    sources:
+      - backend/internal/wiki/service.go
+      - backend/internal/wiki/postgres_repository.go
+      - backend/test/e2e/wiki_test.go
+    notes: >
+      Desktop `api/wiki-client.ts:157` sendet die echte articleId. E2E `TestWiki` nutzt den Restore (wiki_test.go:277, 418,
+      441) mit passender Version; ein Subtest "fremde Version -> 404" gehört ins lokale E2E-Gate (Regel a).
+    done_when:
+      - 'Service-Test (DB, kmuhub_app): Restore mit Version von Artikel B auf Artikel A -> ErrVersionNotFound, Inhalt von A unverändert'
+      - Mutationsprobe belegt
+
+  - id: fix-einkauf-child-routes-ignore-parent
+    phase: 4
+    service: einkauf
+    model: opus
+    deps: [scan-nested-route-parent-id-ignored]
+    status: todo
+    target: PO-Positionen, Rahmenvertrags-Positionen und Lieferantenbewertungen sind nur über ihren echten Elternpfad änderbar
+    coverage_start: n.a.
+    scope: >
+      Fund aus `scan-nested-route-parent-id-ignored` (Iteration 31), Muster `3709b598` (produktion). Fünf Routen lesen die
+      Eltern-ID im Pfad nicht oder verwerfen sie: `PATCH/DELETE /einkauf/pos/{id}/lines/{lineId}` (`route_einkauf.go`
+      HandleUpdatePOLine/HandleDeletePOLine: `_, ok := validateUUIDParam(w, r, "id")`), `PATCH/DELETE
+      /einkauf/contracts/{id}/items/{itemId}` (`route_einkauf_extended.go`, Kommentar "contractID — not needed"), `DELETE
+      /einkauf/suppliers/{supplierId}/ratings/{ratingId}`. Die Proto-Requests (`einkauf.proto:258,269,490,564,577`) tragen
+      keine Eltern-ID, die SQLs (`postgres_repository.go:319,331`, `postgres_repository_extended.go:184,422,460`) filtern
+      nur `id + tenant_id`. Folge: eine Position lässt sich über den Pfad jeder beliebigen Bestellung bzw. jedes Vertrags
+      des Tenants ändern oder löschen (200 statt 404). Kein Own-Scope am Elternteil, also kein Leck. Fix: Eltern-ID als Feld
+      in die fünf Requests (Proto + Regen), Handler reicht sie durch, SQL `AND po_id/contract_id/supplier_id = $x`
+      (Spaltennamen im Schema nachlesen), keine Zeile -> NotFound.
+    sources:
+      - backend/proto/einkauf/v1/einkauf.proto
+      - backend/internal/gateway/route_einkauf.go
+      - backend/internal/gateway/route_einkauf_extended.go
+      - backend/internal/server/einkauf_grpc.go
+      - backend/internal/einkauf/postgres_repository.go
+      - backend/internal/einkauf/postgres_repository_extended.go
+    notes: >
+      Desktop sendet die echten Eltern-IDs (`api/einkauf-client.ts:175,181,237,283,291`). Weitere Aufrufer der
+      Repo-Methoden greppen, bevor eine Signatur geändert wird; ggf. den Eltern-Filter als zusätzlichen Parameter statt
+      einer zweiten Methode. Fünf Routen in einem Modul: bei Zeitnot in PO-Positionen und Vertrag/Bewertung teilen.
+    done_when:
+      - 'Repo-/Service-Test (DB, kmuhub_app) je Route: Kind über fremden Elternpfad -> NotFound, Zeile unverändert; echter Pfad -> ok'
+      - Proto regeneriert, `go test ./internal/gateway/` grün, Mutationsprobe belegt
+
+  - id: fix-vertraege-child-routes-ignore-contract
+    phase: 4
+    service: vertraege
+    model: opus
+    deps: [scan-nested-route-parent-id-ignored]
+    status: todo
+    target: Parteien und Erinnerungen eines Vertrags sind nur über den eigenen Vertragspfad änderbar
+    coverage_start: n.a.
+    scope: >
+      Fund aus `scan-nested-route-parent-id-ignored` (Iteration 31), Muster `3709b598`. `DELETE
+      /vertraege/contracts/{id}/parties/{partyId}`, `PATCH` und `DELETE /vertraege/contracts/{id}/reminders/{reminderId}`
+      (`route_vertraege.go` HandleRemoveParty/HandleUpdateReminder/HandleDeleteReminder) reichen nur Kind-ID + Tenant
+      durch (`vertraege.proto:192,241,251`), die SQLs (`postgres_repository.go:293,376,408`) filtern `id + tenant_id`.
+      Eine Partei oder Erinnerung lässt sich über jeden Vertragspfad des Tenants löschen bzw. ändern (200 statt 404). Fix:
+      `contract_id` in die drei Requests (Proto + Regen), Handler reicht sie durch, SQL `AND contract_id = $x`, keine
+      Zeile -> NotFound.
+    sources:
+      - backend/proto/vertraege/v1/vertraege.proto
+      - backend/internal/gateway/route_vertraege.go
+      - backend/internal/server/vertraege_grpc.go
+      - backend/internal/vertraege/postgres_repository.go
+      - backend/test/e2e/vertraege_test.go
+    notes: >
+      Desktop `api/vertraege-client.ts:156,183,191` sendet die echte contractId. E2E `TestVertraege`
+      (vertraege_test.go:312-334) nutzt die Routen mit passendem Vertrag; Subtest "fremder Vertragspfad -> 404" ins lokale
+      E2E-Gate (Regel a).
+    done_when:
+      - 'Repo-Test (DB, kmuhub_app): Partei/Erinnerung über Vertrag B -> NotFound, Zeile unverändert'
+      - Proto regeneriert, `go test ./internal/gateway/` grün, Mutationsprobe belegt
+
+  - id: fix-dialer-queue-actions-ignore-campaign
+    phase: 4
+    service: dialer
+    model: opus
+    deps: [scan-nested-route-parent-id-ignored]
+    status: todo
+    target: Skip und Requeue eines Queue-Eintrags greifen nur in der Kampagne aus dem Pfad
+    coverage_start: n.a.
+    scope: >
+      Fund aus `scan-nested-route-parent-id-ignored` (Iteration 31), Muster `3709b598`. `POST
+      /dialer/campaigns/{id}/contacts/{cid}/skip|requeue` (`route_dialer.go:72-73`) reichen nur `campaign_contact_id`
+      durch (`dialer.proto:302,307`), `SkipContact`/`RequeueContact` (`postgres_repository.go` ~323/339) filtern
+      `id + tenant_id`. Ein Eintrag einer fremden Kampagne lässt sich über jeden Kampagnenpfad überspringen oder
+      zurückstellen (Erfolg statt 404). Fix: `campaign_id` in beide Requests (Proto + Regen), SQL `AND campaign_id = $x`,
+      keine Zeile -> NotFound. Nebenbei: der Kommentar in `service.go:475` behauptet eine Count-Aktualisierung über das
+      Repository, die es nicht gibt — Kommentar korrigieren, kein Verhaltensumbau.
+    sources:
+      - backend/proto/dialer/v1/dialer.proto
+      - backend/internal/gateway/route_dialer.go
+      - backend/internal/server/dialer_grpc.go
+      - backend/internal/dialer/service.go
+      - backend/internal/dialer/postgres_repository.go
+    notes: >
+      Desktop `api/dialer-client.ts:285,292` sendet die echte campaignId.
+    done_when:
+      - 'Repo-Test (DB, kmuhub_app): Skip/Requeue mit fremder Kampagne -> NotFound, Status unverändert'
+      - Proto regeneriert, `go test ./internal/gateway/` grün, Mutationsprobe belegt
 
   - id: scan-stub-reports-success
     phase: 4
