@@ -905,9 +905,10 @@ func (s *Service) DeleteSLAPolicy(ctx context.Context, id, tenantID uuid.UUID) e
 	return nil
 }
 
-// GetSLAStatus computes the current SLA health of a ticket.
-func (s *Service) GetSLAStatus(ctx context.Context, ticketID, tenantID uuid.UUID, policyID *uuid.UUID) (SLAStatus, error) {
-	ticket, err := s.repo.GetTicketByID(ctx, ticketID, tenantID)
+// GetSLAStatus computes the current SLA health of a ticket. A non-nil
+// participantID is the own-scope of helpdesk:ticket:read, applied like GetTicket.
+func (s *Service) GetSLAStatus(ctx context.Context, ticketID, tenantID uuid.UUID, policyID, participantID *uuid.UUID) (SLAStatus, error) {
+	ticket, err := s.loadVisibleTicket(ctx, ticketID, tenantID, participantID)
 	if err != nil {
 		return "", fmt.Errorf("get sla status – load ticket: %w", err)
 	}

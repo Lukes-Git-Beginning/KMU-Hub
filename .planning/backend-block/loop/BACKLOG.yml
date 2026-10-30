@@ -595,7 +595,7 @@ units:
     service: helpdesk
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: '`GET /helpdesk/tickets/{id}/sla-status` hält den own-Scope von helpdesk:ticket:read ein wie Detail und Nachrichten'
     coverage_start: n.a.
     scope: >

@@ -906,7 +906,12 @@ func (s *HelpdeskGRPCServer) GetSLAStatus(ctx context.Context, req *helpdeskv1.G
 		policyID = &pid
 	}
 
-	slaStatus, err := s.svc.GetSLAStatus(ctx, ticketID, tenantID, policyID)
+	participantID, err := parseOptionalParticipant(req.ParticipantId)
+	if err != nil {
+		return nil, err
+	}
+
+	slaStatus, err := s.svc.GetSLAStatus(ctx, ticketID, tenantID, policyID, participantID)
 	if err != nil {
 		return nil, mapHelpdeskError(err)
 	}

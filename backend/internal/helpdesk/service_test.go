@@ -1087,6 +1087,17 @@ func TestOwnScope_TicketDetailAndMessages(t *testing.T) {
 		}
 	})
 
+	t.Run("sla status follows the same own scope", func(t *testing.T) {
+		for name, pid := range map[string]*uuid.UUID{"requester": &requester, "assignee": &assignee, "scope all": nil} {
+			if _, err := h.svc.GetSLAStatus(ctx, ticket.ID, tenantID, nil, pid); err != nil {
+				t.Errorf("%s: sla status: %v", name, err)
+			}
+		}
+		if _, err := h.svc.GetSLAStatus(ctx, ticket.ID, tenantID, nil, &stranger); !errors.Is(err, ErrTicketNotFound) {
+			t.Errorf("stranger: want ErrTicketNotFound, got %v", err)
+		}
+	})
+
 	t.Run("unknown ticket lists no messages but not found", func(t *testing.T) {
 		if _, err := h.svc.ListMessages(ctx, uuid.New(), tenantID, nil, false); !errors.Is(err, ErrTicketNotFound) {
 			t.Errorf("want ErrTicketNotFound, got %v", err)
@@ -1714,7 +1725,7 @@ func TestGetSLAStatus_WithoutPolicyIsOnTrack(t *testing.T) {
 		t.Fatalf("create ticket: %v", err)
 	}
 
-	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, nil)
+	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1739,7 +1750,7 @@ func TestGetSLAStatus_BreachedAfterDueAt(t *testing.T) {
 	ticket.DueAt = &past
 	h.repo.tickets[ticket.ID] = ticket
 
-	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &policy.ID)
+	status, err := h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &policy.ID, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1750,7 +1761,7 @@ func TestGetSLAStatus_BreachedAfterDueAt(t *testing.T) {
 
 func TestGetSLAStatus_TicketNotFound(t *testing.T) {
 	h := newTestHarness()
-	_, err := h.svc.GetSLAStatus(context.Background(), uuid.New(), uuid.New(), nil)
+	_, err := h.svc.GetSLAStatus(context.Background(), uuid.New(), uuid.New(), nil, nil)
 	if !errors.Is(err, ErrTicketNotFound) {
 		t.Errorf("expected ErrTicketNotFound, got %v", err)
 	}
@@ -1766,7 +1777,7 @@ func TestGetSLAStatus_PolicyNotFound(t *testing.T) {
 	}
 
 	missingPolicy := uuid.New()
-	_, err = h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &missingPolicy)
+	_, err = h.svc.GetSLAStatus(context.Background(), ticket.ID, tenantID, &missingPolicy, nil)
 	if !errors.Is(err, ErrSLAPolicyNotFound) {
 		t.Errorf("expected ErrSLAPolicyNotFound, got %v", err)
 	}

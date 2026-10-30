@@ -1166,6 +1166,13 @@ func (h *HelpdeskRoutes) HandleGetSLAStatus(w http.ResponseWriter, r *http.Reque
 	if pid := r.URL.Query().Get("sla_policy_id"); pid != "" {
 		grpcReq.SlaPolicyId = &pid
 	}
+	// At scope "own" a ticket the caller neither raised nor works answers 404,
+	// like the detail view.
+	ownerID, ok := ownerFilterForScope(w, r, "helpdesk:ticket", "read")
+	if !ok {
+		return
+	}
+	grpcReq.ParticipantId = ownerID
 
 	resp, err := client.GetSLAStatus(r.Context(), grpcReq)
 	if err != nil {

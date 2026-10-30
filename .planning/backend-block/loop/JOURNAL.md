@@ -210,3 +210,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; nur die Höhe der Inventarbuchung)
 - offen: (1) Der bestehende E2E-Flow bucht keine Teillieferung vor der Vollbuchung; der Beweis liegt im Service-Test. (2) ReceiveGoods prüft weiter nicht auf leere SKU (wie vorher); der Adjuster überspringt unbekannte SKUs.
+
+## Iteration 14 — fix-helpdesk-sla-status-own-scope — done — 2026-10-30 01:07
+- commit: siehe Commit `fix(helpdesk): apply the own scope to the ticket sla status` (git log)
+- gebaut: `GetSLAStatusRequest.participant_id` (optional, Feld 3, Proto samt `.pb.go` regeneriert). Gateway setzt es per `ownerFilterForScope(helpdesk:ticket:read)`, der gRPC-Server reicht es durch, `Service.GetSLAStatus` lädt das Ticket über `loadVisibleTicket` wie Detail und Nachrichten: fremdes Ticket bei scope own -> `ErrTicketNotFound` (404). Alt-Guard `helpdesk:read` unverändert. E2E-Subtest „a second member reaches a foreign ticket by id" um `/sla-status` erweitert (B 404, Requester/Assignee/Manager 200).
+- gate: build ok | vet ok (helpdesk, server, gateway, `-tags=e2e` test/e2e) | lint ok (0 issues) | test ok (internal/helpdesk/... 0 SKIP als kmuhub_app, internal/gateway inkl. TestOpenAPIRouteDrift, internal/server Helpdesk) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestHelpdeskMemberTicketFlow`, 3:40 inkl. Build)
+- coverage: internal/helpdesk 83,5 % (vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: `loadVisibleTicket` im Service durch `repo.GetTicketByID` ersetzt -> Subtest `sla status follows the same own scope` rot („stranger: want ErrTicketNotFound, got nil"), zurückgedreht (cmp gegen Backup). Gateway-Zeile (`ParticipantId = ownerID`) nicht separat mutiert; sie deckt nur der E2E-Subtest.
+- verify vorgaenger: sauber (Commit `ccf7a419`: Delta aus den vor `ApplyGoodsReceipt` gelesenen Zeilen, kein Proto, keine Route, kein Guard, keine Tabelle)
+- neue-units: keine
+- desktop-aufrufer: `GET /helpdesk/tickets/{id}/sla-status` -> `api/hooks/useHelpdesk.ts:126` (`useSlaStatus`) -> Antwortform unverändert (`status`), ein Member sieht nur noch bei eigenen Tickets einen Wert, bei fremden 404; kein Bruch, da die Detailansicht fremde Tickets ohnehin nicht öffnet
+- offen: Verhaltensänderung: member (scope own) bekommt für fremde Ticket-IDs 404 statt Status. Keine weiteren Aufrufer von `Service.GetSLAStatus` im Repo (grep).

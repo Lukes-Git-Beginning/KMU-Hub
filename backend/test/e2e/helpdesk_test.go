@@ -320,6 +320,8 @@ func TestHelpdeskMemberTicketFlow(t *testing.T) {
 			requireStatus(t, resp, b, http.StatusNotFound)
 			resp, b = postJSON(t, hd+"/tickets/"+id+"/messages", map[string]string{"body": "Mitgelesen von B"}, memberBToken)
 			requireStatus(t, resp, b, http.StatusNotFound)
+			resp, b = getJSON(t, hd+"/tickets/"+id+"/sla-status", memberBToken)
+			requireStatus(t, resp, b, http.StatusNotFound)
 		}
 		if after := len(messages(t, ownAID, managerToken)); after != before {
 			t.Fatalf("the refused reply of member B was stored: %d -> %d messages", before, after)
@@ -334,6 +336,8 @@ func TestHelpdeskMemberTicketFlow(t *testing.T) {
 			if str(obj(t, b), "id") != c.id {
 				t.Fatalf("%s: wrong ticket: %s", who, string(b))
 			}
+			resp, b = getJSON(t, hd+"/tickets/"+c.id+"/sla-status", c.token)
+			requireStatus(t, resp, b, http.StatusOK)
 		}
 
 		// Internal notes are an agent tool: the manager writes one, the member may not, and the member's

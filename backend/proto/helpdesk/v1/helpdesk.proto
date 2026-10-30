@@ -454,6 +454,8 @@ message ApplySLAPolicyRequest {
 message GetSLAStatusRequest {
   string ticket_id = 1;
   optional string sla_policy_id = 2;
+  // Gateway-set own-scope of helpdesk:ticket:read; a ticket outside it is not found.
+  optional string participant_id = 3;
 }
 
 message GetSLAStatusResponse {

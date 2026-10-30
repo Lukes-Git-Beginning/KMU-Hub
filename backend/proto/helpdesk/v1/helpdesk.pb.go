@@ -2705,9 +2705,11 @@ func (x *ApplySLAPolicyRequest) GetSlaPolicyId() string {
 }
 
 type GetSLAStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TicketId      string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
-	SlaPolicyId   *string                `protobuf:"bytes,2,opt,name=sla_policy_id,json=slaPolicyId,proto3,oneof" json:"sla_policy_id,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	TicketId    string                 `protobuf:"bytes,1,opt,name=ticket_id,json=ticketId,proto3" json:"ticket_id,omitempty"`
+	SlaPolicyId *string                `protobuf:"bytes,2,opt,name=sla_policy_id,json=slaPolicyId,proto3,oneof" json:"sla_policy_id,omitempty"`
+	// Gateway-set own-scope of helpdesk:ticket:read; a ticket outside it is not found.
+	ParticipantId *string `protobuf:"bytes,3,opt,name=participant_id,json=participantId,proto3,oneof" json:"participant_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2752,6 +2754,13 @@ func (x *GetSLAStatusRequest) GetTicketId() string {
 func (x *GetSLAStatusRequest) GetSlaPolicyId() string {
 	if x != nil && x.SlaPolicyId != nil {
 		return *x.SlaPolicyId
+	}
+	return ""
+}
+
+func (x *GetSLAStatusRequest) GetParticipantId() string {
+	if x != nil && x.ParticipantId != nil {
+		return *x.ParticipantId
 	}
 	return ""
 }
@@ -4304,11 +4313,13 @@ const file_proto_helpdesk_v1_helpdesk_proto_rawDesc = "" +
 	"\bpolicies\x18\x01 \x03(\v2\x16.helpdesk.v1.SLAPolicyR\bpolicies\"X\n" +
 	"\x15ApplySLAPolicyRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12\"\n" +
-	"\rsla_policy_id\x18\x02 \x01(\tR\vslaPolicyId\"m\n" +
+	"\rsla_policy_id\x18\x02 \x01(\tR\vslaPolicyId\"\xac\x01\n" +
 	"\x13GetSLAStatusRequest\x12\x1b\n" +
 	"\tticket_id\x18\x01 \x01(\tR\bticketId\x12'\n" +
-	"\rsla_policy_id\x18\x02 \x01(\tH\x00R\vslaPolicyId\x88\x01\x01B\x10\n" +
-	"\x0e_sla_policy_id\".\n" +
+	"\rsla_policy_id\x18\x02 \x01(\tH\x00R\vslaPolicyId\x88\x01\x01\x12*\n" +
+	"\x0eparticipant_id\x18\x03 \x01(\tH\x01R\rparticipantId\x88\x01\x01B\x10\n" +
+	"\x0e_sla_policy_idB\x11\n" +
+	"\x0f_participant_id\".\n" +
 	"\x14GetSLAStatusResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\"<\n" +
 	"\x16DeleteSLAPolicyRequest\x12\"\n" +
