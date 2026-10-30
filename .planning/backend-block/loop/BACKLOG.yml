@@ -811,7 +811,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: >
       zwei gleichzeitige Fahrzeug-Umbuchungen auf dasselbe Fenster: eine gewinnt, die andere 409, nie 500
     coverage_start: n.a. (Bugfix/Flake)

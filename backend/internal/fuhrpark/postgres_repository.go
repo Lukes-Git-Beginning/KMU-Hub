@@ -1358,11 +1358,17 @@ const pgErrCodeCheckViolation = "23514"
 // pgErrCodeExclusionViolation is raised by the vehicle_bookings_no_overlap constraint (000329).
 const pgErrCodeExclusionViolation = "23P01"
 
-// asBookingConflict maps an exclusion violation to ErrBookingConflict so that a write losing
-// a race against a concurrent booking surfaces like the application-side conflict check.
+// pgErrCodeDeadlockDetected is raised for the loser of two concurrent writes that check the
+// same exclusion constraint from different rows (two moves onto one window).
+const pgErrCodeDeadlockDetected = "40P01"
+
+// asBookingConflict maps an exclusion violation, or the deadlock that two racing writes on that
+// constraint can end in, to ErrBookingConflict so that a write losing a race against a concurrent
+// booking surfaces like the application-side conflict check. A deadlock aborts the whole
+// statement, so the target window is taken by the other writer and the write did not happen.
 func asBookingConflict(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeExclusionViolation {
+	if errors.As(err, &pgErr) && (pgErr.Code == pgErrCodeExclusionViolation || pgErr.Code == pgErrCodeDeadlockDetected) {
 		return ErrBookingConflict
 	}
 	return err

@@ -287,3 +287,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `GET /rapporte/reports`, `/pending`, `/reports/{id}/lines`, `/attachments` -> `api/rapporte-client.ts` (`listReports`, `listPendingApprovals`, `listLines`, `listAttachments`), Typen `reports|lines|attachments` + `total` -> passt (`lines`/`attachments` liefern jetzt zusätzlich `total`, vom FE ignoriert); `/templates` und `/measurements` ohne Desktop-Aufrufer im Client
 - offen: (1) `ListLinesResponse`/`ListAttachmentsResponse` tragen kein `total` im Proto; der Gateway setzt `len(items)`. (2) Weitere `response.Proto`-Listen anderer Module fängt `scan-empty-list-wire-shape-protojson` (Block C).
+
+## Iteration 21 — fix-fuhrpark-concurrent-booking-move-deadlock — done — 2026-10-30 02:09
+- commit: siehe Commit `fix(fuhrpark): map booking deadlock to a conflict instead of a 500` (git log)
+- gebaut: `asBookingConflict` (`internal/fuhrpark/postgres_repository.go`) bildet neben 23P01 jetzt auch 40P01 auf `ErrBookingConflict` ab (Muster des produktion-Zwillings `eab9ca11`); `UpdateBooking` und `CreateBookingWithLock` nutzen den Helfer bereits, beide Pfade sind damit abgedeckt. Neuer Test `TestAsBookingConflict` pinnt das Mapping (ein echter Deadlock lässt sich nicht erzwingen).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/fuhrpark inkl. Unterpakete, DATABASE_URL als kmuhub_app, `-count=20 -run TestVehicleBookingOverlapConstraint` grün) | migration n.a. | rls-smoke n.a. | gateway-Test n.a. (keine Route berührt)
+- coverage: internal/fuhrpark 84,0 % -> 84,1 %
+- mutations-probe: `|| pgErr.Code == pgErrCodeDeadlockDetected` entfernt -> `TestAsBookingConflict` rot („code 40P01: expected ErrBookingConflict"), zurückgedreht (cmp gegen Backup).
+- verify vorgaenger: sauber (Commit `5085d88b`: kein Proto, keine Route, kein Guard, keine Tabelle; Handler über gRPC-Client, `ProtoListWrapped` mit `total`, Test mit Mutationsprobe)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; ein verlorenes Rennen liefert 409 statt 500, `ErrBookingConflict` war am Gateway schon auf 409 gemappt)
+- offen: (1) Der Deadlock-Abbruch verwirft das Statement ohne Retry: der Verlierer bekommt 409 und kann neu buchen. (2) `asBookingConflict` ist in produktion und fuhrpark dupliziert; ein gemeinsamer Helfer lohnt erst bei einem dritten Paket (z. B. vermietung).
