@@ -1178,26 +1178,16 @@ func (fr *FuhrparkRoutes) HandleUpdateFuelLog(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	grpcReq := &fuhrparkv1.UpdateFuelLogRequest{Id: id}
-	if req.Date != nil {
-		grpcReq.Date = *req.Date
-	}
-	if req.Liters != nil {
-		grpcReq.Liters = *req.Liters
-	}
-	if req.CostCents != nil {
-		grpcReq.CostCents = *req.CostCents
-	}
-	if req.MileageKm != nil {
-		grpcReq.MileageKm = *req.MileageKm
-	}
-	if req.FuelType != nil {
-		grpcReq.FuelType = *req.FuelType
-	}
-	if req.Notes != nil {
-		grpcReq.Notes = *req.Notes
-	}
-	resp, err := client.UpdateFuelLog(r.Context(), grpcReq)
+	// Unsent fields stay nil, so the service keeps the stored values (PATCH, not PUT).
+	resp, err := client.UpdateFuelLog(r.Context(), &fuhrparkv1.UpdateFuelLogRequest{
+		Id:        id,
+		Date:      req.Date,
+		Liters:    req.Liters,
+		CostCents: req.CostCents,
+		MileageKm: req.MileageKm,
+		FuelType:  req.FuelType,
+		Notes:     req.Notes,
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return
@@ -1639,22 +1629,16 @@ func (fr *FuhrparkRoutes) HandleUpdateDriverLicense(w http.ResponseWriter, r *ht
 	if !ok {
 		return
 	}
-	grpcReq := &fuhrparkv1.UpdateDriverLicenseRequest{
+	// Unsent optional fields stay nil, so the service keeps the stored values.
+	resp, err := client.UpdateDriverLicense(r.Context(), &fuhrparkv1.UpdateDriverLicenseRequest{
 		Id:               id,
 		LicenseClasses:   req.LicenseClasses,
+		ExpiryDate:       req.ExpiryDate,
+		CheckedAt:        req.CheckedAt,
 		NextCheckDueDate: req.NextCheckDueDate,
+		Notes:            req.Notes,
 		OwnerUserId:      derefString(owner),
-	}
-	if req.ExpiryDate != nil {
-		grpcReq.ExpiryDate = *req.ExpiryDate
-	}
-	if req.CheckedAt != nil {
-		grpcReq.CheckedAt = *req.CheckedAt
-	}
-	if req.Notes != nil {
-		grpcReq.Notes = *req.Notes
-	}
-	resp, err := client.UpdateDriverLicense(r.Context(), grpcReq)
+	})
 	if err != nil {
 		respondGRPCError(w, err)
 		return

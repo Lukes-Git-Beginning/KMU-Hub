@@ -973,7 +973,7 @@ units:
     service: fuhrpark
     model: opus
     deps: []
-    status: todo
+    status: done
     target: PATCH von Tankbeleg und Führerscheinkontrolle schreibt nur noch die gesendeten Felder
     coverage_start: n.a.
     scope: >

@@ -399,12 +399,13 @@ message CreateFuelLogRequest {
 message CreateFuelLogResponse { FuelLog fuel_log = 1; }
 message UpdateFuelLogRequest {
   string id         = 1;
-  string date       = 2;
-  double liters     = 3;
-  int64  cost_cents = 4;
-  int64  mileage_km = 5;
-  string fuel_type  = 6;
-  string notes      = 7;
+  // every field below: unset keeps the stored value, set writes it (a PATCH, not a PUT)
+  optional string date       = 2;
+  optional double liters     = 3;
+  optional int64  cost_cents = 4;
+  optional int64  mileage_km = 5;
+  optional string fuel_type  = 6;
+  optional string notes      = 7;
 }
 message UpdateFuelLogResponse { FuelLog fuel_log = 1; }
 message DeleteFuelLogRequest  { string id = 1; }
@@ -607,10 +608,11 @@ message CreateDriverLicenseResponse { DriverLicense license = 1; }
 message UpdateDriverLicenseRequest {
   string id                   = 1;
   repeated string license_classes = 2;
-  string expiry_date          = 3; // optional
-  string checked_at           = 4;
+  // expiry_date, checked_at, notes: unset keeps the stored value; "" clears expiry_date and notes
+  optional string expiry_date = 3;
+  optional string checked_at  = 4;
   string next_check_due_date  = 5;
-  string notes                = 6; // optional
+  optional string notes       = 6;
   // Set by the gateway for a caller whose license scope is 'own': a check of another driver is NotFound.
   string owner_user_id        = 7;
 }

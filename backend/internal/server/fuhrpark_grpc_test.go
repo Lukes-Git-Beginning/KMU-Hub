@@ -36,6 +36,8 @@ type stubFuhrparkRepo struct {
 	lastGpsParams        fuhrpark.GetGpsPositionsParams
 	lastBookingCreatedBy *uuid.UUID
 	lastTripLogUpdate    fuhrpark.TripLog
+	lastFuelLogUpdate    fuhrpark.FuelLog
+	lastLicenseUpdate    fuhrpark.DriverLicense
 
 	gpsPositions []fuhrpark.GpsPosition
 	routes       []fuhrpark.VehicleRouteAggregation
@@ -183,6 +185,7 @@ func (r *stubFuhrparkRepo) CreateFuelLog(_ context.Context, log fuhrpark.FuelLog
 }
 
 func (r *stubFuhrparkRepo) UpdateFuelLog(_ context.Context, log fuhrpark.FuelLog) (fuhrpark.FuelLog, error) {
+	r.lastFuelLogUpdate = log
 	if r.err != nil {
 		return fuhrpark.FuelLog{}, r.err
 	}
@@ -280,6 +283,7 @@ func (r *stubFuhrparkRepo) GetDriverLicense(_ context.Context, tenantID, id uuid
 }
 
 func (r *stubFuhrparkRepo) UpdateDriverLicense(_ context.Context, lic fuhrpark.DriverLicense) (fuhrpark.DriverLicense, error) {
+	r.lastLicenseUpdate = lic
 	if r.err != nil {
 		return fuhrpark.DriverLicense{}, r.err
 	}
@@ -893,6 +897,27 @@ func TestFuhrparkFuelLogHandlers(t *testing.T) {
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 
+	t.Run("UpdateFuelLog invalid date", func(t *testing.T) {
+		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		bad := ""
+		_, err := s.UpdateFuelLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateFuelLogRequest{Id: logID.String(), Date: &bad})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("UpdateFuelLog hands only the sent fields to the service", func(t *testing.T) {
+		repo := newStubFuhrparkRepo()
+		s := newFuhrparkTestServer(repo)
+		notes := "nur die Notiz"
+		if _, err := s.UpdateFuelLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateFuelLogRequest{
+			Id: logID.String(), Notes: &notes,
+		}); err != nil {
+			t.Fatalf("UpdateFuelLog: %v", err)
+		}
+		if got := repo.lastFuelLogUpdate.Fields; got != fuhrpark.FuelLogNotes {
+			t.Fatalf("expected only the notes to be written, got fields %b", got)
+		}
+	})
+
 	t.Run("DeleteFuelLog missing tenant is unauthenticated", func(t *testing.T) {
 		s := newFuhrparkTestServer(newStubFuhrparkRepo())
 		_, err := s.DeleteFuelLog(context.Background(), &fuhrparkv1.DeleteFuelLogRequest{Id: logID.String()})
@@ -1374,10 +1399,47 @@ func TestFuhrparkDriverLicenseHandlers(t *testing.T) {
 
 	t.Run("UpdateDriverLicense invalid checked_at", func(t *testing.T) {
 		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		for _, bad := range []string{"not-a-date", ""} {
+			_, err := s.UpdateDriverLicense(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateDriverLicenseRequest{
+				Id: licenseID.String(), NextCheckDueDate: "2026-01-01", CheckedAt: &bad,
+			})
+			requireGRPCCode(t, err, codes.InvalidArgument)
+		}
+	})
+
+	t.Run("UpdateDriverLicense invalid expiry_date", func(t *testing.T) {
+		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		bad := "31.12.2027"
 		_, err := s.UpdateDriverLicense(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateDriverLicenseRequest{
-			Id: licenseID.String(), NextCheckDueDate: "2026-01-01", CheckedAt: "not-a-date",
+			Id: licenseID.String(), NextCheckDueDate: "2026-01-01", ExpiryDate: &bad,
 		})
 		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("UpdateDriverLicense hands only the sent optional fields to the service", func(t *testing.T) {
+		repo := newStubFuhrparkRepo()
+		s := newFuhrparkTestServer(repo)
+		if _, err := s.UpdateDriverLicense(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateDriverLicenseRequest{
+			Id: licenseID.String(), LicenseClasses: []string{"B"}, NextCheckDueDate: "2026-01-01",
+		}); err != nil {
+			t.Fatalf("UpdateDriverLicense: %v", err)
+		}
+		if got := repo.lastLicenseUpdate; got.Fields != 0 || !got.CheckedAt.IsZero() {
+			t.Fatalf("an edit without checked_at must not write a check date, got fields %b checked_at %v", got.Fields, got.CheckedAt)
+		}
+
+		// A sent empty expiry_date or notes is a clear, not an omission.
+		empty := ""
+		if _, err := s.UpdateDriverLicense(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateDriverLicenseRequest{
+			Id: licenseID.String(), LicenseClasses: []string{"B"}, NextCheckDueDate: "2026-01-01",
+			ExpiryDate: &empty, Notes: &empty,
+		}); err != nil {
+			t.Fatalf("UpdateDriverLicense: %v", err)
+		}
+		got := repo.lastLicenseUpdate
+		if got.Fields != fuhrpark.DriverLicenseExpiryDate|fuhrpark.DriverLicenseNotes || got.ExpiryDate != nil || got.Notes != nil {
+			t.Fatalf("expected expiry_date and notes cleared, got fields %b expiry %v notes %v", got.Fields, got.ExpiryDate, got.Notes)
+		}
 	})
 
 	t.Run("DeleteDriverLicense missing tenant is unauthenticated", func(t *testing.T) {

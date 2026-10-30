@@ -113,9 +113,31 @@ type FuelLog struct {
 	MileageKm int64     `json:"mileage_km"`
 	FuelType  string    `json:"fuel_type"`
 	Notes     string    `json:"notes"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	// Fields is read by UpdateFuelLog only: it names the columns the caller sent. A column
+	// that is not named keeps its stored value.
+	Fields    FuelLogFields `json:"-"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
 }
+
+// FuelLogFields is the set of fuel log columns an update writes.
+type FuelLogFields uint8
+
+const (
+	FuelLogDate FuelLogFields = 1 << iota
+	FuelLogLiters
+	FuelLogCostCents
+	FuelLogMileageKm
+	FuelLogFuelType
+	FuelLogNotes
+)
+
+// FuelLogAllFields writes every column, the shape of a full replacement.
+const FuelLogAllFields = FuelLogDate | FuelLogLiters | FuelLogCostCents | FuelLogMileageKm |
+	FuelLogFuelType | FuelLogNotes
+
+// Has reports whether every column in f is part of the set.
+func (s FuelLogFields) Has(f FuelLogFields) bool { return s&f == f }
 
 // TripLogFields is the set of trip log columns an update writes.
 type TripLogFields uint16
@@ -194,9 +216,27 @@ type DriverLicense struct {
 	CheckedAt        time.Time  `json:"checked_at"`
 	NextCheckDueDate time.Time  `json:"next_check_due_date"`
 	Notes            *string    `json:"notes,omitempty"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	// Fields is read by UpdateDriverLicense only: it names the optional columns the caller
+	// sent. License classes and the next due date are always written.
+	Fields    DriverLicenseFields `json:"-"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
+
+// DriverLicenseFields is the set of optional driver license columns an update writes.
+type DriverLicenseFields uint8
+
+const (
+	DriverLicenseExpiryDate DriverLicenseFields = 1 << iota
+	DriverLicenseCheckedAt
+	DriverLicenseNotes
+)
+
+// DriverLicenseAllFields writes every optional column, the shape of a full replacement.
+const DriverLicenseAllFields = DriverLicenseExpiryDate | DriverLicenseCheckedAt | DriverLicenseNotes
+
+// Has reports whether every column in f is part of the set.
+func (s DriverLicenseFields) Has(f DriverLicenseFields) bool { return s&f == f }
 
 // GpsPosition represents a single GPS fix for a vehicle.
 type GpsPosition struct {

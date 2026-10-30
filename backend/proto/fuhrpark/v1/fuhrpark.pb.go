@@ -2952,14 +2952,15 @@ func (x *CreateFuelLogResponse) GetFuelLog() *FuelLog {
 }
 
 type UpdateFuelLogRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Date          string                 `protobuf:"bytes,2,opt,name=date,proto3" json:"date,omitempty"`
-	Liters        float64                `protobuf:"fixed64,3,opt,name=liters,proto3" json:"liters,omitempty"`
-	CostCents     int64                  `protobuf:"varint,4,opt,name=cost_cents,json=costCents,proto3" json:"cost_cents,omitempty"`
-	MileageKm     int64                  `protobuf:"varint,5,opt,name=mileage_km,json=mileageKm,proto3" json:"mileage_km,omitempty"`
-	FuelType      string                 `protobuf:"bytes,6,opt,name=fuel_type,json=fuelType,proto3" json:"fuel_type,omitempty"`
-	Notes         string                 `protobuf:"bytes,7,opt,name=notes,proto3" json:"notes,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// every field below: unset keeps the stored value, set writes it (a PATCH, not a PUT)
+	Date          *string  `protobuf:"bytes,2,opt,name=date,proto3,oneof" json:"date,omitempty"`
+	Liters        *float64 `protobuf:"fixed64,3,opt,name=liters,proto3,oneof" json:"liters,omitempty"`
+	CostCents     *int64   `protobuf:"varint,4,opt,name=cost_cents,json=costCents,proto3,oneof" json:"cost_cents,omitempty"`
+	MileageKm     *int64   `protobuf:"varint,5,opt,name=mileage_km,json=mileageKm,proto3,oneof" json:"mileage_km,omitempty"`
+	FuelType      *string  `protobuf:"bytes,6,opt,name=fuel_type,json=fuelType,proto3,oneof" json:"fuel_type,omitempty"`
+	Notes         *string  `protobuf:"bytes,7,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3002,43 +3003,43 @@ func (x *UpdateFuelLogRequest) GetId() string {
 }
 
 func (x *UpdateFuelLogRequest) GetDate() string {
-	if x != nil {
-		return x.Date
+	if x != nil && x.Date != nil {
+		return *x.Date
 	}
 	return ""
 }
 
 func (x *UpdateFuelLogRequest) GetLiters() float64 {
-	if x != nil {
-		return x.Liters
+	if x != nil && x.Liters != nil {
+		return *x.Liters
 	}
 	return 0
 }
 
 func (x *UpdateFuelLogRequest) GetCostCents() int64 {
-	if x != nil {
-		return x.CostCents
+	if x != nil && x.CostCents != nil {
+		return *x.CostCents
 	}
 	return 0
 }
 
 func (x *UpdateFuelLogRequest) GetMileageKm() int64 {
-	if x != nil {
-		return x.MileageKm
+	if x != nil && x.MileageKm != nil {
+		return *x.MileageKm
 	}
 	return 0
 }
 
 func (x *UpdateFuelLogRequest) GetFuelType() string {
-	if x != nil {
-		return x.FuelType
+	if x != nil && x.FuelType != nil {
+		return *x.FuelType
 	}
 	return ""
 }
 
 func (x *UpdateFuelLogRequest) GetNotes() string {
-	if x != nil {
-		return x.Notes
+	if x != nil && x.Notes != nil {
+		return *x.Notes
 	}
 	return ""
 }
@@ -5294,13 +5295,14 @@ func (x *CreateDriverLicenseResponse) GetLicense() *DriverLicense {
 }
 
 type UpdateDriverLicenseRequest struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	LicenseClasses   []string               `protobuf:"bytes,2,rep,name=license_classes,json=licenseClasses,proto3" json:"license_classes,omitempty"`
-	ExpiryDate       string                 `protobuf:"bytes,3,opt,name=expiry_date,json=expiryDate,proto3" json:"expiry_date,omitempty"` // optional
-	CheckedAt        string                 `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3" json:"checked_at,omitempty"`
-	NextCheckDueDate string                 `protobuf:"bytes,5,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"`
-	Notes            string                 `protobuf:"bytes,6,opt,name=notes,proto3" json:"notes,omitempty"` // optional
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	LicenseClasses []string               `protobuf:"bytes,2,rep,name=license_classes,json=licenseClasses,proto3" json:"license_classes,omitempty"`
+	// expiry_date, checked_at, notes: unset keeps the stored value; "" clears expiry_date and notes
+	ExpiryDate       *string `protobuf:"bytes,3,opt,name=expiry_date,json=expiryDate,proto3,oneof" json:"expiry_date,omitempty"`
+	CheckedAt        *string `protobuf:"bytes,4,opt,name=checked_at,json=checkedAt,proto3,oneof" json:"checked_at,omitempty"`
+	NextCheckDueDate string  `protobuf:"bytes,5,opt,name=next_check_due_date,json=nextCheckDueDate,proto3" json:"next_check_due_date,omitempty"`
+	Notes            *string `protobuf:"bytes,6,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
 	// Set by the gateway for a caller whose license scope is 'own': a check of another driver is NotFound.
 	OwnerUserId   string `protobuf:"bytes,7,opt,name=owner_user_id,json=ownerUserId,proto3" json:"owner_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -5352,15 +5354,15 @@ func (x *UpdateDriverLicenseRequest) GetLicenseClasses() []string {
 }
 
 func (x *UpdateDriverLicenseRequest) GetExpiryDate() string {
-	if x != nil {
-		return x.ExpiryDate
+	if x != nil && x.ExpiryDate != nil {
+		return *x.ExpiryDate
 	}
 	return ""
 }
 
 func (x *UpdateDriverLicenseRequest) GetCheckedAt() string {
-	if x != nil {
-		return x.CheckedAt
+	if x != nil && x.CheckedAt != nil {
+		return *x.CheckedAt
 	}
 	return ""
 }
@@ -5373,8 +5375,8 @@ func (x *UpdateDriverLicenseRequest) GetNextCheckDueDate() string {
 }
 
 func (x *UpdateDriverLicenseRequest) GetNotes() string {
-	if x != nil {
-		return x.Notes
+	if x != nil && x.Notes != nil {
+		return *x.Notes
 	}
 	return ""
 }
@@ -6645,17 +6647,24 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\tfuel_type\x18\x06 \x01(\tR\bfuelType\x12\x14\n" +
 	"\x05notes\x18\a \x01(\tR\x05notes\"H\n" +
 	"\x15CreateFuelLogResponse\x12/\n" +
-	"\bfuel_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.FuelLogR\afuelLog\"\xc3\x01\n" +
+	"\bfuel_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.FuelLogR\afuelLog\"\xab\x02\n" +
 	"\x14UpdateFuelLogRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04date\x18\x02 \x01(\tR\x04date\x12\x16\n" +
-	"\x06liters\x18\x03 \x01(\x01R\x06liters\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04date\x18\x02 \x01(\tH\x00R\x04date\x88\x01\x01\x12\x1b\n" +
+	"\x06liters\x18\x03 \x01(\x01H\x01R\x06liters\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"cost_cents\x18\x04 \x01(\x03R\tcostCents\x12\x1d\n" +
+	"cost_cents\x18\x04 \x01(\x03H\x02R\tcostCents\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"mileage_km\x18\x05 \x01(\x03R\tmileageKm\x12\x1b\n" +
-	"\tfuel_type\x18\x06 \x01(\tR\bfuelType\x12\x14\n" +
-	"\x05notes\x18\a \x01(\tR\x05notes\"H\n" +
+	"mileage_km\x18\x05 \x01(\x03H\x03R\tmileageKm\x88\x01\x01\x12 \n" +
+	"\tfuel_type\x18\x06 \x01(\tH\x04R\bfuelType\x88\x01\x01\x12\x19\n" +
+	"\x05notes\x18\a \x01(\tH\x05R\x05notes\x88\x01\x01B\a\n" +
+	"\x05_dateB\t\n" +
+	"\a_litersB\r\n" +
+	"\v_cost_centsB\r\n" +
+	"\v_mileage_kmB\f\n" +
+	"\n" +
+	"_fuel_typeB\b\n" +
+	"\x06_notes\"H\n" +
 	"\x15UpdateFuelLogResponse\x12/\n" +
 	"\bfuel_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.FuelLogR\afuelLog\"&\n" +
 	"\x14DeleteFuelLogRequest\x12\x0e\n" +
@@ -6871,17 +6880,20 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
 	"\x05notes\x18\x06 \x01(\tR\x05notes\"S\n" +
 	"\x1bCreateDriverLicenseResponse\x124\n" +
-	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"\xfe\x01\n" +
+	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"\xb6\x02\n" +
 	"\x1aUpdateDriverLicenseRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
-	"\x0flicense_classes\x18\x02 \x03(\tR\x0elicenseClasses\x12\x1f\n" +
-	"\vexpiry_date\x18\x03 \x01(\tR\n" +
-	"expiryDate\x12\x1d\n" +
+	"\x0flicense_classes\x18\x02 \x03(\tR\x0elicenseClasses\x12$\n" +
+	"\vexpiry_date\x18\x03 \x01(\tH\x00R\n" +
+	"expiryDate\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"checked_at\x18\x04 \x01(\tR\tcheckedAt\x12-\n" +
-	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x14\n" +
-	"\x05notes\x18\x06 \x01(\tR\x05notes\x12\"\n" +
-	"\rowner_user_id\x18\a \x01(\tR\vownerUserId\"S\n" +
+	"checked_at\x18\x04 \x01(\tH\x01R\tcheckedAt\x88\x01\x01\x12-\n" +
+	"\x13next_check_due_date\x18\x05 \x01(\tR\x10nextCheckDueDate\x12\x19\n" +
+	"\x05notes\x18\x06 \x01(\tH\x02R\x05notes\x88\x01\x01\x12\"\n" +
+	"\rowner_user_id\x18\a \x01(\tR\vownerUserIdB\x0e\n" +
+	"\f_expiry_dateB\r\n" +
+	"\v_checked_atB\b\n" +
+	"\x06_notes\"S\n" +
 	"\x1bUpdateDriverLicenseResponse\x124\n" +
 	"\alicense\x18\x01 \x01(\v2\x1a.fuhrpark.v1.DriverLicenseR\alicense\"P\n" +
 	"\x1aDeleteDriverLicenseRequest\x12\x0e\n" +
@@ -7255,9 +7267,11 @@ func file_proto_fuhrpark_v1_fuhrpark_proto_init() {
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[21].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[22].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[28].OneofWrappers = []any{}
+	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[38].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[42].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[45].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[47].OneofWrappers = []any{}
+	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[73].OneofWrappers = []any{}
 	file_proto_fuhrpark_v1_fuhrpark_proto_msgTypes[81].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

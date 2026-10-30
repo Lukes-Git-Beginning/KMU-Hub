@@ -122,6 +122,50 @@ func TestFuhrparkDriverLicense_CRUDAndTenantIsolation(t *testing.T) {
 		}
 	})
 
+	t.Run("update keeps the optional fields it was not sent", func(t *testing.T) {
+		checked := now.AddDate(0, -2, 0)
+		expiry := now.AddDate(5, 0, 0)
+		notes := "Sichtprüfung im Büro"
+		kept, err := repo.CreateDriverLicense(ctxA, DriverLicense{
+			TenantID: tenantA, DriverID: driverA, LicenseClasses: []string{"B"},
+			ExpiryDate: &expiry, CheckedAt: checked, NextCheckDueDate: nextDue, Notes: &notes,
+		})
+		if err != nil {
+			t.Fatalf("CreateDriverLicense: %v", err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "driver_licenses", kept.ID) })
+
+		got, err := repo.UpdateDriverLicense(ctxA, DriverLicense{
+			ID: kept.ID, TenantID: tenantA, LicenseClasses: []string{"B", "BE"}, NextCheckDueDate: nextDue,
+		})
+		if err != nil {
+			t.Fatalf("UpdateDriverLicense: %v", err)
+		}
+		if !got.CheckedAt.Equal(checked) {
+			t.Fatalf("checked_at must stay %v (the last real check), got %v", checked, got.CheckedAt)
+		}
+		if got.ExpiryDate == nil || !got.ExpiryDate.Equal(expiry) {
+			t.Fatalf("expiry_date must stay %v, got %v", expiry, got.ExpiryDate)
+		}
+		if got.Notes == nil || *got.Notes != notes {
+			t.Fatalf("notes must stay %q, got %v", notes, got.Notes)
+		}
+		if len(got.LicenseClasses) != 2 {
+			t.Fatalf("license classes not updated: %+v", got.LicenseClasses)
+		}
+
+		cleared, err := repo.UpdateDriverLicense(ctxA, DriverLicense{
+			ID: kept.ID, TenantID: tenantA, LicenseClasses: []string{"B"}, NextCheckDueDate: nextDue,
+			Fields: DriverLicenseExpiryDate | DriverLicenseNotes,
+		})
+		if err != nil {
+			t.Fatalf("UpdateDriverLicense (clear): %v", err)
+		}
+		if cleared.ExpiryDate != nil || cleared.Notes != nil || !cleared.CheckedAt.Equal(checked) {
+			t.Fatalf("expected expiry_date and notes cleared and checked_at kept, got %+v", cleared)
+		}
+	})
+
 	t.Run("update across tenant boundary is a no-op", func(t *testing.T) {
 		_, err := repo.UpdateDriverLicense(ctxB, DriverLicense{
 			ID:               lic.ID,

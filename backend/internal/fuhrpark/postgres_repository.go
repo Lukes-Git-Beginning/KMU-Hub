@@ -601,13 +601,28 @@ func (r *PostgresRepository) CreateFuelLog(ctx context.Context, log FuelLog) (Fu
 
 func (r *PostgresRepository) UpdateFuelLog(ctx context.Context, log FuelLog) (FuelLog, error) {
 	log.UpdatedAt = time.Now()
-	ct, err := r.pool.Exec(ctx, `
-		UPDATE fuel_logs SET
-			date=$3, liters=$4, cost_cents=$5, mileage_km=$6, fuel_type=$7, notes=$8, updated_at=$9
-		WHERE id=$1 AND tenant_id=$2`,
-		log.ID, log.TenantID, log.Date, log.Liters, log.CostCents,
-		log.MileageKm, log.FuelType, log.Notes, log.UpdatedAt)
+	// Only the named columns are written; the rest keep their stored values, so a PATCH with
+	// one field cannot blank the others or trip the liters/fuel_type checks (000192).
+	sets, args := []string{"updated_at=$3"}, []any{log.ID, log.TenantID, log.UpdatedAt}
+	set := func(f FuelLogFields, col string, v any) {
+		if log.Fields.Has(f) {
+			args = append(args, v)
+			sets = append(sets, fmt.Sprintf("%s=$%d", col, len(args)))
+		}
+	}
+	set(FuelLogDate, "date", log.Date)
+	set(FuelLogLiters, "liters", log.Liters)
+	set(FuelLogCostCents, "cost_cents", log.CostCents)
+	set(FuelLogMileageKm, "mileage_km", log.MileageKm)
+	set(FuelLogFuelType, "fuel_type", log.FuelType)
+	set(FuelLogNotes, "notes", log.Notes)
+	ct, err := r.pool.Exec(ctx,
+		"UPDATE fuel_logs SET "+strings.Join(sets, ", ")+" WHERE id=$1 AND tenant_id=$2", args...)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeCheckViolation {
+			return FuelLog{}, ErrInvalidInput
+		}
 		return FuelLog{}, err
 	}
 	if ct.RowsAffected() == 0 {
@@ -967,12 +982,21 @@ func (r *PostgresRepository) CreateDriverLicense(ctx context.Context, lic Driver
 
 func (r *PostgresRepository) UpdateDriverLicense(ctx context.Context, lic DriverLicense) (DriverLicense, error) {
 	lic.UpdatedAt = time.Now()
-	ct, err := r.pool.Exec(ctx, `
-		UPDATE driver_licenses SET
-			license_classes=$3, expiry_date=$4, checked_at=$5, next_check_due_date=$6, notes=$7, updated_at=$8
-		WHERE id=$1 AND tenant_id=$2`,
-		lic.ID, lic.TenantID, lic.LicenseClasses, lic.ExpiryDate, lic.CheckedAt,
-		lic.NextCheckDueDate, lic.Notes, lic.UpdatedAt)
+	// The optional columns are written only when named: an edit without checked_at must not
+	// move the last check to today (the row is the Halterpflicht proof).
+	sets := []string{"license_classes=$3", "next_check_due_date=$4", "updated_at=$5"}
+	args := []any{lic.ID, lic.TenantID, lic.LicenseClasses, lic.NextCheckDueDate, lic.UpdatedAt}
+	set := func(f DriverLicenseFields, col string, v any) {
+		if lic.Fields.Has(f) {
+			args = append(args, v)
+			sets = append(sets, fmt.Sprintf("%s=$%d", col, len(args)))
+		}
+	}
+	set(DriverLicenseExpiryDate, "expiry_date", lic.ExpiryDate)
+	set(DriverLicenseCheckedAt, "checked_at", lic.CheckedAt)
+	set(DriverLicenseNotes, "notes", lic.Notes)
+	ct, err := r.pool.Exec(ctx,
+		"UPDATE driver_licenses SET "+strings.Join(sets, ", ")+" WHERE id=$1 AND tenant_id=$2", args...)
 	if err != nil {
 		return DriverLicense{}, err
 	}

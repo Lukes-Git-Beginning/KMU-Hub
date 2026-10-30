@@ -385,6 +385,7 @@ func TestFuelLogs_ListFilterUpdateDelete(t *testing.T) {
 	t.Run("UpdateFuelLog is tenant scoped", func(t *testing.T) {
 		updated := log1
 		updated.Liters = 42
+		updated.Fields = FuelLogAllFields
 		saved, err := repo.UpdateFuelLog(ctxA, updated)
 		if err != nil {
 			t.Fatalf("UpdateFuelLog: %v", err)
@@ -396,8 +397,38 @@ func TestFuelLogs_ListFilterUpdateDelete(t *testing.T) {
 		wrongTenant := log1
 		wrongTenant.TenantID = tenantB
 		wrongTenant.Liters = 99
+		wrongTenant.Fields = FuelLogAllFields
 		if _, err := repo.UpdateFuelLog(ctxB, wrongTenant); !errors.Is(err, ErrFuelLogNotFound) {
 			t.Fatalf("expected ErrFuelLogNotFound updating under the wrong tenant, got %v", err)
+		}
+	})
+
+	t.Run("UpdateFuelLog writes only the named fields", func(t *testing.T) {
+		kept, err := repo.CreateFuelLog(ctxA, FuelLog{
+			TenantID: tenantA, VehicleID: vehicle1.ID, Date: today.AddDate(0, 0, -3),
+			Liters: 55.5, CostCents: 9100, MileageKm: 12345, FuelType: "petrol", Notes: "alt",
+		})
+		if err != nil {
+			t.Fatalf("CreateFuelLog: %v", err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "fuel_logs", kept.ID) })
+
+		got, err := repo.UpdateFuelLog(ctxA, FuelLog{
+			ID: kept.ID, TenantID: tenantA, Notes: "nur die Notiz", Fields: FuelLogNotes,
+		})
+		if err != nil {
+			t.Fatalf("UpdateFuelLog with notes only: %v", err)
+		}
+		if !got.Date.Equal(kept.Date) || got.Liters != 55.5 || got.CostCents != 9100 ||
+			got.MileageKm != 12345 || got.FuelType != "petrol" || got.Notes != "nur die Notiz" {
+			t.Fatalf("only the notes may change: got %+v, stored %+v", got, kept)
+		}
+
+		// A sent liters of 0 still hits the row check and is a client error, not a 500.
+		if _, err := repo.UpdateFuelLog(ctxA, FuelLog{
+			ID: kept.ID, TenantID: tenantA, Liters: 0, Fields: FuelLogLiters,
+		}); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("expected ErrInvalidInput for liters 0, got %v", err)
 		}
 	})
 

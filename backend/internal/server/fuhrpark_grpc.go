@@ -789,17 +789,38 @@ func (s *FuhrparkGRPCServer) UpdateFuelLog(ctx context.Context, req *fuhrparkv1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid id: %v", err)
 	}
-	date, _ := time.Parse("2006-01-02", req.Date)
-	l, err := s.svc.UpdateFuelLog(ctx, fuhrpark.FuelLog{
+	upd := fuhrpark.FuelLog{
 		ID:        id,
 		TenantID:  tenantID,
-		Date:      date,
-		Liters:    req.Liters,
-		CostCents: req.CostCents,
-		MileageKm: req.MileageKm,
-		FuelType:  req.FuelType,
-		Notes:     req.Notes,
-	})
+		Liters:    req.GetLiters(),
+		CostCents: req.GetCostCents(),
+		MileageKm: req.GetMileageKm(),
+		FuelType:  req.GetFuelType(),
+		Notes:     req.GetNotes(),
+	}
+	if req.Date != nil {
+		date, err := time.Parse("2006-01-02", *req.Date)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid date: %v", err)
+		}
+		upd.Date = date
+	}
+	for _, f := range []struct {
+		sent bool
+		flag fuhrpark.FuelLogFields
+	}{
+		{req.Date != nil, fuhrpark.FuelLogDate},
+		{req.Liters != nil, fuhrpark.FuelLogLiters},
+		{req.CostCents != nil, fuhrpark.FuelLogCostCents},
+		{req.MileageKm != nil, fuhrpark.FuelLogMileageKm},
+		{req.FuelType != nil, fuhrpark.FuelLogFuelType},
+		{req.Notes != nil, fuhrpark.FuelLogNotes},
+	} {
+		if f.sent {
+			upd.Fields |= f.flag
+		}
+	}
+	l, err := s.svc.UpdateFuelLog(ctx, upd)
 	if err != nil {
 		return nil, mapFuhrparkError(err)
 	}
@@ -1397,34 +1418,39 @@ func (s *FuhrparkGRPCServer) UpdateDriverLicense(ctx context.Context, req *fuhrp
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid next_check_due_date: %v", err)
 	}
-	checkedAt := time.Now()
-	if req.CheckedAt != "" {
-		t, parseErr := time.Parse("2006-01-02", req.CheckedAt)
-		if parseErr != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid checked_at: %v", parseErr)
-		}
-		checkedAt = t
-	}
-	var expiryDate *time.Time
-	if req.ExpiryDate != "" {
-		t, parseErr := time.Parse("2006-01-02", req.ExpiryDate)
-		if parseErr == nil {
-			expiryDate = &t
-		}
-	}
-	var notes *string
-	if req.Notes != "" {
-		notes = &req.Notes
-	}
-	lic, err := s.svc.UpdateDriverLicense(ctx, fuhrpark.DriverLicense{
+	upd := fuhrpark.DriverLicense{
 		ID:               id,
 		TenantID:         tenantID,
 		LicenseClasses:   req.LicenseClasses,
-		ExpiryDate:       expiryDate,
-		CheckedAt:        checkedAt,
 		NextCheckDueDate: nextDue,
-		Notes:            notes,
-	})
+	}
+	// Unsent optional fields keep the stored values. A sent checked_at must be a date; a sent
+	// empty expiry_date or notes clears the column.
+	if req.CheckedAt != nil {
+		t, parseErr := time.Parse("2006-01-02", *req.CheckedAt)
+		if parseErr != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid checked_at: %v", parseErr)
+		}
+		upd.CheckedAt = t
+		upd.Fields |= fuhrpark.DriverLicenseCheckedAt
+	}
+	if req.ExpiryDate != nil {
+		if *req.ExpiryDate != "" {
+			t, parseErr := time.Parse("2006-01-02", *req.ExpiryDate)
+			if parseErr != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid expiry_date: %v", parseErr)
+			}
+			upd.ExpiryDate = &t
+		}
+		upd.Fields |= fuhrpark.DriverLicenseExpiryDate
+	}
+	if req.Notes != nil {
+		if *req.Notes != "" {
+			upd.Notes = req.Notes
+		}
+		upd.Fields |= fuhrpark.DriverLicenseNotes
+	}
+	lic, err := s.svc.UpdateDriverLicense(ctx, upd)
 	if err != nil {
 		return nil, mapFuhrparkError(err)
 	}
