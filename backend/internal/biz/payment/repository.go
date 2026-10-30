@@ -52,6 +52,11 @@ type Repository interface {
 // InvoiceReader provides read access to invoices for validation and status checks.
 type InvoiceReader interface {
 	GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Invoice, error)
+	// LockForCreditInTx row-locks the invoice (SELECT ... FOR UPDATE) inside the
+	// caller's transaction and returns its status and gross total as committed at
+	// lock time. Record/Delete take it before summing payments so two concurrent
+	// payment writes on one invoice serialize instead of each missing the other's row.
+	LockForCreditInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID) (string, decimal.Decimal, error)
 }
 
 // InvoiceStatusUpdater provides the ability to update invoice status, both

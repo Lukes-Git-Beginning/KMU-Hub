@@ -137,6 +137,15 @@ func (m *MockRepository) SumByInvoiceIDInTx(ctx context.Context, _ pgx.Tx, tenan
 	return m.SumByInvoiceID(ctx, tenantID, invoiceID)
 }
 
+// LockForCreditInTx mirrors the lock: status and gross total of the stored invoice.
+func (m *MockInvoiceReader) LockForCreditInTx(ctx context.Context, _ pgx.Tx, tenantID, id uuid.UUID) (string, decimal.Decimal, error) {
+	inv, err := m.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return "", decimal.Zero, err
+	}
+	return inv.Status, inv.GrossTotal, nil
+}
+
 // MockInvoiceReader implements InvoiceReader for testing.
 type MockInvoiceReader struct {
 	invoices map[uuid.UUID]*models.Invoice

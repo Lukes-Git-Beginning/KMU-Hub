@@ -72,10 +72,26 @@ type RecordInput struct {
 // Record records a payment against an invoice. After recording, checks if the sum
 // of all payments >= invoice gross_total. If so, transitions the invoice to "paid".
 func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Payment, error) {
-	// Validate invoice exists and is in a payable state
+	// Existence and tenant scope come from the plain read; status and gross total
+	// are re-read under the row lock below, so a concurrent payment, storno or
+	// credit note is reflected before the sum is taken.
 	inv, err := s.invoiceReader.GetByID(ctx, input.TenantID, input.InvoiceID)
 	if err != nil {
 		return nil, fmt.Errorf("get invoice: %w", err)
+	}
+
+	if s.pool == nil {
+		return nil, fmt.Errorf("payment service: pool not configured (required for Record)")
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	inv, err = s.lockInvoice(ctx, tx, input.TenantID, input.InvoiceID, inv)
+	if err != nil {
+		return nil, err
 	}
 
 	switch inv.Status {
@@ -127,15 +143,6 @@ func (s *Service) Record(ctx context.Context, input RecordInput) (*models.Paymen
 		CreatedAt:      now,
 		IdempotencyKey: input.IdempotencyKey,
 	}
-
-	if s.pool == nil {
-		return nil, fmt.Errorf("payment service: pool not configured (required for Record)")
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx) //nolint:errcheck
 
 	if createErr := s.repo.CreateInTx(ctx, tx, payment); createErr != nil {
 		// DB-level idempotency (F5): a duplicate key means this payment was already
@@ -221,6 +228,14 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	inv, err = s.lockInvoice(ctx, tx, tenantID, payment.InvoiceID, inv)
+	if err != nil {
+		return err
+	}
+	if inv.Status == models.InvoiceStatusCancelled {
+		return fmt.Errorf("cannot delete payment on cancelled invoice")
+	}
+
 	if delErr := s.repo.DeleteInTx(ctx, tx, tenantID, id); delErr != nil {
 		return delErr
 	}
@@ -244,6 +259,21 @@ func (s *Service) Delete(ctx context.Context, tenantID, id uuid.UUID) error {
 	)
 
 	return nil
+}
+
+// lockInvoice row-locks the invoice inside tx and returns a copy of inv carrying
+// the status and gross total committed at lock time. Everything that follows
+// (status guard, payment sum, paid transition) must use the returned copy: the
+// read taken before the transaction can be stale once the lock is acquired.
+func (s *Service) lockInvoice(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID, inv *models.Invoice) (*models.Invoice, error) {
+	status, gross, err := s.invoiceReader.LockForCreditInTx(ctx, tx, tenantID, invoiceID)
+	if err != nil {
+		return nil, fmt.Errorf("lock invoice: %w", err)
+	}
+	locked := *inv
+	locked.Status = status
+	locked.GrossTotal = gross
+	return &locked, nil
 }
 
 // transitionToPaidInTx checks whether payments now cover the invoice total and, if

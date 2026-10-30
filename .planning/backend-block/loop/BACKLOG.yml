@@ -1863,7 +1863,7 @@ units:
     service: biz
     model: sonnet
     deps: [scan-partial-quantity-books-full-amount]
-    status: todo
+    status: done
     target: zwei gleichzeitige Teilzahlungen, die zusammen den Rechnungsbetrag decken, setzen die Rechnung auf bezahlt
     coverage_start: n.a. (Bugfix)
     scope: >
