@@ -510,3 +510,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-berichte-schedule-patch-drops-recipients` und `fix-einkauf-po-lines-ignore-po-status` VOR die erste todo-Unit (done_when der Review-Unit; Ersteres trifft jeden Nutzer des Zeitplan-Editors); `fix-schichten-update-cannot-clear-description-location` ans Ende (Flag in Produktion aus)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung); für die Fix-Units geprüft: `api/berichte-client.ts:195` über `useBerichte.ts:244` <- `ScheduleReportModal.tsx:180` sendet kein `recipients_set` -> bricht heute (Unit oben)
 - offen: (1) Die einkauf-Unit spiegelt nur die bestehende `UpdatePO`-Regel; ob Positionen schon ab `approved`/`sent` oder mit Wareneingang gesperrt sein sollen, ist eine Fachfrage für Luke. (2) Iteration 27 `offen:` (2) — die SAFE-Einstufung der übrigen 46 PATCH-Routen aus Explore-Agenten — habe ich nicht vollständig nachgelesen, nur berichte und schichten.
+
+## Iteration 41 — fix-berichte-schedule-patch-drops-recipients — done — 2026-10-30 04:19
+- commit: siehe Commit `fix(berichte): replace schedule recipients when the list is sent` (git log)
+- gebaut: `route_berichte.go`: neue reine Funktion `updateScheduleToProto`, `RecipientsSet = req.RecipientsSet || req.Recipients != nil` (Schlüssel vorhanden, auch `[]`, ersetzt; fehlend/`null` behält; `recipients_set: true` ohne Liste leert weiter). `updateScheduleRequest.Recipients` bekommt wie Create `validate:"omitempty,dive,email"`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/gateway komplett inkl. TestOpenAPIRouteDrift; Fix-Tests ohne DB) | migration n.a. | rls-smoke n.a. | e2e n.a. (kein Flow ändert Zeitpläne)
+- coverage: n.a. (kein Coverage-Ziel, Bugfix)
+- mutations-probe: (1) `|| req.Recipients != nil` entfernt: `TestUpdateScheduleToProto_Recipients` rot (Subtests „list without recipients_set replaces“, „empty list replaces“); (2) `validate`-Tag am Update entfernt: `TestHandleUpdateSchedule_InvalidRecipientEmail` rot. Datei aus Backup zurück, Tests grün, Diff sauber.
+- verify vorgaenger: sauber (Iteration 40 war ein Review ohne Produktivcode; Commit `b4137674` nur Loop-Dateien)
+- neue-units: keine
+- desktop-aufrufer: `PATCH /berichte/schedules/{id}` -> `api/berichte-client.ts:195` über `useBerichte.ts:244` <- `ScheduleReportModal.tsx:180` sendet `recipients` ohne `recipients_set` -> passt jetzt (Empfänger werden ersetzt); Eingaben kommen aus derselben Quelle wie beim Anlegen, das dieselbe E-Mail-Validierung schon hatte; Antwortform unverändert
+- offen: Der Handler-Test erreicht den RPC nicht; das Mapping ist daher über die reine Funktion belegt, nicht über einen Durchlauf bis in `berichte.Service` (dessen `RecipientsSet`-Semantik testet `service_test.go:1070`).

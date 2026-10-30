@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -345,6 +346,47 @@ func TestHandleUpdateSchedule_InvalidUUID(t *testing.T) {
 	routes.HandleUpdateSchedule(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid id")
+}
+
+func TestHandleUpdateSchedule_InvalidRecipientEmail(t *testing.T) {
+	routes := NewBerichteRoutes(registryWithService("berichte"), berichteFlagsON())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/berichte/schedules/"+testTenantID.String(),
+		jsonBody(t, map[string]interface{}{"recipients": []string{"ok@example.com", "not-an-email"}}))
+	req = withChiURLParam(req, "id", testTenantID.String())
+	req = withTenantID(req, testTenantID)
+	routes.HandleUpdateSchedule(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+}
+
+func TestUpdateScheduleToProto_Recipients(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want bool
+		list []string
+	}{
+		{"list without recipients_set replaces", `{"recipients":["a@example.com"]}`, true, []string{"a@example.com"}},
+		{"empty list replaces (clears)", `{"recipients":[]}`, true, []string{}},
+		{"absent key keeps", `{"active":false}`, false, nil},
+		{"null keeps", `{"recipients":null}`, false, nil},
+		{"recipients_set without list clears", `{"recipients_set":true}`, true, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var in updateScheduleRequest
+			if err := json.Unmarshal([]byte(tc.body), &in); err != nil {
+				t.Fatal(err)
+			}
+			got := updateScheduleToProto("t", "s", in)
+			if got.GetRecipientsSet() != tc.want {
+				t.Errorf("RecipientsSet = %v, want %v", got.GetRecipientsSet(), tc.want)
+			}
+			if len(got.GetRecipients()) != len(tc.list) {
+				t.Errorf("Recipients = %v, want %v", got.GetRecipients(), tc.list)
+			}
+		})
+	}
 }
 
 func TestHandleDeleteSchedule_InvalidUUID(t *testing.T) {

@@ -198,7 +198,7 @@ type createScheduleRequest struct {
 type updateScheduleRequest struct {
 	Name           *string         `json:"name,omitempty"`
 	CronExpression *string         `json:"cron_expression,omitempty"`
-	Recipients     []string        `json:"recipients,omitempty"`
+	Recipients     []string        `json:"recipients,omitempty"      validate:"omitempty,dive,email"`
 	RecipientsSet  bool            `json:"recipients_set,omitempty"`
 	Format         *string         `json:"format,omitempty"`
 	Params         json.RawMessage `json:"params,omitempty"`
@@ -1003,17 +1003,7 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	grpcReq := &berichtev1.UpdateScheduleRequest{
-		TenantId:       tenantID.String(),
-		ScheduleId:     id,
-		Name:           req.Name,
-		CronExpression: req.CronExpression,
-		Recipients:     req.Recipients,
-		RecipientsSet:  req.RecipientsSet,
-		Format:         req.Format,
-		Params:         jsonBlob(req.Params),
-		Active:         req.Active,
-	}
+	grpcReq := updateScheduleToProto(tenantID.String(), id, req)
 
 	resp, err := client.UpdateSchedule(r.Context(), grpcReq)
 	if err != nil {
@@ -1021,6 +1011,25 @@ func (br *BerichteRoutes) HandleUpdateSchedule(w http.ResponseWriter, r *http.Re
 		return
 	}
 	response.JSON(w, http.StatusOK, reportScheduleEnvelope{Schedule: toReportScheduleWire(resp.GetSchedule())})
+}
+
+// updateScheduleToProto maps the PATCH body to the RPC request. The service
+// ignores recipients unless RecipientsSet is set. The desktop sends the list
+// without recipients_set, so a present key (even an empty array) replaces the
+// recipients and an absent key (nil slice) keeps them; recipients_set: true
+// without a list still clears them.
+func updateScheduleToProto(tenantID, id string, req updateScheduleRequest) *berichtev1.UpdateScheduleRequest {
+	return &berichtev1.UpdateScheduleRequest{
+		TenantId:       tenantID,
+		ScheduleId:     id,
+		Name:           req.Name,
+		CronExpression: req.CronExpression,
+		Recipients:     req.Recipients,
+		RecipientsSet:  req.RecipientsSet || req.Recipients != nil,
+		Format:         req.Format,
+		Params:         jsonBlob(req.Params),
+		Active:         req.Active,
+	}
 }
 
 func (br *BerichteRoutes) HandleDeleteSchedule(w http.ResponseWriter, r *http.Request) {

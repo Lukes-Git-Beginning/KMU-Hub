@@ -1332,7 +1332,7 @@ units:
     service: berichte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Empfänger eines bestehenden Berichts-Zeitplans lassen sich über den Desktop ändern
     coverage_start: n.a. (Bugfix)
     scope: >
