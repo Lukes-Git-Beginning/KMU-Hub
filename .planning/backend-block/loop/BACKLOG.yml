@@ -2408,7 +2408,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/work/meeting von 72,2 % auf ≥ 80 %
     coverage_start: internal/work/meeting 72,2 %
     scope: >
@@ -2663,3 +2663,37 @@ units:
       - beide Fälle liefern über den gRPC-Server InvalidArgument bzw. FailedPrecondition (Test)
       - Mutations-Probe
       - desktop-aufrufer geprüft (Fehlertext der Zahlungs-Löschen-Aktion)
+
+  - id: fix-meeting-breakout-assign-room-must-belong-to-meeting
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: Breakout-Zuweisung lehnt einen Raum ab, der nicht zum Meeting gehört oder geschlossen ist
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `cov-work-meeting` (Lauf 18, Iteration 80), am Servicecode verifiziert, nicht in Produktion reproduziert.
+      `meeting.Service.AssignBreakoutParticipant` (`internal/work/meeting/service.go`, ~Zeile 1226) prüft Host/Co-Host
+      des Meetings in der URL, übergibt `roomID` aber ungeprüft an `UpsertBreakoutAssignment`. Es gibt weder einen
+      Service-Check (`GetBreakoutRoom` + `room.MeetingID == meetingID` + `Status == "open"`) noch einen zusammengesetzten
+      FK (`meeting_breakout_assignments.breakout_room_id` verweist nur auf `meeting_breakout_rooms(id)`, Migration 235).
+      Folgen: (1) Host von Meeting A weist einen Teilnehmer einem Raum von Meeting B desselben Tenants zu;
+      `JoinBreakoutRoom` liefert dann dessen `room_name` (LiveKit-Raum eines fremden Meetings). (2) Unbekannte
+      Raum-ID endet als FK-Verletzung und damit als 500 statt 404. (3) Zuweisung in einen bereits geschlossenen Raum
+      wird akzeptiert. Fremder Tenant: der FK prüft ohne RLS, die Zeile entsteht, wird aber von
+      `GetBreakoutAssignmentForUser` (JOIN unter RLS) nicht ausgeliefert — also kein Leck, nur Müll. Fix im Service:
+      `s.repo.GetBreakoutRoom(ctx, *roomID, tenantID)` (liefert `ErrBreakoutRoomNotFound`), `MeetingID`-Abgleich
+      (ebenfalls `ErrBreakoutRoomNotFound`), geschlossen -> eigener Sentinel oder `ErrBreakoutRoomNotFound`;
+      `mapMeetingError` in `internal/server/video_grpc.go` muss `ErrBreakoutRoomNotFound` auf NotFound mappen
+      (prüfen). Nebenbei: `EndMeeting` enthält den Breakout-Cleanup-Block doppelt hintereinander (Copy-Paste),
+      einen davon entfernen.
+    sources:
+      - backend/internal/work/meeting/service.go
+      - backend/internal/server/video_grpc.go
+      - backend/internal/work/meeting/service_hostcontrols_test.go
+    done_when:
+      - Zuweisung in Raum eines anderen Meetings, unbekannten Raum und geschlossenen Raum scheitern mit NotFound-artigem Fehler (Test)
+      - gRPC-Mapping liefert NotFound statt Internal (Test)
+      - Mutations-Probe
+      - desktop-aufrufer geprüft (Breakout-Zuweisung `video-client.ts`, Fehlerbehandlung)
