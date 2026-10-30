@@ -367,7 +367,7 @@ func TestExtended_CreateCatalogItem_Success(t *testing.T) {
 	svc := NewServiceExtended(repo)
 
 	tenantID := uuid.New()
-	supplierID := uuid.New()
+	supplierID := addSupplier(repo.mockRepository, tenantID, "Supplier").ID
 
 	item, err := svc.CreateCatalogItem(context.Background(), CreateCatalogItemInput{
 		TenantID:   tenantID,
@@ -440,7 +440,7 @@ func TestExtended_CreateSupplierRating_Success(t *testing.T) {
 	svc := NewServiceExtended(repo)
 
 	tenantID := uuid.New()
-	supplierID := uuid.New()
+	supplierID := addSupplier(repo.mockRepository, tenantID, "Supplier").ID
 	ratedBy := uuid.New()
 
 	rating, err := svc.CreateSupplierRating(context.Background(), CreateSupplierRatingInput{
@@ -513,7 +513,7 @@ func TestExtended_CreateFrameworkContract_Success(t *testing.T) {
 	svc := NewServiceExtended(repo)
 
 	tenantID := uuid.New()
-	supplierID := uuid.New()
+	supplierID := addSupplier(repo.mockRepository, tenantID, "Supplier").ID
 
 	fc, err := svc.CreateFrameworkContract(context.Background(), CreateFrameworkContractInput{
 		TenantID:   tenantID,
@@ -540,7 +540,7 @@ func TestExtended_CreateFrameworkContract_DuplicateContractNr(t *testing.T) {
 	svc := NewServiceExtended(repo)
 
 	tenantID := uuid.New()
-	supplierID := uuid.New()
+	supplierID := addSupplier(repo.mockRepository, tenantID, "Supplier").ID
 
 	// Pre-seed a contract with the same number under the same tenant.
 	addFrameworkContract(repo, tenantID, supplierID, "Existing Contract", "FC-2026-DUP", ContractStatusActive)
@@ -820,7 +820,8 @@ func TestExtended_DeleteSupplierRating_Success(t *testing.T) {
 	repo := newMockRepositoryExtended()
 	svc := NewServiceExtended(repo)
 
-	tenantID, supplierID := uuid.New(), uuid.New()
+	tenantID := uuid.New()
+	supplierID := addSupplier(repo.mockRepository, tenantID, "Supplier").ID
 	rating, err := svc.CreateSupplierRating(context.Background(), CreateSupplierRatingInput{
 		TenantID: tenantID, SupplierID: supplierID, Category: RatingCategoryQuality, Rating: 4,
 	})
@@ -845,7 +846,9 @@ func TestExtended_ListSupplierRatings_ScopedToSupplierAndTenant(t *testing.T) {
 	repo := newMockRepositoryExtended()
 	svc := NewServiceExtended(repo)
 
-	tenantID, supplierA, supplierB := uuid.New(), uuid.New(), uuid.New()
+	tenantID := uuid.New()
+	supplierA := addSupplier(repo.mockRepository, tenantID, "A").ID
+	supplierB := addSupplier(repo.mockRepository, tenantID, "B").ID
 	_, err := svc.CreateSupplierRating(context.Background(), CreateSupplierRatingInput{
 		TenantID: tenantID, SupplierID: supplierA, Category: RatingCategoryQuality, Rating: 5,
 	})

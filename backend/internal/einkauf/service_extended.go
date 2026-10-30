@@ -174,6 +174,10 @@ func (s *Service) CreateCatalogItem(ctx context.Context, input CreateCatalogItem
 		currency = "EUR"
 	}
 
+	if _, err := s.repo.GetSupplier(ctx, input.TenantID, input.SupplierID); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	item := &CatalogItem{
 		ID:          uuid.New(),
@@ -304,6 +308,10 @@ func (s *Service) CreateSupplierRating(ctx context.Context, input CreateSupplier
 		return nil, fmt.Errorf("supplier rating value %d out of range 1-5: %w", input.Rating, ErrInvalidInput)
 	}
 
+	if _, err := s.repo.GetSupplier(ctx, input.TenantID, input.SupplierID); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	rating := &SupplierRating{
 		ID:         uuid.New(),
@@ -364,6 +372,10 @@ func (s *Service) CreateFrameworkContract(ctx context.Context, input CreateFrame
 		return nil, ErrInvalidInput
 	}
 	contractNr := strings.TrimSpace(input.ContractNr)
+
+	if _, err := s.repo.GetSupplier(ctx, input.TenantID, input.SupplierID); err != nil {
+		return nil, err
+	}
 
 	if contractNr != "" {
 		exists, err := s.repoExt.ContractNrExists(ctx, input.TenantID, contractNr, nil)
@@ -527,9 +539,14 @@ func (s *Service) CreateContractItem(ctx context.Context, input CreateContractIt
 		return nil, ErrInvalidInput
 	}
 
-	// Verify contract exists
-	if _, err := s.repoExt.GetFrameworkContract(ctx, input.TenantID, input.ContractID); err != nil {
+	// Verify contract exists. A draft still takes items (the contract is set up
+	// before it is activated); an expired one is closed, like for call-offs.
+	contract, err := s.repoExt.GetFrameworkContract(ctx, input.TenantID, input.ContractID)
+	if err != nil {
 		return nil, err
+	}
+	if contract.Status == ContractStatusExpired {
+		return nil, fmt.Errorf("contract is in status %q: %w", contract.Status, ErrContractNotActive)
 	}
 
 	now := time.Now()
