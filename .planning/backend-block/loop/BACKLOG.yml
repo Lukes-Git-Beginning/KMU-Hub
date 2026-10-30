@@ -2366,7 +2366,7 @@ units:
     service: email
     model: sonnet
     deps: [feat-auth-invite-mail-and-accept-page]
-    status: todo
+    status: done
     target: internal/email/systemmail von 72,2 % auf ≥ 85 %
     coverage_start: internal/email/systemmail 72,2 %
     scope: >

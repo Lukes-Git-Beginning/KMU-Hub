@@ -961,3 +961,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `api/offline-queue.ts` `replayItem` (Zeile 194: nur 4xx außer 409/429 sind endgültig, 5xx wird wiederholt) -> Deadlock-503 wird wiederholt, passt
 - offen: Nur der Pg-Backstop wurde umgestellt; andere Stellen, die Deadlocks selbst auf Aborted mappen (`fuhrpark`/`produktion` kennen `pgErrCodeDeadlockDetected`), nicht untersucht.
+
+## Iteration 78 — cov-email-systemmail — done — 2026-10-30 08:27
+- commit: siehe Commit `test(email): cover systemmail smtp failure stages, auth and wire headers` (git log)
+- gebaut: Neue Datei `systemmail/sender_protocol_test.go` mit einem skriptbaren Ein-Verbindungs-SMTP-Server (Antworten je Verb überschreibbar; `fakesmtp` bleibt unverändert). Tests: sieben Ablehnungsstufen (Begrüßung, STARTTLS, AUTH, MAIL FROM, RCPT, DATA, Ende-DATA) mit Stufenname und Empfängerliste im Fehler; kein DATA nach abgelehntem Empfänger; AUTH PLAIN mit exakten Zugangsdaten bzw. kein AUTH ohne Username; Umlaut-Betreff als RFC-2047 (zurückdekodiert), From mit Default-Anzeigenname `Cosmi`, To-Namen mit Umlauten; MIME-Build-Fehler vor jedem Dial; abgebrochener Kontext; Dial-Fehler; Kontext-Deadline schlägt `exchangeDeadline`.
+- gate: build n.a. (nur Testdatei) | vet ok | lint ok (0 issues) | test ok (`./internal/email/systemmail/...`, 0 SKIP, keine DB nötig) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/email/systemmail 72,2 % -> 98,1 %
+- mutations-probe: (1) Kontext-Deadline-Klammer (`ctxDeadline.Before(deadline)` -> `false`): `ContextDeadlineBeatsExchangeDeadline` rot. (2) AUTH unbedingt (`Username != ""` -> `true`): `Auth/no_username_means_no_AUTH` und `DeliversWithAttachment` rot. (3) RCPT-Fehler verschluckt: `ServerRefusals/recipient_rejected` und `RejectedRecipientSendsNoData` rot. (4) frühe `ctx.Err()`-Prüfung in `Send` neutralisiert: Test bleibt grün — äquivalente Mutation, weil `DialContext` mit abgebrochenem Kontext ebenfalls `context.Canceled` liefert (die Prüfung spart nur den MIME-Build); kein Test-Mangel. Alle zurückgedreht, `sender.go` unverändert.
+- verify vorgaenger: sauber (Commit `57069004`: `pg_constraint.go` Case 40P01/40001 -> Unavailable, Test nachgezogen, keine Route/Proto/Guard/Tabelle)
+- neue-units: keine
+- desktop-aufrufer: n.a. (nur Tests, keine Validierungs- oder Antwortform-Änderung)
+- offen: Der STARTTLS-Erfolgspfad (TLS-Handshake mit echtem Zertifikat) ist nicht abgedeckt (2 verbleibende Statements in `deliver`); Test bräuchte ein selbstsigniertes Zertifikat und einen Cfg-Hook für `tls.Config`, der im Produktivcode fehlt — bewusst nicht eingebaut. Im Test wurde die Verifikation der Server-Identität (`ServerName: Host`) nicht geprüft.
