@@ -469,6 +469,11 @@ func addBooking(repo *mockRepository, tenantID uuid.UUID, machineID string, star
 	return b
 }
 
+// orderIDIn seeds an order in the given status and returns its ID.
+func orderIDIn(repo *mockRepository, tenantID uuid.UUID, status OrderStatus) uuid.UUID {
+	return addOrder(repo, tenantID, "PO-"+uuid.NewString()[:8], status).ID
+}
+
 // ============================================================================
 // CreateOrder Tests
 // ============================================================================
@@ -699,7 +704,7 @@ func TestService_CreateMachineBooking_Success(t *testing.T) {
 	booking, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
 		TenantID:          tenantID,
 		MachineID:         "M-001",
-		ProductionOrderID: uuid.New(),
+		ProductionOrderID: orderIDIn(repo, tenantID, OrderStatusPlanned),
 		StartsAt:          t0,
 		EndsAt:            t1,
 	})
@@ -721,7 +726,7 @@ func TestService_CreateMachineBooking_ConflictDetected(t *testing.T) {
 	_, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
 		TenantID:          tenantID,
 		MachineID:         "M-001",
-		ProductionOrderID: uuid.New(),
+		ProductionOrderID: orderIDIn(repo, tenantID, OrderStatusPlanned),
 		StartsAt:          t1,
 		EndsAt:            t3,
 	})
@@ -741,7 +746,7 @@ func TestService_CreateMachineBooking_NoConflictDifferentMachine(t *testing.T) {
 	booking, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
 		TenantID:          tenantID,
 		MachineID:         "M-002",
-		ProductionOrderID: uuid.New(),
+		ProductionOrderID: orderIDIn(repo, tenantID, OrderStatusPlanned),
 		StartsAt:          t0,
 		EndsAt:            t2,
 	})
@@ -761,7 +766,7 @@ func TestService_CreateMachineBooking_CancelledDoesNotConflict(t *testing.T) {
 	booking, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
 		TenantID:          tenantID,
 		MachineID:         "M-001",
-		ProductionOrderID: uuid.New(),
+		ProductionOrderID: orderIDIn(repo, tenantID, OrderStatusPlanned),
 		StartsAt:          t0,
 		EndsAt:            t2,
 	})
@@ -781,7 +786,7 @@ func TestService_CreateMachineBooking_AdjacentNoConflict(t *testing.T) {
 	booking, err := svc.CreateMachineBooking(context.Background(), CreateBookingInput{
 		TenantID:          tenantID,
 		MachineID:         "M-001",
-		ProductionOrderID: uuid.New(),
+		ProductionOrderID: orderIDIn(repo, tenantID, OrderStatusPlanned),
 		StartsAt:          t1,
 		EndsAt:            t2,
 	})
@@ -1235,7 +1240,7 @@ func TestService_CreateMachineBooking_RaceConditionMutex(t *testing.T) {
 	svc := NewService(repo)
 
 	tenantID := uuid.New()
-	orderID := uuid.New()
+	orderID := orderIDIn(repo, tenantID, OrderStatusPlanned)
 	machineID := "RACE-MACHINE-001"
 	startsAt := time.Date(2026, 7, 1, 8, 0, 0, 0, time.UTC)
 	endsAt := time.Date(2026, 7, 1, 16, 0, 0, 0, time.UTC)

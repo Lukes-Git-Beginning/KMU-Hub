@@ -1777,7 +1777,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: 'Arbeitsschritte, Qualitätsprüfungen und Maschinenbuchungen für einen unbekannten, abgeschlossenen oder stornierten Auftrag antworten 404 bzw. 409'
     coverage_start: n.a. (Bugfix)
     scope: >

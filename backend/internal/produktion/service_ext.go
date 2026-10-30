@@ -250,6 +250,9 @@ func (s *Service) CreateWorkStep(ctx context.Context, input CreateWorkStepInput)
 	if name == "" {
 		return nil, ErrInvalidInput
 	}
+	if err := s.requireOpenOrder(ctx, input.TenantID, input.OrderID); err != nil {
+		return nil, err
+	}
 
 	now := time.Now()
 	step := &WorkStep{
@@ -428,6 +431,9 @@ func (s *Service) CreateQualityCheck(ctx context.Context, input CreateQualityChe
 	inspector := strings.TrimSpace(input.Inspector)
 	if inspector == "" {
 		return nil, ErrInvalidInput
+	}
+	if err := s.requireOpenOrder(ctx, input.TenantID, input.OrderID); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()

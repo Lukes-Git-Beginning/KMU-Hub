@@ -529,6 +529,16 @@ func (r *stubProduktionRepo) ListQualityChecks(_ context.Context, tenantID uuid.
 // test server helpers
 // ---------------------------------------------------------------------------
 
+// seedOpenProduktionOrder stores a planned order for the tenant and returns its ID, so child
+// rows (bookings, work steps, quality checks) have a live parent to point at.
+func seedOpenProduktionOrder(repo *stubProduktionRepo, tenantID string) string {
+	o := &produktion.ProductionOrder{
+		ID: uuid.New(), TenantID: uuid.MustParse(tenantID), Status: produktion.OrderStatusPlanned,
+	}
+	repo.orders[o.ID] = o
+	return o.ID.String()
+}
+
 func newTestProduktionServer() *ProduktionGRPCServer {
 	return NewProduktionGRPCServer(nil)
 }
@@ -1008,7 +1018,7 @@ func TestProduktion_CreateMachineBooking_ConflictMapsToFailedPrecondition(t *tes
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	_, err := srv.CreateMachineBooking(ctx, &produktionv1.CreateMachineBookingRequest{
 		TenantId:          tenantID,
@@ -1035,7 +1045,7 @@ func TestProduktion_CreateMachineBooking_AdjacentIsNotAConflict(t *testing.T) {
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	_, err := srv.CreateMachineBooking(ctx, &produktionv1.CreateMachineBookingRequest{
 		TenantId:          tenantID,
@@ -1101,7 +1111,7 @@ func TestProduktion_UpdateMachineBooking_ConflictAndNotFound(t *testing.T) {
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	first, err := srv.CreateMachineBooking(ctx, &produktionv1.CreateMachineBookingRequest{
 		TenantId:          tenantID,
@@ -1152,7 +1162,7 @@ func TestProduktion_ListMachineBookings(t *testing.T) {
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	_, err := srv.CreateMachineBooking(ctx, &produktionv1.CreateMachineBookingRequest{
 		TenantId:          tenantID,
@@ -1292,7 +1302,7 @@ func TestProduktion_WorkStep_CreateUpdateListDelete(t *testing.T) {
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	createResp, err := srv.CreateWorkStep(ctx, &produktionv1.CreateWorkStepRequest{
 		TenantId: tenantID,
@@ -1373,7 +1383,7 @@ func TestProduktion_QualityCheck_CreateGetList(t *testing.T) {
 	srv := newProduktionServerWithRepo(repo)
 	ctx := context.Background()
 	tenantID := uuid.New().String()
-	orderID := uuid.New().String()
+	orderID := seedOpenProduktionOrder(repo, tenantID)
 
 	createResp, err := srv.CreateQualityCheck(ctx, &produktionv1.CreateQualityCheckRequest{
 		TenantId:     tenantID,

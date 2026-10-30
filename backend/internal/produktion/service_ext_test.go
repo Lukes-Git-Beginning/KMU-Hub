@@ -208,7 +208,7 @@ func TestService_CreateWorkStep_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 	tenantID := uuid.New()
-	orderID := uuid.New()
+	orderID := orderIDIn(repo, tenantID, OrderStatusPlanned)
 
 	step, err := svc.CreateWorkStep(context.Background(), CreateWorkStepInput{
 		TenantID: tenantID,
@@ -229,7 +229,7 @@ func TestService_UpdateWorkStep(t *testing.T) {
 
 	created, err := svc.CreateWorkStep(context.Background(), CreateWorkStepInput{
 		TenantID: tenantID,
-		OrderID:  uuid.New(),
+		OrderID:  orderIDIn(repo, tenantID, OrderStatusPlanned),
 		Name:     "Cut",
 	})
 	require.NoError(t, err)
@@ -286,7 +286,7 @@ func TestService_DeleteWorkStep(t *testing.T) {
 
 	created, err := svc.CreateWorkStep(context.Background(), CreateWorkStepInput{
 		TenantID: tenantID,
-		OrderID:  uuid.New(),
+		OrderID:  orderIDIn(repo, tenantID, OrderStatusPlanned),
 		Name:     "Cut",
 	})
 	require.NoError(t, err)
@@ -454,7 +454,7 @@ func TestService_CreateQualityCheck_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 	tenantID := uuid.New()
-	orderID := uuid.New()
+	orderID := orderIDIn(repo, tenantID, OrderStatusPlanned)
 
 	check, err := svc.CreateQualityCheck(context.Background(), CreateQualityCheckInput{
 		TenantID:  tenantID,
@@ -506,6 +506,47 @@ func TestService_ListQualityChecks_PaginationClamping(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantOffset, repo.lastListQualityChecksOffset)
 			assert.Equal(t, tt.wantLimit, repo.lastListQualityChecksLimit)
+		})
+	}
+}
+
+func TestService_OrderChildren_RequireOpenOrder(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID := uuid.New()
+
+	creates := map[string]func(orderID uuid.UUID) error{
+		"work step": func(orderID uuid.UUID) error {
+			_, err := svc.CreateWorkStep(ctx, CreateWorkStepInput{TenantID: tenantID, OrderID: orderID, Name: "Cut"})
+			return err
+		},
+		"quality check": func(orderID uuid.UUID) error {
+			_, err := svc.CreateQualityCheck(ctx, CreateQualityCheckInput{TenantID: tenantID, OrderID: orderID, Inspector: "Jane"})
+			return err
+		},
+		"machine booking": func(orderID uuid.UUID) error {
+			_, err := svc.CreateMachineBooking(ctx, CreateBookingInput{
+				TenantID: tenantID, MachineID: "M-" + orderID.String(), ProductionOrderID: orderID, StartsAt: t0, EndsAt: t1,
+			})
+			return err
+		},
+	}
+
+	for name, create := range creates {
+		t.Run(name, func(t *testing.T) {
+			assert.ErrorIs(t, create(uuid.New()), ErrOrderNotFound, "unknown order")
+
+			foreign := orderIDIn(repo, uuid.New(), OrderStatusPlanned)
+			assert.ErrorIs(t, create(foreign), ErrOrderNotFound, "order of another tenant")
+
+			for _, st := range []OrderStatus{OrderStatusCompleted, OrderStatusCancelled} {
+				assert.ErrorIs(t, create(orderIDIn(repo, tenantID, st)), ErrOrderInvalidTransition, "order is %s", st)
+			}
+
+			for _, st := range []OrderStatus{OrderStatusPlanned, OrderStatusInProgress} {
+				assert.NoError(t, create(orderIDIn(repo, tenantID, st)), "order is %s", st)
+			}
 		})
 	}
 }

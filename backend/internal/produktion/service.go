@@ -305,6 +305,20 @@ func (s *Service) GetOrder(ctx context.Context, tenantID, orderID uuid.UUID) (*P
 	return s.repo.GetOrder(ctx, tenantID, orderID)
 }
 
+// requireOpenOrder loads the order tenant-scoped and refuses a completed or cancelled one, so
+// child rows (work steps, quality checks, machine bookings) never hang off an unknown, foreign
+// or closed order.
+func (s *Service) requireOpenOrder(ctx context.Context, tenantID, orderID uuid.UUID) error {
+	order, err := s.repo.GetOrder(ctx, tenantID, orderID)
+	if err != nil {
+		return err
+	}
+	if order.Status == OrderStatusCompleted || order.Status == OrderStatusCancelled {
+		return fmt.Errorf("%w: order is %s", ErrOrderInvalidTransition, order.Status)
+	}
+	return nil
+}
+
 // ListOrders retrieves orders with optional filtering and pagination.
 func (s *Service) ListOrders(ctx context.Context, input ListOrdersInput) ([]*ProductionOrder, int, error) {
 	if input.Page < 1 {
@@ -421,6 +435,9 @@ func (s *Service) CreateMachineBooking(ctx context.Context, input CreateBookingI
 	}
 	if !input.EndsAt.After(input.StartsAt) {
 		return nil, ErrInvalidInput
+	}
+	if err := s.requireOpenOrder(ctx, input.TenantID, input.ProductionOrderID); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
