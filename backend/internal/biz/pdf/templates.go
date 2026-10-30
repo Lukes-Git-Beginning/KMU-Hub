@@ -17,6 +17,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/kmuhub/kmuhub/internal/biz/tax"
+	"github.com/kmuhub/kmuhub/internal/dachfmt"
 	"github.com/kmuhub/kmuhub/internal/models"
 )
 
@@ -164,18 +165,18 @@ func buildLineItemHeader() core.Row {
 }
 
 // buildLineItemRow creates a single line item row.
-func buildLineItemRow(position int, item models.LineItem, isAlternate bool) core.Row {
+func buildLineItemRow(position int, item models.LineItem, currency string, isAlternate bool) core.Row {
 	// Recomputed rather than read from item.LineTotal so a stale stored value cannot
 	// print. Routed through tax.LineTotal for one definition of the formula, not to
-	// change output: formatEUR's StringFixed(2) already rounds half away from zero,
+	// change output: FormatMoney's StringFixed(2) already rounds half away from zero,
 	// so the printed cents were and stay the same.
 	lineTotal := tax.LineTotal(item.Quantity, item.UnitPrice)
 	r := row.New(6).Add(
 		text.NewCol(1, fmt.Sprintf("%d", position), props.Text{Size: 8, Align: align.Center}),
 		text.NewCol(5, item.Description, props.Text{Size: 8}),
 		text.NewCol(2, item.Quantity.StringFixed(2), props.Text{Size: 8, Align: align.Right}),
-		text.NewCol(2, formatEUR(item.UnitPrice), props.Text{Size: 8, Align: align.Right}),
-		text.NewCol(2, formatEUR(lineTotal), props.Text{Size: 8, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(item.UnitPrice, currency), props.Text{Size: 8, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(lineTotal, currency), props.Text{Size: 8, Align: align.Right}),
 	)
 	if isAlternate {
 		altGray := &props.Color{Red: 248, Green: 248, Blue: 248}
@@ -185,7 +186,7 @@ func buildLineItemRow(position int, item models.LineItem, isAlternate bool) core
 }
 
 // buildTotalsSection creates the subtotal, tax, and grand total rows.
-func buildTotalsSection(breakdown models.TaxBreakdown, taxMode string) []core.Row {
+func buildTotalsSection(breakdown models.TaxBreakdown, taxMode, currency string) []core.Row {
 	var rows []core.Row
 
 	// Spacer
@@ -201,7 +202,7 @@ func buildTotalsSection(breakdown models.TaxBreakdown, taxMode string) []core.Ro
 	rows = append(rows, row.New(6).Add(
 		col.New(7),
 		text.NewCol(3, "Zwischensumme", props.Text{Size: 8, Align: align.Right}),
-		text.NewCol(2, formatEUR(breakdown.Subtotal), props.Text{Size: 8, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(breakdown.Subtotal, currency), props.Text{Size: 8, Align: align.Right}),
 	))
 
 	// Tax lines per rate
@@ -209,7 +210,7 @@ func buildTotalsSection(breakdown models.TaxBreakdown, taxMode string) []core.Ro
 		rows = append(rows, row.New(5).Add(
 			col.New(7),
 			text.NewCol(3, fmt.Sprintf("MwSt %s%%", rate), props.Text{Size: 8, Align: align.Right}),
-			text.NewCol(2, formatEUR(taxAmount), props.Text{Size: 8, Align: align.Right}),
+			text.NewCol(2, dachfmt.FormatMoney(taxAmount, currency), props.Text{Size: 8, Align: align.Right}),
 		))
 	}
 
@@ -221,7 +222,7 @@ func buildTotalsSection(breakdown models.TaxBreakdown, taxMode string) []core.Ro
 	rows = append(rows, row.New(7).Add(
 		col.New(7),
 		text.NewCol(3, "Gesamtbetrag", props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
-		text.NewCol(2, formatEUR(breakdown.GrossTotal), props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(breakdown.GrossTotal, currency), props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
 	))
 
 	// Tax mode notes
@@ -320,7 +321,7 @@ func buildFooter(settings models.CompanySettings) core.Row {
 }
 
 // buildDunningBody creates the body text for a dunning letter at the given level.
-func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, interest decimal.Decimal) []core.Row {
+func buildDunningBody(level int, invoiceNumber, currency string, invoiceGrossTotal, fee, interest decimal.Decimal) []core.Row {
 	var bodyText string
 	var title string
 
@@ -332,7 +333,7 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 				"wir moechten Sie hoeflich daran erinnern, dass die Rechnung %s "+
 				"ueber %s noch nicht beglichen wurde. "+
 				"Bitte ueberweisen Sie den offenen Betrag in den naechsten Tagen.",
-			invoiceNumber, formatEUR(invoiceGrossTotal),
+			invoiceNumber, dachfmt.FormatMoney(invoiceGrossTotal, currency),
 		)
 	case 2:
 		title = "1. Mahnung"
@@ -377,14 +378,14 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 	rows = append(rows, row.New(6).Add(
 		col.New(7),
 		text.NewCol(3, "Rechnungsbetrag", props.Text{Size: 8, Align: align.Right}),
-		text.NewCol(2, formatEUR(invoiceGrossTotal), props.Text{Size: 8, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(invoiceGrossTotal, currency), props.Text{Size: 8, Align: align.Right}),
 	))
 
 	if fee.GreaterThan(decimal.Zero) {
 		rows = append(rows, row.New(5).Add(
 			col.New(7),
 			text.NewCol(3, "Mahngebuehr", props.Text{Size: 8, Align: align.Right}),
-			text.NewCol(2, formatEUR(fee), props.Text{Size: 8, Align: align.Right}),
+			text.NewCol(2, dachfmt.FormatMoney(fee, currency), props.Text{Size: 8, Align: align.Right}),
 		))
 	}
 
@@ -392,7 +393,7 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 		rows = append(rows, row.New(5).Add(
 			col.New(7),
 			text.NewCol(3, "Verzugszinsen", props.Text{Size: 8, Align: align.Right}),
-			text.NewCol(2, formatEUR(interest), props.Text{Size: 8, Align: align.Right}),
+			text.NewCol(2, dachfmt.FormatMoney(interest, currency), props.Text{Size: 8, Align: align.Right}),
 		))
 	}
 
@@ -405,7 +406,7 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 	rows = append(rows, row.New(7).Add(
 		col.New(7),
 		text.NewCol(3, "Gesamtforderung", props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
-		text.NewCol(2, formatEUR(totalDemand), props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
+		text.NewCol(2, dachfmt.FormatMoney(totalDemand, currency), props.Text{Size: 9, Style: fontstyle.Bold, Align: align.Right}),
 	))
 
 	return rows
@@ -414,9 +415,4 @@ func buildDunningBody(level int, invoiceNumber string, invoiceGrossTotal, fee, i
 // buildTextCol is a convenience wrapper for text.NewCol with default styling.
 func buildTextCol(gridSize int, content string, size float64) core.Col {
 	return text.NewCol(gridSize, content, props.Text{Size: size})
-}
-
-// formatEUR formats a decimal as EUR currency string.
-func formatEUR(d decimal.Decimal) string {
-	return fmt.Sprintf("%s EUR", d.StringFixed(2))
 }

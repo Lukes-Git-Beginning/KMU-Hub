@@ -2073,7 +2073,7 @@ units:
     service: biz
     model: sonnet
     deps: [scan-money-format-double-currency]
-    status: todo
+    status: done
     target: Rechnung, Angebot, Gutschrift und Mahnung drucken Beträge de-DE ("1.234,50 EUR") und in der Währung des Belegs
     coverage_start: n.a. (Fix an gemeinsamer Funktion)
     scope: >
@@ -2109,6 +2109,8 @@ units:
     status: todo
     target: Beratungsprotokoll und DSAR-Auskunft drucken Beträge im deutschen Format
     coverage_start: n.a. (Fix)
+    # Hinweis aus fix-money-format-de-and-document-currency: der Helfer heisst `dachfmt.FormatMoney(d, currency)`
+    # (internal/dachfmt/money.go), nicht `internal/format`.
     scope: >
       Aus `scan-money-format-double-currency`. Gleiche Klasse wie die PDF-Belege, eigene Stellen mit `fmt.Sprintf("%.2f
       EUR", float)`: `internal/crm/advisoryprotocol/service.go:390,393` (Nettoeinkommen, Liquide Mittel; deutschsprachiges

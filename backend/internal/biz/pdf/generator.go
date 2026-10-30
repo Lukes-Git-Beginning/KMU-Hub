@@ -122,7 +122,7 @@ func (g *Generator) buildQuoteDoc(quote models.Quote) (core.Maroto, error) {
 		if item.Position > 0 {
 			pos = item.Position
 		}
-		m.AddRows(buildLineItemRow(pos, item, i%2 == 1))
+		m.AddRows(buildLineItemRow(pos, item, quote.Currency, i%2 == 1))
 	}
 
 	// Totals
@@ -138,7 +138,7 @@ func (g *Generator) buildQuoteDoc(quote models.Quote) (core.Maroto, error) {
 			TaxByRate:  make(map[string]decimal.Decimal),
 		}
 	}
-	m.AddRows(buildTotalsSection(*breakdown, quote.TaxMode)...)
+	m.AddRows(buildTotalsSection(*breakdown, quote.TaxMode, quote.Currency)...)
 
 	// Validity note
 	if quote.ValidUntil != nil {
@@ -216,7 +216,7 @@ func (g *Generator) buildInvoiceDoc(invoice models.Invoice) (core.Maroto, error)
 		if item.Position > 0 {
 			pos = item.Position
 		}
-		m.AddRows(buildLineItemRow(pos, item, i%2 == 1))
+		m.AddRows(buildLineItemRow(pos, item, invoice.Currency, i%2 == 1))
 	}
 
 	// Totals
@@ -232,7 +232,7 @@ func (g *Generator) buildInvoiceDoc(invoice models.Invoice) (core.Maroto, error)
 			TaxByRate:  make(map[string]decimal.Decimal),
 		}
 	}
-	m.AddRows(buildTotalsSection(*breakdown, invoice.TaxMode)...)
+	m.AddRows(buildTotalsSection(*breakdown, invoice.TaxMode, invoice.Currency)...)
 
 	// Payment terms and notes
 	m.AddRows(buildNotesSection(invoice.PaymentTerms, invoice.Notes)...)
@@ -295,7 +295,7 @@ func (g *Generator) buildCreditNoteDoc(creditNote models.CreditNote) (core.Marot
 		if item.Position > 0 {
 			pos = item.Position
 		}
-		m.AddRows(buildLineItemRow(pos, item, i%2 == 1))
+		m.AddRows(buildLineItemRow(pos, item, creditNote.Currency, i%2 == 1))
 	}
 
 	// Totals
@@ -311,7 +311,7 @@ func (g *Generator) buildCreditNoteDoc(creditNote models.CreditNote) (core.Marot
 			TaxByRate:  make(map[string]decimal.Decimal),
 		}
 	}
-	m.AddRows(buildTotalsSection(*breakdown, creditNote.TaxMode)...)
+	m.AddRows(buildTotalsSection(*breakdown, creditNote.TaxMode, creditNote.Currency)...)
 
 	return m, nil
 }
@@ -357,7 +357,7 @@ func (g *Generator) buildDunningDoc(dunning models.DunningRecord, invoice models
 	m.AddRows(row.New(3))
 
 	// Dunning body (level-specific tone, fee, interest breakdown)
-	bodyRows := buildDunningBody(level, invoice.InvoiceNumber, invoice.GrossTotal, dunning.Fee, dunning.Interest)
+	bodyRows := buildDunningBody(level, invoice.InvoiceNumber, invoice.Currency, invoice.GrossTotal, dunning.Fee, dunning.Interest)
 	m.AddRows(bodyRows...)
 
 	return m

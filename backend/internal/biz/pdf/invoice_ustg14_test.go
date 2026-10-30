@@ -167,8 +167,8 @@ func TestInvoicePDF_UStG14MandatoryFields(t *testing.T) {
 
 	// Nr. 7/8: Entgelt aufgeschlüsselt nach Steuersätzen, Steuersatz und Steuerbetrag
 	assertContainsOnce(t, texts, "MwSt 19%")
-	assertContainsOnce(t, texts, "38.00 EUR")
-	assertContainsOnce(t, texts, "238.00 EUR")
+	assertContainsOnce(t, texts, "38,00 EUR")
+	assertContainsOnce(t, texts, "238,00 EUR")
 }
 
 // TestInvoicePDF_DeliveryDateFallsBackToInvoiceDate is the mutation-relevant

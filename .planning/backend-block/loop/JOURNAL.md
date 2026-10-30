@@ -826,3 +826,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-money-format-de-and-document-currency`, `fix-advisory-dsar-money-format-de`, `fix-berichte-kpi-unit-tenant-currency` (alle hinter dem Scan, kein Leck/Totalausfall)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; die Fix-Units prüfen ihre Aufrufer selbst)
 - offen: Die Format-Änderung (Komma statt Punkt im PDF) ist eine sichtbare Änderung an Kundenbelegen; Luke sollte ein erzeugtes Rechnungs-PDF ansehen. Währung der Mandanten ist laut Produktionsdaten vermutlich überall EUR, der CHF-Fall ist vom Code her möglich, nicht gemessen.
+
+## Iteration 67 — fix-money-format-de-and-document-currency — done — 2026-10-30 07:44
+- commit: siehe Commit `fix(biz): print document amounts in de-DE format and document currency` (git log)
+- gebaut: `dachfmt.FormatMoney(d, currency)` (`internal/dachfmt/money.go`): Tausenderpunkt, Dezimalkomma, negativ mit Vorzeichen, leere Währung -> EUR, Code groß/getrimmt. `formatEUR` ist gelöscht; `buildLineItemRow`, `buildTotalsSection` und `buildDunningBody` bekommen die Belegwährung (`Quote/Invoice/CreditNote.Currency`, Mahnung: `invoice.Currency`). Statt neuem Paket `internal/format` das vorhandene `dachfmt` genutzt (Lean-Leiter Stufe 2); `fix-advisory-dsar-money-format-de` trägt den Hinweis.
+- gate: build ok | vet ok | lint ok (0 issues, biz/pdf + dachfmt) | test ok (`./internal/biz/...` komplett, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. | e2e n.a. (PDF-Bytes, kein Flow-Test mit Betragstext)
+- coverage: internal/biz/pdf 95,5 % -> 95,5 % (Fix an gemeinsamer Funktion, neuer Code vollständig abgedeckt); internal/dachfmt 94,2 % nach Hinzufügen von `money.go` (vorher nicht gemessen, neue Datei zu 100 % getestet)
+- mutations-probe: (1) Tausendertrenner `'.'` -> `','`: `TestFormatMoney` rot; (2) `FormatMoney(breakdown.GrossTotal, currency)` -> `"EUR"`: vier Subtests/Tests rot (CHF-Test Rechnung/Angebot/Gutschrift und Totals). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `aede2cb7`: nur BACKLOG.yml und JOURNAL.md)
+- neue-units: keine
+- desktop-aufrufer: n.a. (PDF-Bytes, keine Wire-Änderung; Desktop lädt/zeigt PDFs nur an, parst keine Beträge daraus)
+- offen: Sichtbare Änderung an Kundenbelegen (Punkt -> Komma, Tausenderpunkt, Belegwährung). Luke sollte ein erzeugtes Rechnungs-PDF ansehen. Die ZUGFeRD-XML (Punkt vorgeschrieben) ist unverändert. Die PDF-Fließtexte bleiben ASCII ("moechten", "ueber") — nicht Teil dieser Unit.

@@ -199,8 +199,8 @@ func TestQuotePDF_RendersContent(t *testing.T) {
 	requireExactText(t, texts, "7")
 	requireNoExactText(t, texts, "2")
 	// Line total is recomputed from quantity x unit price, never read from the stale stored value.
-	requireExactText(t, texts, "37.50 EUR")
-	requireNoExactText(t, texts, "999.00 EUR")
+	requireExactText(t, texts, "37,50 EUR")
+	requireNoExactText(t, texts, "999,00 EUR")
 }
 
 func TestQuotePDF_FallbackTotalsAndOptionalSections(t *testing.T) {
@@ -216,8 +216,8 @@ func TestQuotePDF_FallbackTotalsAndOptionalSections(t *testing.T) {
 	texts := structureTexts(t, m)
 
 	// Without a stored breakdown the totals come from the quote columns.
-	requireExactText(t, texts, "67.50 EUR")
-	requireExactText(t, texts, "80.33 EUR")
+	requireExactText(t, texts, "67,50 EUR")
+	requireExactText(t, texts, "80,33 EUR")
 	assertNotContains(t, texts, "gueltig bis")
 }
 
@@ -293,8 +293,8 @@ func TestInvoicePDF_FallbackTotalsAndNotes(t *testing.T) {
 	}
 	texts := structureTexts(t, m)
 
-	requireExactText(t, texts, "200.00 EUR")
-	requireExactText(t, texts, "238.00 EUR")
+	requireExactText(t, texts, "200,00 EUR")
+	requireExactText(t, texts, "238,00 EUR")
 	requireExactText(t, texts, "Zahlungsbedingungen: 14 Tage netto")
 	requireExactText(t, texts, "Danke für Ihren Auftrag.")
 
@@ -323,12 +323,12 @@ func TestTotalsSection_ListsEveryTaxRate(t *testing.T) {
 	texts := structureTexts(t, m)
 
 	requireExactText(t, texts, "MwSt 19%")
-	requireExactText(t, texts, "38.00 EUR")
+	requireExactText(t, texts, "38,00 EUR")
 	requireExactText(t, texts, "MwSt 7%")
-	requireExactText(t, texts, "2.50 EUR")
+	requireExactText(t, texts, "2,50 EUR")
 	requireExactText(t, texts, "Zwischensumme")
 	requireExactText(t, texts, "Gesamtbetrag")
-	requireExactText(t, texts, "340.50 EUR")
+	requireExactText(t, texts, "340,50 EUR")
 }
 
 func baseTestCreditNote(t *testing.T) models.CreditNote {
@@ -367,7 +367,7 @@ func TestCreditNotePDF_RendersReferenceReasonAndFallbackTotals(t *testing.T) {
 	assertContainsOnce(t, texts, "10.09.2026")
 	assertContainsOnce(t, texts, "Gutschrift")
 	// No stored breakdown: totals come from the credit-note columns.
-	requireExactText(t, texts, "238.00 EUR")
+	requireExactText(t, texts, "238,00 EUR")
 
 	cn.Reason = ""
 	m, err = g.buildCreditNoteDoc(cn)
@@ -454,7 +454,7 @@ func TestDunningPDF_Level1NamesTheOpenAmount(t *testing.T) {
 	g := NewGenerator(fullTestSettings())
 
 	level1 := structureTexts(t, g.buildDunningDoc(d, inv, 1))
-	assertContainsOnce(t, level1, "ueber 238.00 EUR noch nicht beglichen")
+	assertContainsOnce(t, level1, "ueber 238,00 EUR noch nicht beglichen")
 	assertNotContains(t, level1, "EUR EUR")
 }
 
@@ -467,12 +467,12 @@ func TestDunningPDF_FeeInterestAndTotalDemand(t *testing.T) {
 	texts := structureTexts(t, g.buildDunningDoc(d, inv, 2))
 	requireExactText(t, texts, "Rechnungsbetrag")
 	requireExactText(t, texts, "Mahngebuehr")
-	requireExactText(t, texts, "5.00 EUR")
+	requireExactText(t, texts, "5,00 EUR")
 	requireExactText(t, texts, "Verzugszinsen")
-	requireExactText(t, texts, "1.75 EUR")
+	requireExactText(t, texts, "1,75 EUR")
 	requireExactText(t, texts, "Gesamtforderung")
 	// 238.00 + 5.00 + 1.75
-	requireExactText(t, texts, "244.75 EUR")
+	requireExactText(t, texts, "244,75 EUR")
 
 	// Zero fee / zero interest print no line, and the total is the invoice amount.
 	d.Fee, d.Interest = decimal.Zero, decimal.Zero
@@ -486,14 +486,14 @@ func TestDunningPDF_FeeInterestAndTotalDemand(t *testing.T) {
 	texts = structureTexts(t, g.buildDunningDoc(d, inv, 2))
 	requireExactText(t, texts, "Mahngebuehr")
 	requireNoExactText(t, texts, "Verzugszinsen")
-	requireExactText(t, texts, "243.00 EUR")
+	requireExactText(t, texts, "243,00 EUR")
 
 	// Interest only.
 	d.Fee, d.Interest = decimal.Zero, decimal.RequireFromString("1.75")
 	texts = structureTexts(t, g.buildDunningDoc(d, inv, 2))
 	requireNoExactText(t, texts, "Mahngebuehr")
 	requireExactText(t, texts, "Verzugszinsen")
-	requireExactText(t, texts, "239.75 EUR")
+	requireExactText(t, texts, "239,75 EUR")
 }
 
 func TestGenerateDunningPDF_ProducesPDF(t *testing.T) {
@@ -556,4 +556,71 @@ func TestEmbedZUGFeRDXML_AppendsToExistingAssociatedFiles(t *testing.T) {
 	if len(af) != 2 {
 		t.Errorf("expected the earlier association plus the new one (2 entries), got %d", len(af))
 	}
+}
+
+func TestDocumentPDFs_PrintGermanMoneyInDocumentCurrency(t *testing.T) {
+	t.Parallel()
+
+	g := NewGenerator(fullTestSettings())
+	gross := decimal.RequireFromString("12345.60")
+	breakdown, err := json.Marshal(models.TaxBreakdown{
+		Subtotal:   decimal.RequireFromString("10374.45"),
+		TotalTax:   decimal.RequireFromString("1971.15"),
+		GrossTotal: gross,
+		TaxByRate:  map[string]decimal.Decimal{"19": decimal.RequireFromString("1971.15")},
+	})
+	if err != nil {
+		t.Fatalf("marshal breakdown: %v", err)
+	}
+	wantGross, wantTax := "12.345,60 CHF", "1.971,15 CHF"
+
+	t.Run("invoice", func(t *testing.T) {
+		t.Parallel()
+		inv := baseTestInvoice(t)
+		inv.Currency, inv.TaxBreakdownRaw = "CHF", breakdown
+		m, err := g.buildInvoiceDoc(inv)
+		if err != nil {
+			t.Fatalf("buildInvoiceDoc: %v", err)
+		}
+		texts := structureTexts(t, m)
+		requireExactText(t, texts, wantGross)
+		requireExactText(t, texts, wantTax)
+		requireExactText(t, texts, "200,00 CHF") // line total, below 1000
+		assertNotContains(t, texts, "EUR")
+	})
+	t.Run("quote", func(t *testing.T) {
+		t.Parallel()
+		q := baseTestQuote(t)
+		q.Currency, q.TaxBreakdownRaw = "CHF", breakdown
+		m, err := g.buildQuoteDoc(q)
+		if err != nil {
+			t.Fatalf("buildQuoteDoc: %v", err)
+		}
+		texts := structureTexts(t, m)
+		requireExactText(t, texts, wantGross)
+		assertNotContains(t, texts, "EUR")
+	})
+	t.Run("credit note", func(t *testing.T) {
+		t.Parallel()
+		cn := baseTestCreditNote(t)
+		cn.Currency, cn.TaxBreakdownRaw = "CHF", breakdown
+		m, err := g.buildCreditNoteDoc(cn)
+		if err != nil {
+			t.Fatalf("buildCreditNoteDoc: %v", err)
+		}
+		texts := structureTexts(t, m)
+		requireExactText(t, texts, wantGross)
+		assertNotContains(t, texts, "EUR")
+	})
+	t.Run("dunning", func(t *testing.T) {
+		t.Parallel()
+		d, inv := dunningFixture(t)
+		inv.Currency, inv.GrossTotal = "CHF", gross
+		d.Fee, d.Interest = decimal.RequireFromString("1005"), decimal.RequireFromString("1.75")
+		texts := structureTexts(t, g.buildDunningDoc(d, inv, 1))
+		assertContainsOnce(t, texts, "ueber 12.345,60 CHF noch nicht beglichen")
+		requireExactText(t, texts, "1.005,00 CHF")
+		requireExactText(t, texts, "13.352,35 CHF")
+		assertNotContains(t, texts, "EUR")
+	})
 }
