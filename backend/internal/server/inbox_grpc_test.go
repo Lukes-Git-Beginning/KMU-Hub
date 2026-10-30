@@ -872,6 +872,42 @@ func TestReplyToMessage_AdapterNotFound(t *testing.T) {
 	requireGRPCCode(t, err, codes.Unimplemented)
 }
 
+// replyRecorder stands in for a channel that can deliver a reply (email).
+type replyRecorder struct {
+	adapter.ChannelAdapter
+	bodies []string
+}
+
+func (r *replyRecorder) Channel() string { return "email" }
+func (r *replyRecorder) HandleReply(_ context.Context, _ string, _ uuid.UUID, body string) error {
+	r.bodies = append(r.bodies, body)
+	return nil
+}
+
+func TestReplyToMessage_NotificationChannelIsNotReplyable(t *testing.T) {
+	srv, deps := newTestInboxServer()
+	email := &replyRecorder{}
+	registry := adapter.NewAdapterRegistry()
+	registry.Register(adapter.NewNotificationAdapter(nil))
+	registry.Register(email)
+	srv.messageService = message.NewService(deps.messageRepo, registry)
+
+	tenantID := uuid.New()
+	notif := seedInboxMessage(t, deps, tenantID, inboxTestOwner, func(m *models.InboxMessage) { m.Channel = "notification" })
+	mail := seedInboxMessage(t, deps, tenantID, inboxTestOwner, nil)
+	ctx := inboxCtx(tenantID)
+
+	_, err := srv.ReplyToMessage(ctx, &inboxv1.ReplyToMessageRequest{MessageId: notif.ID.String(), UserId: inboxTestOwner.String(), Body: "hello?"})
+	requireGRPCCode(t, err, codes.Unimplemented)
+	require.Empty(t, deps.threadRepo.messages[notif.ID], "a reply nobody receives must not enter the thread")
+
+	resp, err := srv.ReplyToMessage(ctx, &inboxv1.ReplyToMessageRequest{MessageId: mail.ID.String(), UserId: inboxTestOwner.String(), Body: "thanks"})
+	require.NoError(t, err)
+	require.True(t, resp.Success)
+	require.Equal(t, []string{"thanks"}, email.bodies)
+	require.Len(t, deps.threadRepo.messages[mail.ID], 1)
+}
+
 func TestReplyToMessage_InvalidMessageID(t *testing.T) {
 	srv, _ := newTestInboxServer()
 	_, err := srv.ReplyToMessage(inboxCtx(uuid.New()), &inboxv1.ReplyToMessageRequest{
@@ -958,6 +994,7 @@ func TestMapInboxError_AllSentinels(t *testing.T) {
 		{"InvalidStatus", message.ErrInvalidStatus, codes.InvalidArgument},
 		{"InvalidTag", message.ErrInvalidTag, codes.InvalidArgument},
 		{"ForwardNotSupported", message.ErrForwardNotSupported, codes.Unimplemented},
+		{"ReplyNotSupported", message.ErrReplyNotSupported, codes.Unimplemented},
 		{"CannedResponseNotFound", thread.ErrCannedResponseNotFound, codes.NotFound},
 		{"TeamInboxNotFound", team.ErrTeamInboxNotFound, codes.NotFound},
 		{"NotTeamAdmin", team.ErrNotTeamAdmin, codes.PermissionDenied},

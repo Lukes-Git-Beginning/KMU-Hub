@@ -1252,7 +1252,7 @@ units:
     service: notification
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: eine Antwort auf eine reine Benachrichtigung meldet ehrlich "nicht möglich" statt "gesendet"
     coverage_start: n.a. (Bugfix)
     scope: >

@@ -89,13 +89,11 @@ func (a *NotificationAdapter) FetchNewMessages(ctx context.Context, userID uuid.
 	return result, nil
 }
 
-// HandleReply handles reply actions for notifications.
-// Most notifications are not replyable. For actionable notifications (e.g., leave approval),
-// the action is routed via the deep_link to the appropriate module.
+// HandleReply is not supported for notifications — nobody receives a reply to a
+// system notification, so reporting success would be a lie. Actionable
+// notifications direct users via deep_link.
 func (a *NotificationAdapter) HandleReply(_ context.Context, _ string, _ uuid.UUID, _ string) error {
-	// Notifications are generally not replyable through the inbox.
-	// Actionable notifications direct users to their deep_link for action.
-	return nil
+	return ErrReplyNotSupported
 }
 
 // HandleForward is not supported for notifications — they have no external

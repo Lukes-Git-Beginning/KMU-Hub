@@ -1532,7 +1532,7 @@ func mapInboxError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, message.ErrInvalidTag):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, message.ErrForwardNotSupported):
+	case errors.Is(err, message.ErrForwardNotSupported), errors.Is(err, message.ErrReplyNotSupported):
 		return status.Error(codes.Unimplemented, err.Error())
 	case errors.Is(err, message.ErrChannelUnavailable):
 		slog.Warn("inbox reply: originating channel unavailable", "error", err)

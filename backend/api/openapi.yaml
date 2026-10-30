@@ -14485,6 +14485,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
+        "501":
+          description: Replying is not supported for this message's channel (notification)
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

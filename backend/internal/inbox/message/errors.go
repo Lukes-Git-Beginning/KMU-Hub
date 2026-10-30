@@ -28,6 +28,10 @@ var (
 	// has no concept of forwarding to an arbitrary recipient.
 	ErrForwardNotSupported = errors.New("forward is not supported for this channel")
 
+	// ErrReplyNotSupported is returned when the message's channel has no way to
+	// deliver a reply (notifications have no recipient on the other side).
+	ErrReplyNotSupported = errors.New("reply is not supported for this channel")
+
 	// ErrChannelUnavailable is returned when the reply cannot be delivered because
 	// the originating system (e.g. the chat service) is not configured or not reachable.
 	ErrChannelUnavailable = errors.New("the originating channel is not reachable, reply not sent")

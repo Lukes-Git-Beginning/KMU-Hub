@@ -81,10 +81,10 @@ func TestNotificationAdapter_FetchNewMessages_ClientErrorIsWrapped(t *testing.T)
 	assert.Contains(t, err.Error(), "notification adapter fetch")
 }
 
-func TestNotificationAdapter_HandleReplyIsNoOpAndForwardUnsupported(t *testing.T) {
+func TestNotificationAdapter_ReplyAndForwardUnsupported(t *testing.T) {
 	a := NewNotificationAdapter(nil)
 
-	assert.NoError(t, a.HandleReply(context.Background(), "n-1", uuid.New(), "x"))
+	assert.ErrorIs(t, a.HandleReply(context.Background(), "n-1", uuid.New(), "x"), ErrReplyNotSupported)
 	assert.ErrorIs(t, a.HandleForward(context.Background(), "n-1", uuid.New(), "a@b.de", ""), ErrForwardNotSupported)
 }
 

@@ -207,6 +207,8 @@ func (s *Service) Reply(ctx context.Context, id uuid.UUID, tenantID uuid.UUID, u
 
 	if err := a.HandleReply(ctx, msg.SourceID, userID, body); err != nil {
 		switch {
+		case errors.Is(err, adapter.ErrReplyNotSupported):
+			return ErrReplyNotSupported
 		case errors.Is(err, adapter.ErrChannelUnavailable):
 			return fmt.Errorf("%w: %v", ErrChannelUnavailable, err)
 		case errors.Is(err, adapter.ErrReplyNotPermitted):

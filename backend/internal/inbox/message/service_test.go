@@ -708,6 +708,25 @@ func TestForward_NotSupportedByChannel(t *testing.T) {
 	require.ErrorIs(t, err, ErrForwardNotSupported)
 }
 
+func TestReply_NotSupportedByChannel(t *testing.T) {
+	repo := newMockRepository()
+	registry := adapter.NewAdapterRegistry()
+	registry.Register(&mockForwardAdapter{
+		channel: "email",
+		replyFn: func(context.Context, string, uuid.UUID, string) error {
+			return adapter.ErrReplyNotSupported
+		},
+	})
+	svc := NewService(repo, registry)
+
+	msg := newTestMessage()
+	seedMessage(repo, msg)
+
+	err := svc.Reply(context.Background(), msg.ID, uuid.Nil, msg.UserID, "hi")
+
+	require.ErrorIs(t, err, ErrReplyNotSupported)
+}
+
 func TestArchive_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo, adapter.NewAdapterRegistry())

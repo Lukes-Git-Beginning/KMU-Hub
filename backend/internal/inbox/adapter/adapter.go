@@ -15,6 +15,10 @@ import (
 // concept of forwarding to an arbitrary recipient (chat, guest, notification).
 var ErrForwardNotSupported = errors.New("forward not supported for this channel")
 
+// ErrReplyNotSupported is returned by HandleReply when a channel has no way to
+// deliver a reply (notification: nobody receives it).
+var ErrReplyNotSupported = errors.New("reply not supported for this channel")
+
 // ErrChannelUnavailable is returned when the originating system of a channel
 // is not configured or not reachable, so a reply cannot be delivered.
 var ErrChannelUnavailable = errors.New("originating channel is not reachable")
