@@ -254,7 +254,7 @@ func (m *mockRepo) FirstStatusByClosed(_ context.Context, _, _ uuid.UUID, closed
 type mockProjectRepo struct {
 	members map[string]*models.ProjectMember // key: "projectID:userID"
 	// tenants maps a project to its tenant; GetByID only knows registered ones
-	// (anything else answers nil, nil as before).
+	// (anything else answers a live project, like the real repository never nil).
 	tenants map[uuid.UUID]uuid.UUID
 }
 
@@ -295,7 +295,7 @@ func (m *mockProjectRepo) GetByID(_ context.Context, id uuid.UUID, tenantID uuid
 	if owner, ok := m.tenants[id]; ok && owner != tenantID {
 		return nil, project.ErrNotFound
 	}
-	return nil, nil
+	return &models.Project{ID: id, TenantID: tenantID}, nil
 }
 func (m *mockProjectRepo) List(_ context.Context, _ uuid.UUID, _ uuid.UUID, _ bool, _ bool) ([]models.ProjectWithDetails, error) {
 	return nil, nil

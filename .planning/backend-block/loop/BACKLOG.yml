@@ -1726,7 +1726,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: 'Aufgaben in einem archivierten Projekt antworten 409 statt 201, auch beim Anlegen aus einer Vorlage'
     coverage_start: n.a. (Bugfix)
     scope: >

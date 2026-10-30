@@ -6256,7 +6256,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
-          $ref: "#/components/responses/IdempotencyInFlight"
+          $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

@@ -179,6 +179,20 @@ func (s *Service) requireProjectEditor(ctx context.Context, projectID, tenantID,
 	return nil
 }
 
+// requireActiveProject rejects new tasks in an archived project, the rule
+// project.Service applies to members and settings. Only creation asks for it:
+// editing or moving existing tasks stays open.
+func (s *Service) requireActiveProject(ctx context.Context, projectID, tenantID uuid.UUID) error {
+	p, err := s.projectRepo.GetByID(ctx, projectID, tenantID)
+	if err != nil {
+		return fmt.Errorf("project: %w", err)
+	}
+	if p.ArchivedAt != nil {
+		return project.ErrProjectArchived
+	}
+	return nil
+}
+
 // resolveActorName best-effort resolves a user's display name for event actor
 // metadata. Returns "" on any error so emitting a notification event is never
 // blocked by name resolution.
@@ -233,6 +247,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (*models.TaskWi
 	// Check project membership if project_id is set
 	if input.ProjectID != nil {
 		if err := s.requireProjectEditor(ctx, *input.ProjectID, input.TenantID, input.CreatedBy); err != nil {
+			return nil, err
+		}
+		if err := s.requireActiveProject(ctx, *input.ProjectID, input.TenantID); err != nil {
 			return nil, err
 		}
 	}
@@ -840,10 +857,11 @@ func (s *Service) ListMyTasks(ctx context.Context, tenantID, userID uuid.UUID, f
 // source project. Assignee and dates are deliberately not carried over.
 func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjectID, targetProjectID uuid.UUID, actorID uuid.UUID, statusMap map[uuid.UUID]uuid.UUID) error {
 	// Both projects must belong to the caller's tenant before anything is read or written.
-	for _, id := range []uuid.UUID{sourceProjectID, targetProjectID} {
-		if _, err := s.projectRepo.GetByID(ctx, id, tenantID); err != nil {
-			return fmt.Errorf("project: %w", err)
-		}
+	if _, err := s.projectRepo.GetByID(ctx, sourceProjectID, tenantID); err != nil {
+		return fmt.Errorf("project: %w", err)
+	}
+	if err := s.requireActiveProject(ctx, targetProjectID, tenantID); err != nil {
+		return err
 	}
 
 	// Get all tasks from source project (ordered by depth ASC to process parents first)
