@@ -1891,7 +1891,7 @@ units:
     service: biz
     model: sonnet
     deps: [scan-partial-quantity-books-full-amount]
-    status: todo
+    status: done
     target: eine teilgutgeschriebene Rechnung gilt nach Zahlung des Restbetrags als bezahlt und wird nicht gemahnt
     coverage_start: n.a. (Bugfix)
     scope: >

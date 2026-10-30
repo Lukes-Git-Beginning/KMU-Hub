@@ -133,6 +133,10 @@ func (m *MockRepository) DeleteInTx(ctx context.Context, _ pgx.Tx, tenantID, id 
 	return m.Delete(ctx, tenantID, id)
 }
 
+func (m *MockRepository) SumSentCreditNotesInTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (decimal.Decimal, error) {
+	return decimal.Zero, nil
+}
+
 func (m *MockRepository) SumByInvoiceIDInTx(ctx context.Context, _ pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
 	return m.SumByInvoiceID(ctx, tenantID, invoiceID)
 }

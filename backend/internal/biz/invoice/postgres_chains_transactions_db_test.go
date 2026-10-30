@@ -652,3 +652,46 @@ func TestParseTaxBreakdown(t *testing.T) {
 	_, err = ParseTaxBreakdown(json.RawMessage(`[1,2`))
 	require.Error(t, err)
 }
+
+// A sent credit note reduces the receivable like a payment (the document chain
+// reads it that way); a draft one does not. Without the netting an invoice that
+// is settled by payment plus credit note stays an open item and is dunned.
+func TestPostgresRepository_ListOpenItems_NetsSentCreditNotesOnly(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	pool := testutil.PoolFromEnv(t)
+	t.Cleanup(func() { pool.Close() })
+
+	tenantID, ctx := seedChainTenant(t, pool, "Open Items Credit Tenant")
+	repo := NewPostgresRepository(pool)
+	today := chainTestDay(0)
+	mk := func() *models.Invoice {
+		inv := newListTestInvoice(tenantID, today.AddDate(0, 0, -24), today.AddDate(0, 0, -10))
+		inv.Status = models.InvoiceStatusSent
+		createListTestInvoice(t, repo, pool, ctx, inv)
+		return inv
+	}
+
+	// 119 gross: credit note 40 (sent) + payment 79 settle it completely.
+	settled := mk()
+	seedChainCreditNote(t, pool, tenantID, settled.ID, "GS-NET-1", models.CreditNoteStatusSent, 40, today)
+	seedChainPayment(t, pool, tenantID, settled.ID, 79, today, "")
+	// Same amounts, but the credit note is still a draft: 40 stays open.
+	drafted := mk()
+	seedChainCreditNote(t, pool, tenantID, drafted.ID, "GS-NET-2", models.CreditNoteStatusDraft, 40, today)
+	seedChainPayment(t, pool, tenantID, drafted.ID, 79, today, "")
+	// Sent credit note 19, nothing paid: 100 open.
+	partial := mk()
+	seedChainCreditNote(t, pool, tenantID, partial.ID, "GS-NET-3", models.CreditNoteStatusSent, 19, today)
+
+	items, total, err := repo.ListOpenItems(ctx, tenantID, models.OpenItemFilter{AsOf: today, Limit: 50})
+	require.NoError(t, err)
+	require.Equal(t, 2, total, "the invoice settled by payment plus sent credit note must drop out")
+
+	open := map[uuid.UUID]decimal.Decimal{}
+	for _, it := range items {
+		open[it.InvoiceID] = it.OpenAmount
+	}
+	assert.NotContains(t, open, settled.ID)
+	assert.Equal(t, "40", open[drafted.ID].String(), "a draft credit note must not reduce the open amount")
+	assert.Equal(t, "100", open[partial.ID].String())
+}

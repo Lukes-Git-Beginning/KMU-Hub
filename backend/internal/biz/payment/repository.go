@@ -47,6 +47,9 @@ type Repository interface {
 	CreateInTx(ctx context.Context, tx pgx.Tx, payment *models.Payment) error
 	DeleteInTx(ctx context.Context, tx pgx.Tx, tenantID, id uuid.UUID) error
 	SumByInvoiceIDInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error)
+	// SumSentCreditNotesInTx totals the credit notes of the invoice already sent to
+	// the customer; they reduce the receivable like a payment, drafts do not.
+	SumSentCreditNotesInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error)
 }
 
 // InvoiceReader provides read access to invoices for validation and status checks.

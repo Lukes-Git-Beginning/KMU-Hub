@@ -303,7 +303,12 @@ func (s *Service) transitionToPaidInTx(ctx context.Context, tx pgx.Tx, tenantID,
 		return fmt.Errorf("sum payments: %w", err)
 	}
 
-	if totalPaid.GreaterThanOrEqual(inv.GrossTotal) {
+	credited, err := s.repo.SumSentCreditNotesInTx(ctx, tx, tenantID, invoiceID)
+	if err != nil {
+		return fmt.Errorf("sum credit notes: %w", err)
+	}
+
+	if totalPaid.Add(credited).GreaterThanOrEqual(inv.GrossTotal) {
 		if updateErr := s.invoiceUpdater.UpdateStatusInTx(ctx, tx, tenantID, invoiceID, models.InvoiceStatusPaid); updateErr != nil {
 			return fmt.Errorf("transition to paid: %w", updateErr)
 		}
@@ -329,7 +334,12 @@ func (s *Service) revertPaidStatusInTx(ctx context.Context, tx pgx.Tx, tenantID,
 		return fmt.Errorf("sum payments: %w", err)
 	}
 
-	if totalPaid.LessThan(inv.GrossTotal) {
+	credited, err := s.repo.SumSentCreditNotesInTx(ctx, tx, tenantID, invoiceID)
+	if err != nil {
+		return fmt.Errorf("sum credit notes: %w", err)
+	}
+
+	if totalPaid.Add(credited).LessThan(inv.GrossTotal) {
 		// Determine correct status: overdue if past due date, otherwise sent
 		newStatus := models.InvoiceStatusSent
 		if time.Now().After(inv.DueDate) {

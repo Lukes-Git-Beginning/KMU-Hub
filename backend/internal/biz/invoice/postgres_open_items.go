@@ -24,7 +24,8 @@ import (
 // openItemsBase is the common projection: sent or overdue invoices whose gross
 // total is not yet covered by recorded payments. Payments are folded per invoice
 // before the join so a second payment on the same invoice cannot duplicate the
-// invoice row. Only payments in the invoice currency net the open amount (no
+// invoice row. Credit notes already sent to the customer reduce the receivable
+// like a payment (same reading as the document chain; drafts do not). Only payments in the invoice currency net the open amount (no
 // exchange rate is stored). Both the invoice and the payment side are tenant-scoped: RLS
 // already enforces it, but a read path that relies on RLS alone silently returns
 // nothing the day it runs under a system context.
@@ -39,7 +40,7 @@ const openItemsBase = `
 	       i.currency,
 	       i.gross_total::text                                    AS gross_total,
 	       COALESCE(p.paid, 0)::text                              AS paid_amount,
-	       (i.gross_total - COALESCE(p.paid, 0))::text            AS open_amount,
+	       (i.gross_total - COALESCE(p.paid, 0) - COALESCE(c.credited, 0))::text AS open_amount,
 	       i.invoice_date,
 	       i.due_date,
 	       ($2::date - i.due_date)::int                           AS days_overdue,
@@ -51,9 +52,15 @@ const openItemsBase = `
 	    WHERE tenant_id = $1
 	    GROUP BY invoice_id, currency
 	) p ON p.invoice_id = i.id AND p.currency = i.currency
+	LEFT JOIN (
+	    SELECT original_invoice_id, SUM(gross_total) AS credited
+	    FROM finance_credit_notes
+	    WHERE tenant_id = $1 AND status = 'sent'
+	    GROUP BY original_invoice_id
+	) c ON c.original_invoice_id = i.id
 	WHERE i.tenant_id = $1
 	  AND i.status IN ('sent', 'overdue')
-	  AND i.gross_total - COALESCE(p.paid, 0) > 0`
+	  AND i.gross_total - COALESCE(p.paid, 0) - COALESCE(c.credited, 0) > 0`
 
 // ListOpenItems returns one page of unpaid receivables, most overdue first, plus
 // the number of open items matching the filter.

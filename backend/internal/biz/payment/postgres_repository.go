@@ -146,6 +146,25 @@ func sumByInvoiceID(ctx context.Context, db pgxExecutor, tenantID, invoiceID uui
 	return sum, nil
 }
 
+// SumSentCreditNotesInTx totals the sent credit notes against the invoice within
+// the caller's transaction (see Repository).
+func (r *PostgresRepository) SumSentCreditNotesInTx(ctx context.Context, tx pgx.Tx, tenantID, invoiceID uuid.UUID) (decimal.Decimal, error) {
+	var sumStr string
+	err := tx.QueryRow(ctx,
+		`SELECT COALESCE(SUM(gross_total), 0)::text FROM finance_credit_notes
+		WHERE tenant_id = $1 AND original_invoice_id = $2 AND status = 'sent'`,
+		tenantID, invoiceID,
+	).Scan(&sumStr)
+	if err != nil {
+		return decimal.Zero, err
+	}
+	sum, parseErr := decimal.NewFromString(sumStr)
+	if parseErr != nil {
+		return decimal.Zero, fmt.Errorf("parse credit note sum %q: %w", sumStr, parseErr)
+	}
+	return sum, nil
+}
+
 // GetByID retrieves a single payment by ID.
 func (r *PostgresRepository) GetByID(ctx context.Context, tenantID, id uuid.UUID) (*models.Payment, error) {
 	var p models.Payment
