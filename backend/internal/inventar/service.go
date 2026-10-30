@@ -179,6 +179,10 @@ func (s *Service) CreateItem(ctx context.Context, input CreateItemInput) (*Item,
 		return nil, ErrInvalidInput
 	}
 
+	if err := s.requireLocation(ctx, input.TenantID, input.LocationID); err != nil {
+		return nil, err
+	}
+
 	exists, err := s.repo.SKUExists(ctx, input.TenantID, sku, nil)
 	if err != nil {
 		return nil, fmt.Errorf("check sku: %w", err)
@@ -220,6 +224,17 @@ func (s *Service) CreateItem(ctx context.Context, input CreateItemInput) (*Item,
 	)
 
 	return item, nil
+}
+
+// requireLocation rejects a location that is unknown, soft-deleted or owned by
+// another tenant. The FK on location_id only catches a missing row, not a
+// soft-deleted one. A nil id means "no location" and is accepted.
+func (s *Service) requireLocation(ctx context.Context, tenantID uuid.UUID, locationID *uuid.UUID) error {
+	if locationID == nil {
+		return nil
+	}
+	_, err := s.repo.GetLocation(ctx, tenantID, *locationID)
+	return err
 }
 
 // UpdateItem updates mutable fields on an item. Quantity is not updated here;
@@ -268,6 +283,9 @@ func (s *Service) UpdateItem(ctx context.Context, input UpdateItemInput) (*Item,
 		item.Location = input.Location
 	}
 	if input.LocationID != nil {
+		if locErr := s.requireLocation(ctx, input.TenantID, input.LocationID); locErr != nil {
+			return nil, locErr
+		}
 		item.LocationID = input.LocationID
 	}
 	if input.Category != nil {
@@ -805,6 +823,9 @@ func (s *Service) CreateInventurSession(ctx context.Context, input CreateInventu
 	if input.Name == "" {
 		return nil, fmt.Errorf("%w: session name is required", ErrInvalidInput)
 	}
+	if err := s.requireLocation(ctx, input.TenantID, input.LocationID); err != nil {
+		return nil, err
+	}
 	date := input.Date
 	if date.IsZero() {
 		date = time.Now()
@@ -915,11 +936,12 @@ func (s *Service) UpsertInventurCount(ctx context.Context, input UpsertInventurC
 		Counted:   &input.Counted,
 		CountedAt: &now,
 	}
-	// Fetch expected from item
+	// Expected comes from the live item; an unknown or deleted item is not countable.
 	item, err := s.repo.GetItem(ctx, input.TenantID, input.ItemID)
-	if err == nil {
-		count.Expected = item.Quantity
+	if err != nil {
+		return nil, err
 	}
+	count.Expected = item.Quantity
 	if err := s.repo.UpsertInventurCount(ctx, count); err != nil {
 		return nil, fmt.Errorf("upsert inventur count: %w", err)
 	}

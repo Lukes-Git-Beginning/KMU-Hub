@@ -1701,7 +1701,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: 'Inventurzählung eines gelöschten oder unbekannten Artikels und Artikel an gelöschtem oder unbekanntem Lagerort antworten 404 statt 200 bzw. 500'
     coverage_start: n.a. (Bugfix)
     scope: >
