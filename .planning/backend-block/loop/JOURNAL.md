@@ -622,3 +622,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: die sechs `fix-*` oben (hinter dem Scan) und `fix-create-parent-checks-sammel-scan-iter50` (BACKLOG-NEXT.yml)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Aenderung)
 - offen: Die Funde stammen aus Codepfaden, nicht aus laufenden DB-Tests; jede Fix-Unit belegt ihren Befund zuerst per DB-Test (rot vor dem Fix). Fuhrpark-Fund (`fix-fuhrpark-create-logs-parent-vehicle`) ist die nächste baubare Unit.
+
+## Iteration 51 — fix-fuhrpark-create-logs-parent-vehicle — done — 2026-10-30 06:08
+- commit: siehe Commit `fix(fuhrpark): require a live vehicle for fuel logs, trip logs and documents` (git log)
+- gebaut: `Service.requireVehicle` (über `GetVehicle`: tenant-gescoped, `deleted_at IS NULL`) vor dem Insert in `CreateFuelLog`, `CreateTripLog` und `CreateVehicleDocument`; gelöschtes, fremdes oder unbekanntes Fahrzeug liefert `ErrVehicleNotFound` (404, bisher 201 bzw. 500 aus dem FK). Spec: 404 an den drei `POST /fuhrpark/vehicles/{id}/{fuel-logs,trip-logs,documents}` ergänzt. Mock-Tests bekamen ein echtes Fahrzeug (`mockVehicle`).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/fuhrpark/... komplett, internal/gateway und internal/server komplett inkl. TestOpenAPIRouteDrift, 0 Skips, DATABASE_URL als kmuhub_app) | swagger-cli validate ok | e2e ok | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy)
+- coverage: n.a. (kein Coverage-Ziel, Bugfix; internal/fuhrpark steht am Ende bei 84,5 %)
+- mutations-probe: (1) Fuel-Check entfernt: Mock- und DB-Test rot; (2) Trip- und Dokument-Check entfernt: `trip_log`/`document` bzw. `trip_logs`/`vehicle_documents` rot. Zurück, Tests grün, Diff sauber.
+- verify vorgaenger: sauber (Commit `d74b434e` nur Loop-Dateien)
+- neue-units: keine
+- desktop-aufrufer: `POST /api/v1/fuhrpark/vehicles/{id}/fuel-logs|trip-logs|documents` -> `api/fuhrpark-client.ts` (Fahrzeugdetail-Tabs) -> passt: Eingabe und Antwortform unverändert, neu ist nur 404 für gelöschtes oder unbekanntes Fahrzeug
+- offen: `UpdateFuelLog`/`UpdateTripLog` ändern `vehicle_id` nicht und sind unberührt. Status `decommissioned` bewusst nicht geprüft (fachliche Frage, laut Unit-Scope). Lokaler E2E (`e2e-local.sh 'Fuhrpark|TripLog|Fahrtenbuch'`) grün.

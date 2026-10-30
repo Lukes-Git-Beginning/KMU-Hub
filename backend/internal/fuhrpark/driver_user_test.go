@@ -16,9 +16,16 @@ import (
 	"github.com/kmuhub/kmuhub/internal/testutil"
 )
 
-func tripLogWithDriver(tenantID uuid.UUID, driverUserID *uuid.UUID, driverName string) TripLog {
+// mockVehicle stores a live vehicle of the tenant in the mock repository and returns its id.
+func mockVehicle(repo *mockRepository, tenantID uuid.UUID) uuid.UUID {
+	id := uuid.New()
+	repo.vehicles[id] = &Vehicle{ID: id, TenantID: tenantID}
+	return id
+}
+
+func tripLogWithDriver(vehicleID, tenantID uuid.UUID, driverUserID *uuid.UUID, driverName string) TripLog {
 	return TripLog{
-		TenantID: tenantID, VehicleID: uuid.New(), StartLocation: "A", EndLocation: "B",
+		TenantID: tenantID, VehicleID: vehicleID, StartLocation: "A", EndLocation: "B",
 		StartKm: 10, EndKm: 20, DriverName: driverName, DriverUserID: driverUserID,
 	}
 }
@@ -30,7 +37,7 @@ func TestService_CreateTripLog_DriverUserMustBelongToTheTenant(t *testing.T) {
 	user := uuid.New()
 	repo.driverUsers = map[string]string{foreign.String() + ":" + user.String(): "Fremde Fahrerin"}
 
-	_, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(tenant, &user, "Max"))
+	_, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(mockVehicle(repo, tenant), tenant, &user, "Max"))
 	require.ErrorIs(t, err, ErrInvalidInput)
 }
 
@@ -40,11 +47,11 @@ func TestService_CreateTripLog_DriverNameFilledFromTheAccountOnlyWhenEmpty(t *te
 	tenant, user := uuid.New(), uuid.New()
 	repo.driverUsers = map[string]string{tenant.String() + ":" + user.String(): "Erika Musterfrau"}
 
-	got, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(tenant, &user, "  "))
+	got, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(mockVehicle(repo, tenant), tenant, &user, "  "))
 	require.NoError(t, err)
 	assert.Equal(t, "Erika Musterfrau", got.DriverName)
 
-	got, err = svc.CreateTripLog(context.Background(), tripLogWithDriver(tenant, &user, "E. Muster"))
+	got, err = svc.CreateTripLog(context.Background(), tripLogWithDriver(mockVehicle(repo, tenant), tenant, &user, "E. Muster"))
 	require.NoError(t, err)
 	assert.Equal(t, "E. Muster", got.DriverName)
 }
@@ -52,8 +59,9 @@ func TestService_CreateTripLog_DriverNameFilledFromTheAccountOnlyWhenEmpty(t *te
 func TestService_CreateTripLog_WithoutDriverUserDoesNotLookUp(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
+	tenant := uuid.New()
 
-	got, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(uuid.New(), nil, "Externer Fahrer"))
+	got, err := svc.CreateTripLog(context.Background(), tripLogWithDriver(mockVehicle(repo, tenant), tenant, nil, "Externer Fahrer"))
 	require.NoError(t, err)
 	assert.Equal(t, "Externer Fahrer", got.DriverName)
 	assert.Zero(t, repo.driverLookups)
@@ -64,7 +72,7 @@ func TestService_UpdateTripLog_OnlyChecksTheDriverWhenItIsPartOfTheUpdate(t *tes
 	svc := NewService(repo)
 	tenant, user := uuid.New(), uuid.New()
 
-	keep := tripLogWithDriver(tenant, nil, "Max")
+	keep := tripLogWithDriver(uuid.New(), tenant, nil, "Max")
 	keep.ID = uuid.New()
 	_, err := svc.UpdateTripLog(context.Background(), keep)
 	require.NoError(t, err)

@@ -1646,7 +1646,7 @@ units:
     service: biz
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: 'Tank-, Fahrten- und Dokument-Einträge für ein gelöschtes oder unbekanntes Fahrzeug antworten 404 statt 201 bzw. 500'
     coverage_start: n.a. (Bugfix)
     scope: >

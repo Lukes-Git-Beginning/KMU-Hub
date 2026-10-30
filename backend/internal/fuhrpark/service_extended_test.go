@@ -45,8 +45,10 @@ func TestService_CreateFuelLog_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
+
 	got, err := svc.CreateFuelLog(context.Background(), FuelLog{
-		VehicleID: uuid.New(), Liters: 42.5, CostCents: 6500, MileageKm: 1000,
+		TenantID: tenantID, VehicleID: mockVehicle(repo, tenantID), Liters: 42.5, CostCents: 6500, MileageKm: 1000,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 42.5, got.Liters)
@@ -103,8 +105,10 @@ func TestService_CreateTripLog_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
+
 	got, err := svc.CreateTripLog(context.Background(), TripLog{
-		VehicleID: uuid.New(), StartLocation: "A", EndLocation: "B", StartKm: 100, EndKm: 150,
+		TenantID: tenantID, VehicleID: mockVehicle(repo, tenantID), StartLocation: "A", EndLocation: "B", StartKm: 100, EndKm: 150,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, int64(150), got.EndKm)
@@ -150,8 +154,10 @@ func TestService_CreateVehicleDocument_Success(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
+	tenantID := uuid.New()
+
 	got, err := svc.CreateVehicleDocument(context.Background(), VehicleDocument{
-		VehicleID: uuid.New(), ObjectKey: "objects/doc.pdf", Name: "doc.pdf",
+		TenantID: tenantID, VehicleID: mockVehicle(repo, tenantID), ObjectKey: "objects/doc.pdf", Name: "doc.pdf",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "doc.pdf", got.Name)
@@ -356,4 +362,37 @@ func TestTuevWorker_WithEventEmitter_ErrorIsNonFatal(t *testing.T) {
 
 	assert.Equal(t, 1, emitter.count())
 	assert.NotNil(t, repo.vehicles[vid].TuevReminderSentAt, "reminder must still be marked sent despite the emit failure")
+}
+
+func TestService_CreateVehicleChildren_RequireALiveVehicleOfTheTenant(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+	tenantID, otherTenant := uuid.New(), uuid.New()
+	deleted := mockVehicle(repo, tenantID)
+	require.NoError(t, repo.SoftDeleteVehicle(context.Background(), tenantID, deleted))
+	foreign := mockVehicle(repo, otherTenant)
+	live := mockVehicle(repo, tenantID)
+
+	create := map[string]func(vehicleID uuid.UUID) error{
+		"fuel log": func(id uuid.UUID) error {
+			_, err := svc.CreateFuelLog(context.Background(), FuelLog{TenantID: tenantID, VehicleID: id, Liters: 10, CostCents: 100, MileageKm: 5})
+			return err
+		},
+		"trip log": func(id uuid.UUID) error {
+			_, err := svc.CreateTripLog(context.Background(), TripLog{TenantID: tenantID, VehicleID: id, StartLocation: "A", EndLocation: "B", StartKm: 1, EndKm: 2})
+			return err
+		},
+		"document": func(id uuid.UUID) error {
+			_, err := svc.CreateVehicleDocument(context.Background(), VehicleDocument{TenantID: tenantID, VehicleID: id, ObjectKey: "k", Name: "d.pdf"})
+			return err
+		},
+	}
+	for name, fn := range create {
+		t.Run(name, func(t *testing.T) {
+			assert.ErrorIs(t, fn(deleted), ErrVehicleNotFound, "deleted vehicle")
+			assert.ErrorIs(t, fn(uuid.New()), ErrVehicleNotFound, "unknown vehicle")
+			assert.ErrorIs(t, fn(foreign), ErrVehicleNotFound, "vehicle of another tenant")
+			assert.NoError(t, fn(live))
+		})
+	}
 }

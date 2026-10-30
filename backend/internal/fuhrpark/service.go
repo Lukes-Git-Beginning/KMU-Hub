@@ -715,6 +715,13 @@ func (s *Service) ListDamages(ctx context.Context, input ListDamagesInput) ([]*V
 // Fuel Logs
 // ============================================================================
 
+// requireVehicle checks that the vehicle is alive and belongs to the tenant, so an
+// entry for a deleted or unknown vehicle is a 404 and not a 201 or a foreign-key 500.
+func (s *Service) requireVehicle(ctx context.Context, tenantID, vehicleID uuid.UUID) error {
+	_, err := s.repo.GetVehicle(ctx, tenantID, vehicleID)
+	return err
+}
+
 // ListFuelLogs retrieves fuel log entries with optional filtering and pagination.
 func (s *Service) ListFuelLogs(ctx context.Context, params ListFuelLogsParams) ([]FuelLog, int, error) {
 	return s.repo.ListFuelLogs(ctx, params)
@@ -724,6 +731,9 @@ func (s *Service) ListFuelLogs(ctx context.Context, params ListFuelLogsParams) (
 func (s *Service) CreateFuelLog(ctx context.Context, req FuelLog) (FuelLog, error) {
 	if req.VehicleID == (uuid.UUID{}) || req.Liters <= 0 || req.CostCents < 0 || req.MileageKm < 0 {
 		return FuelLog{}, ErrInvalidInput
+	}
+	if err := s.requireVehicle(ctx, req.TenantID, req.VehicleID); err != nil {
+		return FuelLog{}, err
 	}
 	return s.repo.CreateFuelLog(ctx, req)
 }
@@ -785,6 +795,9 @@ func (s *Service) CreateTripLog(ctx context.Context, req TripLog) (TripLog, erro
 	}
 	if req.EndKm < req.StartKm {
 		return TripLog{}, fmt.Errorf("%w: end_km must be >= start_km", ErrInvalidInput)
+	}
+	if err := s.requireVehicle(ctx, req.TenantID, req.VehicleID); err != nil {
+		return TripLog{}, err
 	}
 	if err := s.resolveTripDriver(ctx, &req); err != nil {
 		return TripLog{}, err
@@ -909,6 +922,9 @@ func (s *Service) ListVehicleDocuments(ctx context.Context, params ListVehicleDo
 func (s *Service) CreateVehicleDocument(ctx context.Context, doc VehicleDocument) (VehicleDocument, error) {
 	if doc.VehicleID == (uuid.UUID{}) || strings.TrimSpace(doc.ObjectKey) == "" || strings.TrimSpace(doc.Name) == "" {
 		return VehicleDocument{}, ErrInvalidInput
+	}
+	if err := s.requireVehicle(ctx, doc.TenantID, doc.VehicleID); err != nil {
+		return VehicleDocument{}, err
 	}
 	return s.repo.CreateVehicleDocument(ctx, doc)
 }
