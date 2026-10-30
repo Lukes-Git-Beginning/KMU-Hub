@@ -894,3 +894,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: Kommentar-Routen `listDocumentFileComments` u. a. -> in `desktop/src/renderer/src/` existiert nur der generierte `api/types.ts`, kein Component- oder Hook-Aufrufer; Wire-Form unverändert, Platzhalter ist normaler Text -> passt
 - offen: Dokument-Kommentare hängen am `WorkErasureHandler` (Modul „work“), weil es keinen Dokument-Handler gibt; bei einem späteren Dokument-Handler dorthin ziehen. MinIO-Objekte und `is_deleted`-Dateien bleiben wie im Scan vermerkt Thema der Retention-Entscheidung.
+
+## Iteration 72 — fix-erasure-integration-account-links — done — 2026-10-30 08:04
+- commit: siehe Commit `fix(gdpr): delete linked integration accounts on user erasure` (git log)
+- gebaut: `NotificationErasureHandler.ExecuteErasure` löscht `integration_account_links WHERE kmuhub_user_id = $1` in derselben Transaktion; `PreviewErasure` zählt die Tabelle mit. Neuer Test mit zwei Nutzern (zwei Links des Betroffenen Slack+Teams, ein Link des Kollegen): Preview = 2, Execute = 2, Kollegen-Link bleibt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/security/gdpr/...`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/security/gdpr 76,4 % -> 76,5 %
+- mutations-probe: (1) DELETE mit `AND false` neutralisiert: neuer Test rot (Execute 0 statt 2, Zeile bleibt); (2) Preview-Zähler entfernt: Test rot (Preview 0 statt 2). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `ee406e7e`: nur `gdpr/erasure.go` + Test, kein Proto/Route/Guard/Tabelle; Idempotenz-Test und Mutations-Probe vorhanden)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Wire-Änderung; Erasure-Handler intern)
+- offen: Der Handler sitzt unter „notifications“, weil die Links zum Benachrichtigungs-Integrationsmodul gehören. Die DSAR-Auskunft (`dsar_search_account_access.go`) liest die Tabelle bereits; nach der Löschung ist sie dort leer.

@@ -2207,7 +2207,7 @@ units:
     service: security
     model: sonnet
     deps: [fix-erasure-document-file-comments]
-    status: todo
+    status: done
     target: Nutzer-Löschung entfernt die verknüpften Fremdkonten (Slack/Teams usw.)
     coverage_start: n.a. (Fix)
     scope: >

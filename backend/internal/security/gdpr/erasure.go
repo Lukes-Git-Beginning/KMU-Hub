@@ -796,7 +796,8 @@ func (h *BookingPageErasureHandler) ExecuteErasure(ctx context.Context, userID u
 }
 
 // NotificationErasureHandler handles erasure for notification data.
-// Deletes notification preferences, quiet hours, mute rules, and history.
+// Deletes notification preferences, quiet hours, mute rules, history, and linked
+// third-party integration accounts.
 type NotificationErasureHandler struct {
 	pool *pgxpool.Pool
 }
@@ -815,7 +816,8 @@ func (h *NotificationErasureHandler) PreviewErasure(ctx context.Context, userID 
 		   (SELECT COUNT(*) FROM notifications WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM notification_preferences WHERE user_id = $1) +
 		   (SELECT COUNT(*) FROM notification_quiet_hours WHERE user_id = $1) +
-		   (SELECT COUNT(*) FROM notification_mutes WHERE user_id = $1)
+		   (SELECT COUNT(*) FROM notification_mutes WHERE user_id = $1) +
+		   (SELECT COUNT(*) FROM integration_account_links WHERE kmuhub_user_id = $1)
 		`, userID,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
@@ -870,6 +872,14 @@ func (h *NotificationErasureHandler) ExecuteErasure(ctx context.Context, userID 
 	res, err = tx.Exec(ctx, `DELETE FROM notification_mutes WHERE user_id = $1`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("notifications erasure: failed to delete mutes: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Delete linked third-party accounts (Slack/Teams ...): external_user_id and
+	// external_display_name are the user's own data at the other platform.
+	res, err = tx.Exec(ctx, `DELETE FROM integration_account_links WHERE kmuhub_user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("notifications erasure: failed to delete integration account links: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

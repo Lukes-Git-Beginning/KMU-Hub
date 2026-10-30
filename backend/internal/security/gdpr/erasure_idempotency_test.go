@@ -495,3 +495,49 @@ func TestNotificationErasureHandler_ExecuteErasure_SecondRunIsTrulyIdempotent(t 
 	require.NoError(t, err)
 	assert.Equal(t, 0, n2, "second run correctly reports 0 -- nothing left to delete")
 }
+
+func TestNotificationErasureHandler_IntegrationAccountLinks_OnlyOwnLinksGoAway(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Notification Erasure Links Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+
+	userID := seedExportUser(t, pool, tenantOwn, "notif-links-subject")
+	defer testutil.CleanupRow(t, pool, "users", userID)
+	colleagueID := seedExportUser(t, pool, tenantOwn, "notif-links-colleague")
+	defer testutil.CleanupRow(t, pool, "users", colleagueID)
+
+	ownLink := testutil.SeedRow(t, pool, "integration_account_links", map[string]any{
+		"tenant_id": tenantOwn, "platform": "slack", "external_user_id": "U-own-" + userID.String(),
+		"kmuhub_user_id": userID, "external_display_name": "Alma auf Slack",
+	})
+	ownTeams := testutil.SeedRow(t, pool, "integration_account_links", map[string]any{
+		"tenant_id": tenantOwn, "platform": "teams", "external_user_id": "T-own-" + userID.String(),
+		"kmuhub_user_id": userID, "external_display_name": "Alma auf Teams",
+	})
+	colleagueLink := testutil.SeedRow(t, pool, "integration_account_links", map[string]any{
+		"tenant_id": tenantOwn, "platform": "slack", "external_user_id": "U-col-" + colleagueID.String(),
+		"kmuhub_user_id": colleagueID, "external_display_name": "Kurt auf Slack",
+	})
+	defer testutil.CleanupRow(t, pool, "integration_account_links", colleagueLink)
+
+	h := NewNotificationErasureHandler(pool)
+	ctx := testutil.WithTenantCtx(context.Background(), tenantOwn)
+
+	preview, err := h.PreviewErasure(ctx, userID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, preview.RecordCount, "preview counts the subject's two links, not the colleague's")
+
+	n, err := h.ExecuteErasure(ctx, userID, erasureLabel, ErasureDelete)
+	require.NoError(t, err)
+	assert.Equal(t, 2, n)
+
+	testutil.AssertRowCount(t, pool, ctx, "integration_account_links", ownLink, 0)
+	testutil.AssertRowCount(t, pool, ctx, "integration_account_links", ownTeams, 0)
+	testutil.AssertRowCount(t, pool, ctx, "integration_account_links", colleagueLink, 1)
+}
