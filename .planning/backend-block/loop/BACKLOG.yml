@@ -865,7 +865,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: PUT /api/v1/work/labels/{id} ohne color liefert 400 oder behält die Farbe statt 500
     scope: >
       Fund aus `cov-work-label` (Lauf 17, Iteration 92), per psql und im Code verifiziert: `validateLabel`

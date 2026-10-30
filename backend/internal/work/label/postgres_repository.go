@@ -81,7 +81,7 @@ func (r *PostgresRepository) Update(ctx context.Context, tenantID, id, name, col
 	l := &Label{}
 	err := r.pool.QueryRow(ctx,
 		`UPDATE work_labels
-		 SET name = $3, color = $4, updated_at = $5
+		 SET name = $3, color = COALESCE(NULLIF($4, ''), color), updated_at = $5
 		 WHERE id = $1 AND tenant_id = $2
 		 RETURNING id, tenant_id, name, color, created_at, updated_at`,
 		id, tenantID, name, color, time.Now(),

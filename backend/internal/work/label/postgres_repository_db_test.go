@@ -8,6 +8,7 @@ package label_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -129,5 +130,41 @@ func TestLabelRepository_TenantIsolation(t *testing.T) {
 		if other.ID == l.ID {
 			t.Fatal("tenant B's list leaked tenant A's label")
 		}
+	}
+}
+
+// TestLabelService_UpdateWithoutColorKeepsColor proves a PUT without a color
+// does not reach work_labels.color as '' (CHECK ~ '^#[0-9A-Fa-f]{6}$', 23514
+// -> 500): the stored color stays, the name changes.
+func TestLabelService_UpdateWithoutColorKeepsColor(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantID := uuid.New()
+	testutil.EnsureTenant(t, pool, tenantID, "Label Color Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantID)
+
+	svc := label.NewService(label.NewPostgresRepository(pool))
+	ctx := testutil.WithTenantCtx(context.Background(), tenantID)
+
+	l, err := svc.Create(ctx, tenantID.String(), "Color Keep", "#3b82f6")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	defer testutil.CleanupRow(t, pool, "work_labels", uuid.MustParse(l.ID))
+
+	got, err := svc.Update(ctx, tenantID.String(), l.ID, "Color Keep Renamed", "")
+	if err != nil {
+		t.Fatalf("Update without color: %v", err)
+	}
+	if got.Name != "Color Keep Renamed" || got.Color != "#3b82f6" {
+		t.Errorf("got name=%q color=%q, want renamed with color kept #3b82f6", got.Name, got.Color)
+	}
+
+	if _, err := svc.Update(ctx, tenantID.String(), l.ID, "Color Keep Renamed", "red"); !errors.Is(err, label.ErrColorInvalid) {
+		t.Errorf("Update with malformed color: err=%v, want ErrColorInvalid", err)
 	}
 }

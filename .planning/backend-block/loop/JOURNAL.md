@@ -309,3 +309,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `POST /documents/files/{id}/share-links` -> kein Aufrufer in `api/`/`hooks/` (nur generierte `api/types.ts`) -> passt
 - offen: (1) Anzahl sofort abgelaufener Bestandslinks lokal nicht gezählt, in Produktion vor dem Deploy zählbar: `SELECT count(*) FROM document_share_links WHERE expires_at IS NULL AND created_at < now() - interval '365 days'` (Lesen auf Prod ist Lukes Sache). (2) Der Proto-Kommentar an `CreateShareLinkRequest.expires_in_days` sagt noch „absent or 0 = never expires"; nur Kommentar, kein Regen angestoßen. (3) Das Token liegt bei Dokument-Links weiter im Klartext (000266, bewusst); Hash-Umstellung wäre eine eigene Unit. (4) Verhaltensänderung: Antwort auf „kein Ablauf" liefert jetzt ein `expires_at`.
+
+## Iteration 23 — fix-work-label-update-empty-color — done — 2026-10-30 02:16
+- commit: siehe Commit `fix(work): keep the label color when an update sends none` (git log)
+- gebaut: `PostgresRepository.Update` (`internal/work/label/postgres_repository.go`) setzt `color = COALESCE(NULLIF($4, ''), color)`: ein PUT ohne Farbe behält die gespeicherte Farbe statt am CHECK (23514) mit 500 zu scheitern. Fix an der gemeinsamen Stelle (SQL), nicht im gRPC-Layer; eine malformed Farbe bleibt `ErrColorInvalid` (Service). Neuer DB-Test `TestLabelService_UpdateWithoutColorKeepsColor`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/work/..., internal/server; DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. | gateway-Test n.a. (keine Route berührt)
+- coverage: internal/work/label 92,4 % (vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: COALESCE/NULLIF zurück auf `$4` -> Test rot (SQLSTATE 23514 `work_labels_color_check`), zurückgedreht (Diff nur die gewollte Zeile).
+- verify vorgaenger: sauber (Commit `7b98fcc6`: kein Proto, keine Route, kein Guard; Migration 368 mit Down, Tabellen-Policy unverändert, Test mit Mutationsprobe)
+- neue-units: keine
+- desktop-aufrufer: `PUT /work/labels/{id}` -> `api/work-labels-client.ts` (`updateWorkLabel(id, {name, color})`, sendet die Farbe immer) -> passt; Antwortform unverändert
+- offen: (1) Verhaltensänderung: fehlende Farbe beim Update ist 200 mit alter Farbe (vorher 500). (2) `Service.Create` mit leerer Farbe scheitert weiter am CHECK, wenn ein Caller nicht über `work_grpc.go` kommt (Default `#6b7280` dort); einziger Caller ist der gRPC-Handler.
