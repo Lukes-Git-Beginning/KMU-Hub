@@ -1367,7 +1367,7 @@ units:
     service: einkauf
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Positionen einer abgeschlossenen oder stornierten Bestellung lassen sich nicht mehr anlegen, ändern oder löschen
     coverage_start: n.a. (Bugfix)
     scope: >

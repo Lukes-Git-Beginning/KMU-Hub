@@ -347,7 +347,7 @@ func (s *Service) UpdatePO(ctx context.Context, input UpdatePOInput) (*PurchaseO
 		return nil, err
 	}
 
-	if po.Status == POStatusClosed || po.Status == POStatusCancelled {
+	if poFrozen(po) {
 		return nil, ErrPONotDraft
 	}
 
@@ -490,9 +490,12 @@ func (s *Service) AddPOLine(ctx context.Context, input AddPOLineInput) (*POLine,
 		return nil, ErrInvalidInput
 	}
 
-	// Ensure PO exists
-	if _, err := s.repo.GetPO(ctx, input.TenantID, input.POID); err != nil {
+	po, err := s.repo.GetPO(ctx, input.TenantID, input.POID)
+	if err != nil {
 		return nil, err
+	}
+	if poFrozen(po) {
+		return nil, ErrPONotDraft
 	}
 
 	taxRate := strings.TrimSpace(input.TaxRate)
@@ -537,6 +540,9 @@ func (s *Service) UpdatePOLine(ctx context.Context, input UpdatePOLineInput) (*P
 	}
 	if line.POID != input.POID {
 		return nil, ErrPOLineNotFound
+	}
+	if err := s.requirePOEditable(ctx, input.TenantID, line.POID); err != nil {
+		return nil, err
 	}
 
 	if input.ProductName != nil {
@@ -586,6 +592,9 @@ func (s *Service) DeletePOLine(ctx context.Context, tenantID, poID, lineID uuid.
 	if line.POID != poID {
 		return ErrPOLineNotFound
 	}
+	if err := s.requirePOEditable(ctx, tenantID, line.POID); err != nil {
+		return err
+	}
 	if delErr := s.repo.DeletePOLine(ctx, tenantID, lineID); delErr != nil {
 		return fmt.Errorf("delete po line: %w", delErr)
 	}
@@ -593,6 +602,24 @@ func (s *Service) DeletePOLine(ctx context.Context, tenantID, poID, lineID uuid.
 		return fmt.Errorf("recompute po total: %w", err)
 	}
 	slog.Info("einkauf po line deleted", "line_id", lineID, "tenant_id", tenantID)
+	return nil
+}
+
+// poFrozen reports whether a PO is closed or cancelled and therefore no longer
+// editable; the rule UpdatePO has always applied to the header.
+func poFrozen(po *PurchaseOrder) bool {
+	return po.Status == POStatusClosed || po.Status == POStatusCancelled
+}
+
+// requirePOEditable loads the PO and answers ErrPONotDraft when it is frozen.
+func (s *Service) requirePOEditable(ctx context.Context, tenantID, poID uuid.UUID) error {
+	po, err := s.repo.GetPO(ctx, tenantID, poID)
+	if err != nil {
+		return err
+	}
+	if poFrozen(po) {
+		return ErrPONotDraft
+	}
 	return nil
 }
 

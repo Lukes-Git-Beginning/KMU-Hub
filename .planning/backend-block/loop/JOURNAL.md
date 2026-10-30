@@ -521,3 +521,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PATCH /berichte/schedules/{id}` -> `api/berichte-client.ts:195` über `useBerichte.ts:244` <- `ScheduleReportModal.tsx:180` sendet `recipients` ohne `recipients_set` -> passt jetzt (Empfänger werden ersetzt); Eingaben kommen aus derselben Quelle wie beim Anlegen, das dieselbe E-Mail-Validierung schon hatte; Antwortform unverändert
 - offen: Der Handler-Test erreicht den RPC nicht; das Mapping ist daher über die reine Funktion belegt, nicht über einen Durchlauf bis in `berichte.Service` (dessen `RecipientsSet`-Semantik testet `service_test.go:1070`).
+
+## Iteration 42 — fix-einkauf-po-lines-ignore-po-status — done — 2026-10-30 04:23
+- commit: siehe Commit `fix(einkauf): freeze po lines of closed and cancelled orders` (git log)
+- gebaut: `einkauf.Service`: gemeinsame Regel `poFrozen` (closed/cancelled, dieselbe wie `UpdatePO`) plus Hilfsmethode `requirePOEditable`; `AddPOLine`, `UpdatePOLine` und `DeletePOLine` antworten bei gesperrter Bestellung mit `ErrPONotDraft` (gRPC `FailedPrecondition`, vorhandenes Mapping) und schreiben/rechnen nichts. Update/Delete prüfen nach dem Eltern-Vergleich über `line.POID`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/einkauf/... 0 Skips, internal/server -run 'Einkauf|PO', DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | e2e n.a. (kein Flow ändert Positionen) | gateway n.a. (keine Route angefasst)
+- coverage: internal/einkauf n.a. -> 82,8 % (kein Coverage-Ziel, Bugfix; Vorher-Wert nicht gemessen)
+- mutations-probe: (1) `poFrozen` -> `return false`: `TestPOLines_FrozenForClosedAndCancelledPO` rot; (2) Prüfung nur in `DeletePOLine` entfernt: derselbe Test rot. Datei aus Backup zurück, Tests grün, Diff sauber. Der Test belegt je closed und cancelled: Add/Update/Delete -> ErrPONotDraft, Menge und Summe unverändert; unter draft laufen Add und Update weiter.
+- verify vorgaenger: sauber (Commit `4702e39d`: nur Gateway-Mapping + Test, kein Proto, keine neue Route, kein Guard, keine Tabelle)
+- neue-units: keine
+- desktop-aufrufer: `POST/PATCH/DELETE /einkauf/pos/{id}/lines...` -> `api/einkauf-client.ts:167-181` über `api/hooks/useEinkauf.ts`, genutzt nur in `EinkaufDialogs.tsx`, dort hinter `isEditableDraft(order.status)` (`:68`) -> passt, der Editor erscheint für closed/cancelled nicht; Antwortform unverändert
+- offen: Fachfrage aus der Unit bleibt offen und wurde nicht entschieden: Sperre der Positionen auch ab `approved`/`sent` bzw. mit `received_quantity > 0`. Diese Unit spiegelt nur die Regel von `UpdatePO`.
