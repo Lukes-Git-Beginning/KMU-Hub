@@ -923,7 +923,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: die Fixes aus Block B halten und sind echt getestet
     coverage_start: n.a.
     scope: >
