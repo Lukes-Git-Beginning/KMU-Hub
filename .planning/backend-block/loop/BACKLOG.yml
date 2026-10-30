@@ -1312,7 +1312,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: die Fixes aus den ersten drei Scans halten an allen genannten Stellen
     coverage_start: n.a.
     scope: >
@@ -1326,6 +1326,71 @@ units:
       - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
       - Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit)
       - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: fix-berichte-schedule-patch-drops-recipients
+    phase: 4
+    service: berichte
+    model: sonnet
+    deps: []
+    status: todo
+    target: Empfänger eines bestehenden Berichts-Zeitplans lassen sich über den Desktop ändern
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      STUB MELDET ERFOLG / TEIL-PATCH VERWIRFT FELD, gefunden in `review-run18-r3` (Lauf 18, Iteration 40; Nebenbefund
+      von `scan-partial-patch-overwrites-row`, Iteration 27, dort ohne Unit). `Service.UpdateSchedule`
+      (`internal/berichte/service.go:559`) übernimmt `recipients` nur bei `RecipientsSet = true`; das Gateway reicht
+      `req.RecipientsSet` 1:1 durch (`route_berichte.go:1011-1012`). Der einzige Desktop-Aufrufer
+      `ScheduleReportModal.tsx:180` sendet beim Bearbeiten `{cron_expression, recipients, format, active}` OHNE
+      `recipients_set` (`UpdateScheduleInput` in `api/berichte-types.ts:190` kennt das Feld nicht, `useBerichte.ts:244`
+      ergänzt es nicht). Ergebnis für jeden Nutzer: Empfänger ändern -> 200 + Toast „gespeichert“, Empfängerliste
+      unverändert. Fix im Gateway nach dem Muster des formulare-Webhooks (`EventsSet || Events != nil`):
+      `RecipientsSet: req.RecipientsSet || req.Recipients != nil`. `recipients_set: true` mit fehlendem Feld leert
+      weiterhin (Spec-Text bleibt gültig). Dabei `updateScheduleRequest.Recipients` dieselbe Validierung geben wie
+      Create (`validate:"omitempty,dive,email"`, `route_berichte.go:192`) — heute fehlt sie am Update (`:201`).
+    sources:
+      - backend/internal/gateway/route_berichte.go
+      - backend/internal/berichte/service.go
+      - desktop/src/renderer/src/modules/berichte/components/documents/ScheduleReportModal.tsx
+    notes: >
+      Achtung `omitempty` an `Recipients`: `"recipients": []` dekodiert zu leerem, nicht-nil Slice -> ersetzt (leert).
+      Das ist gewollt; der Desktop verhindert leere Listen selbst (`ScheduleReportModal.tsx:173`). Die Mapping-Logik
+      in eine reine Funktion ziehen, wenn der Handler-Test den RPC nicht erreicht (Muster `updateInspectionToProto`,
+      `efde5db4`).
+    done_when:
+      - 'Test: PATCH mit `recipients` ohne `recipients_set` ersetzt die Liste; ohne `recipients` bleibt sie; `recipients_set: true` ohne Feld leert'
+      - 'Test: ungültige E-Mail in `recipients` am Update -> 400'
+      - go test -count=1 ./internal/gateway/ grün (inkl. TestOpenAPIRouteDrift)
+      - Mutationsprobe belegt
+
+  - id: fix-einkauf-po-lines-ignore-po-status
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: []
+    status: todo
+    target: Positionen einer abgeschlossenen oder stornierten Bestellung lassen sich nicht mehr anlegen, ändern oder löschen
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      STATUSGRENZE NUR AM ELTERNTEIL, gefunden in `review-run18-r3` (Lauf 18, Iteration 40) beim Nachprüfen von
+      `50c1dff6`. `Service.UpdatePO` (`internal/einkauf/service.go:350`) lehnt `closed`/`cancelled` mit `ErrPONotDraft`
+      ab, `DeletePO` (`:444`) alles außer `draft`. Die Positionsrouten prüfen den Bestellstatus gar nicht:
+      `AddPOLine` (`:482`, lädt die PO nur auf Existenz), `UpdatePOLine` (`:533`) und `DeletePOLine` (`:581`) schreiben
+      und rufen danach `RecomputePOTotal` — die Summe einer abgeschlossenen/stornierten Bestellung lässt sich also
+      über `POST/PATCH/DELETE /einkauf/pos/{id}/lines...` nachträglich ändern. Fix im Service an allen drei Methoden:
+      PO laden (bei Update/Delete über die schon geprüfte `line.POID`) und dieselbe Regel wie `UpdatePO` anwenden
+      (`closed`/`cancelled` -> `ErrPONotDraft`, bestehendes Mapping).
+    sources:
+      - backend/internal/einkauf/service.go
+      - backend/internal/server/einkauf_grpc.go
+    notes: >
+      Offene Fachfrage NICHT in dieser Unit entscheiden: ob Positionen ab `approved`/`sent` oder mit
+      `received_quantity > 0` ebenfalls gesperrt sein sollen. Diese Unit spiegelt nur die Regel, die `UpdatePO` schon
+      hat. Desktop vorher greppen (`api/einkauf-client.ts:175,181`), ob der Positionseditor für closed/cancelled
+      überhaupt erscheint, und das in `desktop-aufrufer:` festhalten.
+    done_when:
+      - 'DB-Test: Add/Update/Delete einer Position unter closed bzw. cancelled -> ErrPONotDraft, Zeile und Summe unverändert; unter draft weiterhin erfolgreich'
+      - go test -count=1 für internal/einkauf/... grün, DATABASE_URL gesetzt, 0 Skips
+      - Mutationsprobe belegt
 
   - id: scan-own-scope-sibling-routes
     phase: 4
@@ -1711,3 +1776,28 @@ units:
     done_when:
       - 'Test: für jede Vorlage enthält das gerenderte Action-Config nach resolveTemplate gegen das env ihres Trigger-Events keinen `{{`-Rest'
       - go test -count=1 für internal/automation/... und die angefassten Emitter grün, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-schichten-update-cannot-clear-description-location
+    phase: 4
+    service: schichten
+    model: sonnet
+    deps: []
+    status: todo
+    target: Beschreibung und Ort einer Schicht lassen sich per PATCH leeren
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      TEIL-PATCH, gefunden in `scan-partial-patch-overwrites-row` (Iteration 27, nur in `offen:`), in `review-run18-r3`
+      (Iteration 40) nachgeprüft. Das Gateway reicht `description`/`location` als Zeiger durch
+      (`route_schichten.go:131,134`, Proto-Feld `optional`), der gRPC-Server übernimmt sie aber nur bei `!= ""`
+      (`internal/server/schichten_grpc.go:97,108`). Ein gesendetes `""` wird zu „nicht gesendet“, das Feld lässt sich
+      nie leeren. Fix im Server: Anwesenheit (`req.Description != nil`) statt Nicht-Leer prüfen, gleiche Prüfung für
+      die Template-Update-Methode, falls sie dasselbe Muster hat.
+    sources:
+      - backend/internal/server/schichten_grpc.go
+      - backend/internal/gateway/route_schichten.go
+    notes: >
+      Niedrige Priorität: das Schichten-Flag ist in Produktion aus. Prüfen, ob das Repository-UPDATE ein leeres
+      `*string` als NULL oder als `''` schreibt, und das im Test festhalten.
+    done_when:
+      - 'Test: Update mit `description: ""` leert die Beschreibung, ohne Feld bleibt sie'
+      - Mutationsprobe belegt
