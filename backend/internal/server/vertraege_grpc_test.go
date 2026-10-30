@@ -191,12 +191,15 @@ func (r *stubVertraegeRepo) AddParty(_ context.Context, p *vertraege.ContractPar
 	return nil
 }
 
-func (r *stubVertraegeRepo) RemoveParty(_ context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
+func (r *stubVertraegeRepo) RemoveParty(_ context.Context, tenantID, contractID, partyID uuid.UUID) (uuid.UUID, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	p, ok := r.parties[partyID]
 	if !ok || p.TenantID != tenantID {
 		return uuid.Nil, nil
+	}
+	if p.ContractID != contractID {
+		return uuid.Nil, vertraege.ErrPartyNotFound
 	}
 	if p.SignedOn != nil {
 		return uuid.Nil, vertraege.ErrPartySigned
@@ -276,11 +279,11 @@ func (r *stubVertraegeRepo) GetReminder(_ context.Context, tenantID, reminderID 
 	return &cp, nil
 }
 
-func (r *stubVertraegeRepo) DeleteReminder(_ context.Context, tenantID, reminderID uuid.UUID) error {
+func (r *stubVertraegeRepo) DeleteReminder(_ context.Context, tenantID, contractID, reminderID uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	rem, ok := r.reminders[reminderID]
-	if !ok || rem.TenantID != tenantID {
+	if !ok || rem.TenantID != tenantID || rem.ContractID != contractID {
 		return vertraege.ErrReminderNotFound
 	}
 	delete(r.reminders, reminderID)
@@ -450,6 +453,10 @@ func TestVertraege_ValidationErrors(t *testing.T) {
 		_, err := srv.RemoveParty(ctx, &vertraegev1.RemovePartyRequest{TenantId: validTenant, PartyId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
+	t.Run("RemoveParty invalid contract_id", func(t *testing.T) {
+		_, err := srv.RemoveParty(ctx, &vertraegev1.RemovePartyRequest{TenantId: validTenant, PartyId: uuid.New().String(), ContractId: "bad"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
 	t.Run("ListParties invalid tenant_id", func(t *testing.T) {
 		_, err := srv.ListParties(ctx, &vertraegev1.ListPartiesRequest{TenantId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
@@ -474,12 +481,20 @@ func TestVertraege_ValidationErrors(t *testing.T) {
 		_, err := srv.UpdateReminder(ctx, &vertraegev1.UpdateReminderRequest{TenantId: validTenant, ReminderId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
+	t.Run("UpdateReminder invalid contract_id", func(t *testing.T) {
+		_, err := srv.UpdateReminder(ctx, &vertraegev1.UpdateReminderRequest{TenantId: validTenant, ReminderId: uuid.New().String(), ContractId: "bad"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
 	t.Run("DeleteReminder invalid tenant_id", func(t *testing.T) {
 		_, err := srv.DeleteReminder(ctx, &vertraegev1.DeleteReminderRequest{TenantId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("DeleteReminder invalid reminder_id", func(t *testing.T) {
 		_, err := srv.DeleteReminder(ctx, &vertraegev1.DeleteReminderRequest{TenantId: validTenant, ReminderId: "bad"})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+	t.Run("DeleteReminder invalid contract_id", func(t *testing.T) {
+		_, err := srv.DeleteReminder(ctx, &vertraegev1.DeleteReminderRequest{TenantId: validTenant, ReminderId: uuid.New().String(), ContractId: "bad"})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 	t.Run("ListReminders invalid tenant_id", func(t *testing.T) {
@@ -797,8 +812,9 @@ func TestVertraege_PartyLifecycle(t *testing.T) {
 	require.Len(t, listResp.Parties, 1)
 
 	_, err = srv.RemoveParty(context.Background(), &vertraegev1.RemovePartyRequest{
-		TenantId: tenantID.String(),
-		PartyId:  addResp.Party.Id,
+		TenantId:   tenantID.String(),
+		ContractId: c.ID.String(),
+		PartyId:    addResp.Party.Id,
 	})
 	require.NoError(t, err)
 
@@ -828,6 +844,7 @@ func TestVertraege_ReminderLifecycle(t *testing.T) {
 	sentStatus := string(vertraege.ReminderStatusSent)
 	updateResp, err := srv.UpdateReminder(context.Background(), &vertraegev1.UpdateReminderRequest{
 		TenantId:   tenantID.String(),
+		ContractId: c.ID.String(),
 		ReminderId: createResp.Reminder.Id,
 		Status:     &sentStatus,
 	})
@@ -836,6 +853,7 @@ func TestVertraege_ReminderLifecycle(t *testing.T) {
 
 	_, err = srv.UpdateReminder(context.Background(), &vertraegev1.UpdateReminderRequest{
 		TenantId:   tenantID.String(),
+		ContractId: c.ID.String(),
 		ReminderId: uuid.New().String(),
 	})
 	requireGRPCCode(t, err, codes.NotFound)
@@ -849,6 +867,14 @@ func TestVertraege_ReminderLifecycle(t *testing.T) {
 
 	_, err = srv.DeleteReminder(context.Background(), &vertraegev1.DeleteReminderRequest{
 		TenantId:   tenantID.String(),
+		ContractId: uuid.New().String(),
+		ReminderId: createResp.Reminder.Id,
+	})
+	requireGRPCCode(t, err, codes.NotFound)
+
+	_, err = srv.DeleteReminder(context.Background(), &vertraegev1.DeleteReminderRequest{
+		TenantId:   tenantID.String(),
+		ContractId: c.ID.String(),
 		ReminderId: createResp.Reminder.Id,
 	})
 	require.NoError(t, err)

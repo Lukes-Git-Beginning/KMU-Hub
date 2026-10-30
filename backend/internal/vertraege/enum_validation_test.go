@@ -60,11 +60,11 @@ func TestService_EnumFields_OutsideWhitelist_Rejected(t *testing.T) {
 			return err
 		},
 		"reminder patch type": func() error {
-			_, err := svc.UpdateReminder(ctx, UpdateReminderInput{TenantID: tenantID, ReminderID: rem.ID, ReminderType: &bogusReminderType})
+			_, err := svc.UpdateReminder(ctx, UpdateReminderInput{TenantID: tenantID, ContractID: rem.ContractID, ReminderID: rem.ID, ReminderType: &bogusReminderType})
 			return err
 		},
 		"reminder patch status": func() error {
-			_, err := svc.UpdateReminder(ctx, UpdateReminderInput{TenantID: tenantID, ReminderID: rem.ID, Status: &bogusReminderStatus})
+			_, err := svc.UpdateReminder(ctx, UpdateReminderInput{TenantID: tenantID, ContractID: rem.ContractID, ReminderID: rem.ID, Status: &bogusReminderStatus})
 			return err
 		},
 	}

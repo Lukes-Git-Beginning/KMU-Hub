@@ -194,7 +194,7 @@ func TestService_AddAndRemoveParty_RecordEvents(t *testing.T) {
 		RoleInContract: "Auftraggeber",
 	})
 	require.NoError(t, err)
-	require.NoError(t, svc.RemoveParty(ctx, tenantID, p.ID))
+	require.NoError(t, svc.RemoveParty(ctx, tenantID, c.ID, p.ID))
 
 	events := repo.eventsFor(c.ID)
 	require.Len(t, events, 2)
@@ -228,7 +228,7 @@ func TestService_RemoveParty_SignedParty_Refused(t *testing.T) {
 
 	eventsBefore := len(repo.eventsFor(c.ID))
 
-	err = svc.RemoveParty(ctx, tenantID, p.ID)
+	err = svc.RemoveParty(ctx, tenantID, c.ID, p.ID)
 
 	require.ErrorIs(t, err, ErrPartySigned)
 	_, stillThere := repo.parties[p.ID]
@@ -242,7 +242,7 @@ func TestService_RemoveParty_Missing_RecordsNothing(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	require.NoError(t, svc.RemoveParty(ctxWithUser(uuid.New()), uuid.New(), uuid.New()))
+	require.NoError(t, svc.RemoveParty(ctxWithUser(uuid.New()), uuid.New(), uuid.New(), uuid.New()))
 	assert.Empty(t, repo.events)
 }
 

@@ -144,12 +144,15 @@ func (m *mockRepository) AddParty(_ context.Context, p *ContractParty) error {
 	return nil
 }
 
-func (m *mockRepository) RemoveParty(_ context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
+func (m *mockRepository) RemoveParty(_ context.Context, tenantID, contractID, partyID uuid.UUID) (uuid.UUID, error) {
 	p, ok := m.parties[partyID]
 	if !ok || p.TenantID != tenantID {
 		// Mirrors the RETURNING-less no-op of the real repository: nothing
 		// matched, no error, and no contract to file an audit entry against.
 		return uuid.Nil, nil
+	}
+	if p.ContractID != contractID {
+		return uuid.Nil, ErrPartyNotFound
 	}
 	if p.SignedOn != nil {
 		return uuid.Nil, ErrPartySigned
@@ -186,7 +189,14 @@ func (m *mockRepository) GetReminder(_ context.Context, tenantID, reminderID uui
 	return r, nil
 }
 
-func (m *mockRepository) DeleteReminder(_ context.Context, tenantID, reminderID uuid.UUID) error {
+func (m *mockRepository) DeleteReminder(_ context.Context, tenantID, contractID, reminderID uuid.UUID) error {
+	r, ok := m.reminders[reminderID]
+	if !ok || r.TenantID != tenantID {
+		return nil
+	}
+	if r.ContractID != contractID {
+		return ErrReminderNotFound
+	}
 	delete(m.reminders, reminderID)
 	return nil
 }
@@ -742,7 +752,7 @@ func TestService_DeleteReminder_Success(t *testing.T) {
 	}
 	repo.reminders[rem.ID] = rem
 
-	err := svc.DeleteReminder(context.Background(), tenantID, rem.ID)
+	err := svc.DeleteReminder(context.Background(), tenantID, rem.ContractID, rem.ID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.reminders, rem.ID)

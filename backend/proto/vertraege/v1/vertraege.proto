@@ -192,6 +192,7 @@ message AddPartyRequest {
 message RemovePartyRequest {
   string tenant_id = 1;
   string party_id = 2;
+  string contract_id = 3; // party must belong to this contract
 }
 
 message RemovePartyResponse {}
@@ -246,11 +247,13 @@ message UpdateReminderRequest {
   optional string subject = 5;
   optional string message = 6;
   optional string status = 7;
+  string contract_id = 8; // reminder must belong to this contract
 }
 
 message DeleteReminderRequest {
   string tenant_id = 1;
   string reminder_id = 2;
+  string contract_id = 3; // reminder must belong to this contract
 }
 
 message DeleteReminderResponse {}

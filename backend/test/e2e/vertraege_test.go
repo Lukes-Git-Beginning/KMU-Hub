@@ -329,6 +329,28 @@ func TestVertraegeMemberFlow(t *testing.T) {
 			t.Fatalf("a refused party delete removed the row")
 		}
 
+		// Through another contract's path the party and the reminder are not
+		// reachable, even for the manager.
+		resp, b = postJSON(t, vt+"/contracts", map[string]interface{}{
+			"contract_number": number + "-other", "title": "E2E Fremdvertrag", "contract_type": "nda", "starts_on": day(0),
+		}, managerToken)
+		requireStatus(t, resp, b, http.StatusCreated)
+		otherURL := vt + "/contracts/" + str(object(t, b, "contract"), "id")
+		resp, b = patch(t, otherURL+"/reminders/"+reminderID, map[string]interface{}{"subject": "fremd"}, managerToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
+		resp, b = deleteJSON(t, otherURL+"/reminders/"+reminderID, managerToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
+		resp, b = deleteJSON(t, otherURL+"/parties/"+partyID, managerToken)
+		requireStatus(t, resp, b, http.StatusNotFound)
+		if rems, _ := list(t, contractURL()+"/reminders", memberAToken, "reminders"); len(rems) != 1 || str(rems[0], "subject") != "Verlängerung prüfen" {
+			t.Fatalf("the calls via another contract changed the reminder, got %v", rems)
+		}
+		if parties, _ := list(t, contractURL()+"/parties", memberAToken, "parties"); len(parties) != 1 {
+			t.Fatalf("the delete via another contract removed the party")
+		}
+		resp, b = deleteJSON(t, otherURL, managerToken)
+		requireStatus(t, resp, b, http.StatusNoContent)
+
 		resp, b = deleteJSON(t, contractURL()+"/reminders/"+reminderID, managerToken)
 		requireStatus(t, resp, b, http.StatusNoContent)
 		resp, b = deleteJSON(t, contractURL()+"/parties/"+partyID, managerToken)

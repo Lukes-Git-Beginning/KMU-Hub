@@ -287,33 +287,38 @@ func (r *PostgresRepository) AddParty(ctx context.Context, p *ContractParty) err
 	return err
 }
 
-func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error) {
-	var contractID uuid.UUID
+func (r *PostgresRepository) RemoveParty(ctx context.Context, tenantID, contractID, partyID uuid.UUID) (uuid.UUID, error) {
+	var removedFrom uuid.UUID
 	err := r.pool.QueryRow(ctx,
-		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 AND signed_on IS NULL RETURNING contract_id`,
-		partyID, tenantID,
-	).Scan(&contractID)
+		`DELETE FROM contract_parties WHERE id=$1 AND tenant_id=$2 AND contract_id=$3 AND signed_on IS NULL RETURNING contract_id`,
+		partyID, tenantID, contractID,
+	).Scan(&removedFrom)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Zero rows is "no such party" or "party already signed" - tell them apart.
-		var signed bool
-		if qerr := r.pool.QueryRow(ctx,
-			`SELECT EXISTS(SELECT 1 FROM contract_parties WHERE id=$1 AND tenant_id=$2)`,
+		// Zero rows is "no such party", "party of another contract" or "party
+		// already signed" - tell them apart.
+		var ownerContract uuid.UUID
+		qerr := r.pool.QueryRow(ctx,
+			`SELECT contract_id FROM contract_parties WHERE id=$1 AND tenant_id=$2`,
 			partyID, tenantID,
-		).Scan(&signed); qerr != nil {
+		).Scan(&ownerContract)
+		if errors.Is(qerr, pgx.ErrNoRows) {
+			// Nothing matched — either the party is already gone or it belongs to
+			// another tenant. Both were a silent no-op before RETURNING was added
+			// and stay one; the caller just has no contract to file an entry against.
+			return uuid.Nil, nil
+		}
+		if qerr != nil {
 			return uuid.Nil, fmt.Errorf("remove party: check party: %w", qerr)
 		}
-		if signed {
-			return uuid.Nil, ErrPartySigned
+		if ownerContract != contractID {
+			return uuid.Nil, ErrPartyNotFound
 		}
-		// Nothing matched — either the party is already gone or it belongs to
-		// another tenant. Both were a silent no-op before RETURNING was added
-		// and stay one; the caller just has no contract to file an entry against.
-		return uuid.Nil, nil
+		return uuid.Nil, ErrPartySigned
 	}
 	if err != nil {
 		return uuid.Nil, err
 	}
-	return contractID, nil
+	return removedFrom, nil
 }
 
 func (r *PostgresRepository) ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error) {
@@ -403,12 +408,30 @@ func (r *PostgresRepository) GetReminder(ctx context.Context, tenantID, reminder
 	return &rem, nil
 }
 
-func (r *PostgresRepository) DeleteReminder(ctx context.Context, tenantID, reminderID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx,
-		`DELETE FROM contract_reminders WHERE id=$1 AND tenant_id=$2`,
-		reminderID, tenantID,
+func (r *PostgresRepository) DeleteReminder(ctx context.Context, tenantID, contractID, reminderID uuid.UUID) error {
+	tag, err := r.pool.Exec(ctx,
+		`DELETE FROM contract_reminders WHERE id=$1 AND tenant_id=$2 AND contract_id=$3`,
+		reminderID, tenantID, contractID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() > 0 {
+		return nil
+	}
+	// Zero rows: a missing reminder stays a no-op, one of another contract is
+	// not reachable through this contract's path.
+	var elsewhere bool
+	if qerr := r.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM contract_reminders WHERE id=$1 AND tenant_id=$2)`,
+		reminderID, tenantID,
+	).Scan(&elsewhere); qerr != nil {
+		return fmt.Errorf("delete reminder: check reminder: %w", qerr)
+	}
+	if elsewhere {
+		return ErrReminderNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) ListReminders(ctx context.Context, tenantID, contractID uuid.UUID, onlyPending bool) ([]*ContractReminder, error) {

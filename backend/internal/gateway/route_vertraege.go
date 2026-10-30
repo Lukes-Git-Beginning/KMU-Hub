@@ -612,14 +612,19 @@ func (vr *VertraegeRoutes) HandleRemoveParty(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	contractID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	partyID, ok := validateUUIDParam(w, r, "partyId")
 	if !ok {
 		return
 	}
 
 	_, err = client.RemoveParty(r.Context(), &vertraegev1.RemovePartyRequest{
-		TenantId: tenantID.String(),
-		PartyId:  partyID,
+		TenantId:   tenantID.String(),
+		ContractId: contractID,
+		PartyId:    partyID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -720,6 +725,10 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	contractID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	reminderID, ok := validateUUIDParam(w, r, "reminderId")
 	if !ok {
 		return
@@ -737,6 +746,7 @@ func (vr *VertraegeRoutes) HandleUpdateReminder(w http.ResponseWriter, r *http.R
 
 	grpcReq := &vertraegev1.UpdateReminderRequest{
 		TenantId:     tenantID.String(),
+		ContractId:   contractID,
 		ReminderId:   reminderID,
 		RemindAt:     remindAt,
 		ReminderType: req.ReminderType,
@@ -765,6 +775,10 @@ func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	contractID, ok := validateUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
 	reminderID, ok := validateUUIDParam(w, r, "reminderId")
 	if !ok {
 		return
@@ -772,6 +786,7 @@ func (vr *VertraegeRoutes) HandleDeleteReminder(w http.ResponseWriter, r *http.R
 
 	_, err = client.DeleteReminder(r.Context(), &vertraegev1.DeleteReminderRequest{
 		TenantId:   tenantID.String(),
+		ContractId: contractID,
 		ReminderId: reminderID,
 	})
 	if err != nil {

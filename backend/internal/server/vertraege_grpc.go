@@ -329,8 +329,12 @@ func (s *VertraegeGRPCServer) RemoveParty(ctx context.Context, req *vertraegev1.
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid party_id: %v", err)
 	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
 
-	if removeErr := s.svc.RemoveParty(ctx, tenantID, partyID); removeErr != nil {
+	if removeErr := s.svc.RemoveParty(ctx, tenantID, contractID, partyID); removeErr != nil {
 		return nil, mapVertraegeError(removeErr)
 	}
 	return &vertraegev1.RemovePartyResponse{}, nil
@@ -400,9 +404,14 @@ func (s *VertraegeGRPCServer) UpdateReminder(ctx context.Context, req *vertraege
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid reminder_id: %v", err)
 	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
 
 	input := vertraege.UpdateReminderInput{
 		TenantID:   tenantID,
+		ContractID: contractID,
 		ReminderID: reminderID,
 	}
 	if req.RemindAt != nil {
@@ -440,8 +449,12 @@ func (s *VertraegeGRPCServer) DeleteReminder(ctx context.Context, req *vertraege
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid reminder_id: %v", err)
 	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
 
-	if delErr := s.svc.DeleteReminder(ctx, tenantID, reminderID); delErr != nil {
+	if delErr := s.svc.DeleteReminder(ctx, tenantID, contractID, reminderID); delErr != nil {
 		return nil, mapVertraegeError(delErr)
 	}
 	return &vertraegev1.DeleteReminderResponse{}, nil

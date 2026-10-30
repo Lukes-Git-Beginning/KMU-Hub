@@ -113,6 +113,7 @@ type CreateReminderInput struct {
 // UpdateReminderInput holds data for updating a reminder.
 type UpdateReminderInput struct {
 	TenantID     uuid.UUID
+	ContractID   uuid.UUID // reminder must belong to this contract
 	ReminderID   uuid.UUID
 	RemindAt     *time.Time
 	ReminderType *ReminderType
@@ -432,16 +433,17 @@ func (s *Service) AddParty(ctx context.Context, input AddPartyInput) (*ContractP
 	return p, nil
 }
 
-// RemoveParty detaches a party from a contract.
-func (s *Service) RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) error {
-	contractID, delErr := s.repo.RemoveParty(ctx, tenantID, partyID)
+// RemoveParty detaches a party from a contract. A party of another contract
+// answers ErrPartyNotFound.
+func (s *Service) RemoveParty(ctx context.Context, tenantID, contractID, partyID uuid.UUID) error {
+	removedFrom, delErr := s.repo.RemoveParty(ctx, tenantID, contractID, partyID)
 	if delErr != nil {
 		return fmt.Errorf("remove party: %w", delErr)
 	}
 	slog.Info("contract party removed", "party_id", partyID, "tenant_id", tenantID)
-	// contractID is uuid.Nil when nothing matched — recordEvent drops those, so
+	// removedFrom is uuid.Nil when nothing matched — recordEvent drops those, so
 	// a no-op delete does not invent a trail entry.
-	s.recordEvent(ctx, tenantID, contractID, ContractEventPartyRemoved, map[string]any{
+	s.recordEvent(ctx, tenantID, removedFrom, ContractEventPartyRemoved, map[string]any{
 		"party_id": partyID.String(),
 	})
 	return nil
@@ -489,11 +491,15 @@ func (s *Service) CreateReminder(ctx context.Context, input CreateReminderInput)
 	return rem, nil
 }
 
-// UpdateReminder applies partial updates to a reminder.
+// UpdateReminder applies partial updates to a reminder. A reminder of another
+// contract answers ErrReminderNotFound.
 func (s *Service) UpdateReminder(ctx context.Context, input UpdateReminderInput) (*ContractReminder, error) {
 	rem, err := s.repo.GetReminder(ctx, input.TenantID, input.ReminderID)
 	if err != nil {
 		return nil, err
+	}
+	if rem.ContractID != input.ContractID {
+		return nil, ErrReminderNotFound
 	}
 
 	if input.RemindAt != nil {
@@ -524,9 +530,10 @@ func (s *Service) UpdateReminder(ctx context.Context, input UpdateReminderInput)
 	return rem, nil
 }
 
-// DeleteReminder removes a reminder.
-func (s *Service) DeleteReminder(ctx context.Context, tenantID, reminderID uuid.UUID) error {
-	if delErr := s.repo.DeleteReminder(ctx, tenantID, reminderID); delErr != nil {
+// DeleteReminder removes a reminder. A reminder of another contract answers
+// ErrReminderNotFound.
+func (s *Service) DeleteReminder(ctx context.Context, tenantID, contractID, reminderID uuid.UUID) error {
+	if delErr := s.repo.DeleteReminder(ctx, tenantID, contractID, reminderID); delErr != nil {
 		return fmt.Errorf("delete reminder: %w", delErr)
 	}
 	slog.Info("contract reminder deleted", "reminder_id", reminderID)

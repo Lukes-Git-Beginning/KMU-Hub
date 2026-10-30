@@ -1130,7 +1130,7 @@ units:
     service: vertraege
     model: opus
     deps: [scan-nested-route-parent-id-ignored]
-    status: todo
+    status: done
     target: Parteien und Erinnerungen eines Vertrags sind nur über den eigenen Vertragspfad änderbar
     coverage_start: n.a.
     scope: >

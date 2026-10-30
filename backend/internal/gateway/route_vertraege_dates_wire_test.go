@@ -128,6 +128,9 @@ func TestVertraegeDates_AddPartyAndReminderCarryDates(t *testing.T) {
 	routes.HandleUpdateReminder(rec, vertraegeDatesRequest(http.MethodPatch, `{"remind_at":"2026-12-01"}`))
 	assertStatus(t, rec, http.StatusOK)
 	assert.Equal(t, utcDay(2026, 12, 1), stub.remindUp.GetRemindAt().AsTime())
+	// The contract from the path travels along, so the service can refuse a
+	// reminder of another contract.
+	assert.Equal(t, "11111111-1111-1111-1111-111111111111", stub.remindUp.GetContractId())
 }
 
 func TestVertraegeDates_MalformedDateIsBadRequest(t *testing.T) {

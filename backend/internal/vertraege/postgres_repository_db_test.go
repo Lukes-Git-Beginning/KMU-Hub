@@ -830,7 +830,7 @@ func TestRepository_RemoveParty_ReturnsContractIDOrNilOnMissing(t *testing.T) {
 	}
 
 	// Missing party: no-op, returns uuid.Nil and no error.
-	gotID, err := repo.RemoveParty(ctxOwn, tenantOwn, uuid.New())
+	gotID, err := repo.RemoveParty(ctxOwn, tenantOwn, c.ID, uuid.New())
 	if err != nil {
 		t.Fatalf("RemoveParty (missing): unexpected error %v", err)
 	}
@@ -839,7 +839,7 @@ func TestRepository_RemoveParty_ReturnsContractIDOrNilOnMissing(t *testing.T) {
 	}
 
 	// Foreign tenant cannot remove another tenant's party.
-	gotID, err = repo.RemoveParty(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, party.ID)
+	gotID, err = repo.RemoveParty(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, c.ID, party.ID)
 	if err != nil {
 		t.Fatalf("RemoveParty (foreign tenant): unexpected error %v", err)
 	}
@@ -855,7 +855,7 @@ func TestRepository_RemoveParty_ReturnsContractIDOrNilOnMissing(t *testing.T) {
 	}
 
 	// Owning tenant removes successfully and gets the contract id back.
-	gotID, err = repo.RemoveParty(ctxOwn, tenantOwn, party.ID)
+	gotID, err = repo.RemoveParty(ctxOwn, tenantOwn, c.ID, party.ID)
 	if err != nil {
 		t.Fatalf("RemoveParty: %v", err)
 	}
@@ -907,7 +907,7 @@ func TestRepository_RemoveParty_SignedPartyIsRefused(t *testing.T) {
 	defer testutil.CleanupRow(t, pool, "contract_parties", party.ID)
 
 	// Own tenant: refused, row survives.
-	if _, err := repo.RemoveParty(ctxOwn, tenantOwn, party.ID); !errors.Is(err, ErrPartySigned) {
+	if _, err := repo.RemoveParty(ctxOwn, tenantOwn, c.ID, party.ID); !errors.Is(err, ErrPartySigned) {
 		t.Fatalf("RemoveParty (signed): expected ErrPartySigned, got %v", err)
 	}
 	left, err := repo.ListParties(ctxOwn, tenantOwn, c.ID)
@@ -919,7 +919,7 @@ func TestRepository_RemoveParty_SignedPartyIsRefused(t *testing.T) {
 	}
 
 	// Foreign tenant: must not even learn that the party exists.
-	gotID, err := repo.RemoveParty(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, party.ID)
+	gotID, err := repo.RemoveParty(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, c.ID, party.ID)
 	if err != nil || gotID != uuid.Nil {
 		t.Fatalf("RemoveParty (signed, foreign tenant): expected silent no-op, got id=%v err=%v", gotID, err)
 	}
@@ -1013,13 +1013,13 @@ func TestRepository_ReminderCRUDAndFiltering(t *testing.T) {
 	}
 
 	// DeleteReminder is tenant-scoped.
-	if err := repo.DeleteReminder(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, sent.ID); err != nil {
+	if err := repo.DeleteReminder(testutil.WithTenantCtx(context.Background(), tenantOther), tenantOther, c.ID, sent.ID); err != nil {
 		t.Fatalf("DeleteReminder (foreign tenant): unexpected error %v", err)
 	}
 	if _, err := repo.GetReminder(ctxOwn, tenantOwn, sent.ID); err != nil {
 		t.Fatalf("GetReminder after foreign delete attempt: expected reminder to still exist, got %v", err)
 	}
-	if err := repo.DeleteReminder(ctxOwn, tenantOwn, sent.ID); err != nil {
+	if err := repo.DeleteReminder(ctxOwn, tenantOwn, c.ID, sent.ID); err != nil {
 		t.Fatalf("DeleteReminder: %v", err)
 	}
 	if _, err := repo.GetReminder(ctxOwn, tenantOwn, sent.ID); err != ErrReminderNotFound {

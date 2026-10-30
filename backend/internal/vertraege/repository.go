@@ -41,7 +41,8 @@ type Repository interface {
 	// the caller can file the audit entry against that contract. Removing a
 	// party that does not exist stays a no-op and returns uuid.Nil. A party that
 	// has already signed (SignedOn set) is evidence and is refused with ErrPartySigned.
-	RemoveParty(ctx context.Context, tenantID, partyID uuid.UUID) (uuid.UUID, error)
+	// A party of another contract is refused with ErrPartyNotFound.
+	RemoveParty(ctx context.Context, tenantID, contractID, partyID uuid.UUID) (uuid.UUID, error)
 	ListParties(ctx context.Context, tenantID, contractID uuid.UUID) ([]*ContractParty, error)
 
 	// Contract events — append-only audit trail. There is deliberately no
@@ -53,7 +54,10 @@ type Repository interface {
 	CreateReminder(ctx context.Context, r *ContractReminder) error
 	UpdateReminder(ctx context.Context, r *ContractReminder) error
 	GetReminder(ctx context.Context, tenantID, reminderID uuid.UUID) (*ContractReminder, error)
-	DeleteReminder(ctx context.Context, tenantID, reminderID uuid.UUID) error
+	// DeleteReminder removes a reminder of the given contract. A reminder that
+	// does not exist stays a no-op; one of another contract is refused with
+	// ErrReminderNotFound.
+	DeleteReminder(ctx context.Context, tenantID, contractID, reminderID uuid.UUID) error
 	ListReminders(ctx context.Context, tenantID, contractID uuid.UUID, onlyPending bool) ([]*ContractReminder, error)
 
 	// Worker: claim reminders that are due

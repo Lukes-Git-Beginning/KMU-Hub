@@ -1222,6 +1222,7 @@ type RemovePartyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	PartyId       string                 `protobuf:"bytes,2,opt,name=party_id,json=partyId,proto3" json:"party_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"` // party must belong to this contract
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1266,6 +1267,13 @@ func (x *RemovePartyRequest) GetTenantId() string {
 func (x *RemovePartyRequest) GetPartyId() string {
 	if x != nil {
 		return x.PartyId
+	}
+	return ""
+}
+
+func (x *RemovePartyRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
 	}
 	return ""
 }
@@ -1659,6 +1667,7 @@ type UpdateReminderRequest struct {
 	Subject       *string                `protobuf:"bytes,5,opt,name=subject,proto3,oneof" json:"subject,omitempty"`
 	Message       *string                `protobuf:"bytes,6,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	Status        *string                `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	ContractId    string                 `protobuf:"bytes,8,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"` // reminder must belong to this contract
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1742,10 +1751,18 @@ func (x *UpdateReminderRequest) GetStatus() string {
 	return ""
 }
 
+func (x *UpdateReminderRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
 type DeleteReminderRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	ReminderId    string                 `protobuf:"bytes,2,opt,name=reminder_id,json=reminderId,proto3" json:"reminder_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"` // reminder must belong to this contract
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1790,6 +1807,13 @@ func (x *DeleteReminderRequest) GetTenantId() string {
 func (x *DeleteReminderRequest) GetReminderId() string {
 	if x != nil {
 		return x.ReminderId
+	}
+	return ""
+}
+
+func (x *DeleteReminderRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
 	}
 	return ""
 }
@@ -2434,10 +2458,12 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\v_company_idB\x10\n" +
 	"\x0e_external_nameB\f\n" +
 	"\n" +
-	"_signed_on\"L\n" +
+	"_signed_on\"m\n" +
 	"\x12RemovePartyRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x19\n" +
-	"\bparty_id\x18\x02 \x01(\tR\apartyId\"\x15\n" +
+	"\bparty_id\x18\x02 \x01(\tR\apartyId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\"\x15\n" +
 	"\x13RemovePartyResponse\"R\n" +
 	"\x12ListPartiesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
@@ -2463,7 +2489,7 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\tremind_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\bremindAt\x12#\n" +
 	"\rreminder_type\x18\x04 \x01(\tR\freminderType\x12\x18\n" +
 	"\asubject\x18\x05 \x01(\tR\asubject\x12\x18\n" +
-	"\amessage\x18\x06 \x01(\tR\amessage\"\xdb\x02\n" +
+	"\amessage\x18\x06 \x01(\tR\amessage\"\xfc\x02\n" +
 	"\x15UpdateReminderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vreminder_id\x18\x02 \x01(\tR\n" +
@@ -2472,7 +2498,9 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\rreminder_type\x18\x04 \x01(\tH\x01R\freminderType\x88\x01\x01\x12\x1d\n" +
 	"\asubject\x18\x05 \x01(\tH\x02R\asubject\x88\x01\x01\x12\x1d\n" +
 	"\amessage\x18\x06 \x01(\tH\x03R\amessage\x88\x01\x01\x12\x1b\n" +
-	"\x06status\x18\a \x01(\tH\x04R\x06status\x88\x01\x01B\f\n" +
+	"\x06status\x18\a \x01(\tH\x04R\x06status\x88\x01\x01\x12\x1f\n" +
+	"\vcontract_id\x18\b \x01(\tR\n" +
+	"contractIdB\f\n" +
 	"\n" +
 	"_remind_atB\x10\n" +
 	"\x0e_reminder_typeB\n" +
@@ -2480,11 +2508,13 @@ const file_proto_vertraege_v1_vertraege_proto_rawDesc = "" +
 	"\b_subjectB\n" +
 	"\n" +
 	"\b_messageB\t\n" +
-	"\a_status\"U\n" +
+	"\a_status\"v\n" +
 	"\x15DeleteReminderRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
 	"\vreminder_id\x18\x02 \x01(\tR\n" +
-	"reminderId\"\x18\n" +
+	"reminderId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\"\x18\n" +
 	"\x16DeleteReminderResponse\"w\n" +
 	"\x14ListRemindersRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +
