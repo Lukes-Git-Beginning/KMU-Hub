@@ -14,7 +14,7 @@ import (
 
 // --- Service.TriggerSync ---
 
-func TestTriggerSync_CallsSyncContactsAndNeverErrors(t *testing.T) {
+func TestTriggerSync_RunsContactSync(t *testing.T) {
 	configID := uuid.New()
 	cr := &mockConfigRepo{
 		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
@@ -30,24 +30,26 @@ func TestTriggerSync_CallsSyncContactsAndNeverErrors(t *testing.T) {
 	}
 	svc := newTestService(repo, cr, &mockVaultService{})
 
-	// TriggerSync swallows SyncContacts' error (logs it) — assert it never
-	// bubbles up, since a background trigger must not fail the caller for a
-	// downstream sync hiccup.
 	err := svc.TriggerSync(context.Background(), uuid.New())
 	require.NoError(t, err)
 	assert.True(t, syncCalled)
 }
 
-func TestTriggerSync_SwallowsSyncContactsError(t *testing.T) {
+// A manual sync that could not run must say so: the sync dashboard shows
+// "started" on success, so a swallowed error made a missing integration look
+// like a running sync.
+func TestTriggerSync_ReturnsSyncContactsError(t *testing.T) {
+	cause := errors.New("not configured")
 	cr := &mockConfigRepo{
 		getByPlatformFn: func(context.Context, string) (*IntegrationConfig, error) {
-			return nil, errors.New("not configured")
+			return nil, cause
 		},
 	}
 	svc := newTestService(&mockRepository{}, cr, &mockVaultService{})
 
 	err := svc.TriggerSync(context.Background(), uuid.New())
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, cause)
 }
 
 // --- Service.GetFieldMappings / UpdateFieldMappings ---

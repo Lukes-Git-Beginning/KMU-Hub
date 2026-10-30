@@ -487,3 +487,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine (`desktop-inbox-hide-reply-composer-for-notifications` steht schon in BACKLOG-NEXT.yml)
 - desktop-aufrufer: `POST /inbox/messages/{id}/reply` -> `api/inbox-client.ts:140` über `api/hooks/useInbox.ts:251-257` zeigt bei jedem Fehler den Toast `api.inbox.error.reply` -> passt; Antwortform bei Erfolg unverändert, für notification-Nachrichten jetzt 501 statt 200 (der ReplyComposer in `ConversationThread.tsx` erscheint dort weiterhin, Ausblenden = Desktop-Unit in NEXT)
 - offen: Verhaltensänderung: Antwort auf eine notification-Inbox-Nachricht ist jetzt 501 statt scheinbar gesendet. Bis die Desktop-Unit den Composer ausblendet, sieht der Nutzer dort den Fehler-Toast.
+
+## Iteration 39 — fix-lexware-trigger-sync-swallows-error — done — 2026-10-30 04:12
+- commit: siehe Commit `fix(lexware): return the error of a failed manual sync` (git log)
+- gebaut: `lexware.Service.TriggerSync` gibt den Fehler von `SyncContacts` gewrappt zurück statt ihn zu loggen; `TriggerLexwareSync` (default-Zweig, ohne `sync_type`) mappt ihn über das schon vorhandene `mapLexwareError`, antwortet also nicht mehr "started". Die zwei Service-Tests, die das Verschlucken festschrieben, sind auf das neue Verhalten umgestellt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/biz/lexware/... , internal/server -run Lexware, 0 Skips, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. (keine Tabelle/Policy) | e2e n.a. (kein Flow löst den Lexware-Sync aus) | gateway n.a. (keine Route angefasst)
+- coverage: internal/biz/lexware n.a. -> 75,7 % (kein Coverage-Ziel, Bugfix; Vorher-Wert nicht gemessen)
+- mutations-probe: Fix in `TriggerSync` zurück auf "loggen, nil": `TestTriggerSync_ReturnsSyncContactsError` und `TestTriggerLexwareSync_FailedSyncIsNotReportedAsStarted/sync_type=` rot. Datei aus Backup zurück, Tests wieder grün, Diff sauber. Der neue Server-Test deckt zusätzlich den contacts-Zweig ab (beide Zweige -> NotFound statt "started").
+- verify vorgaenger: sauber (Commit `4075b0b9`: kein Proto, keine neue Route, kein Guard, keine Tabelle; 501 in `openapi.yaml` dokumentiert, Fix an der gemeinsamen Adapter-Funktion)
+- neue-units: keine
+- desktop-aufrufer: `POST /integrations/lexware/sync/trigger` -> `api/lexware-client.ts:64` über `api/hooks/useLexware.ts:112-123` hat `onError` mit Toast `api.lexware.error.syncStart` -> passt; Erfolgsform unverändert, bei fehlender Konfiguration jetzt 404 bzw. bei abgelehnten Zugangsdaten 409 statt "gestartet"
+- offen: Verhaltensänderung: Dashboard-Sync ohne aktive Lexware-Integration zeigt jetzt den Fehler-Toast statt "Synchronisation gestartet". Der Fehlertext des Toasts unterscheidet die Ursachen nicht.

@@ -347,7 +347,7 @@ func payloadString(payload map[string]any, key string) string {
 // TriggerSync triggers all enabled sync types immediately.
 func (s *Service) TriggerSync(ctx context.Context, tenantID uuid.UUID) error {
 	if _, err := s.SyncContacts(ctx, tenantID); err != nil {
-		slog.Error("lexware trigger sync: contacts failed", "error", err)
+		return fmt.Errorf("lexware: trigger sync: contacts: %w", err)
 	}
 	return nil
 }

@@ -93,3 +93,34 @@ func TestConnectLexware_MasksInternalError(t *testing.T) {
 		t.Errorf("message leaked internal details: %q", msg)
 	}
 }
+
+// failingLexwareConfigRepo reports the integration as unknown, so every sync
+// attempt fails before it reaches Lexware.
+type failingLexwareConfigRepo struct{ err error }
+
+func (r failingLexwareConfigRepo) GetByPlatform(context.Context, string) (*lexware.IntegrationConfig, error) {
+	return nil, r.err
+}
+func (failingLexwareConfigRepo) Upsert(context.Context, *lexware.IntegrationConfig) error { return nil }
+func (failingLexwareConfigRepo) Deactivate(context.Context, uuid.UUID) error              { return nil }
+
+// TestTriggerLexwareSync_FailedSyncIsNotReportedAsStarted covers both branches:
+// the sync dashboard sends no sync_type (default branch), the setup wizard
+// sends "contacts". Neither may answer "started" when the sync could not run.
+func TestTriggerLexwareSync_FailedSyncIsNotReportedAsStarted(t *testing.T) {
+	svc := lexware.NewService(nil, nil, failingLexwareConfigRepo{err: lexware.ErrConfigNotFound}, nil, nil, nil, nil)
+	s := NewLexwareGRPCServer(svc)
+
+	for _, syncType := range []string{"", "contacts"} {
+		t.Run("sync_type="+syncType, func(t *testing.T) {
+			resp, err := s.TriggerLexwareSync(context.Background(), &bizv1.TriggerLexwareSyncRequest{
+				TenantId: uuid.New().String(),
+				SyncType: syncType,
+			})
+			requireGRPCCode(t, err, codes.NotFound)
+			if resp != nil {
+				t.Errorf("response = %v, want nil on failure", resp)
+			}
+		})
+	}
+}
