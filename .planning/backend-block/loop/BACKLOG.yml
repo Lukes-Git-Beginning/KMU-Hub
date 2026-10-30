@@ -948,7 +948,7 @@ units:
     service: gateway
     model: opus
     deps: [fix-fuhrpark-trip-log-partial-patch-overwrites-row]
-    status: todo
+    status: done
     target: jeder PATCH, der nicht gesendete Felder mit Nullwerten überschreibt, ist gefunden
     coverage_start: n.a. (Scan)
     scope: >
@@ -967,6 +967,82 @@ units:
     done_when:
       - Liste aller geprüften PATCH- und Teil-PUT-Routen mit Ergebnis im Journal
       - Fix-Units nach Regel 1 direkt hinter diesem Scan
+
+  - id: fix-fuhrpark-fuel-log-and-license-partial-patch
+    phase: 4
+    service: fuhrpark
+    model: opus
+    deps: []
+    status: todo
+    target: PATCH von Tankbeleg und Führerscheinkontrolle schreibt nur noch die gesendeten Felder
+    coverage_start: n.a.
+    scope: >
+      Fund aus `scan-partial-patch-overwrites-row` (Lauf 18, Iteration 27), Zwilling von
+      `fix-fuhrpark-trip-log-partial-patch-overwrites-row` (`0f5e2d9e`). (1) `PATCH /fuhrpark/fuel-logs/{id}`: der
+      Handler (`route_fuhrpark.go` ~1181) dereferenziert die Zeigerfelder in nicht-optionale Felder von
+      `UpdateFuelLogRequest` (`fuhrpark.proto:400`), der Server parst ein leeres `date` still zu 0001-01-01
+      (`fuhrpark_grpc.go:792`), `PostgresRepository.UpdateFuelLog` (`postgres_repository.go:602`) schreibt jede
+      Spalte. Ein Body nur mit `notes` scheitert an `CHECK (liters > 0)` bzw. am `fuel_type`-CHECK (000192) mit 500;
+      mit `liters` und `fuel_type` gesendet überschreibt er Datum, Kosten und km mit 0001-01-01/0/0.
+      (2) `PATCH /fuhrpark/driver-licenses/{id}` (`route_fuhrpark.go:167`): `expiry_date`, `checked_at`, `notes`
+      sind optional, der Server (`fuhrpark_grpc.go` ~1400-1418) setzt ohne `checked_at` aber `time.Now()` und ohne
+      `expiry_date`/`notes` NULL, das Repository (`postgres_repository.go:968`) schreibt alles. Jede Bearbeitung ohne
+      `checked_at` datiert die letzte Führerscheinkontrolle auf heute — ein falscher Compliance-Nachweis (Halterhaftung).
+      Fix nach dem Muster von `0f5e2d9e`: Proto-Felder `optional` (Regen), Handler reicht Zeiger durch, Repository
+      schreibt per `COALESCE`/Set-Flag nur Gesendetes. Kein Desktop-Aufrufer in einer Komponente (nur Hooks
+      `useUpdateFuelLog`, der Lizenz-Hook prüfen), daher kein Totalausfall.
+    sources:
+      - backend/internal/gateway/route_fuhrpark.go
+      - backend/internal/server/fuhrpark_grpc.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/proto/fuhrpark/v1/fuhrpark.proto
+    done_when:
+      - 'DB-Test: PATCH eines Tankbelegs nur mit notes lässt Datum, Liter, Kosten, km und Kraftstoff unverändert'
+      - 'DB-Test: PATCH der Führerscheinkontrolle ohne checked_at/expiry_date/notes lässt diese Werte unverändert'
+      - Proto regeneriert im selben Commit
+
+  - id: fix-inventar-warning-status-unvalidated
+    phase: 4
+    service: inventar
+    model: sonnet
+    deps: []
+    status: todo
+    target: PATCH einer Bestandswarnung mit fehlendem oder unbekanntem Status ist 400 statt 500
+    coverage_start: n.a.
+    scope: >
+      Nebenfund aus `scan-partial-patch-overwrites-row` (Iteration 27). `updateWarningRequest.Status`
+      (`route_inventar.go:231`) hat kein `validate`, `Service.UpdateWarning` (`inventar/service.go:508`) übernimmt den
+      Wert ungeprüft. `{}` oder `{"status":"x"}` verletzt `CHECK (status IN ('active','acknowledged','resolved'))`
+      (000083:53) und endet als 500. Fix an der Grenze: `validate:"required,oneof=active acknowledged resolved"`
+      (gemeinsamer Ort ist besser im Service, falls weitere Aufrufer existieren — grep). Desktop
+      `inventar-client.ts:143` sendet `status: WarningStatus`, passt.
+    sources:
+      - backend/internal/gateway/route_inventar.go
+      - backend/internal/inventar/service.go
+    done_when:
+      - 'Test: PATCH /inventar/warnings/{id} mit {} und mit unbekanntem Status liefert 400'
+
+  - id: fix-vermietung-inspection-patch-drops-photo-urls
+    phase: 4
+    service: vermietung
+    model: sonnet
+    deps: []
+    status: todo
+    target: PATCH einer Übergabe-Inspektion mit photo_urls speichert die Fotos
+    coverage_start: n.a.
+    scope: >
+      Nebenfund aus `scan-partial-patch-overwrites-row` (Iteration 27). `UpdateInspectionRequest` hat
+      `replace_photos` (Proto: ohne Flag wird `photo_urls` ignoriert), der Gateway-Handler (`route_vermietung.go` ~860)
+      setzt es nie; das Request-Struct hat kein solches Feld. Gesendete `photo_urls` gehen still verloren, die Antwort
+      ist trotzdem 200. Desktop `UpdateInspectionInput` (`vermietung-types.ts:165`) sendet `photo_urls?: string[]`.
+      Fix im Handler: `ReplacePhotos: req.PhotoURLs != nil` (fehlend = behalten, `[]` = leeren). Spec-Beschreibung
+      der Route angleichen.
+    sources:
+      - backend/internal/gateway/route_vermietung.go
+      - backend/internal/server/vermietung_grpc.go
+      - backend/internal/vermietung/service.go
+    done_when:
+      - 'Router-Test: PATCH mit photo_urls setzt ReplacePhotos, PATCH ohne photo_urls nicht'
 
   - id: scan-nested-route-parent-id-ignored
     phase: 4
