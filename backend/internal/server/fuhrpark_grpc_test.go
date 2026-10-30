@@ -1070,6 +1070,29 @@ func TestFuhrparkTripLogHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("CreateTripLog links the caller when the body names no account", func(t *testing.T) {
+		s := newFuhrparkTestServer(newStubFuhrparkRepo())
+		caller, other := uuid.New(), uuid.New().String()
+		req := &fuhrparkv1.CreateTripLogRequest{
+			VehicleId: vehicleID.String(), StartLocation: "A", EndLocation: "B", DriverName: "Anna Muster", IsPrivate: true,
+		}
+		resp, err := s.CreateTripLog(fuhrparkCtxWithTenantAndUser(tenantID, caller), req)
+		requireGRPCOK(t, err)
+		if got := resp.GetTripLog().DriverUserId; got == nil || *got != caller.String() {
+			t.Fatalf("expected the caller %s as driver, got %v", caller, got)
+		}
+		if resp.GetTripLog().GetDriverName() != "Anna Muster" {
+			t.Fatalf("the typed driver_name must stay, got %q", resp.GetTripLog().GetDriverName())
+		}
+
+		req.DriverUserId = &other
+		resp, err = s.CreateTripLog(fuhrparkCtxWithTenantAndUser(tenantID, caller), req)
+		requireGRPCOK(t, err)
+		if got := resp.GetTripLog().DriverUserId; got == nil || *got != other {
+			t.Fatalf("an explicit driver_user_id must win over the caller, got %v", got)
+		}
+	})
+
 	t.Run("CreateTripLog happy path maps the created entry to proto", func(t *testing.T) {
 		s := newFuhrparkTestServer(newStubFuhrparkRepo())
 		resp, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{

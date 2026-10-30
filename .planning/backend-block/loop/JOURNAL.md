@@ -232,3 +232,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PATCH/DELETE /produktion/orders/{orderId}/steps/{stepId}` -> `api/produktion-client.ts:248,257` (`updateWorkStep(orderId, stepId, …)`, `deleteWorkStep(orderId, stepId)`) sendet immer das zusammengehörige Paar -> passt; Antwortform unverändert
 - offen: (1) Verhaltensänderung: ein Schritt unter fremdem Auftrag ergibt 404 statt 200/204. (2) Der gRPC-Vertrag verlangt `order_id` jetzt (InvalidArgument bei leer) — Gateway und Server deployen zusammen, kein weiterer Aufrufer im Repo (grep). (3) `member` hat kein `workstep:write`, DELETE ist admin-only; der E2E-Delete-Fall läuft deshalb als admin.
+
+## Iteration 16 — fix-fuhrpark-trip-log-driver-defaults-to-caller — done — 2026-10-30 01:26
+- commit: siehe Commit `fix(fuhrpark): link a new trip log to its filer when no driver account is sent` (git log)
+- gebaut: `FuhrparkGRPCServer.CreateTripLog` setzt `DriverUserID` auf den Aufrufer (`tripViewer`), wenn der Body kein `driver_user_id` mitschickt; ein ausdrücklich gesendeter Wert gewinnt, `driver_name` bleibt wie getippt. Damit ist eine im Desktop angelegte Privatfahrt für ihren Fahrer nicht mehr maskiert. E2E: der `IST`-Subtest ist zur Erwartung geworden (Fahrer sieht Ziel und Notiz), der Export-Subtest erwartet beide Privatfahrten des Fahrers ungeschwärzt.
+- gate: build ok | vet ok (server, fuhrpark, `-tags=e2e` test/e2e) | lint ok (0 issues) | test ok (internal/fuhrpark/... 0 SKIP als kmuhub_app, internal/server) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestFuhrpark`, 3:27 inkl. Build, zweiter Lauf 41 s) | gateway-Test n.a. (keine Route)
+- coverage: internal/fuhrpark 84,0 % -> 84,0 % (Änderung liegt in internal/server; dort kein Coverage-Ziel)
+- mutations-probe: `if driverUserID == nil` -> `if false && …` -> Subtest `CreateTripLog links the caller when the body names no account` rot („expected the caller … got <nil>"), zurückgedreht (cmp gegen Backup).
+- verify vorgaenger: sauber (Commit `3709b598`: Proto samt `.pb.go` regeneriert, keine neue Route, kein Guard, keine Tabelle; Gateway/Service/Server prüfen order_id, 404 dokumentiert)
+- neue-units: keine
+- desktop-aufrufer: `POST /fuhrpark/vehicles/{id}/trip-logs` -> `api/fuhrpark-client.ts` `CreateTripLogRequest` (sendet nur `driver_name`) -> passt; die Antwort trägt jetzt `driver_user_id`, das FE-Typfeld ist optional
+- offen: (1) Offene Frage aus der Unit bleibt: erfasst ein Manager eine Fahrt für einen anderen Fahrer (nur per Freitext `driver_name`), wird sie dem Erfasser zugeordnet, nicht dem genannten Fahrer; Abhilfe wäre ein Fahrer-Dropdown im Desktop. (2) Bestandszeilen mit `driver_user_id NULL` bleiben maskiert (kein Backfill).

@@ -648,7 +648,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Eine vom Desktop angelegte Privatfahrt ist für ihren eigenen Fahrer nicht maskiert
     coverage_start: n.a.
     scope: >

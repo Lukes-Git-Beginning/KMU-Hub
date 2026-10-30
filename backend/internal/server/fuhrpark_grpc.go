@@ -878,6 +878,14 @@ func (s *FuhrparkGRPCServer) CreateTripLog(ctx context.Context, req *fuhrparkv1.
 	if err != nil {
 		return nil, err
 	}
+	// The desktop dialog sends only the free-text driver_name. Without the account link the
+	// private-trip masking would hide the entry from its own driver, so an entry that names
+	// no account belongs to whoever files it.
+	if driverUserID == nil {
+		if caller := tripViewer(ctx); caller != uuid.Nil {
+			driverUserID = &caller
+		}
+	}
 	date, _ := time.Parse("2006-01-02", req.Date)
 	l, err := s.svc.CreateTripLog(ctx, fuhrpark.TripLog{
 		TenantID:        tenantID,

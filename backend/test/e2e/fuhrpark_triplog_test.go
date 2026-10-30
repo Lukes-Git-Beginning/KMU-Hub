@@ -200,12 +200,13 @@ func TestFuhrparkTripLogPrivateMaskingFlow(t *testing.T) {
 		}
 	})
 
-	t.Run("IST: a private trip filed through the desktop dialog is masked for its own driver", func(t *testing.T) {
-		// The desktop sends no driver_user_id, so the trip has no linked account and the
-		// masking treats the driver like a stranger. Pinned as IST; the fix is
-		// fix-fuhrpark-trip-log-driver-defaults-to-caller. Flip this to requireFull then.
+	t.Run("a private trip filed through the desktop dialog is unmasked for its own driver", func(t *testing.T) {
+		// The desktop sends no driver_user_id; the create route links the caller.
 		rows := tripList(t, fp+"/vehicles/"+vehicleID+"/trip-logs", driverToken)
-		requireMasked(t, "driver (desktop-filed private trip, IST)", rows, privDesktopID)
+		requireFull(t, "driver (desktop-filed private trip)", rows, privDesktopID, secretStart, secretEnd, "")
+		if rows[privDesktopID].Notes != secretNote {
+			t.Fatalf("driver must see the own private note, got %+v", rows[privDesktopID])
+		}
 	})
 
 	t.Run("everybody else sees private trips only as the label, business in full", func(t *testing.T) {
@@ -256,10 +257,10 @@ func TestFuhrparkTripLogPrivateMaskingFlow(t *testing.T) {
 				}
 			}
 		}
-		// The driver's own export shows the linked private trip in full, the desktop-filed one masked.
+		// The driver's own export shows both private trips in full: the desktop-filed one is linked to its filer.
 		csv := export(driverToken)
-		if !strings.Contains(csv, secretEnd) || strings.Count(csv, "Privatfahrt") != 1 {
-			t.Fatalf("driver export: linked private trip in full, desktop-filed one masked, got\n%s", csv)
+		if !strings.Contains(csv, secretEnd) || strings.Contains(csv, "Privatfahrt") {
+			t.Fatalf("driver export: both private trips in full, got\n%s", csv)
 		}
 		if resp, body := getJSON(t, fp+"/trip-logs/export?format=xml", driverToken); resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("an unknown export format must be 400, got %d: %s", resp.StatusCode, string(body))
