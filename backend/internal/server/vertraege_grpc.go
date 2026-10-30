@@ -675,6 +675,9 @@ func mapVertraegeError(err error) error {
 	case errors.Is(err, vertraege.ErrInvalidInput), errors.Is(err, vertraege.ErrPartyRefNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled vertraege service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

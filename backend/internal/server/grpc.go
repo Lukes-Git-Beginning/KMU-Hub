@@ -1434,6 +1434,9 @@ func mapError(err error) error {
 	case errors.Is(err, auth.ErrPasswordTooWeak):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		return status.Error(codes.Internal, "internal error")
 	}
 }

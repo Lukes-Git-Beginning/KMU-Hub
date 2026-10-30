@@ -3057,6 +3057,9 @@ func mapCRMError(err error) error {
 	case errors.Is(err, advisoryprotocol.ErrInvalidRiskClass):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled crm service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

@@ -462,6 +462,9 @@ func mapModuleGrantError(err error, op string) error {
 	case errors.Is(err, settings.ErrInvalidModuleID):
 		return status.Errorf(codes.InvalidArgument, "module_id must not be empty")
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("module access op failed", "op", op, "error", err)
 		return status.Errorf(codes.Internal, "failed to %s module access", op)
 	}

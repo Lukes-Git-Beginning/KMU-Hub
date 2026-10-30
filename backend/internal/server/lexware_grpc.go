@@ -302,6 +302,9 @@ func mapLexwareError(err error) error {
 	case errors.Is(err, lexware.ErrLexwareServerError):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled lexware service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

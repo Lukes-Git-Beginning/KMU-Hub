@@ -2041,6 +2041,9 @@ func mapEmailError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled email service error", "error", err)
 		return status.Error(codes.Internal, "internal server error")
 	}

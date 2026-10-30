@@ -352,6 +352,9 @@ func mapGobdArchiveError(err error) error {
 	case errors.Is(err, gobdarchive.ErrIntegrityMismatch):
 		return status.Error(codes.FailedPrecondition, gobdarchive.ErrIntegrityMismatch.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled gobd archive error", "error", err)
 		return status.Error(codes.Internal, "internal server error")
 	}

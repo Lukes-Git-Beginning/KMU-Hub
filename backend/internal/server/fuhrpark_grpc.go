@@ -1800,6 +1800,9 @@ func mapFuhrparkError(err error) error {
 	case errors.Is(err, fuhrpark.ErrInvalidTransition):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled fuhrpark service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

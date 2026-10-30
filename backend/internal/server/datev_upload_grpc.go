@@ -199,6 +199,9 @@ func mapDatevUploadError(err error) error {
 	case errors.Is(err, datev.ErrBuilderNotConfigured):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		return status.Error(codes.Internal, "DATEV upload failed")
 	}
 }

@@ -52,6 +52,9 @@ func bankingError(err error) error {
 		errors.Is(err, payment.ErrCurrencyMismatch):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		return status.Error(codes.Internal, "failed to process bank statement")
 	}
 }

@@ -1235,6 +1235,9 @@ func mapRapporteError(err error) error {
 	case errors.Is(err, rapporte.ErrInvalidInput):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled rapporte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

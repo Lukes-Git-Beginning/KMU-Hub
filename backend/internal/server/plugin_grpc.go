@@ -849,6 +849,9 @@ func mapPluginError(err error) error {
 	case errors.Is(err, middleware.ErrMissingTenantID):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled plugin service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

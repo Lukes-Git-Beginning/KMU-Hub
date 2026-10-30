@@ -1126,6 +1126,9 @@ func mapDialerError(err error) error {
 	case errors.Is(err, consent.ErrNoConsent):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled dialer service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

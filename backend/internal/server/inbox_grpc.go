@@ -1560,6 +1560,9 @@ func mapInboxError(err error) error {
 	case errors.Is(err, routing.ErrInvalidAction):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled inbox service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

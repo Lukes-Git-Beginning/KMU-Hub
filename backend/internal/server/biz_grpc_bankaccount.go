@@ -34,6 +34,9 @@ func bankAccountError(err error) error {
 	case errors.Is(err, banking.ErrAccountExists):
 		return status.Error(codes.AlreadyExists, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		return status.Error(codes.Internal, "failed to process bank account")
 	}
 }

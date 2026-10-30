@@ -726,6 +726,9 @@ func mapNotificationError(err error) error {
 	case errors.Is(err, integration.ErrTenantMissing):
 		return status.Error(codes.Unauthenticated, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled notification service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

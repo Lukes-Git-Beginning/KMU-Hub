@@ -925,6 +925,9 @@ func mapBerichteError(err error) error {
 		errors.Is(err, berichte.ErrSharePasswordTooLong):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled berichte service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

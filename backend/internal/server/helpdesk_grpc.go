@@ -1471,6 +1471,9 @@ func mapHelpdeskError(err error) error {
 		// an error) -- surfaced as Conflict rather than Internal.
 		return status.Error(codes.AlreadyExists, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled helpdesk service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

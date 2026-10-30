@@ -1939,7 +1939,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-vertraege-enum-and-reference-validation-500]
-    status: todo
+    status: done
     target: ungültige Enum-Werte und unbekannte Referenzen antworten überall 400/404 statt 500
     coverage_start: n.a. (Scan)
     scope: >
@@ -2343,4 +2343,30 @@ units:
       Fachfrage für Luke -> `blocked`.
     done_when:
       - 'Router-Test mit echtem member-Token: fremde employee_id abgelehnt, eigene erreicht den RPC; manager unverändert'
+      - Mutationsprobe belegt
+
+  - id: fix-grpc-direct-internal-err-bypasses
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: [scan-enum-and-fk-violation-500]
+    status: todo
+    target: Handler, die den Fehler am Mapper vorbei als Internal durchreichen, laufen über den Mapper
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-enum-and-fk-violation-500`: `pgConstraintError` hängt in den `default:`-Zweigen der map*Error-Funktionen.
+      Stellen, die `status.Error(codes.Internal, err.Error())` direkt zurückgeben, umgehen es: plugin_grpc.go (13 Stellen,
+      Zeilen 92, 200, 238, 337, 350, 425, 438, 490, 543, 565, 589, 602, `mapPluginError` existiert), crm_grpc.go:3207
+      (GetContactTimeline), email_grpc.go:1977 und :2037, biz_grpc.go:2843 (`ErrStornoUnavailable`, bewusst Internal, nur
+      prüfen). Ein FK-/CHECK-Fehler dort endet weiter als 500; der Gateway maskiert den Text, die Roh-Meldung verlässt den
+      Server also nicht. Je Stelle über den Mapper des Pakets führen (`mapPluginError(err)` usw.). Test: wie
+      `TestMapErrors_PostgresConstraintNotInternal`, aber über den Handler mit Stub-Service.
+    sources:
+      - backend/internal/server/plugin_grpc.go
+      - backend/internal/server/crm_grpc.go
+      - backend/internal/server/email_grpc.go
+      - backend/internal/server/pg_constraint.go
+    done_when:
+      - kein `codes.Internal, err.Error()` mehr in plugin_grpc.go, crm_grpc.go, email_grpc.go außer begründet
+      - Handler-Test je Paket mit gewrapptem PgError 23503 erwartet InvalidArgument
       - Mutationsprobe belegt

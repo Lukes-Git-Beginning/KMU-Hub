@@ -2486,6 +2486,9 @@ func mapTimeEntryError(err error) error {
 	case errors.Is(err, timeentry.ErrCannotDeleteOthers):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled timeentry service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
@@ -2836,6 +2839,9 @@ func mapWorkError(err error) error {
 	case errors.Is(err, customfield.ErrInvalidFieldType):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled work service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

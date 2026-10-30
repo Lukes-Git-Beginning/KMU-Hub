@@ -1741,6 +1741,9 @@ func mapCalendarError(err error) error {
 		errors.Is(err, calendar.ErrBookingSlotInPast):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled calendar service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

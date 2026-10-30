@@ -796,6 +796,9 @@ func mapFormulareError(err error) error {
 	case errors.Is(err, formulare.ErrIdempotencyInFlight):
 		return status.Error(codes.AlreadyExists, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled formulare service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

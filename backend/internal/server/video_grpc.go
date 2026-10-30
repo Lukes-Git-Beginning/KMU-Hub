@@ -1921,6 +1921,9 @@ func mapVideoError(err error) error {
 	case errors.Is(err, video.ErrNoTargetUsers):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled video service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
@@ -1953,6 +1956,9 @@ func mapRecordingError(err error) error {
 	case errors.Is(err, recording.ErrInvalidStatus):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled recording service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
@@ -2019,6 +2025,9 @@ func mapMeetingError(err error) error {
 	case errors.Is(err, meeting.ErrBreakoutNotAuthorized):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled meeting service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
@@ -2035,6 +2044,9 @@ func mapPresenceError(err error) error {
 	case errors.Is(err, presence.ErrUserNotVisible):
 		return status.Error(codes.NotFound, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled presence service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

@@ -1381,6 +1381,9 @@ func mapChatError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		// Log the original error so unmapped failures (DB constraint violations,
 		// connection errors, …) don't vanish into a generic codes.Internal.
 		// Without this, a missing tenant_id INSERT silently surfaces as 500

@@ -706,6 +706,9 @@ func mapSchichtenError(err error) error {
 	case errors.Is(err, schichten.ErrSwapRequesterNotCaller):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled schichten service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

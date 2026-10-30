@@ -1322,6 +1322,9 @@ func mapSecurityError(err error) error {
 	case errors.Is(err, vendoraccess.ErrSensitiveAckRequired):
 		return status.Error(codes.OutOfRange, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled security service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}

@@ -2883,6 +2883,9 @@ func mapBizError(err error) error {
 		return status.Error(codes.NotFound, err.Error())
 
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled biz service error", "error", err)
 		return status.Error(codes.Internal, "internal server error")
 	}

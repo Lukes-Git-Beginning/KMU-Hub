@@ -310,6 +310,9 @@ func mapBexioError(err error) error {
 	case errors.Is(err, bexio.ErrBexioServerError):
 		return status.Error(codes.Unavailable, err.Error())
 	default:
+		if pgErr := pgConstraintError(err); pgErr != nil {
+			return pgErr
+		}
 		slog.Error("unhandled bexio service error", "error", err)
 		return status.Error(codes.Internal, "internal error")
 	}
