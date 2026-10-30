@@ -376,3 +376,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PATCH /inventar/warnings/{id}` -> `api/inventar-client.ts:143` sendet `status: WarningStatus` (active|acknowledged|resolved) -> passt
 - offen: Verhaltensänderung: `{}`/unbekannter Status ist jetzt 400 statt 500. Acknowledge-Route unverändert.
+
+## Iteration 30 — fix-vermietung-inspection-patch-drops-photo-urls — done — 2026-10-30 03:02
+- commit: siehe Commit `fix(vermietung): replace inspection photos when photo_urls is sent` (git log)
+- gebaut: Der Gateway-Handler setzt `ReplacePhotos` jetzt aus der Anwesenheit des Schlüssels (`req.PhotoURLs != nil`: gesendet, auch `[]`, ersetzt bzw. leert; fehlend behält). Die Request-Bildung liegt in der reinen Funktion `updateInspectionToProto`, weil die Handler-Tests den RPC nicht erreichen (503). Spec-Beschreibung von `photo_urls` am PATCH ergänzt.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app, Gateway-Paket hat keine DB-Tests) | migration n.a. | rls-smoke n.a.
+- coverage: internal/gateway n.a. (kein Coverage-Ziel, Gateway-Paket nicht gemessen)
+- mutations-probe: `ReplacePhotos: req.PhotoURLs != nil` auf `false` -> `TestUpdateInspectionToProto_PhotoReplaceFollowsPresence` rot („photos sent“, „empty array clears“), Datei aus Backup zurück, Test wieder grün, Diff sauber.
+- verify vorgaenger: sauber (Commit `1e319d33`: Service-Switch plus `validate:"required,oneof"`, keine neue Route, kein Guard, keine Tabelle, Mutationsprobe im Journal belegt)
+- neue-units: keine
+- desktop-aufrufer: `PATCH /vermietung/inspections/{id}` -> `api/vermietung-client.ts:184`, `UpdateInspectionInput.photo_urls?: string[]` (`vermietung-types.ts:165`) -> passt (Fotos werden jetzt gespeichert, fehlendes Feld behält)
+- offen: Verhaltensänderung: PATCH mit `photo_urls` ersetzt die Fotos (vorher still ignoriert, 200). Ein FE, das bei jedem PATCH die alte Liste mitsendet, überschreibt mit derselben Liste — unkritisch.

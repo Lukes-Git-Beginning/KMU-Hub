@@ -853,20 +853,28 @@ func (vr *VermietungRoutes) HandleUpdateInspection(w http.ResponseWriter, r *htt
 		return
 	}
 
-	resp, err := client.UpdateInspection(r.Context(), &vermietungv1.UpdateInspectionRequest{
-		TenantId:         tenantID.String(),
-		InspectionId:     id,
-		Notes:            req.Notes,
-		PhotoUrls:        req.PhotoURLs,
-		Checklist:        checklistRequestToProto(req.Checklist),
-		ReplaceChecklist: req.ReplaceChecklist,
-		SignatureData:    req.SignatureData,
-	})
+	resp, err := client.UpdateInspection(r.Context(), updateInspectionToProto(tenantID.String(), id, req))
 	if err != nil {
 		respondGRPCError(w, err)
 		return
 	}
 	response.Proto(w, http.StatusOK, resp)
+}
+
+// updateInspectionToProto maps the PATCH body to the RPC request. The service
+// ignores photo_urls unless ReplacePhotos is set, so a present key (even an
+// empty array) replaces the photos and an absent key (nil slice) keeps them.
+func updateInspectionToProto(tenantID, id string, req updateInspectionRequest) *vermietungv1.UpdateInspectionRequest {
+	return &vermietungv1.UpdateInspectionRequest{
+		TenantId:         tenantID,
+		InspectionId:     id,
+		Notes:            req.Notes,
+		PhotoUrls:        req.PhotoURLs,
+		ReplacePhotos:    req.PhotoURLs != nil,
+		Checklist:        checklistRequestToProto(req.Checklist),
+		ReplaceChecklist: req.ReplaceChecklist,
+		SignatureData:    req.SignatureData,
+	}
 }
 
 // checklistRequestToProto converts decoded checklist positions to their wire

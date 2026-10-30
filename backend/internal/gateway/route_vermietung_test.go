@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -829,4 +830,32 @@ func TestHandleExportRentalReport_ReachesRPCWithExplicitFormat(t *testing.T) {
 	req = withAuth(req, "user-123", testTenantID)
 	routes.HandleExportRentalReport(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
+}
+
+func TestUpdateInspectionToProto_PhotoReplaceFollowsPresence(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        string
+		wantReplace bool
+		wantPhotos  int
+	}{
+		{"photos sent", `{"photo_urls":["https://example.test/a.jpg"]}`, true, 1},
+		{"empty array clears", `{"photo_urls":[]}`, true, 0},
+		{"key absent keeps", `{"notes":"x"}`, false, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var body updateInspectionRequest
+			if err := json.Unmarshal([]byte(tt.body), &body); err != nil {
+				t.Fatal(err)
+			}
+			got := updateInspectionToProto(testTenantID.String(), "id-1", body)
+			if got.GetReplacePhotos() != tt.wantReplace {
+				t.Errorf("ReplacePhotos = %v, want %v", got.GetReplacePhotos(), tt.wantReplace)
+			}
+			if len(got.GetPhotoUrls()) != tt.wantPhotos {
+				t.Errorf("photos = %d, want %d", len(got.GetPhotoUrls()), tt.wantPhotos)
+			}
+		})
+	}
 }

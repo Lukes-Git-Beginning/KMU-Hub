@@ -1027,7 +1027,7 @@ units:
     service: vermietung
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: PATCH einer Übergabe-Inspektion mit photo_urls speichert die Fotos
     coverage_start: n.a.
     scope: >

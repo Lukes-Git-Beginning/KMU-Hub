@@ -29930,6 +29930,7 @@ paths:
                 notes: { type: string }
                 photo_urls:
                   type: array
+                  description: When present (even as an empty array), replaces the photo list. When omitted, the existing photos are kept.
                   items: { type: string, format: uri }
                 checklist:
                   type: array
