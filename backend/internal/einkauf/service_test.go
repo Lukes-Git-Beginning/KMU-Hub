@@ -873,7 +873,7 @@ func TestService_UpdatePOLine_RecomputesTotal(t *testing.T) {
 
 	newQty := "4"
 	_, err = svc.UpdatePOLine(context.Background(), UpdatePOLineInput{
-		TenantID: tenantID, LineID: line.ID, Quantity: &newQty,
+		TenantID: tenantID, POID: po.ID, LineID: line.ID, Quantity: &newQty,
 	})
 	require.NoError(t, err)
 
@@ -899,7 +899,7 @@ func TestService_DeletePOLine_RecomputesTotal(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, svc.DeletePOLine(context.Background(), tenantID, lineA.ID))
+	require.NoError(t, svc.DeletePOLine(context.Background(), tenantID, po.ID, lineA.ID))
 
 	got, err := svc.GetPO(context.Background(), tenantID, po.ID)
 	require.NoError(t, err)

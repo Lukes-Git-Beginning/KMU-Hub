@@ -792,7 +792,7 @@ func (er *EinkaufRoutes) HandleUpdatePOLine(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_, ok := validateUUIDParam(w, r, "id")
+	poID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
@@ -809,6 +809,7 @@ func (er *EinkaufRoutes) HandleUpdatePOLine(w http.ResponseWriter, r *http.Reque
 
 	grpcReq := &einkaufv1.UpdatePOLineRequest{
 		TenantId:     tenantID.String(),
+		PoId:         poID,
 		LineId:       lineID,
 		ProductName:  req.ProductName,
 		Sku:          req.SKU,
@@ -838,7 +839,7 @@ func (er *EinkaufRoutes) HandleDeletePOLine(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	_, ok := validateUUIDParam(w, r, "id")
+	poID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
@@ -850,6 +851,7 @@ func (er *EinkaufRoutes) HandleDeletePOLine(w http.ResponseWriter, r *http.Reque
 
 	_, err = client.DeletePOLine(r.Context(), &einkaufv1.DeletePOLineRequest{
 		TenantId: tenantID.String(),
+		PoId:     poID,
 		LineId:   lineID,
 	})
 	if err != nil {

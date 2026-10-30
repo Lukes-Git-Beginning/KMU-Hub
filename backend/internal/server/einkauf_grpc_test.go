@@ -30,10 +30,10 @@ type stubEinkaufRepo struct {
 	lines     map[uuid.UUID]*einkauf.POLine
 	poNumbers map[string]uuid.UUID // tenant:poNumber -> poID
 
-	catalogItems map[uuid.UUID]*einkauf.CatalogItem
-	ratings      map[uuid.UUID]*einkauf.SupplierRating
-	contracts    map[uuid.UUID]*einkauf.FrameworkContract
-	contractNrs  map[string]uuid.UUID // tenant:contractNr -> contractID
+	catalogItems  map[uuid.UUID]*einkauf.CatalogItem
+	ratings       map[uuid.UUID]*einkauf.SupplierRating
+	contracts     map[uuid.UUID]*einkauf.FrameworkContract
+	contractNrs   map[string]uuid.UUID // tenant:contractNr -> contractID
 	contractItems map[uuid.UUID]*einkauf.FrameworkContractItem
 	contractCalls map[uuid.UUID]*einkauf.FrameworkContractCall
 
@@ -839,16 +839,24 @@ func TestEinkauf_UUIDValidation(t *testing.T) {
 			_, err := s.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: badID})
 			return err
 		}},
+		{"UpdatePOLine/po", func() error {
+			_, err := s.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: valid, PoId: badID, LineId: valid})
+			return err
+		}},
 		{"UpdatePOLine/line", func() error {
-			_, err := s.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: valid, LineId: badID})
+			_, err := s.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: valid, PoId: valid, LineId: badID})
 			return err
 		}},
 		{"DeletePOLine/tenant", func() error {
 			_, err := s.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: badID})
 			return err
 		}},
+		{"DeletePOLine/po", func() error {
+			_, err := s.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: valid, PoId: badID, LineId: valid})
+			return err
+		}},
 		{"DeletePOLine/line", func() error {
-			_, err := s.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: valid, LineId: badID})
+			_, err := s.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: valid, PoId: valid, LineId: badID})
 			return err
 		}},
 		{"ListPOLines/tenant", func() error {
@@ -964,8 +972,12 @@ func TestEinkauf_UUIDValidation(t *testing.T) {
 			_, err := s.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: badID})
 			return err
 		}},
+		{"DeleteSupplierRating/supplier", func() error {
+			_, err := s.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: valid, SupplierId: badID, RatingId: valid})
+			return err
+		}},
 		{"DeleteSupplierRating/rating", func() error {
-			_, err := s.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: valid, RatingId: badID})
+			_, err := s.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: valid, SupplierId: valid, RatingId: badID})
 			return err
 		}},
 		{"ListFrameworkContracts/tenant", func() error {
@@ -1026,16 +1038,24 @@ func TestEinkauf_UUIDValidation(t *testing.T) {
 			_, err := s.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{TenantId: badID})
 			return err
 		}},
+		{"UpdateContractItem/contract", func() error {
+			_, err := s.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{TenantId: valid, ContractId: badID, ItemId: valid})
+			return err
+		}},
 		{"UpdateContractItem/item", func() error {
-			_, err := s.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{TenantId: valid, ItemId: badID})
+			_, err := s.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{TenantId: valid, ContractId: valid, ItemId: badID})
 			return err
 		}},
 		{"DeleteContractItem/tenant", func() error {
 			_, err := s.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: badID})
 			return err
 		}},
+		{"DeleteContractItem/contract", func() error {
+			_, err := s.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: valid, ContractId: badID, ItemId: valid})
+			return err
+		}},
 		{"DeleteContractItem/item", func() error {
-			_, err := s.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: valid, ItemId: badID})
+			_, err := s.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: valid, ContractId: valid, ItemId: badID})
 			return err
 		}},
 		{"CreateContractCall/tenant", func() error {
@@ -1230,7 +1250,7 @@ func TestEinkauf_PO_FullLifecycle_HappyPath(t *testing.T) {
 	assert.Equal(t, "9.9999", afterAdd.Po.TotalAmount)
 
 	_, err = srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{
-		TenantId: tenantID.String(), LineId: lineResp.Line.Id,
+		TenantId: tenantID.String(), PoId: created.Po.Id, LineId: lineResp.Line.Id,
 		Quantity: strPtr("2"),
 	})
 	require.NoError(t, err)
@@ -1251,7 +1271,7 @@ func TestEinkauf_PO_FullLifecycle_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "received", received.Po.Status)
 
-	_, err = srv.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: tenantID.String(), LineId: lineResp.Line.Id})
+	_, err = srv.DeletePOLine(ctx, &einkaufv1.DeletePOLineRequest{TenantId: tenantID.String(), PoId: created.Po.Id, LineId: lineResp.Line.Id})
 	require.NoError(t, err)
 
 	afterDelete, err := srv.GetPO(ctx, &einkaufv1.GetPORequest{TenantId: tenantID.String(), PoId: created.Po.Id})
@@ -1420,7 +1440,7 @@ func TestEinkauf_UpdatePOLine_AllFields(t *testing.T) {
 	newTax := "19"
 	newPos := int32(2)
 	updated, err := srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{
-		TenantId: tenantID.String(), LineId: line.ID.String(),
+		TenantId: tenantID.String(), PoId: po.ID.String(), LineId: line.ID.String(),
 		Sku: &newSKU, TaxRate: &newTax, LinePosition: &newPos,
 	})
 	require.NoError(t, err)
@@ -1429,10 +1449,10 @@ func TestEinkauf_UpdatePOLine_AllFields(t *testing.T) {
 	assert.Equal(t, int32(2), updated.Line.LinePosition)
 
 	emptyName := "   "
-	_, err = srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: tenantID.String(), LineId: line.ID.String(), ProductName: &emptyName})
+	_, err = srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: tenantID.String(), PoId: po.ID.String(), LineId: line.ID.String(), ProductName: &emptyName})
 	requireGRPCCode(t, err, codes.InvalidArgument)
 
-	_, err = srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: tenantID.String(), LineId: uuid.New().String()})
+	_, err = srv.UpdatePOLine(ctx, &einkaufv1.UpdatePOLineRequest{TenantId: tenantID.String(), PoId: po.ID.String(), LineId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 
@@ -1520,7 +1540,7 @@ func TestEinkauf_SupplierRating_CreateListDelete(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, list.Ratings, 1)
 
-	_, err = srv.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: tenantID.String(), RatingId: created.Rating.Id})
+	_, err = srv.DeleteSupplierRating(ctx, &einkaufv1.DeleteSupplierRatingRequest{TenantId: tenantID.String(), SupplierId: supplier.ID.String(), RatingId: created.Rating.Id})
 	require.NoError(t, err)
 
 	list2, err := srv.ListSupplierRatings(ctx, &einkaufv1.ListSupplierRatingsRequest{TenantId: tenantID.String(), SupplierId: supplier.ID.String()})
@@ -1684,12 +1704,12 @@ func TestEinkauf_ContractItem_CreateUpdateDelete(t *testing.T) {
 	// alternative failure mode).
 	newName := "Schraube M4"
 	updated, err := srv.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{
-		TenantId: tenantID.String(), ItemId: created.Item.Id, Name: &newName,
+		TenantId: tenantID.String(), ContractId: contract.ID.String(), ItemId: created.Item.Id, Name: &newName,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, newName, updated.Item.Name)
 
-	_, err = srv.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: tenantID.String(), ItemId: created.Item.Id})
+	_, err = srv.DeleteContractItem(ctx, &einkaufv1.DeleteContractItemRequest{TenantId: tenantID.String(), ContractId: contract.ID.String(), ItemId: created.Item.Id})
 	require.NoError(t, err)
 }
 
@@ -1701,7 +1721,7 @@ func TestEinkauf_UpdateContractItem_NotFound(t *testing.T) {
 
 	newName := "x"
 	_, err := srv.UpdateContractItem(ctx, &einkaufv1.UpdateContractItemRequest{
-		TenantId: tenantID.String(), ItemId: uuid.New().String(), Name: &newName,
+		TenantId: tenantID.String(), ContractId: uuid.New().String(), ItemId: uuid.New().String(), Name: &newName,
 	})
 	requireGRPCCode(t, err, codes.NotFound)
 }

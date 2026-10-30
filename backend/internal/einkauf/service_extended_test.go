@@ -826,7 +826,7 @@ func TestExtended_DeleteSupplierRating_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = svc.DeleteSupplierRating(context.Background(), tenantID, rating.ID)
+	err = svc.DeleteSupplierRating(context.Background(), tenantID, supplierID, rating.ID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.supplierRatings, rating.ID)
@@ -836,7 +836,7 @@ func TestExtended_DeleteSupplierRating_NotFound(t *testing.T) {
 	repo := newMockRepositoryExtended()
 	svc := NewServiceExtended(repo)
 
-	err := svc.DeleteSupplierRating(context.Background(), uuid.New(), uuid.New())
+	err := svc.DeleteSupplierRating(context.Background(), uuid.New(), uuid.New(), uuid.New())
 
 	assert.ErrorIs(t, err, ErrSupplierRatingNotFound)
 }
@@ -1064,7 +1064,7 @@ func TestExtended_UpdateContractItem_Success(t *testing.T) {
 
 	newPrice := "0.25"
 	result, err := svc.UpdateContractItem(context.Background(), UpdateContractItemInput{
-		TenantID: tenantID, ItemID: item.ID, UnitPrice: &newPrice,
+		TenantID: tenantID, ContractID: fc.ID, ItemID: item.ID, UnitPrice: &newPrice,
 	})
 
 	require.NoError(t, err)
@@ -1096,7 +1096,7 @@ func TestExtended_UpdateContractItem_EmptyNameRejected(t *testing.T) {
 
 	blank := "   "
 	_, err = svc.UpdateContractItem(context.Background(), UpdateContractItemInput{
-		TenantID: tenantID, ItemID: item.ID, Name: &blank,
+		TenantID: tenantID, ContractID: fc.ID, ItemID: item.ID, Name: &blank,
 	})
 
 	assert.ErrorIs(t, err, ErrInvalidInput)
@@ -1113,7 +1113,7 @@ func TestExtended_DeleteContractItem_Success(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = svc.DeleteContractItem(context.Background(), tenantID, item.ID)
+	err = svc.DeleteContractItem(context.Background(), tenantID, fc.ID, item.ID)
 
 	require.NoError(t, err)
 	assert.NotContains(t, repo.contractItems, item.ID)

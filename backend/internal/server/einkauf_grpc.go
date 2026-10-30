@@ -397,6 +397,10 @@ func (s *EinkaufGRPCServer) UpdatePOLine(ctx context.Context, req *einkaufv1.Upd
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
+	poID, err := uuid.Parse(req.GetPoId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid po_id: %v", err)
+	}
 	lineID, err := uuid.Parse(req.GetLineId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid line_id: %v", err)
@@ -404,6 +408,7 @@ func (s *EinkaufGRPCServer) UpdatePOLine(ctx context.Context, req *einkaufv1.Upd
 
 	input := einkauf.UpdatePOLineInput{
 		TenantID:    tenantID,
+		POID:        poID,
 		LineID:      lineID,
 		ProductName: req.ProductName,
 		SKU:         req.Sku,
@@ -429,12 +434,16 @@ func (s *EinkaufGRPCServer) DeletePOLine(ctx context.Context, req *einkaufv1.Del
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
+	poID, err := uuid.Parse(req.GetPoId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid po_id: %v", err)
+	}
 	lineID, err := uuid.Parse(req.GetLineId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid line_id: %v", err)
 	}
 
-	if err := s.svc.DeletePOLine(ctx, tenantID, lineID); err != nil {
+	if err := s.svc.DeletePOLine(ctx, tenantID, poID, lineID); err != nil {
 		return nil, mapEinkaufError(err)
 	}
 	return &einkaufv1.DeletePOLineResponse{}, nil

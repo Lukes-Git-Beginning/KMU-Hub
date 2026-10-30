@@ -489,14 +489,20 @@ func (er *EinkaufRoutes) HandleDeleteSupplierRating(w http.ResponseWriter, r *ht
 		return
 	}
 
+	supplierID, ok := validateUUIDParam(w, r, "supplierId")
+	if !ok {
+		return
+	}
+
 	ratingID, ok := validateUUIDParam(w, r, "ratingId")
 	if !ok {
 		return
 	}
 
 	_, err = client.DeleteSupplierRating(r.Context(), &einkaufv1.DeleteSupplierRatingRequest{
-		TenantId: tenantID.String(),
-		RatingId: ratingID,
+		TenantId:   tenantID.String(),
+		SupplierId: supplierID,
+		RatingId:   ratingID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -747,7 +753,7 @@ func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http
 		return
 	}
 
-	_, ok := validateUUIDParam(w, r, "id") // contractID — not needed for gRPC call but validates URL
+	contractID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
@@ -763,12 +769,13 @@ func (er *EinkaufRoutes) HandleUpdateContractItem(w http.ResponseWriter, r *http
 	}
 
 	resp, err := client.UpdateContractItem(r.Context(), &einkaufv1.UpdateContractItemRequest{
-		TenantId:  tenantID.String(),
-		ItemId:    itemID,
-		Name:      req.Name,
-		UnitPrice: req.UnitPrice,
-		Unit:      req.Unit,
-		AgreedQty: req.AgreedQty,
+		TenantId:   tenantID.String(),
+		ContractId: contractID,
+		ItemId:     itemID,
+		Name:       req.Name,
+		UnitPrice:  req.UnitPrice,
+		Unit:       req.Unit,
+		AgreedQty:  req.AgreedQty,
 	})
 	if err != nil {
 		respondGRPCError(w, err)
@@ -789,7 +796,7 @@ func (er *EinkaufRoutes) HandleDeleteContractItem(w http.ResponseWriter, r *http
 		return
 	}
 
-	_, ok := validateUUIDParam(w, r, "id")
+	contractID, ok := validateUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
@@ -800,8 +807,9 @@ func (er *EinkaufRoutes) HandleDeleteContractItem(w http.ResponseWriter, r *http
 	}
 
 	_, err = client.DeleteContractItem(r.Context(), &einkaufv1.DeleteContractItemRequest{
-		TenantId: tenantID.String(),
-		ItemId:   itemID,
+		TenantId:   tenantID.String(),
+		ContractId: contractID,
+		ItemId:     itemID,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

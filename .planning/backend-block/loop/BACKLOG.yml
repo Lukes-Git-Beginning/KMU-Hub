@@ -1096,7 +1096,7 @@ units:
     service: einkauf
     model: opus
     deps: [scan-nested-route-parent-id-ignored]
-    status: todo
+    status: done
     target: PO-Positionen, Rahmenvertrags-Positionen und Lieferantenbewertungen sind nur über ihren echten Elternpfad änderbar
     coverage_start: n.a.
     scope: >

@@ -211,12 +211,16 @@ func (s *EinkaufGRPCServer) DeleteSupplierRating(ctx context.Context, req *einka
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
+	supplierID, err := uuid.Parse(req.GetSupplierId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid supplier_id: %v", err)
+	}
 	ratingID, err := uuid.Parse(req.GetRatingId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid rating_id: %v", err)
 	}
 
-	if err := s.svc.DeleteSupplierRating(ctx, tenantID, ratingID); err != nil {
+	if err := s.svc.DeleteSupplierRating(ctx, tenantID, supplierID, ratingID); err != nil {
 		return nil, mapEinkaufError(err)
 	}
 	return &einkaufv1.DeleteSupplierRatingResponse{}, nil
@@ -423,18 +427,23 @@ func (s *EinkaufGRPCServer) UpdateContractItem(ctx context.Context, req *einkauf
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
 	itemID, err := uuid.Parse(req.GetItemId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
 	}
 
 	item, err := s.svc.UpdateContractItem(ctx, einkauf.UpdateContractItemInput{
-		TenantID:  tenantID,
-		ItemID:    itemID,
-		Name:      req.Name,
-		UnitPrice: req.UnitPrice,
-		Unit:      req.Unit,
-		AgreedQty: req.AgreedQty,
+		TenantID:   tenantID,
+		ContractID: contractID,
+		ItemID:     itemID,
+		Name:       req.Name,
+		UnitPrice:  req.UnitPrice,
+		Unit:       req.Unit,
+		AgreedQty:  req.AgreedQty,
 	})
 	if err != nil {
 		return nil, mapEinkaufError(err)
@@ -447,12 +456,16 @@ func (s *EinkaufGRPCServer) DeleteContractItem(ctx context.Context, req *einkauf
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid tenant_id: %v", err)
 	}
+	contractID, err := uuid.Parse(req.GetContractId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid contract_id: %v", err)
+	}
 	itemID, err := uuid.Parse(req.GetItemId())
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid item_id: %v", err)
 	}
 
-	if err := s.svc.DeleteContractItem(ctx, tenantID, itemID); err != nil {
+	if err := s.svc.DeleteContractItem(ctx, tenantID, contractID, itemID); err != nil {
 		return nil, mapEinkaufError(err)
 	}
 	return &einkaufv1.DeleteContractItemResponse{}, nil
@@ -628,4 +641,3 @@ func contractCallToProto(call *einkauf.FrameworkContractCall) *einkaufv1.Framewo
 	}
 	return p
 }
-

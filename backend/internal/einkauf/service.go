@@ -25,7 +25,7 @@ type InventarAdjuster interface {
 
 // Service handles einkauf (purchasing) business logic.
 type Service struct {
-	repo    Repository
+	repo Repository
 	// repoExt is non-nil when the service was created via NewServiceExtended.
 	// It grants access to the catalog, ratings, and framework contract persistence.
 	repoExt RepositoryExtended
@@ -144,6 +144,7 @@ type AddPOLineInput struct {
 // UpdatePOLineInput contains data for updating a PO line.
 type UpdatePOLineInput struct {
 	TenantID     uuid.UUID
+	POID         uuid.UUID // line must belong to this PO
 	LineID       uuid.UUID
 	ProductName  *string
 	SKU          *string
@@ -527,11 +528,15 @@ func (s *Service) AddPOLine(ctx context.Context, input AddPOLineInput) (*POLine,
 	return line, nil
 }
 
-// UpdatePOLine updates an existing PO line.
+// UpdatePOLine updates an existing PO line. A line of another PO answers
+// ErrPOLineNotFound.
 func (s *Service) UpdatePOLine(ctx context.Context, input UpdatePOLineInput) (*POLine, error) {
 	line, err := s.repo.GetPOLine(ctx, input.TenantID, input.LineID)
 	if err != nil {
 		return nil, err
+	}
+	if line.POID != input.POID {
+		return nil, ErrPOLineNotFound
 	}
 
 	if input.ProductName != nil {
@@ -571,11 +576,15 @@ func (s *Service) UpdatePOLine(ctx context.Context, input UpdatePOLineInput) (*P
 	return line, nil
 }
 
-// DeletePOLine removes a line item from a PO.
-func (s *Service) DeletePOLine(ctx context.Context, tenantID, lineID uuid.UUID) error {
+// DeletePOLine removes a line item from a PO. A line of another PO answers
+// ErrPOLineNotFound.
+func (s *Service) DeletePOLine(ctx context.Context, tenantID, poID, lineID uuid.UUID) error {
 	line, err := s.repo.GetPOLine(ctx, tenantID, lineID)
 	if err != nil {
 		return err
+	}
+	if line.POID != poID {
+		return ErrPOLineNotFound
 	}
 	if delErr := s.repo.DeletePOLine(ctx, tenantID, lineID); delErr != nil {
 		return fmt.Errorf("delete po line: %w", delErr)

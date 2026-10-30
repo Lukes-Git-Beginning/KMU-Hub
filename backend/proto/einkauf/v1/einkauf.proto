@@ -264,11 +264,13 @@ message UpdatePOLineRequest {
   optional string unit_price = 6;
   optional string tax_rate = 7;
   optional int32 line_position = 8;
+  string po_id = 9; // line must belong to this PO, else NotFound
 }
 
 message DeletePOLineRequest {
   string tenant_id = 1;
   string line_id = 2;
+  string po_id = 3; // line must belong to this PO, else NotFound
 }
 
 message DeletePOLineResponse {}
@@ -490,6 +492,7 @@ message SupplierRatingResponse {
 message DeleteSupplierRatingRequest {
   string tenant_id = 1;
   string rating_id = 2;
+  string supplier_id = 3; // rating must belong to this supplier, else NotFound
 }
 
 message DeleteSupplierRatingResponse {}
@@ -568,6 +571,7 @@ message UpdateContractItemRequest {
   optional string unit_price = 4;
   optional string unit = 5;
   optional string agreed_qty = 6;
+  string contract_id = 7; // item must belong to this contract, else NotFound
 }
 
 message ContractItemResponse {
@@ -577,6 +581,7 @@ message ContractItemResponse {
 message DeleteContractItemRequest {
   string tenant_id = 1;
   string item_id = 2;
+  string contract_id = 3; // item must belong to this contract, else NotFound
 }
 
 message DeleteContractItemResponse {}

@@ -248,11 +248,24 @@ func TestHandleListSupplierRatings_InvalidSupplierUUID(t *testing.T) {
 	assertErrorContains(t, rec, "invalid supplierId")
 }
 
+func TestHandleDeleteSupplierRating_InvalidSupplierUUID(t *testing.T) {
+	routes := newEinkaufRoutes(registryWithService("einkauf"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/einkauf/suppliers/not-a-uuid/ratings/"+extendedTestID, nil)
+	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "supplierId", "not-a-uuid")
+	req = withChiURLParam(req, "ratingId", extendedTestID)
+	routes.HandleDeleteSupplierRating(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid supplierId")
+}
+
 func TestHandleDeleteSupplierRating_InvalidRatingUUID(t *testing.T) {
 	routes := newEinkaufRoutes(registryWithService("einkauf"))
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/einkauf/suppliers/"+extendedTestID+"/ratings/not-a-uuid", nil)
 	req = withTenantID(req, testTenantID)
+	req = withChiURLParam(req, "supplierId", extendedTestID)
 	req = withChiURLParam(req, "ratingId", "not-a-uuid")
 	routes.HandleDeleteSupplierRating(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)

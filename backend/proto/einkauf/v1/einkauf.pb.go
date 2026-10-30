@@ -1706,6 +1706,7 @@ type UpdatePOLineRequest struct {
 	UnitPrice     *string                `protobuf:"bytes,6,opt,name=unit_price,json=unitPrice,proto3,oneof" json:"unit_price,omitempty"`
 	TaxRate       *string                `protobuf:"bytes,7,opt,name=tax_rate,json=taxRate,proto3,oneof" json:"tax_rate,omitempty"`
 	LinePosition  *int32                 `protobuf:"varint,8,opt,name=line_position,json=linePosition,proto3,oneof" json:"line_position,omitempty"`
+	PoId          string                 `protobuf:"bytes,9,opt,name=po_id,json=poId,proto3" json:"po_id,omitempty"` // line must belong to this PO, else NotFound
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1796,10 +1797,18 @@ func (x *UpdatePOLineRequest) GetLinePosition() int32 {
 	return 0
 }
 
+func (x *UpdatePOLineRequest) GetPoId() string {
+	if x != nil {
+		return x.PoId
+	}
+	return ""
+}
+
 type DeletePOLineRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	LineId        string                 `protobuf:"bytes,2,opt,name=line_id,json=lineId,proto3" json:"line_id,omitempty"`
+	PoId          string                 `protobuf:"bytes,3,opt,name=po_id,json=poId,proto3" json:"po_id,omitempty"` // line must belong to this PO, else NotFound
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1844,6 +1853,13 @@ func (x *DeletePOLineRequest) GetTenantId() string {
 func (x *DeletePOLineRequest) GetLineId() string {
 	if x != nil {
 		return x.LineId
+	}
+	return ""
+}
+
+func (x *DeletePOLineRequest) GetPoId() string {
+	if x != nil {
+		return x.PoId
 	}
 	return ""
 }
@@ -3716,6 +3732,7 @@ type DeleteSupplierRatingRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	RatingId      string                 `protobuf:"bytes,2,opt,name=rating_id,json=ratingId,proto3" json:"rating_id,omitempty"`
+	SupplierId    string                 `protobuf:"bytes,3,opt,name=supplier_id,json=supplierId,proto3" json:"supplier_id,omitempty"` // rating must belong to this supplier, else NotFound
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3760,6 +3777,13 @@ func (x *DeleteSupplierRatingRequest) GetTenantId() string {
 func (x *DeleteSupplierRatingRequest) GetRatingId() string {
 	if x != nil {
 		return x.RatingId
+	}
+	return ""
+}
+
+func (x *DeleteSupplierRatingRequest) GetSupplierId() string {
+	if x != nil {
+		return x.SupplierId
 	}
 	return ""
 }
@@ -4428,6 +4452,7 @@ type UpdateContractItemRequest struct {
 	UnitPrice     *string                `protobuf:"bytes,4,opt,name=unit_price,json=unitPrice,proto3,oneof" json:"unit_price,omitempty"`
 	Unit          *string                `protobuf:"bytes,5,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
 	AgreedQty     *string                `protobuf:"bytes,6,opt,name=agreed_qty,json=agreedQty,proto3,oneof" json:"agreed_qty,omitempty"`
+	ContractId    string                 `protobuf:"bytes,7,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"` // item must belong to this contract, else NotFound
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4504,6 +4529,13 @@ func (x *UpdateContractItemRequest) GetAgreedQty() string {
 	return ""
 }
 
+func (x *UpdateContractItemRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
+	}
+	return ""
+}
+
 type ContractItemResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Item          *FrameworkContractItem `protobuf:"bytes,1,opt,name=item,proto3" json:"item,omitempty"`
@@ -4552,6 +4584,7 @@ type DeleteContractItemRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	ItemId        string                 `protobuf:"bytes,2,opt,name=item_id,json=itemId,proto3" json:"item_id,omitempty"`
+	ContractId    string                 `protobuf:"bytes,3,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"` // item must belong to this contract, else NotFound
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4596,6 +4629,13 @@ func (x *DeleteContractItemRequest) GetTenantId() string {
 func (x *DeleteContractItemRequest) GetItemId() string {
 	if x != nil {
 		return x.ItemId
+	}
+	return ""
+}
+
+func (x *DeleteContractItemRequest) GetContractId() string {
+	if x != nil {
+		return x.ContractId
 	}
 	return ""
 }
@@ -5059,7 +5099,7 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\n" +
 	"unit_price\x18\x06 \x01(\tR\tunitPrice\x12\x19\n" +
 	"\btax_rate\x18\a \x01(\tR\ataxRate\x12#\n" +
-	"\rline_position\x18\b \x01(\x05R\flinePosition\"\xed\x02\n" +
+	"\rline_position\x18\b \x01(\x05R\flinePosition\"\x82\x03\n" +
 	"\x13UpdatePOLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aline_id\x18\x02 \x01(\tR\x06lineId\x12&\n" +
@@ -5069,16 +5109,18 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\n" +
 	"unit_price\x18\x06 \x01(\tH\x03R\tunitPrice\x88\x01\x01\x12\x1e\n" +
 	"\btax_rate\x18\a \x01(\tH\x04R\ataxRate\x88\x01\x01\x12(\n" +
-	"\rline_position\x18\b \x01(\x05H\x05R\flinePosition\x88\x01\x01B\x0f\n" +
+	"\rline_position\x18\b \x01(\x05H\x05R\flinePosition\x88\x01\x01\x12\x13\n" +
+	"\x05po_id\x18\t \x01(\tR\x04poIdB\x0f\n" +
 	"\r_product_nameB\x06\n" +
 	"\x04_skuB\v\n" +
 	"\t_quantityB\r\n" +
 	"\v_unit_priceB\v\n" +
 	"\t_tax_rateB\x10\n" +
-	"\x0e_line_position\"K\n" +
+	"\x0e_line_position\"`\n" +
 	"\x13DeletePOLineRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\aline_id\x18\x02 \x01(\tR\x06lineId\"\x16\n" +
+	"\aline_id\x18\x02 \x01(\tR\x06lineId\x12\x13\n" +
+	"\x05po_id\x18\x03 \x01(\tR\x04poId\"\x16\n" +
 	"\x14DeletePOLineResponse\"F\n" +
 	"\x12ListPOLinesRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x13\n" +
@@ -5270,10 +5312,12 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"\brated_by\x18\x06 \x01(\tH\x00R\aratedBy\x88\x01\x01B\v\n" +
 	"\t_rated_by\"L\n" +
 	"\x16SupplierRatingResponse\x122\n" +
-	"\x06rating\x18\x01 \x01(\v2\x1a.einkauf.v1.SupplierRatingR\x06rating\"W\n" +
+	"\x06rating\x18\x01 \x01(\v2\x1a.einkauf.v1.SupplierRatingR\x06rating\"x\n" +
 	"\x1bDeleteSupplierRatingRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1b\n" +
-	"\trating_id\x18\x02 \x01(\tR\bratingId\"\x1e\n" +
+	"\trating_id\x18\x02 \x01(\tR\bratingId\x12\x1f\n" +
+	"\vsupplier_id\x18\x03 \x01(\tR\n" +
+	"supplierId\"\x1e\n" +
 	"\x1cDeleteSupplierRatingResponse\"\xcb\x01\n" +
 	"\x1dListFrameworkContractsRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12$\n" +
@@ -5348,7 +5392,7 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"unit_price\x18\x04 \x01(\tR\tunitPrice\x12\x12\n" +
 	"\x04unit\x18\x05 \x01(\tR\x04unit\x12\x1d\n" +
 	"\n" +
-	"agreed_qty\x18\x06 \x01(\tR\tagreedQty\"\xfb\x01\n" +
+	"agreed_qty\x18\x06 \x01(\tR\tagreedQty\"\x9c\x02\n" +
 	"\x19UpdateContractItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x17\n" +
@@ -5357,16 +5401,20 @@ const file_proto_einkauf_v1_einkauf_proto_rawDesc = "" +
 	"unit_price\x18\x04 \x01(\tH\x01R\tunitPrice\x88\x01\x01\x12\x17\n" +
 	"\x04unit\x18\x05 \x01(\tH\x02R\x04unit\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"agreed_qty\x18\x06 \x01(\tH\x03R\tagreedQty\x88\x01\x01B\a\n" +
+	"agreed_qty\x18\x06 \x01(\tH\x03R\tagreedQty\x88\x01\x01\x12\x1f\n" +
+	"\vcontract_id\x18\a \x01(\tR\n" +
+	"contractIdB\a\n" +
 	"\x05_nameB\r\n" +
 	"\v_unit_priceB\a\n" +
 	"\x05_unitB\r\n" +
 	"\v_agreed_qty\"M\n" +
 	"\x14ContractItemResponse\x125\n" +
-	"\x04item\x18\x01 \x01(\v2!.einkauf.v1.FrameworkContractItemR\x04item\"Q\n" +
+	"\x04item\x18\x01 \x01(\v2!.einkauf.v1.FrameworkContractItemR\x04item\"r\n" +
 	"\x19DeleteContractItemRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\aitem_id\x18\x02 \x01(\tR\x06itemId\"\x1c\n" +
+	"\aitem_id\x18\x02 \x01(\tR\x06itemId\x12\x1f\n" +
+	"\vcontract_id\x18\x03 \x01(\tR\n" +
+	"contractId\"\x1c\n" +
 	"\x1aDeleteContractItemResponse\"\xc7\x01\n" +
 	"\x19CreateContractCallRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1f\n" +

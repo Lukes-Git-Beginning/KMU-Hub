@@ -127,12 +127,13 @@ type CreateContractItemInput struct {
 
 // UpdateContractItemInput holds data for updating a framework contract item.
 type UpdateContractItemInput struct {
-	TenantID  uuid.UUID
-	ItemID    uuid.UUID
-	Name      *string
-	UnitPrice *string
-	Unit      *string
-	AgreedQty *string
+	TenantID   uuid.UUID
+	ContractID uuid.UUID // item must belong to this contract
+	ItemID     uuid.UUID
+	Name       *string
+	UnitPrice  *string
+	Unit       *string
+	AgreedQty  *string
 }
 
 // CreateContractCallInput holds data for recording a contract call-off.
@@ -330,10 +331,15 @@ func (s *Service) CreateSupplierRating(ctx context.Context, input CreateSupplier
 	return rating, nil
 }
 
-// DeleteSupplierRating removes a supplier rating.
-func (s *Service) DeleteSupplierRating(ctx context.Context, tenantID, ratingID uuid.UUID) error {
-	if _, err := s.repoExt.GetSupplierRating(ctx, tenantID, ratingID); err != nil {
+// DeleteSupplierRating removes a supplier rating. A rating of another supplier
+// answers ErrSupplierRatingNotFound.
+func (s *Service) DeleteSupplierRating(ctx context.Context, tenantID, supplierID, ratingID uuid.UUID) error {
+	rating, err := s.repoExt.GetSupplierRating(ctx, tenantID, ratingID)
+	if err != nil {
 		return err
+	}
+	if rating.SupplierID != supplierID {
+		return ErrSupplierRatingNotFound
 	}
 	if err := s.repoExt.DeleteSupplierRating(ctx, tenantID, ratingID); err != nil {
 		return fmt.Errorf("delete supplier rating: %w", err)
@@ -558,11 +564,15 @@ func (s *Service) CreateContractItem(ctx context.Context, input CreateContractIt
 	return item, nil
 }
 
-// UpdateContractItem updates an existing framework contract item.
+// UpdateContractItem updates an existing framework contract item. An item of
+// another contract answers ErrContractItemNotFound.
 func (s *Service) UpdateContractItem(ctx context.Context, input UpdateContractItemInput) (*FrameworkContractItem, error) {
 	item, err := getContractItemByID(ctx, s.repoExt, input.TenantID, input.ItemID)
 	if err != nil {
 		return nil, err
+	}
+	if item.ContractID != input.ContractID {
+		return nil, ErrContractItemNotFound
 	}
 
 	if input.Name != nil {
@@ -592,8 +602,16 @@ func (s *Service) UpdateContractItem(ctx context.Context, input UpdateContractIt
 	return item, nil
 }
 
-// DeleteContractItem removes a framework contract item.
-func (s *Service) DeleteContractItem(ctx context.Context, tenantID, itemID uuid.UUID) error {
+// DeleteContractItem removes a framework contract item. An item of another
+// contract answers ErrContractItemNotFound.
+func (s *Service) DeleteContractItem(ctx context.Context, tenantID, contractID, itemID uuid.UUID) error {
+	item, err := getContractItemByID(ctx, s.repoExt, tenantID, itemID)
+	if err != nil {
+		return err
+	}
+	if item.ContractID != contractID {
+		return ErrContractItemNotFound
+	}
 	if err := s.repoExt.DeleteContractItem(ctx, tenantID, itemID); err != nil {
 		return fmt.Errorf("delete contract item: %w", err)
 	}
