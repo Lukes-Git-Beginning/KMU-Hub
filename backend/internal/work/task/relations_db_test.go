@@ -75,7 +75,7 @@ func newRelationsFixture(t *testing.T) *relationsFixture {
 
 func (f *relationsFixture) dependency(source, target uuid.UUID, kind string, at time.Time) *models.TaskDependency {
 	return &models.TaskDependency{
-		ID: uuid.New(), SourceTaskID: source, TargetTaskID: target,
+		ID: uuid.New(), TenantID: f.tenantOwn, SourceTaskID: source, TargetTaskID: target,
 		DependencyType: kind, CreatedBy: f.user, CreatedAt: at,
 	}
 }
@@ -94,7 +94,7 @@ func TestDependencies_CreateListAndTenantScope(t *testing.T) {
 		t.Cleanup(func() { testutil.CleanupRow(t, f.pool, "task_dependencies", dep.ID) })
 	}
 
-	// The row's tenant comes from the source task, not from the caller.
+	// The row's tenant is the caller's, checked against the source task.
 	var tenantOfRow uuid.UUID
 	if err := f.pool.QueryRow(sysCtx, `SELECT tenant_id FROM task_dependencies WHERE id = $1`, ab.ID).Scan(&tenantOfRow); err != nil {
 		t.Fatalf("read back tenant_id: %v", err)
@@ -141,12 +141,13 @@ func TestDependencies_CreateListAndTenantScope(t *testing.T) {
 		t.Fatalf("ListDependenciesByProject from foreign tenant = %v, %v; want empty", foreign, err)
 	}
 
-	// A foreign session cannot attach a dependency to a task it cannot see: the
-	// tenant subselect finds nothing, tenant_id would be NULL, the insert fails.
+	// A foreign tenant cannot attach a dependency to a task it cannot see: the
+	// tenant filter matches no source task, the insert answers ErrNotFound.
 	forged := f.dependency(f.taskA, f.taskC, "blocks", base)
-	if err := f.repo.CreateDependency(f.ctxOther, forged); err == nil {
+	forged.TenantID = f.tenantOther
+	if err := f.repo.CreateDependency(f.ctxOther, forged); !errors.Is(err, ErrNotFound) {
 		t.Cleanup(func() { testutil.CleanupRow(t, f.pool, "task_dependencies", forged.ID) })
-		t.Fatal("CreateDependency from a foreign tenant succeeded against a task it cannot see")
+		t.Fatalf("CreateDependency from a foreign tenant = %v, want ErrNotFound", err)
 	}
 	testutil.AssertRowCount(t, f.pool, sysCtx, "task_dependencies", forged.ID, 0)
 

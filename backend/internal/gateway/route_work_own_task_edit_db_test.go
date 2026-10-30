@@ -245,11 +245,8 @@ func TestWorkOwnTaskEdit_HRAdminAgainstRealSeed(t *testing.T) {
 		return n
 	}
 	other := createTask(memberToken, `{"title":"Zweite Aufgabe des Kollegen"}`)
-	// POST /tasks/{id}/dependencies answers 500 for a project-less task (the
-	// INSERT takes tenant_id from the project join, see
-	// fix-work-dependency-tenant-for-standalone-task), so the delete cases
-	// seed their dependency directly and the create cases only prove the
-	// owner gate: 404 on a foreign task, past it on an own one.
+	// The cases below that need a dependency of somebody else's seed it
+	// directly; the caller's own go through the real POST.
 	seedDep := func(source, target string, by uuid.UUID) string {
 		t.Helper()
 		id := testutil.SeedRow(t, pool, "task_dependencies", map[string]any{
@@ -265,10 +262,7 @@ func TestWorkOwnTaskEdit_HRAdminAgainstRealSeed(t *testing.T) {
 
 	t.Run("hr_admin edits sub-objects of the tasks they own or are assigned to", func(t *testing.T) {
 		for _, taskID := range []string{own, assigned} {
-			if code, _ := create(hrToken, "/tasks/"+taskID+"/dependencies", "dependency", depBody(other)); code == http.StatusNotFound {
-				t.Errorf("POST dependency on own task = 404, the owner gate refused it")
-			}
-			dep := seedDep(taskID, other, hrID)
+			dep := mustCreate(hrToken, "/tasks/"+taskID+"/dependencies", "dependency", depBody(other))
 			if code, out := do(http.MethodDelete, hrToken, "/task-dependencies/"+dep, ""); code != http.StatusOK || rows("task_dependencies", dep) != 0 {
 				t.Errorf("DELETE own dependency = %d %v, rows left %d", code, out, rows("task_dependencies", dep))
 			}

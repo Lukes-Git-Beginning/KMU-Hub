@@ -373,13 +373,23 @@ func (r *PostgresRepository) GetDepth(ctx context.Context, taskID uuid.UUID) (in
 }
 
 func (r *PostgresRepository) CreateDependency(ctx context.Context, dep *models.TaskDependency) error {
-	_, err := r.pool.Exec(ctx,
+	// The tenant comes from the caller, not from the task's project: a
+	// standalone task has none, and the project join left tenant_id NULL.
+	// Both ends must belong to the caller's tenant, else ErrNotFound.
+	tag, err := r.pool.Exec(ctx,
 		`INSERT INTO task_dependencies (id, source_task_id, target_task_id, dependency_type, created_by, created_at, tenant_id)
-		 VALUES ($1, $2, $3, $4, $5, $6,
-		         (SELECT p.tenant_id FROM tasks t JOIN projects p ON t.project_id = p.id WHERE t.id = $2))`,
-		dep.ID, dep.SourceTaskID, dep.TargetTaskID, dep.DependencyType, dep.CreatedBy, dep.CreatedAt,
+		 SELECT $1, s.id, tt.id, $4, $5, $6, s.tenant_id
+		 FROM tasks s, tasks tt
+		 WHERE s.id = $2 AND tt.id = $3 AND s.tenant_id = $7 AND tt.tenant_id = $7`,
+		dep.ID, dep.SourceTaskID, dep.TargetTaskID, dep.DependencyType, dep.CreatedBy, dep.CreatedAt, dep.TenantID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) DeleteDependency(ctx context.Context, tenantID, id uuid.UUID) error {

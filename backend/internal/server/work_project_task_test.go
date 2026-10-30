@@ -1248,7 +1248,7 @@ func TestListSubtasks_EmptyReturnsNoError(t *testing.T) {
 func TestCreateTaskDependency_SelfDependencyRejected(t *testing.T) {
 	srv, _, _, _ := newWorkProjectTaskTestServer()
 	taskID := uuid.NewString()
-	_, err := srv.CreateTaskDependency(context.Background(), &workv1.CreateTaskDependencyRequest{
+	_, err := srv.CreateTaskDependency(ctxWithTenant(uuid.New()), &workv1.CreateTaskDependencyRequest{
 		SourceTaskId: taskID, TargetTaskId: taskID, DependencyType: models.DepTypeBlocks, CreatedBy: uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -1256,7 +1256,7 @@ func TestCreateTaskDependency_SelfDependencyRejected(t *testing.T) {
 
 func TestCreateTaskDependency_InvalidTypeRejected(t *testing.T) {
 	srv, _, _, _ := newWorkProjectTaskTestServer()
-	_, err := srv.CreateTaskDependency(context.Background(), &workv1.CreateTaskDependencyRequest{
+	_, err := srv.CreateTaskDependency(ctxWithTenant(uuid.New()), &workv1.CreateTaskDependencyRequest{
 		SourceTaskId: uuid.NewString(), TargetTaskId: uuid.NewString(), DependencyType: "nonsense", CreatedBy: uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.InvalidArgument)
@@ -1267,12 +1267,12 @@ func TestCreateTaskDependency_DuplicateRejected(t *testing.T) {
 	source := uuid.NewString()
 	target := uuid.NewString()
 
-	_, err := srv.CreateTaskDependency(context.Background(), &workv1.CreateTaskDependencyRequest{
+	_, err := srv.CreateTaskDependency(ctxWithTenant(uuid.New()), &workv1.CreateTaskDependencyRequest{
 		SourceTaskId: source, TargetTaskId: target, DependencyType: models.DepTypeRelatesTo, CreatedBy: uuid.NewString(),
 	})
 	require.NoError(t, err)
 
-	_, err = srv.CreateTaskDependency(context.Background(), &workv1.CreateTaskDependencyRequest{
+	_, err = srv.CreateTaskDependency(ctxWithTenant(uuid.New()), &workv1.CreateTaskDependencyRequest{
 		SourceTaskId: source, TargetTaskId: target, DependencyType: models.DepTypeRelatesTo, CreatedBy: uuid.NewString(),
 	})
 	requireGRPCCode(t, err, codes.AlreadyExists)

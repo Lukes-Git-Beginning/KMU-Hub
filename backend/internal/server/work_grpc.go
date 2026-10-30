@@ -1121,17 +1121,18 @@ func (s *WorkGRPCServer) CreateTaskDependency(ctx context.Context, req *workv1.C
 	if err != nil {
 		return nil, err
 	}
+	tenantID, err := middleware.GetTenantID(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+	}
 	if ownerID != nil {
-		tenantID, tenantErr := middleware.GetTenantID(ctx)
-		if tenantErr != nil {
-			return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
-		}
 		if err := s.taskService.RequireOwnTask(ctx, tenantID, sourceID, ownerID); err != nil {
 			return nil, mapWorkError(err)
 		}
 	}
 
 	dep, err := s.taskService.CreateDependency(ctx, task.DepInput{
+		TenantID:       tenantID,
 		SourceTaskID:   sourceID,
 		TargetTaskID:   targetID,
 		DependencyType: req.DependencyType,

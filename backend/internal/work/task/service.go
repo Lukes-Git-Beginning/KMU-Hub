@@ -729,6 +729,7 @@ func (s *Service) List(ctx context.Context, tenantID uuid.UUID, filters TaskFilt
 
 // DepInput contains the data needed to create a task dependency
 type DepInput struct {
+	TenantID       uuid.UUID
 	SourceTaskID   uuid.UUID
 	TargetTaskID   uuid.UUID
 	DependencyType string
@@ -771,6 +772,7 @@ func (s *Service) CreateDependency(ctx context.Context, input DepInput) (*models
 
 	dep := &models.TaskDependency{
 		ID:             uuid.New(),
+		TenantID:       input.TenantID,
 		SourceTaskID:   input.SourceTaskID,
 		TargetTaskID:   input.TargetTaskID,
 		DependencyType: input.DependencyType,
@@ -919,6 +921,7 @@ func (s *Service) CreateFromTemplate(ctx context.Context, tenantID, sourceProjec
 
 		newDep := &models.TaskDependency{
 			ID:             uuid.New(),
+			TenantID:       tenantID,
 			SourceTaskID:   newSourceID,
 			TargetTaskID:   newTargetID,
 			DependencyType: dep.DependencyType,

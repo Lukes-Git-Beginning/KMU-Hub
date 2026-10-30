@@ -118,3 +118,67 @@ func TestStandaloneTask_Complete_RealSQL(t *testing.T) {
 		t.Fatalf("reopen must clear completed_at, got %v", got.CompletedAt)
 	}
 }
+
+// TestStandaloneTask_DependencyRealSQL: a dependency between two tasks without a project used to
+// fail with a NULL tenant_id (the INSERT read it from the project join), so POST answered 500 for
+// every caller. The row must carry the caller's tenant, and a task of another tenant at either end
+// must be refused.
+func TestStandaloneTask_DependencyRealSQL(t *testing.T) {
+	testutil.SkipIfNoDB(t)
+	t.Parallel()
+
+	pool := testutil.PoolFromEnv(t)
+	defer pool.Close()
+
+	tenantOwn, tenantOther := uuid.New(), uuid.New()
+	testutil.EnsureTenant(t, pool, tenantOwn, "Standalone Dependency Tenant")
+	testutil.EnsureTenant(t, pool, tenantOther, "Standalone Dependency Other Tenant")
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOwn)
+	defer testutil.CleanupRow(t, pool, "tenants", tenantOther)
+
+	me := seedWorkUser(t, pool, tenantOwn)
+	defer testutil.CleanupRow(t, pool, "users", me)
+	other := seedWorkUser(t, pool, tenantOther)
+	defer testutil.CleanupRow(t, pool, "users", other)
+
+	svc := NewService(NewPostgresRepository(pool), project.NewPostgresRepository(pool))
+	ctxOwn := testutil.WithTenantCtx(context.Background(), tenantOwn)
+	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
+
+	newTask := func(ctx context.Context, tenantID, by uuid.UUID, title string) uuid.UUID {
+		t.Helper()
+		created, err := svc.Create(ctx, CreateInput{TenantID: tenantID, Title: title, Priority: "high", CreatedBy: by})
+		if err != nil {
+			t.Fatalf("create %q: %v", title, err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "tasks", created.ID) })
+		return created.ID
+	}
+	a := newTask(ctxOwn, tenantOwn, me, "standalone A")
+	b := newTask(ctxOwn, tenantOwn, me, "standalone B")
+	foreign := newTask(ctxOther, tenantOther, other, "standalone foreign")
+
+	dep, err := svc.CreateDependency(ctxOwn, DepInput{TenantID: tenantOwn, SourceTaskID: a, TargetTaskID: b, DependencyType: "blocks", CreatedBy: me})
+	if err != nil {
+		t.Fatalf("dependency between two project-less tasks: %v", err)
+	}
+	t.Cleanup(func() { testutil.CleanupRow(t, pool, "task_dependencies", dep.ID) })
+	var rowTenant uuid.UUID
+	if err := pool.QueryRow(testutil.WithSystemCtx(context.Background()),
+		`SELECT tenant_id FROM task_dependencies WHERE id = $1`, dep.ID).Scan(&rowTenant); err != nil {
+		t.Fatalf("read back dependency: %v", err)
+	}
+	if rowTenant != tenantOwn {
+		t.Fatalf("dependency tenant_id = %s, want the caller's %s", rowTenant, tenantOwn)
+	}
+
+	for name, in := range map[string]DepInput{
+		"foreign target": {TenantID: tenantOwn, SourceTaskID: a, TargetTaskID: foreign, DependencyType: "relates_to", CreatedBy: me},
+		"foreign source": {TenantID: tenantOwn, SourceTaskID: foreign, TargetTaskID: b, DependencyType: "relates_to", CreatedBy: me},
+	} {
+		// System context: RLS would hide the foreign task anyway, the explicit tenant filter must hold without it.
+		if _, err := svc.CreateDependency(testutil.WithSystemCtx(context.Background()), in); !errors.Is(err, ErrNotFound) {
+			t.Errorf("%s: err = %v, want ErrNotFound", name, err)
+		}
+	}
+}

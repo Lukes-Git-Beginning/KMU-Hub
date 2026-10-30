@@ -1524,7 +1524,7 @@ units:
     service: work
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: '`POST /tasks/{id}/dependencies` legt Abhängigkeiten auch an projektlosen Aufgaben an statt mit 500 zu scheitern'
     coverage_start: n.a. (Bugfix)
     scope: >
