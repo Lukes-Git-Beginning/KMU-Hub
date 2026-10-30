@@ -69,9 +69,14 @@ func (r *PostgresRepository) UpdateReport(ctx context.Context, report *WorkRepor
 	return nil
 }
 
+// SoftDeleteReport hides the report and drops its personal data in the same
+// UPDATE: location (lat/lon), the signature image and the typed signer name
+// stay otherwise forever, since no retention job removes soft-deleted rows.
 func (r *PostgresRepository) SoftDeleteReport(ctx context.Context, tenantID, reportID uuid.UUID) error {
 	ct, err := r.pool.Exec(ctx,
-		`UPDATE work_reports SET deleted_at = NOW() WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`,
+		`UPDATE work_reports
+		 SET deleted_at = NOW(), lat = NULL, lon = NULL, signature_data = NULL, signed_by = NULL
+		 WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL`,
 		reportID, tenantID,
 	)
 	if err != nil {

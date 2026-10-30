@@ -2257,7 +2257,7 @@ units:
     service: rapporte
     model: sonnet
     deps: [fix-contact-scrub-csat-comment]
-    status: todo
+    status: done
     target: gelöschter Rapport behält Standort, Unterschrift und Unterzeichner nicht mehr
     coverage_start: n.a. (Fix)
     scope: >

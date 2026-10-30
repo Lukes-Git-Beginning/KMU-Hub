@@ -916,3 +916,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `csat_comment`/`csat_rating` am Ticket -> Wire-Form unverändert, Feld wird nach Scrub nur `null`/fehlend (`omitempty` auf `CsatComment`); CSAT-Versand bleibt gesperrt -> passt
 - offen: `tickets.csat_comment` war im Scan-Befund nicht genannt; falls weitere Spiegelspalten mit Kontakt-Freitext existieren (z. B. in `ticket_comments`, Absender-Antworten), deckt das der bestehende Scrub nicht ab — nicht untersucht, nur die CSAT-Spur.
+
+## Iteration 74 — fix-rapporte-soft-delete-keeps-gps-signature — done — 2026-10-30 08:11
+- commit: siehe Commit `fix(rapporte): drop location and signature when a report is soft-deleted` (git log)
+- gebaut: `SoftDeleteReport` setzt im selben UPDATE `lat`, `lon`, `signature_data`, `signed_by` auf NULL (`signed_at` bleibt, kein Personenbezug). Status-Guard unverändert geprüft: `Service.DeleteReport` lehnt genehmigte Rapporte schon über `requireEditable` ab, `gobdarchive` liest nicht aus `work_reports`. Neuer DB-Test `TestSoftDeleteReport_DropsLocationAndSignature` (gelöschter Rapport leer, Geschwister-Rapport behält alle vier Werte).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/rapporte/...`, `./internal/server/`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/rapporte 82,1 % -> 82,1 % (Fix an bereits überdecktem Statement; Beweis liegt in der Mutations-Probe)
+- mutations-probe: (1) `signed_by = NULL` entfernt: neuer Test rot (signed_by bleibt gesetzt). (2) alle vier Spalten entfernt: Test rot (lat/lon/Signatur/Name gesetzt). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `0a4977dc`: nur `crm/consent/scrub.go` + zwei DB-Tests, beide UPDATEs tenant-gescopt, kein Proto/Route/Guard/Tabelle)
+- neue-units: keine
+- desktop-aufrufer: Löschen-Aktion `rapporte-client.ts` -> Antwort unverändert (nur Spaltenwerte der unsichtbaren Zeile ändern sich, kein Lesepfad liefert sie) -> passt
+- offen: Gelöschte Rapporte bleiben als Zeile (mit Titel, Beschreibung, Autor) stehen; ein endgültiges Entfernen gehört zur Retention-Entscheidung. Die Kindtabellen (Positionen, Anhänge, Arbeiter) wurden hier nicht angefasst.

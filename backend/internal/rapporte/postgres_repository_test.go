@@ -99,6 +99,47 @@ func TestSoftDeleteReport_HidesRowAndRejectsDoubleDelete(t *testing.T) {
 	}
 }
 
+// A deleted report is hidden from every read, but the row stays. Location and
+// signature data must not stay with it; a sibling report keeps its data.
+func TestSoftDeleteReport_DropsLocationAndSignature(t *testing.T) {
+	t.Parallel()
+	repo, pool, ctx, tenantID := setupRapporteRepo(t)
+
+	doomed := newTestReport(t, repo, ctx, pool, tenantID, "Baustelle Weg", StatusDraft)
+	sibling := newTestReport(t, repo, ctx, pool, tenantID, "Baustelle Bleibt", StatusDraft)
+	for _, id := range []uuid.UUID{doomed.ID, sibling.ID} {
+		if _, err := pool.Exec(ctx,
+			`UPDATE work_reports SET lat=48.1, lon=11.5 WHERE id=$1 AND tenant_id=$2`, id, tenantID); err != nil {
+			t.Fatalf("seed location: %v", err)
+		}
+		if _, err := repo.SaveSignature(ctx, tenantID, id, "data:image/png;base64,AAAA", "Erika Mustermann"); err != nil {
+			t.Fatalf("seed signature: %v", err)
+		}
+	}
+
+	if err := repo.SoftDeleteReport(ctx, tenantID, doomed.ID); err != nil {
+		t.Fatalf("SoftDeleteReport: %v", err)
+	}
+
+	read := func(id uuid.UUID) (lat, lon *float64, sig, by *string) {
+		t.Helper()
+		if err := pool.QueryRow(ctx,
+			`SELECT lat, lon, signature_data, signed_by FROM work_reports WHERE id=$1 AND tenant_id=$2`,
+			id, tenantID).Scan(&lat, &lon, &sig, &by); err != nil {
+			t.Fatalf("read row %s: %v", id, err)
+		}
+		return
+	}
+	lat, lon, sig, by := read(doomed.ID)
+	if lat != nil || lon != nil || sig != nil || by != nil {
+		t.Fatalf("deleted report kept personal data: lat=%v lon=%v signature=%v signed_by=%v", lat, lon, sig, by)
+	}
+	lat, lon, sig, by = read(sibling.ID)
+	if lat == nil || lon == nil || sig == nil || by == nil {
+		t.Fatalf("sibling report lost data: lat=%v lon=%v signature=%v signed_by=%v", lat, lon, sig, by)
+	}
+}
+
 func TestGetReport_LoadsWorkersAndRejectsUnknownID(t *testing.T) {
 	t.Parallel()
 	repo, pool, ctx, tenantID := setupRapporteRepo(t)
