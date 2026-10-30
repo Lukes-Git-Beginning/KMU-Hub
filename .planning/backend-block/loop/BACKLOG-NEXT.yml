@@ -1841,3 +1841,63 @@ units:
       muss von allen AUFGEZEICHNETEN Personen vorliegen — das spricht für (a).
     done_when:
       - Entscheidung mit Datum in dieser Unit, danach als Build-Unit nach BACKLOG.yml
+
+  - id: ops-notification-grpc-address-passthrough
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    target: der Notification-Dienst erreicht Email- und Chat-Dienst für Antworten und Weiterleitungen aus der Inbox
+    scope: >-
+      Fund aus `scan-stub-reports-success` (Lauf 18, Iteration 36), wartet auf Luke, weil `deploy/` im Loop gesperrt
+      ist. `cmd/notification/main.go` baut den Email-Client aus `cfg.EmailGRPCAddress` (Default `localhost:50056`,
+      `internal/config/config.go:31`) und nach `fix-inbox-chat-reply-adapter-not-wired` auch einen Chat-Client aus
+      `cfg.ChatGRPCAddress` (Default `localhost:50053`). Der Dienst `notification` in
+      `deploy/docker/docker-compose.yml:237-249` setzt keine der beiden Variablen; im Container zeigt localhost auf
+      ihn selbst. Wenn `docker-compose.prod.yml` sie nicht nachreicht (vom Loop-Guard nicht lesbar, ungeprüft), scheitert
+      in Produktion jede Inbox-Antwort und -Weiterleitung auf eine E-Mail mit Unavailable/500. Prüfen: prod.yml und
+      `docker exec <notification> env | grep GRPC_ADDRESS`. Fix: `EMAIL_GRPC_ADDRESS: email:50056` und
+      `CHAT_GRPC_ADDRESS: chat:50053` am Dienst `notification` (Muster: gateway, Zeile 983/989).
+    sources:
+      - deploy/docker/docker-compose.yml
+      - deploy/docker/docker-compose.prod.yml
+      - backend/cmd/notification/main.go
+    done_when:
+      - Env im laufenden Notification-Container gesetzt, Inbox-Antwort auf eine E-Mail in Produktion einmal erfolgreich
+
+  - id: decide-chat-file-virus-scan
+    phase: 4
+    service: chat
+    model: sonnet
+    deps: []
+    status: todo
+    target: Luke entscheidet, ob Datei-Uploads vor dem Pilot einen echten Virenscan bekommen
+    scope: >-
+      Beobachtung aus `scan-stub-reports-success` (Lauf 18, Iteration 36), kein Bau-Fund. Chat- und Gateway-Uploads laufen
+      durch `file.NoOpScanner` (`internal/chat/file/scanner.go:13-20`, verdrahtet in `cmd/chat/main.go:89` und
+      `cmd/gateway/main.go:122`), der immer `nil` liefert ("Replace with ClamAV implementation later"). Der Service
+      kommentiert die Prüfung als "virus scan" (`internal/chat/file/service.go:181`). Weder Desktop noch Website
+      versprechen einen Virenscan (gegrept: virus/viren/malware), es wird also niemandem Erfolg gemeldet. Optionen:
+      (a) ClamAV-Sidecar (clamd über TCP, neuer Container, RAM ~1 GB), (b) so lassen und den Kommentar ehrlich machen.
+    sources:
+      - backend/internal/chat/file/scanner.go
+      - backend/internal/chat/file/service.go
+    done_when:
+      - Entscheidung mit Datum in dieser Unit, danach als Build-Unit nach BACKLOG.yml
+
+  - id: desktop-inbox-hide-reply-composer-for-notifications
+    phase: 4
+    service: desktop
+    model: sonnet
+    deps: []
+    status: todo
+    target: das Kommunikations-Modul bietet für reine Benachrichtigungen kein Antwortfeld an
+    scope: >-
+      Folge von `fix-inbox-reply-notification-channel-claims-sent`. `ConversationThread.tsx:21-28,191` zeigt den
+      ReplyComposer für jeden Kanal und mappt `notification` auf `email`. Nach dem Backend-Fix endet eine Antwort dort
+      mit dem Fehler-Toast. Für `channel === 'notification'` den Composer ausblenden (Deep-Link-Button stattdessen).
+    sources:
+      - desktop/src/renderer/src/modules/kommunikation/ConversationThread.tsx
+    done_when:
+      - Screenshot-QA nach WORKFLOW.md, kein Composer bei notification

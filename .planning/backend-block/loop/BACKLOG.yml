@@ -1188,7 +1188,7 @@ units:
     service: gateway
     model: opus
     deps: [fix-notification-send-action-is-a-stub]
-    status: todo
+    status: done
     target: jede Funktion, die Erfolg meldet, ohne zu tun, was sie verspricht, ist gefunden
     coverage_start: n.a. (Scan)
     scope: >
@@ -1206,6 +1206,106 @@ units:
     done_when:
       - Kandidatenliste mit Erreichbarkeit und Urteil im Journal
       - Fix-Units bzw. decide-Units nach Regel 1
+
+  - id: fix-inbox-chat-reply-adapter-not-wired
+    phase: 4
+    service: notification
+    model: opus
+    deps: []
+    status: todo
+    target: eine Antwort auf eine Chat-DM oder Erwähnung in der Inbox landet als Nachricht im Chat-Kanal
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      TOTALAUSFALL, gefunden in `scan-stub-reports-success` (Lauf 18, Iteration 36). Chat-DMs und Erwähnungen werden
+      über den Event-Bus zu Inbox-Nachrichten mit `channel = "chat"` und `SourceID = ChannelID`
+      (`internal/chat/message/service.go:201-237`, `cmd/notification/main.go:421-445,520-528`). Der Notification-Service
+      registriert aber `adapter.NewChatAdapter(nil)` (`cmd/notification/main.go:195`). `ChatAdapter.HandleReply`
+      (`internal/inbox/adapter/chat_adapter.go:99-104`) antwortet dann immer mit "client not configured", das fällt in
+      `mapInboxError` auf den Default (`internal/server/inbox_grpc.go:1557`) und endet als 500. Jede Antwort aus dem
+      Kommunikations-Modul (`desktop/.../modules/kommunikation/ConversationThread.tsx:191`, `useReplyToMessage`) auf
+      eine Chat-Nachricht scheitert damit für jeden Nutzer. Fix: in `cmd/notification/main.go` analog zum Email-Client
+      einen gRPC-Client auf `cfg.ChatGRPCAddress` (existiert, Default `localhost:50053`) mit
+      `TenantOutboundUnaryInterceptor` bauen und einen `ChatClient`-Adapter implementieren: `CreateMessage` über
+      `SendMessage` (Absender = antwortender Nutzer, über die Metadaten bzw. das Request-Feld, das der Chat-Server
+      wirklich liest), `MarkRead` über `MarkChannelRead`. `ListDMsAndMentions` hat keine passende RPC: leer lassen wie
+      heute (Ingest läuft über den Event-Bus), mit `lean:`-Marker. Ohne erreichbaren Chat-Dienst bleibt die Antwort ein
+      ehrlicher Fehler, kein 500 ohne Text: eigener Sentinel bzw. Mapping auf `Unavailable`.
+    sources:
+      - backend/cmd/notification/main.go
+      - backend/internal/inbox/adapter/chat_adapter.go
+      - backend/internal/server/inbox_grpc.go
+      - backend/internal/server/chat_grpc.go
+      - backend/proto/chat/v1/chat.proto
+    notes: >
+      `deploy/` ist in diesem Lauf gesperrt: der Notification-Dienst bekommt in `deploy/docker/docker-compose.yml:237-249`
+      weder `CHAT_GRPC_ADDRESS` noch `EMAIL_GRPC_ADDRESS`. Der Code-Fix wirkt in Produktion erst mit dem Passthrough aus
+      `ops-notification-grpc-address-passthrough` (BACKLOG-NEXT.yml), in `offen:` vermerken. Keine neue
+      `config.RequireX`. Prüfen, ob der Chat-Server Mitgliedschaft des Absenders im Kanal erzwingt (sonst kann über
+      die Inbox in einen fremden Kanal geschrieben werden; die Inbox-Nachricht gehört aber dem Empfänger der DM).
+    done_when:
+      - 'Test: Reply auf eine chat-Inbox-Nachricht ruft SendMessage mit Kanal = SourceID und Absender = antwortender Nutzer'
+      - 'Test: Chat-Dienst nicht erreichbar -> kein Internal ohne Text, sondern Unavailable bzw. eigener Fehler'
+      - go test -count=1 für internal/inbox/... und internal/server -run Inbox grün, DATABASE_URL gesetzt, 0 Skips
+
+  - id: fix-inbox-reply-notification-channel-claims-sent
+    phase: 4
+    service: notification
+    model: sonnet
+    deps: []
+    status: todo
+    target: eine Antwort auf eine reine Benachrichtigung meldet ehrlich "nicht möglich" statt "gesendet"
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      STUB MELDET ERFOLG, gefunden in `scan-stub-reports-success` (Lauf 18, Iteration 36). Jedes Event, dessen
+      `ModuleID` nicht email oder chat ist, wird zur Inbox-Nachricht mit `channel = "notification"`
+      (`cmd/notification/main.go:520-528`). `NotificationAdapter.HandleReply`
+      (`internal/inbox/adapter/notification_adapter.go:95-99`) gibt `nil` zurück, ohne etwas zu tun. `ReplyToMessage`
+      (`internal/server/inbox_grpc.go:480-492`) schreibt die Antwort danach per `AppendReply` in den Thread und meldet
+      `Success: true`; der Desktop zeigt "Antwort gesendet" (`api/hooks/useInbox.ts:254`) und die Antwort steht im
+      Verlauf, obwohl sie niemand erhält. Fix nach dem Muster von Forward: `adapter.ErrReplyNotSupported`,
+      `NotificationAdapter.HandleReply` liefert ihn, `message.Service.Reply` übersetzt in `message.ErrReplyNotSupported`,
+      `mapInboxError` mappt wie `ErrForwardNotSupported` (Unimplemented). Der Thread-Eintrag entsteht dann nicht mehr,
+      weil `ReplyToMessage` vorher abbricht.
+    sources:
+      - backend/internal/inbox/adapter/notification_adapter.go
+      - backend/internal/inbox/adapter/adapter.go
+      - backend/internal/inbox/message/service.go
+      - backend/internal/inbox/message/errors.go
+      - backend/internal/server/inbox_grpc.go
+    notes: >
+      Desktop-Aufrufer: `ConversationThread.tsx` zeigt den ReplyComposer für jeden Kanal und mappt notification auf
+      email. Nach dem Fix kommt dort der Fehler-Toast `api.inbox.error.reply`. Den Composer für notification
+      auszublenden ist Desktop-Arbeit: als Unit nach BACKLOG-NEXT.yml.
+    done_when:
+      - 'Test: Reply auf eine notification-Inbox-Nachricht -> Unimplemented, kein Thread-Eintrag'
+      - 'Test: Reply auf eine email-Inbox-Nachricht unverändert erfolgreich'
+      - Mutationsprobe belegt, Desktop-Aufrufer im Journal
+
+  - id: fix-lexware-trigger-sync-swallows-error
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: ein gescheiterter manueller Lexware-Sync meldet Fehler statt "gestartet"
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      STUB MELDET ERFOLG, gefunden in `scan-stub-reports-success` (Lauf 18, Iteration 36). `Service.TriggerSync`
+      (`internal/biz/lexware/service.go:348-352`) ruft `SyncContacts`, loggt einen Fehler nur und gibt `nil` zurück.
+      `TriggerLexwareSync` (`internal/server/lexware_grpc.go:96-118`) antwortet dann `status: "started"` mit einer
+      Zufalls-`sync_id`. Das Sync-Dashboard ruft ohne `sync_type` (`LexwareSyncDashboard.tsx:89`), landet also genau
+      im schluckenden Zweig, und zeigt "Synchronisation gestartet" (`useLexware.ts:118`), auch wenn keine Konfiguration
+      existiert oder die Lexware-API ablehnt. Der Zweig `sync_type = "contacts"` (Setup-Wizard) reicht den Fehler
+      schon durch. Fix: `TriggerSync` gibt den Fehler von `SyncContacts` zurück (gewrappt), Mapping über
+      `mapLexwareError` wie im contacts-Zweig.
+    sources:
+      - backend/internal/biz/lexware/service.go
+      - backend/internal/server/lexware_grpc.go
+    notes: >
+      Die Zufalls-`sync_id` ist unschädlich (kein Lookup per ID), nicht Teil dieser Unit.
+    done_when:
+      - 'Test: SyncContacts schlägt fehl -> TriggerSync liefert den Fehler, TriggerLexwareSync ohne sync_type liefert kein "started"'
+      - Mutationsprobe belegt
 
   - id: review-run18-r3
     phase: 4

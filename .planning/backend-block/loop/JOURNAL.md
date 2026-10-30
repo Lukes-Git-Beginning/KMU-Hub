@@ -443,3 +443,25 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `POST /dialer/campaigns/{id}/contacts/{cid}/skip|requeue` -> `api/dialer-client.ts:285,292` senden die echte campaignId (laut Scan Iteration 31) -> passt; Antwortform unverändert
 - offen: (1) Verhaltensänderung: Queue-Eintrag über einen fremden Kampagnenpfad ist jetzt 404 statt 200. (2) Vorbestehend, nicht Teil der Unit: `RequeueContact` setzt auch `completed`-Einträge auf `pending`, ohne `dialer_campaigns.completed_count` nachzuziehen; das Dashboard zählt live und ist nicht betroffen, nur die denormalisierte Spalte. (3) `dialer_grpc.pb.go` hat nur einen Zeilenende-Diff und ist nicht gestaged. (4) `service.go`: gofmt hat die Feldausrichtung im `Service`-Struct mitkorrigiert (reine Formatierung).
+
+## Iteration 36 — scan-stub-reports-success — done — 2026-10-30 03:54
+- commit: siehe Commit `docs(loop): record scan of stubs that report success` (git log)
+- gebaut: kein Produktivcode (Scan). Suchstrategie: Wortstämme in `internal/` und `cmd/` ohne `_test.go`/`.pb.go` (synthetic, stub, placeholder, "not implemented", "for now", pretend, fake, dummy, "always succeeds", TODO, FIXME, noop/no-op), `codes.Unimplemented`, `Success: true`/`"success": true` in Actions, gRPC-Servern und Gateway, `uuid.New()` als zurückgegebene ID; dazu alle neun registrierten Automation-Actions (`cmd/automation/main.go:99-149`) auf echten Client-Aufruf und alle Inbox-Adapter samt Verdrahtung.
+  Kandidaten mit Urteil:
+  (1) `NotificationAdapter.HandleReply` (`inbox/adapter/notification_adapter.go:95`) gibt `nil`, `ReplyToMessage` schreibt die Antwort in den Thread und meldet Erfolg — erreichbar (jedes Nicht-Email/Chat-Event wird `channel=notification`, `cmd/notification/main.go:520`; Composer in `ConversationThread.tsx:191`) -> FUND, `fix-inbox-reply-notification-channel-claims-sent`.
+  (2) `NewChatAdapter(nil)` (`cmd/notification/main.go:195`) -> Reply auf Chat-DM/Erwähnung immer "client not configured" -> `mapInboxError`-Default 500 — erreichbar (Chat emittiert `chat.dm.new`/`chat.mention`, `chat/message/service.go:201,224`) -> TOTALAUSFALL (ehrlicher Fehler, nicht Stub), `fix-inbox-chat-reply-adapter-not-wired`.
+  (3) `lexware.Service.TriggerSync` (`biz/lexware/service.go:348`) loggt den Sync-Fehler und gibt `nil` -> "started" — erreichbar über `LexwareSyncDashboard.tsx:89` (ohne sync_type) -> FUND, `fix-lexware-trigger-sync-swallows-error`.
+  (4) `GuestAdapter.HandleReply` gibt `nil` — nicht erreichbar (`cmd/gateway/main.go:422` `_ = guestAdapter`, nie registriert) -> kein Fund.
+  (5) Slack-`OAuthHandler.HandleCallback` verwirft das Token ("For now, log success") — nicht erreichbar (`NewOAuthHandler` nirgends aufgerufen) -> kein Fund (toter Code).
+  (6) `file.NoOpScanner` (Chat/Gateway-Uploads) — erreichbar, aber niemand meldet "gescannt" -> decide-Unit `decide-chat-file-virus-scan` in NEXT.
+  (7) `noopEncryptor` (`cmd/email/main.go:88`) — in Produktion unerreichbar (`config.RequireVault`, `:53`) -> kein Fund.
+  (8) `videoWSAdapter.NotifyCallAccepted` Logging-No-op — dokumentiert, der Join läuft über REST -> kein Fund.
+  (9) Lexware/bexio `syncID := uuid.New()` — Arbeit passiert, ID wird nirgends nachgeschlagen -> kein Fund; bexio ohnehin gesperrt.
+  (10) Alle übrigen `Success: true` (Automation-Actions, DATEV-Upload, Plugin/Rapporte/Email-Deletes, `TestIntegrationConfig`) rufen vorher Service bzw. Client und reichen Fehler durch -> kein Fund. `codes.Unimplemented`-Stellen sind ehrliche "not configured"-Antworten.
+- gate: build n.a. | vet n.a. | lint n.a. | test n.a. (Scan, kein Produktivcode) | migration n.a. | rls-smoke n.a. | `hooks/backlog-check.py --preflight` ok
+- coverage: n.a. (Scan)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (Commit `b1b38cea`: Proto + `dialer.pb.go` im selben Commit, Handler über `client.SkipContact`/`RequeueContact`, kein neuer Guard, keine Tabelle, keine Route)
+- neue-units: `fix-inbox-chat-reply-adapter-not-wired` (Totalausfall, direkt hinter den Scan = vor die erste todo-Unit), `fix-inbox-reply-notification-channel-claims-sent`, `fix-lexware-trigger-sync-swallows-error` (beide direkt hinter den Scan); in BACKLOG-NEXT.yml: `ops-notification-grpc-address-passthrough`, `decide-chat-file-virus-scan`, `desktop-inbox-hide-reply-composer-for-notifications`
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung; Aufrufer der Funde in den Units notiert)
+- offen: (1) VERDACHT mit Gewicht für Luke: der Dienst `notification` bekommt in `deploy/docker/docker-compose.yml:237-249` weder `EMAIL_GRPC_ADDRESS` noch `CHAT_GRPC_ADDRESS`; der Default `localhost:50056` zeigt im Container auf sich selbst. Reicht `docker-compose.prod.yml` sie nicht nach (vom Guard blockiert, ungeprüft), scheitert in Produktion jede Inbox-Antwort/Weiterleitung auf E-Mails. Prüfung und Fix: `ops-notification-grpc-address-passthrough`. (2) Struktureller Teil "Handler liefert 200 ohne Service-Aufruf" nur über die `success: true`-Stellen und die Adapter geprüft, nicht für jeden Handler einzeln.
