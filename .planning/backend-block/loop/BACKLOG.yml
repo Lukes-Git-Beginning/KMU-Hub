@@ -1006,7 +1006,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: PATCH einer Bestandswarnung mit fehlendem oder unbekanntem Status ist 400 statt 500
     coverage_start: n.a.
     scope: >

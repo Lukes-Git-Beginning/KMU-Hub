@@ -1255,3 +1255,30 @@ func TestService_UpdateItem_SerialNumbersReplaceClearOrStay(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, updated.SerialNumbers, "an empty non-nil list clears it")
 }
+
+func TestService_UpdateWarning_RejectsUnknownStatus(t *testing.T) {
+	repo := newMockRepository()
+	svc := NewService(repo)
+
+	tenantID := uuid.New()
+	item := addItem(repo, tenantID, "Produkt", "P-001", 2, 10)
+	warnID := uuid.New()
+	repo.warnings[warnID] = &Warning{
+		ID: warnID, TenantID: tenantID, ItemID: item.ID,
+		Threshold: 10, CurrentQuantity: 2, Status: WarningStatusActive, CreatedAt: time.Now(),
+	}
+
+	for _, bad := range []WarningStatus{"", "x"} {
+		_, err := svc.UpdateWarning(context.Background(), UpdateWarningInput{
+			TenantID: tenantID, WarningID: warnID, Status: bad,
+		})
+		assert.ErrorIs(t, err, ErrInvalidInput, "status %q", bad)
+	}
+	assert.Equal(t, WarningStatusActive, repo.warnings[warnID].Status)
+
+	w, err := svc.UpdateWarning(context.Background(), UpdateWarningInput{
+		TenantID: tenantID, WarningID: warnID, Status: WarningStatusResolved,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, WarningStatusResolved, w.Status)
+}

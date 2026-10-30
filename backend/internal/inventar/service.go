@@ -500,6 +500,12 @@ func (s *Service) CreateWarning(ctx context.Context, input CreateWarningInput) (
 
 // UpdateWarning updates the status of a warning.
 func (s *Service) UpdateWarning(ctx context.Context, input UpdateWarningInput) (*Warning, error) {
+	switch input.Status {
+	case WarningStatusActive, WarningStatusAcknowledged, WarningStatusResolved:
+	default:
+		return nil, fmt.Errorf("%w: status must be active, acknowledged or resolved", ErrInvalidInput)
+	}
+
 	warning, err := s.repo.GetWarning(ctx, input.TenantID, input.WarningID)
 	if err != nil {
 		return nil, err

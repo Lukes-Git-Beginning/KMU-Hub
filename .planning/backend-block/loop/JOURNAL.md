@@ -365,3 +365,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `PATCH /fuhrpark/fuel-logs/{id}` -> `api/fuhrpark-client.ts:318` (`UpdateFuelLogRequest` alles optional, nur Hook `useUpdateFuelLog`) -> passt (Teil-Body funktioniert jetzt) · `PATCH /fuhrpark/driver-licenses/{id}` -> kein Aufrufer in `api/`/`hooks/` -> passt
 - offen: (1) Verhaltensänderungen siehe `gebaut:` (400 statt stiller Nullwerte). (2) `fuhrpark` hat kein Makefile-`proto-*`-Target; Regen direkt per protoc mit den Optionen aus `make proto`.
+
+## Iteration 29 — fix-inventar-warning-status-unvalidated — done — 2026-10-30 02:58
+- commit: siehe Commit `fix(inventar): reject a missing or unknown warning status with 400` (git log)
+- gebaut: `Service.UpdateWarning` (`internal/inventar/service.go`) prüft den Status gegen active/acknowledged/resolved und liefert sonst `ErrInvalidInput` (einziger Aufrufer ist der gRPC-Server, `mapInventarError` -> InvalidArgument -> 400). Zusätzlich `validate:"required,oneof=…"` an `updateWarningRequest.Status` (`route_inventar.go`), damit schon das Gateway ablehnt. Der veraltete Testkommentar („carries no validate tag“) ist durch einen echten Test ersetzt. Spec führte `status` schon als Pflicht-Enum, unverändert.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/inventar/..., internal/gateway inkl. TestOpenAPIRouteDrift; DATABASE_URL als kmuhub_app, 0 Skips) | migration n.a. | rls-smoke n.a.
+- coverage: internal/inventar n.a. -> 75,6 % (Vorher-Wert nicht gemessen; kein Coverage-Ziel)
+- mutations-probe: Service-Switch zu leerem `default:` und `validate:""` am Gateway -> `TestService_UpdateWarning_RejectsUnknownStatus` und `TestHandleUpdateWarning_RejectsMissingOrUnknownStatus` (missing + unknown) rot, beide Dateien aus Backup zurück, Tests wieder grün. (Erster Versuch war ein Build-Fehler, kein Beleg, und wurde wiederholt.)
+- verify vorgaenger: sauber (Commit `f908c019`: Proto `optional` + `fuhrpark.pb.go` regeneriert, keine neue Route, kein neuer Guard, keine Tabelle; Fix an der gemeinsamen Repo-Funktion, Mutationsprobe belegt)
+- neue-units: keine
+- desktop-aufrufer: `PATCH /inventar/warnings/{id}` -> `api/inventar-client.ts:143` sendet `status: WarningStatus` (active|acknowledged|resolved) -> passt
+- offen: Verhaltensänderung: `{}`/unbekannter Status ist jetzt 400 statt 500. Acknowledge-Route unverändert.

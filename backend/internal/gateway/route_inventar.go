@@ -229,7 +229,7 @@ type createWarningRequest struct {
 }
 
 type updateWarningRequest struct {
-	Status string `json:"status"`
+	Status string `json:"status" validate:"required,oneof=active acknowledged resolved"`
 }
 
 type acknowledgeWarningRequest struct {

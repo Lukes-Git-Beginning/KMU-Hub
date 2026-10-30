@@ -756,10 +756,24 @@ func TestHandleUpdateWarning_InvalidIDUUID(t *testing.T) {
 	assertErrorContains(t, rec, "invalid id")
 }
 
-// TestHandleUpdateWarning_InvalidJSON documents that updateWarningRequest.Status
-// (route_inventar.go) carries no validate tag -- malformed JSON is the only
-// error path decodeAndValidate can reject locally for this handler; any string
-// value for status reaches the RPC layer unchecked.
+func TestHandleUpdateWarning_RejectsMissingOrUnknownStatus(t *testing.T) {
+	routes := NewInventarRoutes(registryWithService("inventar"), nil)
+	id := "550e8400-e29b-41d4-a716-446655440000"
+	for name, body := range map[string]map[string]interface{}{
+		"missing": {},
+		"unknown": {"status": "x"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("PATCH", "/api/v1/inventar/warnings/"+id, jsonBody(t, body))
+			req = withTenantID(req, testTenantID)
+			req = withChiURLParam(req, "id", id)
+			routes.HandleUpdateWarning(rec, req)
+			assertStatus(t, rec, http.StatusBadRequest)
+		})
+	}
+}
+
 func TestHandleUpdateWarning_InvalidJSON(t *testing.T) {
 	routes := NewInventarRoutes(registryWithService("inventar"), nil)
 	rec := httptest.NewRecorder()
