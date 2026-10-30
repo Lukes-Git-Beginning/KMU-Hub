@@ -2427,7 +2427,7 @@ units:
     service: gateway
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/middleware von 73,7 % auf ≥ 82 %
     coverage_start: internal/middleware 73,7 %
     scope: >
@@ -2697,3 +2697,31 @@ units:
       - gRPC-Mapping liefert NotFound statt Internal (Test)
       - Mutations-Probe
       - desktop-aufrufer geprüft (Breakout-Zuweisung `video-client.ts`, Fehlerbehandlung)
+
+  - id: fix-audit-client-ip-trusts-spoofable-forwarded-header
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: Der Audit-Log-Eintrag trägt die vertrauenswürdig ermittelte Client-IP statt eines vom Client gesetzten Headers
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `cov-middleware` (Lauf 18, Iteration 81), am Code verifiziert. `auditClientIP`
+      (`internal/middleware/audit.go`, ~Zeile 288) liest zuerst den ERSTEN Eintrag von `X-Forwarded-For`, dann `X-Real-IP`,
+      unabhängig davon, ob das Gateway hinter einem Proxy steht. Der Rate-Limiter nutzt dagegen `ClientIPTrusted(r,
+      behindProxy)` (nur der letzte XFF-Eintrag, den Caddy anhängt; ohne Proxy nur `RemoteAddr`). Ein Client kann also mit
+      `X-Forwarded-For: 1.2.3.4` die im Audit-Log (Hash-Kette, Forensik/DSGVO-Nachweis) gespeicherte IP frei wählen.
+      Fix: `auditClientIP` über `ClientIPTrusted` führen; die Proxy-Vertrauens-Einstellung muss dafür in die
+      Audit-Middleware durchgereicht werden (Konstruktor-Parameter wie beim Rate-Limiter, Verdrahtung in
+      `cmd/gateway/main.go` bzw. wo `Audit` gebaut wird; Konfig-Quelle des `behindProxy`-Flags des Limiters wiederverwenden,
+      keine neue Env-Var, keine neue `RequireX`-Assertion). Bestehende Tests `audit_client_ip_test.go` erwarten das alte
+      Verhalten (erstes Hop) und sind anzupassen.
+    sources:
+      - backend/internal/middleware/audit.go
+      - backend/internal/middleware/ratelimit.go
+      - backend/internal/middleware/audit_client_ip_test.go
+    done_when:
+      - 'Test: ohne Proxy-Vertrauen ignoriert der Audit-Eintrag X-Forwarded-For/X-Real-IP und nutzt RemoteAddr; mit Proxy-Vertrauen gilt der letzte XFF-Eintrag'
+      - Mutationsprobe belegt
+      - Audit-Einträge behalten ein gültiges inet-Format (kein host:port)
