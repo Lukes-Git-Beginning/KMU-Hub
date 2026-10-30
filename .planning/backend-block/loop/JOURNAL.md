@@ -1016,3 +1016,11 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (nur Tests, keine Validierungs- oder Antwortform-Änderung)
 - offen: Der Seitengrößen-Deckel (`pageSize > 200`) in den List-Methoden ist ungetestet (siehe Probe 6). Weiter < 80 %: `UpdateItem` (66,7 %, einzelne Feldzweige), `service.ListMovements` (66,7 %), `CreateInventurSession` Fehlerzweige — Ziel ≥ 82 % ist erreicht, nicht weiter verfolgt.
+
+## Bilanz Lauf (2026-10-30 08:47)
+- iterationen: 81 im Bereich 1-82, davon 81 done, 0 blocked, 0 ohne auswertbare Kopfzeile
+- units nach praefix: fix 53 · scan 11 · cov 5 · harden 4 · review 4 · feat 2 · e2e 1 · seed 1
+- commits nach typ: fix 60 · docs 13 · test 6 · feat 3 (82 seit b9fd78da)
+- coverage-delta: internal/biz/creditnote 51,6 -> 83,1 · internal/email/systemmail 72,2 -> 98,1 · internal/middleware 73,9 -> 94,9 · (12 weitere)
+- offen mit entscheidungsbedarf: 15 von 81 nicht-leeren offen:-Zeilen (Treffer auf "Luke"/"Entscheidung")
+- minuten je iteration: 7,2 (587 gesamt)
