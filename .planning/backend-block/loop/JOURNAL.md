@@ -848,3 +848,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: DSAR-Felder -> `modules/security/DSARSearchPage.tsx` zeigt die Werte als Text, kein `parseFloat`/`Number` auf Betragsfeldern -> passt
 - offen: Sichtbare Änderung in Beratungsprotokoll-PDF und DSAR-Auskunft (Komma, Tausenderpunkt). Der Rechnungsbetrag im DSAR bleibt fest EUR (keine Währungsspalte in `finance_invoices`).
+
+## Iteration 69 — fix-berichte-kpi-unit-tenant-currency — done — 2026-10-30 07:54
+- commit: siehe Commit `fix(berichte): label dashboard KPIs with the tenant currency` (git log)
+- gebaut: `KPISnapshot.Currency` (neu), gefüllt in `kpiSnapshotQuery` aus derselben Quelle wie der Währungsfilter (`company_settings.default_currency`, Fallback EUR); `DashboardKPIs` setzt `Unit` von Umsatz und Pipeline-Volumen daraus statt fest "EUR" (leere Währung -> EUR). Die Serie hat keine eigene Einheit, der Filter ist dort bereits identisch.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/berichte/...` komplett, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a.
+- coverage: internal/berichte/executor n.a. (Fix, Vorher nicht gemessen) -> 95,1 %
+- mutations-probe: (1) `Unit: currency` -> `"EUR"` im Umsatz-KPI: `TestDashboardKPIs_UnitFollowsTenantCurrency` rot; (2) SQL-Spalte `currency` auf festes `'EUR'`: `TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR` rot. Zurückgedreht, Diff sauber. Beim Zurückdrehen von (1) per `git checkout` wurde versehentlich auch die eigentliche Änderung verworfen und danach neu aufgebaut; Endstand per Diff und Gate geprüft.
+- verify vorgaenger: sauber (Commit `1deda40e`: nur `dachfmt`, `advisoryprotocol`, `gdpr`; kein Proto/Route/Guard/Tabelle; Tests und Mutations-Probe vorhanden)
+- neue-units: keine
+- desktop-aufrufer: `unit` -> `desktop/.../api/berichte-types.ts:130` + `modules/berichte/components/KPICard.tsx:71,89` rendern den String unverändert, kein Vergleich auf "EUR" -> passt
+- offen: Beobachtung ohne Unit: `percent`/Wert-Formatierung im FE nutzt `chart-format.ts` mit festem `currency: 'EUR'` (Charts, nicht KPI-Karten); gehört ins Frontend und wurde nicht geprüft. `dachfmt.FormatMoneyFloat` liefert bei NaN/Inf "" (DSAR-Rechnungsbetrag zeigt dann leer statt Panic) – bewusst.

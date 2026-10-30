@@ -252,6 +252,9 @@ func TestKPISnapshot_ForeignCurrencyInvoiceAndDealExcluded(t *testing.T) {
 		t.Fatalf("snapshot after seed: %v", err)
 	}
 
+	if after.Currency != "EUR" {
+		t.Errorf("snapshot currency = %q, want EUR (no company_settings row)", after.Currency)
+	}
 	if got, want := after.Revenue.Sub(before.Revenue), decimal.RequireFromString("111.00"); !got.Equal(want) {
 		t.Errorf("revenue delta = %s, want %s (CHF invoice must not be blindly summed into EUR)", got, want)
 	}
@@ -295,6 +298,9 @@ func TestKPISnapshot_UsesTenantDefaultCurrencyNotHardcodedEUR(t *testing.T) {
 		t.Fatalf("snapshot after seed: %v", err)
 	}
 
+	if after.Currency != "CHF" || before.Currency != "CHF" {
+		t.Errorf("snapshot currency = %q/%q, want CHF (tenant's company_settings.default_currency)", before.Currency, after.Currency)
+	}
 	if got, want := after.Revenue.Sub(before.Revenue), decimal.RequireFromString("333.00"); !got.Equal(want) {
 		t.Errorf("revenue delta = %s, want %s (tenant's default currency is CHF, the stray EUR invoice must be excluded)", got, want)
 	}

@@ -178,6 +178,9 @@ type KPISnapshot struct {
 	PipelineVolume decimal.Decimal
 	OpenTickets    int
 	StockWarnings  int
+	// Currency is the tenant's default currency, the one Revenue and
+	// PipelineVolume are summed in. Empty means EUR.
+	Currency string
 }
 
 // KPISeriesPoint is one calendar-month bucket of the three history-capable
@@ -411,6 +414,11 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 		return nil, fmt.Errorf("dashboard kpis: %w", err)
 	}
 
+	currency := cur.Currency
+	if currency == "" {
+		currency = "EUR"
+	}
+
 	// Compare month-to-date against the same span of the previous month, not
 	// against a full month — otherwise every 3rd of the month reads as a
 	// collapse. Clamped so a long month cannot bleed into the current one.
@@ -443,7 +451,7 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 			ID:       "revenue_current_month",
 			Label:    "Umsatz laufender Monat",
 			Value:    cur.Revenue.StringFixed(2),
-			Unit:     "EUR",
+			Unit:     currency,
 			ModuleID: "finanzen",
 			Series: kpiSeries(series, func(p KPISeriesPoint) string {
 				return p.Revenue.StringFixed(2)
@@ -460,7 +468,7 @@ func (e *Executor) DashboardKPIs(ctx context.Context, tenantID uuid.UUID, module
 			ID:       "pipeline_volume",
 			Label:    "Pipeline-Volumen",
 			Value:    cur.PipelineVolume.StringFixed(2),
-			Unit:     "EUR",
+			Unit:     currency,
 			ModuleID: "crm",
 			Series: kpiSeries(series, func(p KPISeriesPoint) string {
 				return p.PipelineVolume.StringFixed(2)

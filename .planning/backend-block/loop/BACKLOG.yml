@@ -2131,7 +2131,7 @@ units:
     service: berichte
     model: sonnet
     deps: [fix-advisory-dsar-money-format-de]
-    status: todo
+    status: done
     target: Dashboard-KPIs tragen die Mandantenwährung als Einheit statt festem "EUR"
     coverage_start: n.a. (Fix)
     scope: >

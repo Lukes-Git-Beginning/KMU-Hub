@@ -81,7 +81,8 @@ const kpiSnapshotQuery = `
 		(
 			SELECT COUNT(*) FROM stock_warnings
 			WHERE tenant_id = $1 AND status = 'active'
-		)::int AS stock_warnings`
+		)::int AS stock_warnings,
+		COALESCE((SELECT default_currency FROM company_settings WHERE tenant_id = $1), 'EUR') AS currency`
 
 // KPISnapshot returns the cross-module aggregates for [from, to].
 func (r *PostgresKPIRepo) KPISnapshot(ctx context.Context, tenantID uuid.UUID, from, to time.Time) (*executor.KPISnapshot, error) {
@@ -89,7 +90,7 @@ func (r *PostgresKPIRepo) KPISnapshot(ctx context.Context, tenantID uuid.UUID, f
 	snap := &executor.KPISnapshot{}
 
 	if err := r.pool.QueryRow(ctx, kpiSnapshotQuery, tenantID, from, to).
-		Scan(&revenueRaw, &pipelineRaw, &snap.OpenTickets, &snap.StockWarnings); err != nil {
+		Scan(&revenueRaw, &pipelineRaw, &snap.OpenTickets, &snap.StockWarnings, &snap.Currency); err != nil {
 		return nil, fmt.Errorf("kpi snapshot: %w", err)
 	}
 

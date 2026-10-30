@@ -469,6 +469,27 @@ func kpiByID(kpis []berichte.KPI, id string) *berichte.KPI {
 	return nil
 }
 
+func TestDashboardKPIs_UnitFollowsTenantCurrency(t *testing.T) {
+	repo := &mockKPI{
+		snapshots: []*KPISnapshot{
+			{Revenue: decimal.NewFromInt(5000), PipelineVolume: decimal.NewFromInt(10000), Currency: "CHF"},
+			{Revenue: decimal.NewFromInt(4000), PipelineVolume: decimal.NewFromInt(8000), Currency: "CHF"},
+		},
+	}
+
+	exec := newTestExecutor(Deps{KPI: repo})
+	kpis, err := exec.DashboardKPIs(context.Background(), testTenant, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, id := range []string{"revenue_current_month", "pipeline_volume"} {
+		k := kpiByID(kpis, id)
+		if k == nil || k.Unit != "CHF" {
+			t.Errorf("%s: want unit CHF, got %+v", id, k)
+		}
+	}
+}
+
 func TestDashboardKPIs_AllModulesPopulated(t *testing.T) {
 	repo := &mockKPI{
 		snapshots: []*KPISnapshot{
