@@ -243,3 +243,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `POST /fuhrpark/vehicles/{id}/trip-logs` -> `api/fuhrpark-client.ts` `CreateTripLogRequest` (sendet nur `driver_name`) -> passt; die Antwort trägt jetzt `driver_user_id`, das FE-Typfeld ist optional
 - offen: (1) Offene Frage aus der Unit bleibt: erfasst ein Manager eine Fahrt für einen anderen Fahrer (nur per Freitext `driver_name`), wird sie dem Erfasser zugeordnet, nicht dem genannten Fahrer; Abhilfe wäre ein Fahrer-Dropdown im Desktop. (2) Bestandszeilen mit `driver_user_id NULL` bleiben maskiert (kein Backfill).
+
+## Iteration 17 — fix-formulare-create-submission-checks-schema — done — 2026-10-30 01:34
+- commit: siehe Commit `fix(formulare): refuse submissions to an unknown, deleted or archived form` (git log)
+- gebaut: `Service.CreateSubmission` lädt das Formular vor dem Insert (`GetSchema`): unbekannt/gelöscht -> `ErrSchemaNotFound`/`ErrSchemaDeleted` (404), archiviert -> neuer `ErrSchemaArchived` (gRPC FailedPrecondition -> 409); kein Insert, kein Webhook-Enqueue. OpenAPI: 404 und 409 am POST `/formulare/schemas/{id}/submissions`. E2E: die beiden IST-Stellen (500 / 201) sind Erwartung 404, dazu neuer Fall archiviert -> 409.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/formulare 0 SKIP als kmuhub_app, internal/server Formulare, internal/gateway inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestFormulareMemberFlow`, ~3:30 inkl. Build) | swagger-cli validate ok
+- coverage: internal/formulare 83,6 % (Vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: Deleted- und Archived-Prüfung per `if false &&` abgeschaltet -> `…/deleted_form` und `…/archived_form` rot, zurückgedreht (cmp gegen Backup). Der unbekannte Fall hängt am `GetSchema`-Fehler und ist nicht separat mutiert.
+- verify vorgaenger: sauber (Commit `63bdb61f`: kein Proto, keine Route, kein Guard, keine Tabelle; Default auf `tripViewer`, ausdrücklicher Wert gewinnt)
+- neue-units: keine
+- desktop-aufrufer: `POST /formulare/schemas/{id}/submissions` -> `api/formulare-client.ts` / `hooks/useFormulare.ts` (`createSubmission`), sendet nur `answers`; das Desktop kann eine archivierte Vorlage jetzt nicht mehr ausfüllen (409), vorher 201 -> passt, kein FE-Pfad dafür bekannt
+- offen: (1) Entscheidung für Luke, bewusst NICHT umgesetzt: `submittedBy` aus dem Body wird weiter ungeprüft übernommen (ein member kann unter fremdem Namen einreichen, E2E-Zeile bleibt IST); das Desktop sendet das Feld nirgends, der Gateway setzt ohne Angabe den Aufrufer. Vorschlag: Feld nur für Rollen mit Fremdvergabe (Import durch Admin?) zulassen, sonst Aufrufer. (2) Entwürfe nehmen weiter Einreichungen an (Vorschau-Ausfüllen im Desktop, Produktentscheidung).

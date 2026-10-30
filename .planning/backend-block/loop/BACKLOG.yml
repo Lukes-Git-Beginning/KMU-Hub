@@ -677,7 +677,7 @@ units:
     service: formulare
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Einreichung an ein unbekanntes, gelöschtes oder archiviertes Formular antwortet 404 bzw. 409 statt 500 oder 201
     coverage_start: n.a.
     scope: >

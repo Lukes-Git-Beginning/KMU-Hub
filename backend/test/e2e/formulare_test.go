@@ -24,8 +24,6 @@ import (
 //   - reads are tenant-wide for member (no own-scope): a second member lists, reads, exports and re-labels the
 //     submissions of the first, draft forms included;
 //   - `submittedBy` in the member's body is taken as sent: a member can file a submission under another name;
-//   - `POST /schemas/{id}/submissions` never loads the form: an unknown form is a 500, a deleted one still
-//     takes the submission (fix-formulare-create-submission-checks-schema);
 //   - the public redemption reads `answers` as bytes, so a JSON object is a 400 and only the base64 string
 //     passes (fix-formulare-public-submit-accepts-json-answers);
 //   - the share link is a plain `link` (the proto has no channel), a revoked link reads `disabled`, a private
@@ -274,9 +272,7 @@ func TestFormulareMemberFlow(t *testing.T) {
 		}
 
 		resp, b = postJSON(t, fo+"/schemas/00000000-0000-4000-8000-000000000001/submissions", map[string]interface{}{"answers": map[string]interface{}{"f1": "x"}}, memberAToken)
-		// IST, see fix-formulare-create-submission-checks-schema: the service never loads the form, so the
-		// foreign key fails as a 500 instead of a 404. Flip to 404 with the fix.
-		requireStatus(t, resp, b, http.StatusInternalServerError)
+		requireStatus(t, resp, b, http.StatusNotFound)
 		resp, b = getJSON(t, fo+"/submissions/00000000-0000-4000-8000-000000000001", memberAToken)
 		requireStatus(t, resp, b, http.StatusNotFound)
 	})
@@ -421,17 +417,20 @@ func TestFormulareMemberFlow(t *testing.T) {
 	})
 
 	t.Run("manager deletes the form: reads and submissions answer 404", func(t *testing.T) {
-		resp, b := deleteJSON(t, fo+"/webhooks/"+webhookID, managerToken)
+		resp, b := patch(t, schemaURL(), map[string]interface{}{"status": "archived"}, managerToken)
+		requireStatus(t, resp, b, http.StatusOK)
+		resp, b = postJSON(t, schemaURL()+"/submissions", map[string]interface{}{"answers": map[string]interface{}{"f1": "x"}}, memberAToken)
+		requireStatus(t, resp, b, http.StatusConflict)
+
+		resp, b = deleteJSON(t, fo+"/webhooks/"+webhookID, managerToken)
 		requireStatus(t, resp, b, http.StatusNoContent)
 
 		resp, b = deleteJSON(t, schemaURL(), managerToken)
 		requireStatus(t, resp, b, http.StatusNoContent)
 		resp, b = getJSON(t, schemaURL(), memberAToken)
 		requireStatus(t, resp, b, http.StatusNotFound)
-		// IST, see fix-formulare-create-submission-checks-schema: a deleted form still takes submissions.
-		// Flip to 404 with the fix.
 		resp, b = postJSON(t, schemaURL()+"/submissions", map[string]interface{}{"answers": map[string]interface{}{"f1": "x"}}, memberAToken)
-		requireStatus(t, resp, b, http.StatusCreated)
+		requireStatus(t, resp, b, http.StatusNotFound)
 		rows, _ := items(t, fo+"/schemas?search="+fmt.Sprint(suffix), memberAToken)
 		if len(rows) != 1 {
 			t.Fatalf("only the private form should be left, got %d", len(rows))

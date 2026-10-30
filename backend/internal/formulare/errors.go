@@ -8,6 +8,7 @@ var (
 	ErrWebhookNotFound      = errors.New("formulare webhook not found")
 	ErrDeliveryNotFound     = errors.New("formulare delivery not found")
 	ErrSchemaDeleted        = errors.New("formulare schema is deleted")
+	ErrSchemaArchived       = errors.New("formulare schema is archived")
 	ErrInvalidFields        = errors.New("formulare fields JSON is invalid")
 	ErrInvalidStatus        = errors.New("formulare status is invalid")
 	ErrWebhookInactive      = errors.New("formulare webhook is inactive")

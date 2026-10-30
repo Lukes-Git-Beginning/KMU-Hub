@@ -961,6 +961,49 @@ func TestCreateSubmission_EnqueuesWebhooksForActiveWebhooks(t *testing.T) {
 	}
 }
 
+func TestCreateSubmission_RefusesFormThatTakesNoAnswers(t *testing.T) {
+	deleted := time.Now().UTC()
+	cases := []struct {
+		name  string
+		setup func(t *testing.T, svc *Service, repo *stubRepo) uuid.UUID
+		want  error
+	}{
+		{"unknown form", func(*testing.T, *Service, *stubRepo) uuid.UUID { return uuid.New() }, ErrSchemaNotFound},
+		{"deleted form", func(t *testing.T, svc *Service, repo *stubRepo) uuid.UUID {
+			schema := mustCreateSchema(t, svc)
+			repo.schemas[schema.ID].DeletedAt = &deleted
+			return schema.ID
+		}, ErrSchemaDeleted},
+		{"archived form", func(t *testing.T, svc *Service, repo *stubRepo) uuid.UUID {
+			schema := mustCreateSchema(t, svc)
+			repo.schemas[schema.ID].Status = FormSchemaStatusArchived
+			return schema.ID
+		}, ErrSchemaArchived},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, repo := newSvc()
+			schemaID := tc.setup(t, svc, repo)
+			if _, ok := repo.schemas[schemaID]; ok {
+				mustCreateWebhook(t, svc, schemaID, true)
+			}
+
+			_, err := svc.CreateSubmission(context.Background(), CreateSubmissionInput{
+				TenantID:     testTenant,
+				FormSchemaID: &schemaID,
+				Answers:      []byte(`{"name":"Alice"}`),
+			})
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("want %v, got %v", tc.want, err)
+			}
+			if len(repo.submissions) != 0 || len(repo.lastWebhookIDs) != 0 {
+				t.Errorf("nothing may be stored or enqueued, got %d submissions, %d webhooks",
+					len(repo.submissions), len(repo.lastWebhookIDs))
+			}
+		})
+	}
+}
+
 func TestCreateSubmission_NoWebhooks_StillWorks(t *testing.T) {
 	svc, repo := newSvc()
 	schema := mustCreateSchema(t, svc)

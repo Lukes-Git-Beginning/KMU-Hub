@@ -24806,7 +24806,12 @@ paths:
               schema: { $ref: "#/components/schemas/FormSubmission" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/IdempotencyInFlight" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The form is archived and takes no answers, or an Idempotency-Key request is still in flight
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 

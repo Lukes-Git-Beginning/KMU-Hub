@@ -1154,6 +1154,10 @@ func TestFormulareMapError_WebhookInactive(t *testing.T) {
 	assertGRPCCode(t, mapFormulareError(formulare.ErrWebhookInactive), codes.FailedPrecondition)
 }
 
+func TestFormulareMapError_SchemaArchived(t *testing.T) {
+	assertGRPCCode(t, mapFormulareError(formulare.ErrSchemaArchived), codes.FailedPrecondition)
+}
+
 func TestFormulareMapError_Unknown(t *testing.T) {
 	assertGRPCCode(t, mapFormulareError(formulare.ErrSchemaDeleted), codes.NotFound)
 }

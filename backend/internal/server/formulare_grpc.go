@@ -774,6 +774,8 @@ func mapFormulareError(err error) error {
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, formulare.ErrWebhookInactive):
 		return status.Error(codes.FailedPrecondition, err.Error())
+	case errors.Is(err, formulare.ErrSchemaArchived):
+		return status.Error(codes.FailedPrecondition, err.Error())
 	// Share links: every token verdict is one NotFound. The gateway turns it
 	// into the single 404 the public route answers with, so unknown, revoked,
 	// expired, used up and schema-closed stay indistinguishable.

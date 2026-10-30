@@ -453,6 +453,20 @@ func (s *Service) CreateSubmission(ctx context.Context, in CreateSubmissionInput
 	// Collect active webhook IDs for transactional enqueue.
 	var webhookIDs []uuid.UUID
 	if in.FormSchemaID != nil {
+		// The schema is loaded first: an unknown id would otherwise run into the
+		// foreign key as a 500, and a deleted or archived form must not take answers
+		// nor fire its webhooks (same verdicts as SubmitByShareToken, but with the
+		// distinguishable errors an authenticated caller may see).
+		schema, err := s.repo.GetSchema(ctx, *in.FormSchemaID, in.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		if schema.DeletedAt != nil {
+			return nil, ErrSchemaDeleted
+		}
+		if schema.Status == FormSchemaStatusArchived {
+			return nil, ErrSchemaArchived
+		}
 		webhooks, err := s.repo.ListActiveWebhooksForSchema(ctx, in.TenantID, *in.FormSchemaID)
 		if err != nil {
 			return nil, fmt.Errorf("list active webhooks: %w", err)
