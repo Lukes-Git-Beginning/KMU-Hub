@@ -2326,7 +2326,7 @@ units:
     service: server
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: ein Deadlock/Serialisierungsfehler bleibt mit demselben Idempotency-Key wiederholbar
     coverage_start: n.a. (Fix an gemeinsamer Funktion)
     scope: >

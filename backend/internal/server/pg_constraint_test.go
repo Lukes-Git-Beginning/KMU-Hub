@@ -27,8 +27,8 @@ func TestPgConstraintError_Codes(t *testing.T) {
 		{"still referenced on delete", &pgconn.PgError{Code: "23503", Detail: `Key (x)=(1) is still referenced from table "y".`}, codes.FailedPrecondition},
 		{"unique violation", &pgconn.PgError{Code: "23505"}, codes.AlreadyExists},
 		{"exclusion violation", &pgconn.PgError{Code: "23P01"}, codes.AlreadyExists},
-		{"deadlock detected", &pgconn.PgError{Code: "40P01"}, codes.Aborted},
-		{"serialization failure", &pgconn.PgError{Code: "40001"}, codes.Aborted},
+		{"deadlock detected", &pgconn.PgError{Code: "40P01"}, codes.Unavailable},
+		{"serialization failure", &pgconn.PgError{Code: "40001"}, codes.Unavailable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestMapErrors_PostgresConstraintNotInternal(t *testing.T) {
 	}
 	violations := map[string]codes.Code{
 		"23503": codes.InvalidArgument, "23514": codes.InvalidArgument, "22P02": codes.InvalidArgument,
-		"23P01": codes.AlreadyExists, "40P01": codes.Aborted,
+		"23P01": codes.AlreadyExists, "40P01": codes.Unavailable,
 	}
 	for name, fn := range mappers {
 		for sqlstate, want := range violations {

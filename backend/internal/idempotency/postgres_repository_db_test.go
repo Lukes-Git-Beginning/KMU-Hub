@@ -378,6 +378,7 @@ func TestPostgresComplete_ServerErrorReleasesKey(t *testing.T) {
 		status     int
 		wantReplay bool
 	}{
+		{503, false},
 		{502, false},
 		{500, false},
 		{409, true},

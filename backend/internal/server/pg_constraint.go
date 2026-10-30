@@ -45,8 +45,11 @@ func pgConstraintError(err error) error {
 		st = status.Error(codes.AlreadyExists, "overlaps with an existing record")
 	case "40P01", "40001":
 		// deadlock_detected, serialization_failure: the statement lost against a
-		// concurrent writer and is safe to retry. Gateway answers Aborted with 409.
-		st = status.Error(codes.Aborted, "concurrent change, please retry")
+		// concurrent writer and is safe to retry. Unavailable (503), not Aborted (409):
+		// the idempotency store keeps every answer below 500 for 24 h and replays it for
+		// the same key, so a 409 would turn one transient deadlock into a permanent one
+		// for clients that retry with a stable key (desktop offline queue).
+		st = status.Error(codes.Unavailable, "concurrent change, please retry")
 	default:
 		return nil
 	}
