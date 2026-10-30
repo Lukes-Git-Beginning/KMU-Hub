@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"regexp"
+	"sync"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -83,6 +84,8 @@ func marshalProto(m protojson.MarshalOptions, msg proto.Message) ([]byte, error)
 		if b, err = fillOptionalNulls(b, msg.ProtoReflect().Descriptor()); err != nil {
 			return nil, err
 		}
+	} else if b, err = fillEmptyLists(b, msg.ProtoReflect().Descriptor()); err != nil {
+		return nil, err
 	}
 	if bytes.Contains(b, []byte(`"tax_mode":`)) {
 		b = taxModeNumber.ReplaceAllFunc(b, func(m []byte) []byte {
@@ -94,6 +97,53 @@ func marshalProto(m protojson.MarshalOptions, msg proto.Message) ([]byte, error)
 		return rewriteStatus(b, names)
 	}
 	return b, nil
+}
+
+// repeatedFieldNames caches, per message type, the names of its top-level repeated non-map fields.
+var repeatedFieldNames sync.Map // protoreflect.FullName -> []string
+
+func repeatedNames(md protoreflect.MessageDescriptor) []string {
+	if v, ok := repeatedFieldNames.Load(md.FullName()); ok {
+		return v.([]string)
+	}
+	var names []string
+	if md.FullName().Parent() != "google.protobuf" {
+		fields := md.Fields()
+		for i := 0; i < fields.Len(); i++ {
+			if fd := fields.Get(i); fd.IsList() {
+				names = append(names, string(fd.Name()))
+			}
+		}
+	}
+	repeatedFieldNames.Store(md.FullName(), names)
+	return names
+}
+
+// fillEmptyLists adds `[]` for every top-level repeated field protojson dropped because it is
+// empty, so a list endpoint answers `{"items":[],"total":0}` instead of `{}` and the frontend's
+// `.map`/`.length` never meets undefined. Only the top level is filled: lists nested in items
+// keep protojson's omission.
+// lean: top level only; nested lists get the same walk as fillOptionalNulls when a screen needs it.
+func fillEmptyLists(b []byte, md protoreflect.MessageDescriptor) ([]byte, error) {
+	names := repeatedNames(md)
+	if len(names) == 0 || len(b) == 0 || b[0] != '{' {
+		return b, nil
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, name := range names {
+		if _, present := obj[name]; !present {
+			obj[name] = json.RawMessage("[]")
+			changed = true
+		}
+	}
+	if !changed {
+		return b, nil
+	}
+	return json.Marshal(obj)
 }
 
 // fillOptionalNulls adds `null` for every unset `optional` scalar of md and, recursively, of the

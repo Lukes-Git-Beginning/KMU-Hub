@@ -8,6 +8,7 @@ package gateway
 // boundary.
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -94,8 +95,14 @@ func TestHandleGetDashboardKPIs_MemberAskingForFinanzenGetsNothing(t *testing.T)
 	routes.HandleGetDashboardKPIs(rec, kpiRequest(t, "?modules=finanzen", memberPermissions...))
 
 	assertStatus(t, rec, http.StatusOK)
-	if body := rec.Body.String(); strings.Contains(body, "kpis") {
-		t.Errorf("expected a body without KPI tiles, got %s", body)
+	var body struct {
+		KPIs []json.RawMessage `json:"kpis"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode %s: %v", rec.Body.String(), err)
+	}
+	if body.KPIs == nil || len(body.KPIs) != 0 {
+		t.Errorf("expected an empty kpis array, got %s", rec.Body.String())
 	}
 }
 

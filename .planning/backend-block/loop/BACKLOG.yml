@@ -1979,7 +1979,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-rapporte-empty-list-wire-shape]
-    status: todo
+    status: done
     target: keine Liste kommt leer als `{}` oder ohne Array-Feld beim Desktop an
     coverage_start: n.a. (Scan)
     scope: >

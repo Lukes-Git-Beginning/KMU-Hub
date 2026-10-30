@@ -231,3 +231,30 @@ func TestProtoFull_KeepsZeroValuesAndUnsetOptionals(t *testing.T) {
 		t.Errorf("Proto must stay lean, got %s", plain.Body.String())
 	}
 }
+
+// An empty list answers `[]`, not a missing member: protojson drops empty repeated fields and the
+// frontend then met `{}` where it reads `.items.map`. Populated lists and nested messages stay as
+// they were.
+func TestProto_EmptyTopLevelListIsEmptyArray(t *testing.T) {
+	empty := httptest.NewRecorder()
+	response.Proto(empty, 200, &inventarv1.ListLocationsResponse{})
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(empty.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode %s: %v", empty.Body.String(), err)
+	}
+	if string(got["locations"]) != "[]" {
+		t.Errorf("locations = %s in %s, want []", got["locations"], empty.Body.String())
+	}
+
+	filled := httptest.NewRecorder()
+	response.Proto(filled, 200, &inventarv1.ListLocationsResponse{Locations: []*inventarv1.Location{{Id: "l1"}}})
+	if !strings.Contains(filled.Body.String(), `"id":"l1"`) || strings.Contains(filled.Body.String(), `"locations":[]`) {
+		t.Errorf("populated list changed: %s", filled.Body.String())
+	}
+
+	wrapped := httptest.NewRecorder()
+	response.ProtoWrapped(wrapped, 200, "result", &inventarv1.ListLocationsResponse{})
+	if !strings.Contains(wrapped.Body.String(), `"locations":[]`) {
+		t.Errorf("wrapped empty list missing: %s", wrapped.Body.String())
+	}
+}
