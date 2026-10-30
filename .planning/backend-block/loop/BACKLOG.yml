@@ -1625,7 +1625,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-formulare-create-submission-checks-schema]
-    status: todo
+    status: done
     target: jedes Anlegen unter einem gelöschten, archivierten oder unbekannten Elternobjekt antwortet 404/409 statt 201 oder 500
     coverage_start: n.a. (Scan)
     scope: >
@@ -1640,6 +1640,166 @@ units:
     done_when:
       - Kandidatenliste mit Ergebnis im Journal
       - Fix-Units nach Regel 1
+
+  - id: fix-fuhrpark-create-logs-parent-vehicle
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Tank-, Fahrten- und Dokument-Einträge für ein gelöschtes oder unbekanntes Fahrzeug antworten 404 statt 201 bzw. 500'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      `fuhrpark.Service.CreateFuelLog` (`service.go:724`), `CreateTripLog` (`:782`) und `CreateVehicleDocument`
+      (`:909`) validieren nur Felder und reichen `VehicleID` an einen blanken `INSERT` weiter
+      (`postgres_repository.go:588`, `:719`, `:876`). Der FK auf `vehicles(id)` fängt weder den Soft-Delete
+      (`vehicles.deleted_at`) noch einen Mandanten-Wechsel: ein gelöschtes Fahrzeug nimmt Einträge an (201), ein
+      unbekanntes endet als 500 aus dem FK. Im selben Modul laden `ScheduleService` (`:388`), `ReportDamage` (`:555`)
+      und `CreateVehicleBooking` (`:1075`) das Fahrzeug über `GetVehicle` (tenant-gescoped, `deleted_at IS NULL`) und
+      sind das Muster. Fix: dieselbe Prüfung in den drei Create-Methoden, Fehler auf `ErrVehicleNotFound` bzw. die
+      vorhandene NotFound-Abbildung. Status `decommissioned` bei Buchung, Service und Schaden ist eine fachliche
+      Frage und gehört NICHT in diese Unit.
+    sources:
+      - backend/internal/fuhrpark/service.go
+      - backend/internal/fuhrpark/postgres_repository.go
+      - backend/internal/server/fuhrpark_grpc.go
+    done_when:
+      - 'DB-Test: je Create gegen gelöschtes und gegen unbekanntes Fahrzeug -> NotFound, keine Zeile; lebendes Fahrzeug -> angelegt'
+      - go test -count=1 für internal/fuhrpark/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-einkauf-extended-creates-parent-supplier
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Katalogartikel, Lieferantenbewertung und Rahmenvertrag für einen gelöschten oder unbekannten Lieferanten antworten 404; Positionen auf beendetem Rahmenvertrag 409'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      `einkauf.Service.CreateCatalogItem` (`service_extended.go:154`), `CreateSupplierRating` (`:293`) und
+      `CreateFrameworkContract` (`:361`) laden den Lieferanten nie; die Repo-Inserts
+      (`postgres_repository_extended.go:18`, `:159`, `:246`) sind blank. `CreatePO` (`service.go:282`) macht es richtig
+      über `GetSupplier` (tenant-gescoped, `deleted_at IS NULL`). Folge: gelöschter Lieferant nimmt Katalog,
+      Bewertung und Verträge an, unbekannter gibt 500 aus dem FK. Zusätzlich `CreateContractItem` (`:524`): lädt den
+      Rahmenvertrag, prüft aber nicht den Status; `bookContractCall` verlangt `active`. Fix: `GetSupplier` vor den drei
+      Inserts; bei `CreateContractItem` einen beendeten oder abgelaufenen Vertrag mit dem Fehler ablehnen, den
+      `bookContractCall` für denselben Zustand nutzt (Konflikt-Mapping im gRPC prüfen).
+    sources:
+      - backend/internal/einkauf/service_extended.go
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/server/
+    done_when:
+      - 'DB-Test: je Create gegen gelöschten und gegen unbekannten Lieferanten -> NotFound; Position auf nicht aktivem Rahmenvertrag -> Konflikt'
+      - go test -count=1 für internal/einkauf/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-inventar-parent-checks-location-and-count
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Inventurzählung eines gelöschten oder unbekannten Artikels und Artikel an gelöschtem oder unbekanntem Lagerort antworten 404 statt 200 bzw. 500'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      (1) `inventar.Service.UpsertInventurCount` (`service.go:901`) liest den Artikel in einem `if err == nil` und
+      verschluckt den Fehler: ein gelöschter Artikel wird mit `Expected=0` gezählt (Soll-Ist-Abweichung erfunden), ein
+      unbekannter gibt 500 aus dem FK. (2) `CreateItem` (`:169`), `UpdateItem` (`:227`) und `CreateInventurSession`
+      (`:804`) reichen `LocationID` ungeprüft durch; der FK hat `ON DELETE SET NULL` und fängt den Soft-Delete
+      (`inventory_locations.deleted_at`) nicht. Fix: Fehler von `GetItem` nicht verschlucken (NotFound zurück), und
+      `LocationID` per Standort-Getter (tenant-gescoped, ohne gelöschte) prüfen, wenn gesetzt.
+    sources:
+      - backend/internal/inventar/service.go
+      - backend/internal/inventar/postgres_repository.go
+      - backend/internal/server/
+    done_when:
+      - 'DB-Test: Zählung für gelöschten und unbekannten Artikel -> NotFound, keine Zeile; Artikel mit gelöschtem Lagerort -> NotFound/InvalidArgument'
+      - go test -count=1 für internal/inventar/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-work-task-create-in-archived-project
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Aufgaben in einem archivierten Projekt antworten 409 statt 201, auch beim Anlegen aus einer Vorlage'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      `task.Service.Create` (`service.go:210`) prüft über `requireProjectEditor` nur die Mitgliedschaft (Rolle, nicht
+      Viewer). `project.Service` weist `AddMember` und `Update` im archivierten Projekt mit `ErrProjectArchived` ab
+      (`project/service.go:152,203,268`), der Task-Pfad nicht: ein archiviertes Projekt nimmt Aufgaben an, und
+      `GetNextTaskNumber` (`task/postgres_repository.go:44`) erhöht dessen Zähler. Gleiches für das Zielprojekt in
+      `CreateFromTemplate` (`:841`). Fix: in `requireProjectEditor` oder direkt davor `archived_at` des Projekts prüfen
+      und `project.ErrProjectArchived` zurückgeben (gRPC-Mapping auf FailedPrecondition/Konflikt prüfen, Nachbarn in
+      `server/work_grpc.go`). Verschieben und Bearbeiten bestehender Aufgaben ist NICHT Teil dieser Unit.
+    sources:
+      - backend/internal/work/task/service.go
+      - backend/internal/work/project/service.go
+      - backend/internal/server/work_grpc.go
+    done_when:
+      - 'DB-Test: Create und CreateFromTemplate in archiviertem Projekt -> ErrProjectArchived, Zähler unverändert; aktives Projekt -> angelegt'
+      - 'Wire: HTTP-Status gegen das Mapping der Nachbarn geprüft, Spec um 409 ergänzt, falls neu'
+      - go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-document-comment-on-trashed-file
+    phase: 4
+    service: document
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Kommentare auf eine Datei im Papierkorb antworten 404/409 statt 201'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      `file.Service.CreateComment` (`document/file/service.go:117`) lädt die Datei über `repo.GetByID`, der
+      `is_deleted` nicht filtert; die Geschwister `CreateShareLink` (`:225`), `CreateVersion` (`:828`) und
+      `LinkToEntity` (`:1039`) prüfen `IsDeleted` ausdrücklich. Folge: eine Datei im Papierkorb nimmt Kommentare an.
+      Fix: dieselbe `IsDeleted`-Prüfung mit dem Fehler der Geschwister. Zusätzlich prüfen, ob `Upload` (`:424`) und
+      `Register` (`:526`) den Ordner laden (Kandidat: unbekannter Ordner -> 500 aus dem FK, fremder Ordner geht
+      durch); wenn ja, in dieser Unit mitziehen, solange es bei höchstens fünf Produktivdateien bleibt.
+    sources:
+      - backend/internal/document/file/service.go
+      - backend/internal/server/document_grpc.go
+    done_when:
+      - 'DB-Test: Kommentar auf Datei im Papierkorb -> Fehler, keine Zeile; auf lebende Datei -> angelegt'
+      - go test -count=1 für internal/document/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-produktion-order-children-require-open-order
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Arbeitsschritte, Qualitätsprüfungen und Maschinenbuchungen für einen unbekannten, abgeschlossenen oder stornierten Auftrag antworten 404 bzw. 409'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Fund aus `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50), per Codepfad verifiziert.
+      `produktion.Service.CreateWorkStep` (`service_ext.go:248`), `CreateQualityCheck` (`:427`) und
+      `CreateMachineBooking` (`service.go:417`) laden den Fertigungsauftrag nicht; die Inserts
+      (`postgres_repository_ext.go:210`, `:387`) sind blank, auch der gRPC-Server prüft nichts
+      (`server/produktion_grpc_ext.go`). Folge: unbekannter Auftrag -> 500 aus dem FK, Auftrag eines anderen Mandanten
+      geht durch (FK kennt keine RLS), abgeschlossener oder stornierter Auftrag nimmt neue Schritte an. Fix: Auftrag
+      tenant-gescoped laden, NotFound sonst; Status `completed`/`cancelled` mit dem Konflikt-Fehler ablehnen, den
+      `service.go` für Statuswechsel nutzt. Für Qualitätsprüfungen an einem abgeschlossenen Auftrag vorab prüfen, ob ein
+      Flow sie nachträglich braucht (grep `CreateQualityCheck` im Desktop-Aufrufer); wenn ja, nur Existenz prüfen und
+      die Entscheidung als Frage ins Journal.
+    sources:
+      - backend/internal/produktion/service_ext.go
+      - backend/internal/produktion/service.go
+      - backend/internal/produktion/postgres_repository_ext.go
+      - backend/internal/server/produktion_grpc_ext.go
+    done_when:
+      - 'DB-Test: je Create gegen unbekannten und fremden Auftrag -> NotFound; gegen stornierten -> Konflikt; offener Auftrag -> angelegt'
+      - go test -count=1 für internal/produktion/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
 
   - id: scan-partial-quantity-books-full-amount
     phase: 4

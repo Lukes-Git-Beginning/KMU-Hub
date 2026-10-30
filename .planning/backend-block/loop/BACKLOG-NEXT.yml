@@ -1901,3 +1901,45 @@ units:
       - desktop/src/renderer/src/modules/kommunikation/ConversationThread.tsx
     done_when:
       - Screenshot-QA nach WORKFLOW.md, kein Composer bei notification
+
+  - id: fix-create-parent-checks-sammel-scan-iter50
+    phase: 4
+    service: gateway
+    model: sonnet
+    deps: []
+    status: todo
+    target: 'Sammel-Unit: die übrigen Kandidaten aus scan-create-without-parent-existence-check (mehr als sechs Fix-Units, Regel 1)'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Reste des Scans `scan-create-without-parent-existence-check` (Lauf 18, Iteration 50). Quelle: Kandidatenliste des
+      Explore-Agenten, NUR gelesen, nicht per Test belegt. Je Eintrag zuerst verifizieren, dann als eigene Unit
+      nach BACKLOG.yml ziehen. Reihenfolge nach Gewicht.
+      (a) `work/calendar/booking_service.go:41` `CreateBookingPage`: `CalendarID` ungeprüft; `CreatePublicBooking` liest
+      Termine über `GetCalendarEventsInRange(page.CalendarID)` unter System-Kontext (Verdacht auf mandantenübergreifende
+      Sicht, mit Mandanten-B-Kalender belegen; bei Beleg Leck und gehört an den Kopf).
+      (b) `work/status/service.go:34` + `work/status/postgres_repository.go:28`: Statusspalte per Subselect auf
+      `projects`, kein Existenz-/Archiv-Check; unbekanntes Projekt -> 500.
+      (c) `work/timeentry/service.go:28,108`: `TaskID` ungeprüft, unbekannt -> 500, fremder Task geht durch (Listen
+      joinen mit Mandanten-Filter, also unsichtbar).
+      (d) `helpdesk/service.go:503` `AddMessage` an geschlossene/zusammengeführte Tickets; `:31` `CreateTicket`
+      `queueID`/`assigneeID` ungeprüft.
+      (e) `work/meeting/service.go:1226` `AssignBreakoutParticipant`: `roomID` ungeprüft (geschlossener Raum, Raum eines
+      anderen Meetings); `:747`/`:886` Aktionen und Teilnehmer an abgesagten/beendeten Meetings.
+      (f) `wiki/service.go:370` `UploadAttachment` ohne Scope own: Artikel ungeprüft.
+      (g) `chat/guest/service.go:37` `CreateSession`: Fehler von `GetConfigByChannel` ignoriert, unbekannter Channel
+      -> 500 (die Session ist ohnehin wertlos, `ValidateToken` verlangt `is_guest_enabled`).
+      (h) `work/reaction/service.go:33` `ToggleReaction` auf gelöschte Nachricht / in archiviertem Channel.
+      (i) `vertraege/service.go:462,399` Erinnerungen/Parteien an beendeten Verträgen; `vermietung/service.go:510`
+      `CreateInspection` auf stornierter Miete; `formulare` `CreateWebhook`/`CreateShareLink` auf archiviertem Formular;
+      `fuhrpark` Buchung/Service/Schaden auf `decommissioned` (fachliche Frage).
+      (j) `work/event/service.go:60` `ResourceID`/`CategoryID`; `work/resource/service.go:200` `Book` lädt `eventID`
+      nicht; `produktion/service.go:147` `CreateOrder` BOM nicht auf `active` geprüft;
+      `biz/hr/timetracking/service.go:534` `CategoryID`/`ProjectID`; `berichte/service.go:702` `TemplateID`;
+      `work/recording/service.go:76` Meeting-Status.
+      (k) `crm/activity/service.go:44`, `crm/deal/service.go:100`: Existenz-Checks ohne `tenant_id` (RLS schützt,
+      nicht verifiziert).
+    sources:
+      - backend/internal/
+    done_when:
+      - Je Kandidat verifiziert (Test oder Codepfad), Fix-Units nach BACKLOG.yml bzw. verworfen mit Grund
+
