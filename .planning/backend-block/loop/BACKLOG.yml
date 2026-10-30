@@ -2446,7 +2446,7 @@ units:
     service: inventar
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: internal/inventar von 74,9 % auf ≥ 82 %
     coverage_start: internal/inventar 74,9 %
     scope: >
