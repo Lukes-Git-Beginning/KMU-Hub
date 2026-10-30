@@ -237,10 +237,18 @@ func (w *WorkRoutes) HandleUpdateTask(wr http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// At scope own of work:task:edit the service updates only tasks the caller
+	// created or is assigned to; legacy tasks:write beyond own keeps it
+	// tenant-wide.
+	ownerID, ok := ownerFilterUnlessAltKey(wr, r, [2]string{"tasks", "write"}, "work:task", "edit")
+	if !ok {
+		return
+	}
 
 	grpcReq := &workv1.UpdateTaskRequest{
 		Id:        taskID,
 		UpdatedBy: userID,
+		OwnerId:   ownerID,
 	}
 	if req.Title != nil {
 		grpcReq.Title = req.Title

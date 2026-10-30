@@ -502,6 +502,11 @@ message UpdateTaskRequest {
   // moves a project-less task into this project (task number and first open status are assigned);
   // rejected for a task that already belongs to a different project.
   optional string project_id = 14;
+  // Set by the gateway when the caller holds work:task:edit only at scope own
+  // (and no legacy tasks:write beyond own): the service then updates the task
+  // only if owner_id created it or is its assignee (NotFound otherwise). Empty
+  // keeps the edit tenant-wide.
+  optional string owner_id = 15;
 }
 
 message UpdateTaskResponse {

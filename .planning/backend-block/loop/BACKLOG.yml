@@ -1449,7 +1449,7 @@ units:
     service: work
     model: opus
     deps: []
-    status: todo
+    status: done
     target: '`PUT /tasks/{id}` und die Edit-Nebenrouten einer Aufgabe halten `work:task:edit` im Scope own ein wie das Löschen'
     coverage_start: n.a. (Bugfix)
     scope: >
@@ -1476,6 +1476,46 @@ units:
     done_when:
       - 'Router-Test mit echtem hr_admin-Token: Owner-Feld gesetzt; mit member-Token (tasks:write=all) nicht gesetzt'
       - 'DB-Test: fremde Aufgabe unter Owner-Filter -> NotFound, Zeile unverändert'
+      - Proto regeneriert, go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-work-task-edit-own-scope-subroutes
+    phase: 4
+    service: work
+    model: opus
+    deps: [fix-work-task-edit-own-scope]
+    status: todo
+    target: 'Die Edit-Nebenrouten einer Aufgabe halten `work:task:edit` im Scope own ein wie `PUT /tasks/{id}`'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      LECK IM TENANT (Own-Scope), Rest von `fix-work-task-edit-own-scope` (Lauf 18, Iteration 45), die laut deren
+      Notiz bewusst nur `PUT /tasks/{id}` gebaut hat. Die Routen hinter `taskEdit`/`taskEditDel`/`labelEdit`
+      (`internal/gateway/route_work.go:134-171,194,209,215`) reichen keinen Owner durch: `POST /tasks/{id}/dependencies`,
+      `POST /tasks/{id}/links`, `POST /tasks/{id}/files`, `PUT /tasks/{id}/custom-fields`, `PUT /tasks/{id}/labels`,
+      `DELETE /task-dependencies/{id}`, `DELETE /task-links/{id}`, `DELETE /task-files/{id}`. hr_admin
+      (`work:task:edit=own`, kein `tasks:*`) ändert damit Abhängigkeiten, Verknüpfungen, Dateien, Zusatzfelder und
+      Labels an jeder Aufgabe im Tenant. Fix: dieselbe Regel wie `task.Service.Update` (`UpdateInput.OwnerID`:
+      Ersteller ODER Zuständiger, sonst ErrNotFound) als gemeinsame Prüfmethode im Task-Service, `owner_id` an den
+      betroffenen Requests, Gateway setzt es über `ownerFilterUnlessAltKey` mit dem jeweiligen Alt-Key des Guards
+      (`tasks:write`, `tasks:delete` bzw. `work_labels:write`). Für die Top-Level-Deletes zuerst die Aufgabe des
+      Kind-Objekts auflösen.
+    sources:
+      - backend/internal/gateway/route_work.go
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/proto/work/v1/work.proto
+      - backend/internal/work/task/service.go
+      - backend/internal/server/work_grpc.go
+      - backend/internal/gateway/route_work_own_task_edit_db_test.go
+    notes: >
+      Proto ändern UND regenerieren. Own-Semantik ist mit Iteration 45 festgelegt: Ersteller oder Zuständiger, Beleg
+      `desktop/.../modules/work/useWorkPermissions.ts:30` (`useTaskCan` prüft assignee, created_by, reporter; das
+      Backend kennt keinen Reporter). Router-DB-Test erweitert `route_work_own_task_edit_db_test.go` (echter Seed,
+      hr_admin- und member-Token). Bei mehr als fünf Produktivdateien: Gruppe Label/Custom-Field als eigene Unit ans
+      Ende. Nebenbei beobachtet, nicht Teil dieser Unit: `DELETE /tasks/{id}` nimmt bei own nur den Ersteller, das FE
+      blendet den Löschknopf auch für den Zuständigen ein (`useTaskCan.delete`) -> 404 statt Aktion; Entscheidung, ob
+      Löschen den Zuständigen einschließt, gehört Luke.
+    done_when:
+      - 'Router-DB-Test mit echtem hr_admin-Token: Nebenroute an fremder Aufgabe -> 404, Zeile unverändert; an eigener bzw. zugewiesener -> Erfolg; member-Token bleibt tenant-weit'
       - Proto regeneriert, go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
       - Mutationsprobe belegt
 

@@ -6292,6 +6292,11 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     put:
       summary: Update task
+      description: >
+        Requires tasks:write or work:task:edit. At scope own of work:task:edit (hr_admin preset)
+        without tasks:write beyond own, only a task the caller created or is assigned to is
+        updated; any other task answers 404 and stays unchanged. tasks:write beyond own (member, manager, admin) edits
+        tenant-wide. In a project the caller must also be allowed to edit it (403 for viewers).
       tags: [tasks]
       operationId: updateTask
       security:
@@ -6321,6 +6326,12 @@ paths:
                     $ref: "#/components/schemas/TaskResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           description: >-
             Either the Idempotency-Key request is still in flight, or is_closed

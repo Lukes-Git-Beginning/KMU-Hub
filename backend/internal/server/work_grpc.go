@@ -947,6 +947,13 @@ func (s *WorkGRPCServer) UpdateTask(ctx context.Context, req *workv1.UpdateTaskR
 		}
 		input.ProjectID = &projectID
 	}
+	if req.OwnerId != nil {
+		ownerID, parseErr := uuid.Parse(req.GetOwnerId())
+		if parseErr != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+		}
+		input.OwnerID = &ownerID
+	}
 
 	result, err := s.taskService.Update(ctx, tenantID, id, input, updatedBy)
 	if err != nil {

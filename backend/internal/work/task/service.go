@@ -335,6 +335,11 @@ type UpdateInput struct {
 	// The task gets the next task number and the first open status of that project.
 	ProjectID *uuid.UUID
 	SortOrder    *float64
+	// OwnerID is the own scope of work:task:edit, not a field to change: a
+	// non-nil value updates only a task OwnerID created or is assigned to (the
+	// owners the desktop's useTaskCan checks, so an assignee can still
+	// complete), any other answers ErrNotFound.
+	OwnerID *uuid.UUID
 }
 
 // Update updates an existing task
@@ -342,6 +347,10 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
 	if err != nil {
 		return nil, err
+	}
+	if input.OwnerID != nil && existing.CreatedBy != *input.OwnerID &&
+		(existing.AssigneeID == nil || *existing.AssigneeID != *input.OwnerID) {
+		return nil, ErrNotFound
 	}
 
 	// Check project membership

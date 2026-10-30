@@ -954,6 +954,38 @@ func TestService_DeleteOwnScopeOnlyCreator(t *testing.T) {
 	}
 }
 
+// At the own scope of work:task:edit the creator and the assignee update; any
+// other caller gets ErrNotFound and the title stays.
+func TestService_UpdateOwnScopeOnlyCreator(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	projRepo := newMockProjectRepo()
+	svc := NewService(repo, projRepo)
+
+	projectID := uuid.New()
+	creator, colleague, assignee := uuid.New(), uuid.New(), uuid.New()
+	projRepo.addMember(projectID, creator, models.ProjectRoleMember)
+	projRepo.addMember(projectID, colleague, models.ProjectRoleMember)
+	projRepo.addMember(projectID, assignee, models.ProjectRoleMember)
+
+	created, _ := svc.Create(ctx, CreateInput{ProjectID: &projectID, Title: "Mine", CreatedBy: creator, AssigneeID: &assignee})
+
+	renamed := "Taken"
+	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{Title: &renamed, OwnerID: &colleague}, colleague); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("colleague at own scope: want ErrNotFound, got %v", err)
+	}
+	if got, _ := svc.GetByID(ctx, uuid.Nil, created.ID); got.Title != "Mine" {
+		t.Fatalf("refused update changed the title to %q", got.Title)
+	}
+	kept := "Still mine"
+	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{Title: &kept, OwnerID: &creator}, creator); err != nil {
+		t.Fatalf("creator at own scope: %v", err)
+	}
+	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{Title: &kept, OwnerID: &assignee}, assignee); err != nil {
+		t.Fatalf("assignee at own scope: %v", err)
+	}
+}
+
 func TestService_DeleteViewerCannotDelete(t *testing.T) {
 	ctx := context.Background()
 	repo := newMockRepo()
