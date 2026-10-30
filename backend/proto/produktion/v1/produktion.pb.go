@@ -2987,6 +2987,7 @@ type UpdateWorkStepRequest struct {
 	DurationMinutes *int32                 `protobuf:"varint,5,opt,name=duration_minutes,json=durationMinutes,proto3,oneof" json:"duration_minutes,omitempty"`
 	Status          *string                `protobuf:"bytes,6,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	Assignee        *string                `protobuf:"bytes,7,opt,name=assignee,proto3,oneof" json:"assignee,omitempty"`
+	OrderId         string                 `protobuf:"bytes,8,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"` // the step must belong to this order, else NOT_FOUND
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3070,10 +3071,18 @@ func (x *UpdateWorkStepRequest) GetAssignee() string {
 	return ""
 }
 
+func (x *UpdateWorkStepRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
+	}
+	return ""
+}
+
 type DeleteWorkStepRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
 	StepId        string                 `protobuf:"bytes,2,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"`
+	OrderId       string                 `protobuf:"bytes,3,opt,name=order_id,json=orderId,proto3" json:"order_id,omitempty"` // the step must belong to this order, else NOT_FOUND
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3118,6 +3127,13 @@ func (x *DeleteWorkStepRequest) GetTenantId() string {
 func (x *DeleteWorkStepRequest) GetStepId() string {
 	if x != nil {
 		return x.StepId
+	}
+	return ""
+}
+
+func (x *DeleteWorkStepRequest) GetOrderId() string {
+	if x != nil {
+		return x.OrderId
 	}
 	return ""
 }
@@ -4840,7 +4856,7 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\x04name\x18\x04 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12)\n" +
 	"\x10duration_minutes\x18\x06 \x01(\x05R\x0fdurationMinutes\x12\x1a\n" +
-	"\bassignee\x18\a \x01(\tR\bassignee\"\xc1\x02\n" +
+	"\bassignee\x18\a \x01(\tR\bassignee\"\xdc\x02\n" +
 	"\x15UpdateWorkStepRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
 	"\astep_id\x18\x02 \x01(\tR\x06stepId\x12\x17\n" +
@@ -4848,15 +4864,17 @@ const file_proto_produktion_v1_produktion_proto_rawDesc = "" +
 	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12.\n" +
 	"\x10duration_minutes\x18\x05 \x01(\x05H\x02R\x0fdurationMinutes\x88\x01\x01\x12\x1b\n" +
 	"\x06status\x18\x06 \x01(\tH\x03R\x06status\x88\x01\x01\x12\x1f\n" +
-	"\bassignee\x18\a \x01(\tH\x04R\bassignee\x88\x01\x01B\a\n" +
+	"\bassignee\x18\a \x01(\tH\x04R\bassignee\x88\x01\x01\x12\x19\n" +
+	"\border_id\x18\b \x01(\tR\aorderIdB\a\n" +
 	"\x05_nameB\x0e\n" +
 	"\f_descriptionB\x13\n" +
 	"\x11_duration_minutesB\t\n" +
 	"\a_statusB\v\n" +
-	"\t_assignee\"M\n" +
+	"\t_assignee\"h\n" +
 	"\x15DeleteWorkStepRequest\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x17\n" +
-	"\astep_id\x18\x02 \x01(\tR\x06stepId\"\x18\n" +
+	"\astep_id\x18\x02 \x01(\tR\x06stepId\x12\x19\n" +
+	"\border_id\x18\x03 \x01(\tR\aorderId\"\x18\n" +
 	"\x16DeleteWorkStepResponse\"?\n" +
 	"\x10WorkStepResponse\x12+\n" +
 	"\x04step\x18\x01 \x01(\v2\x17.produktion.v1.WorkStepR\x04step\"N\n" +

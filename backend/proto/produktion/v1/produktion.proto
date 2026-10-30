@@ -400,11 +400,13 @@ message UpdateWorkStepRequest {
   optional int32 duration_minutes = 5;
   optional string status = 6;
   optional string assignee = 7;
+  string order_id = 8; // the step must belong to this order, else NOT_FOUND
 }
 
 message DeleteWorkStepRequest {
   string tenant_id = 1;
   string step_id = 2;
+  string order_id = 3; // the step must belong to this order, else NOT_FOUND
 }
 
 message DeleteWorkStepResponse {}

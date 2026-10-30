@@ -203,9 +203,14 @@ func (s *ProduktionGRPCServer) UpdateWorkStep(ctx context.Context, req *produkti
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid step_id: %v", err)
 	}
+	orderID, err := uuid.Parse(req.GetOrderId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid order_id: %v", err)
+	}
 
 	input := produktion.UpdateWorkStepInput{
 		TenantID:    tenantID,
+		OrderID:     orderID,
 		StepID:      stepID,
 		Name:        req.Name,
 		Description: req.Description,
@@ -236,8 +241,12 @@ func (s *ProduktionGRPCServer) DeleteWorkStep(ctx context.Context, req *produkti
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid step_id: %v", err)
 	}
+	orderID, err := uuid.Parse(req.GetOrderId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid order_id: %v", err)
+	}
 
-	if err := s.svc.DeleteWorkStep(ctx, tenantID, stepID); err != nil {
+	if err := s.svc.DeleteWorkStep(ctx, tenantID, orderID, stepID); err != nil {
 		return nil, mapProduktionExtError(err)
 	}
 	return &produktionv1.DeleteWorkStepResponse{}, nil

@@ -237,6 +237,7 @@ func TestService_UpdateWorkStep(t *testing.T) {
 	newStatus := WorkStepStatusCompleted
 	updated, err := svc.UpdateWorkStep(context.Background(), UpdateWorkStepInput{
 		TenantID: tenantID,
+		OrderID:  created.OrderID,
 		StepID:   created.ID,
 		Status:   &newStatus,
 	})
@@ -246,15 +247,31 @@ func TestService_UpdateWorkStep(t *testing.T) {
 	t.Run("unknown step id", func(t *testing.T) {
 		_, err := svc.UpdateWorkStep(context.Background(), UpdateWorkStepInput{
 			TenantID: tenantID,
+			OrderID:  created.OrderID,
 			StepID:   uuid.New(),
 		})
 		assert.ErrorIs(t, err, ErrWorkStepNotFound)
+	})
+
+	t.Run("step under a foreign order is not found and stays untouched", func(t *testing.T) {
+		pending := WorkStepStatusPending
+		_, err := svc.UpdateWorkStep(context.Background(), UpdateWorkStepInput{
+			TenantID: tenantID,
+			OrderID:  uuid.New(),
+			StepID:   created.ID,
+			Status:   &pending,
+		})
+		assert.ErrorIs(t, err, ErrWorkStepNotFound)
+		got, err := repo.GetWorkStep(context.Background(), tenantID, created.ID)
+		require.NoError(t, err)
+		assert.Equal(t, WorkStepStatusCompleted, got.Status)
 	})
 
 	t.Run("empty name rejected", func(t *testing.T) {
 		blank := "  "
 		_, err := svc.UpdateWorkStep(context.Background(), UpdateWorkStepInput{
 			TenantID: tenantID,
+			OrderID:  created.OrderID,
 			StepID:   created.ID,
 			Name:     &blank,
 		})
@@ -274,7 +291,12 @@ func TestService_DeleteWorkStep(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, svc.DeleteWorkStep(context.Background(), tenantID, created.ID))
+	err = svc.DeleteWorkStep(context.Background(), tenantID, uuid.New(), created.ID)
+	assert.ErrorIs(t, err, ErrWorkStepNotFound, "a step under a foreign order must not be deleted")
+	_, err = repo.GetWorkStep(context.Background(), tenantID, created.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, svc.DeleteWorkStep(context.Background(), tenantID, created.OrderID, created.ID))
 
 	_, err = repo.GetWorkStep(context.Background(), tenantID, created.ID)
 	assert.ErrorIs(t, err, ErrWorkStepNotFound)
@@ -284,7 +306,7 @@ func TestService_DeleteWorkStep_NotFound(t *testing.T) {
 	repo := newMockRepository()
 	svc := NewService(repo)
 
-	err := svc.DeleteWorkStep(context.Background(), uuid.New(), uuid.New())
+	err := svc.DeleteWorkStep(context.Background(), uuid.New(), uuid.New(), uuid.New())
 	assert.ErrorIs(t, err, ErrWorkStepNotFound)
 }
 

@@ -751,6 +751,14 @@ func TestProduktion_ValidationPaths(t *testing.T) {
 			_, err := srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: validTenant, StepId: badID})
 			return err
 		}},
+		{"UpdateWorkStep/order_id", func() error {
+			_, err := srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: validTenant, StepId: validTenant, OrderId: badID})
+			return err
+		}},
+		{"DeleteWorkStep/order_id", func() error {
+			_, err := srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: validTenant, StepId: validTenant, OrderId: badID})
+			return err
+		}},
 		{"DeleteWorkStep/tenant_id", func() error {
 			_, err := srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: badID})
 			return err
@@ -1305,17 +1313,17 @@ func TestProduktion_WorkStep_CreateUpdateListDelete(t *testing.T) {
 	assert.EqualValues(t, 1, listResp.Total)
 
 	newStatus := "completed"
-	updResp, err := srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: tenantID, StepId: createResp.Step.Id, Status: &newStatus})
+	updResp, err := srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: tenantID, OrderId: orderID, StepId: createResp.Step.Id, Status: &newStatus})
 	require.NoError(t, err)
 	assert.Equal(t, "completed", updResp.Step.Status)
 
-	_, err = srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: tenantID, StepId: uuid.New().String()})
+	_, err = srv.UpdateWorkStep(ctx, &produktionv1.UpdateWorkStepRequest{TenantId: tenantID, OrderId: orderID, StepId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 
-	_, err = srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: tenantID, StepId: createResp.Step.Id})
+	_, err = srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: tenantID, OrderId: orderID, StepId: createResp.Step.Id})
 	require.NoError(t, err)
 
-	_, err = srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: tenantID, StepId: uuid.New().String()})
+	_, err = srv.DeleteWorkStep(ctx, &produktionv1.DeleteWorkStepRequest{TenantId: tenantID, OrderId: orderID, StepId: uuid.New().String()})
 	requireGRPCCode(t, err, codes.NotFound)
 }
 

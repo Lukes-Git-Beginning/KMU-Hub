@@ -65,6 +65,7 @@ type CreateWorkStepInput struct {
 
 type UpdateWorkStepInput struct {
 	TenantID        uuid.UUID
+	OrderID         uuid.UUID // the order the caller addressed; the step must belong to it
 	StepID          uuid.UUID
 	Name            *string
 	Description     *string
@@ -278,6 +279,9 @@ func (s *Service) UpdateWorkStep(ctx context.Context, input UpdateWorkStepInput)
 	if err != nil {
 		return nil, err
 	}
+	if step.OrderID != input.OrderID {
+		return nil, ErrWorkStepNotFound
+	}
 
 	if input.Name != nil {
 		name := strings.TrimSpace(*input.Name)
@@ -312,9 +316,13 @@ func (s *Service) ListWorkSteps(ctx context.Context, tenantID, orderID uuid.UUID
 	return s.repo.ListWorkSteps(ctx, tenantID, orderID)
 }
 
-func (s *Service) DeleteWorkStep(ctx context.Context, tenantID, stepID uuid.UUID) error {
-	if _, err := s.repo.GetWorkStep(ctx, tenantID, stepID); err != nil {
+func (s *Service) DeleteWorkStep(ctx context.Context, tenantID, orderID, stepID uuid.UUID) error {
+	step, err := s.repo.GetWorkStep(ctx, tenantID, stepID)
+	if err != nil {
 		return err
+	}
+	if step.OrderID != orderID {
+		return ErrWorkStepNotFound
 	}
 	if delErr := s.repo.DeleteWorkStep(ctx, tenantID, stepID); delErr != nil {
 		return fmt.Errorf("delete work step: %w", delErr)

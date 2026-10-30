@@ -207,12 +207,12 @@ func TestProduktionMemberFlow(t *testing.T) {
 			}
 		}
 
-		// A step id from another order does not resolve under this order.
+		// A step id from another order does not resolve under this order. PATCH needs workstep:edit (member), DELETE workstep:write (admin).
 		other := newOrder(t, managerToken, "S")
 		resp, body = putPatch(t, prod+"/orders/"+other+"/steps/"+stepB, map[string]interface{}{"status": "in_progress"}, memberAToken)
-		if resp.StatusCode == http.StatusOK {
-			t.Logf("IST: step %s accepted under foreign order %s (no order/step cross-check): %s", stepB, other, string(body))
-		}
+		requireStatus(t, resp, body, http.StatusNotFound)
+		resp, body = deleteJSON(t, prod+"/orders/"+other+"/steps/"+stepB, adminToken)
+		requireStatus(t, resp, body, http.StatusNotFound)
 	})
 
 	t.Run("member: starts and completes the order, files a quality check", func(t *testing.T) {

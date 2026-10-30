@@ -221,3 +221,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `GET /helpdesk/tickets/{id}/sla-status` -> `api/hooks/useHelpdesk.ts:126` (`useSlaStatus`) -> Antwortform unverändert (`status`), ein Member sieht nur noch bei eigenen Tickets einen Wert, bei fremden 404; kein Bruch, da die Detailansicht fremde Tickets ohnehin nicht öffnet
 - offen: Verhaltensänderung: member (scope own) bekommt für fremde Ticket-IDs 404 statt Status. Keine weiteren Aufrufer von `Service.GetSLAStatus` im Repo (grep).
+
+## Iteration 15 — fix-produktion-workstep-order-path-check — done — 2026-10-30 01:15
+- commit: siehe Commit `fix(produktion): reject a work step that does not belong to the order in the path` (git log)
+- gebaut: `UpdateWorkStepRequest.order_id` (Feld 8) und `DeleteWorkStepRequest.order_id` (Feld 3), Proto samt `.pb.go` regeneriert (`protoc` direkt, es gibt kein Make-Target für produktion). Gateway liest `{orderId}` und reicht ihn durch, der gRPC-Server parst ihn (leer/ungültig -> InvalidArgument), `Service.UpdateWorkStep`/`DeleteWorkStep` liefern bei abweichendem `step.OrderID` `ErrWorkStepNotFound` (404), ohne zu schreiben. E2E-Zeile `IST: step ... accepted under foreign order` ist zur Erwartung geworden (PATCH als member 404, DELETE als admin 404).
+- gate: build ok | vet ok (produktion, server, gateway, `-tags=e2e` test/e2e) | lint ok (0 issues) | test ok (internal/produktion/... 136 PASS/0 SKIP als kmuhub_app, internal/server, internal/gateway inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestProduktion`, ~4 min inkl. Build)
+- coverage: internal/produktion 79,1 % (vorher nicht separat gemessen, kein Coverage-Ziel)
+- mutations-probe: 2 Proben, beide rot, zurückgedreht (cmp gegen Backup): Update-Prüfung `if false && …` -> Subtest „step under a foreign order is not found and stays untouched" rot; Delete-Prüfung ebenso -> `TestService_DeleteWorkStep` rot. Gateway-Durchreichung nur vom E2E-Subtest gedeckt, nicht separat mutiert.
+- verify vorgaenger: sauber (Commit `b5ed187f`: Proto samt `.pb.go` regeneriert, keine neue Route, kein neuer Guard, keine Tabelle; Spec dokumentiert 404)
+- neue-units: keine
+- desktop-aufrufer: `PATCH/DELETE /produktion/orders/{orderId}/steps/{stepId}` -> `api/produktion-client.ts:248,257` (`updateWorkStep(orderId, stepId, …)`, `deleteWorkStep(orderId, stepId)`) sendet immer das zusammengehörige Paar -> passt; Antwortform unverändert
+- offen: (1) Verhaltensänderung: ein Schritt unter fremdem Auftrag ergibt 404 statt 200/204. (2) Der gRPC-Vertrag verlangt `order_id` jetzt (InvalidArgument bei leer) — Gateway und Server deployen zusammen, kein weiterer Aufrufer im Repo (grep). (3) `member` hat kein `workstep:write`, DELETE ist admin-only; der E2E-Delete-Fall läuft deshalb als admin.

@@ -375,6 +375,10 @@ func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.
 		return
 	}
 
+	orderID, ok := validateUUIDParam(w, r, "orderId")
+	if !ok {
+		return
+	}
 	stepID, ok := validateUUIDParam(w, r, "stepId")
 	if !ok {
 		return
@@ -394,6 +398,7 @@ func (pr *ProduktionRoutes) HandleUpdateWorkStep(w http.ResponseWriter, r *http.
 
 	resp, err := client.UpdateWorkStep(r.Context(), &produktionv1.UpdateWorkStepRequest{
 		TenantId:        tenantID.String(),
+		OrderId:         orderID,
 		StepId:          stepID,
 		Name:            req.Name,
 		Description:     req.Description,
@@ -420,6 +425,10 @@ func (pr *ProduktionRoutes) HandleDeleteWorkStep(w http.ResponseWriter, r *http.
 		return
 	}
 
+	orderID, ok := validateUUIDParam(w, r, "orderId")
+	if !ok {
+		return
+	}
 	stepID, ok := validateUUIDParam(w, r, "stepId")
 	if !ok {
 		return
@@ -427,6 +436,7 @@ func (pr *ProduktionRoutes) HandleDeleteWorkStep(w http.ResponseWriter, r *http.
 
 	_, err = client.DeleteWorkStep(r.Context(), &produktionv1.DeleteWorkStepRequest{
 		TenantId: tenantID.String(),
+		OrderId:  orderID,
 		StepId:   stepID,
 	})
 	if err != nil {

@@ -621,7 +621,7 @@ units:
     service: produktion
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: PATCH/DELETE /orders/{orderId}/steps/{stepId} lehnt einen Schritt ab, der nicht zu {orderId} gehört
     coverage_start: n.a.
     scope: >

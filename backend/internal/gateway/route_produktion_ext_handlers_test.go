@@ -175,6 +175,7 @@ func TestHandleUpdateWorkStep_ServiceUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/v1/produktion/orders/"+testOrderID+"/steps/"+testStepID, jsonBody(t, map[string]interface{}{}))
 	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", testOrderID)
 	req = withChiURLParam(req, "stepId", testStepID)
 	routes.HandleUpdateWorkStep(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
@@ -185,6 +186,7 @@ func TestHandleUpdateWorkStep_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/v1/produktion/orders/"+testOrderID+"/steps/bad", jsonBody(t, map[string]interface{}{}))
 	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", testOrderID)
 	req = withChiURLParam(req, "stepId", "not-a-uuid")
 	routes.HandleUpdateWorkStep(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
@@ -196,6 +198,7 @@ func TestHandleUpdateWorkStep_InvalidJSON(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PATCH", "/api/v1/produktion/orders/"+testOrderID+"/steps/"+testStepID, invalidJSON())
 	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", testOrderID)
 	req = withChiURLParam(req, "stepId", testStepID)
 	routes.HandleUpdateWorkStep(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
@@ -207,6 +210,7 @@ func TestHandleDeleteWorkStep_ServiceUnavailable(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/v1/produktion/orders/"+testOrderID+"/steps/"+testStepID, nil)
 	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", testOrderID)
 	req = withChiURLParam(req, "stepId", testStepID)
 	routes.HandleDeleteWorkStep(rec, req)
 	assertStatus(t, rec, http.StatusServiceUnavailable)
@@ -217,10 +221,35 @@ func TestHandleDeleteWorkStep_InvalidUUID(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/api/v1/produktion/orders/"+testOrderID+"/steps/bad", nil)
 	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", testOrderID)
 	req = withChiURLParam(req, "stepId", "not-a-uuid")
 	routes.HandleDeleteWorkStep(rec, req)
 	assertStatus(t, rec, http.StatusBadRequest)
 	assertErrorContains(t, rec, "invalid stepId")
+}
+
+func TestHandleUpdateWorkStep_InvalidOrderUUID(t *testing.T) {
+	routes := newProduktionRoutes(registryWithService("produktion"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PATCH", "/api/v1/produktion/orders/bad/steps/"+testStepID, jsonBody(t, map[string]interface{}{}))
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", "not-a-uuid")
+	req = withChiURLParam(req, "stepId", testStepID)
+	routes.HandleUpdateWorkStep(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid orderId")
+}
+
+func TestHandleDeleteWorkStep_InvalidOrderUUID(t *testing.T) {
+	routes := newProduktionRoutes(registryWithService("produktion"))
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/api/v1/produktion/orders/bad/steps/"+testStepID, nil)
+	req = withAuth(req, "user-123", testTenantID)
+	req = withChiURLParam(req, "orderId", "not-a-uuid")
+	req = withChiURLParam(req, "stepId", testStepID)
+	routes.HandleDeleteWorkStep(rec, req)
+	assertStatus(t, rec, http.StatusBadRequest)
+	assertErrorContains(t, rec, "invalid orderId")
 }
 
 // --- Machines ---
