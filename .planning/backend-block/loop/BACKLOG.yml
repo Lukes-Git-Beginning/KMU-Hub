@@ -785,7 +785,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Leere Rapporte-Listen liefern `{"reports":[],"total":0}` statt `{}`
     coverage_start: n.a.
     scope: >

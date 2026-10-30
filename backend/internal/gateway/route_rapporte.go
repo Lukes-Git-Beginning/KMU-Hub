@@ -240,6 +240,12 @@ type rapporteUploadAttachmentRequest struct {
 // Report Handlers
 // ============================================================================
 
+// writeReportsList renders a report page as `{reports:[],total}`; Proto would drop an
+// empty `reports` and hand the client `{}`.
+func writeReportsList(w http.ResponseWriter, resp *rapportev1.ListReportsResponse) {
+	response.ProtoListWrapped(w, http.StatusOK, "reports", resp.GetReports(), map[string]any{"total": resp.GetTotal()})
+}
+
 func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantID(r.Context())
 	if err != nil {
@@ -280,7 +286,7 @@ func (rr *RapporteRoutes) HandleListReports(w http.ResponseWriter, r *http.Reque
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeReportsList(w, resp)
 }
 
 func (rr *RapporteRoutes) HandleCreateReport(w http.ResponseWriter, r *http.Request) {
@@ -608,7 +614,7 @@ func (rr *RapporteRoutes) HandleListLines(w http.ResponseWriter, r *http.Request
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoListWrapped(w, http.StatusOK, "lines", resp.GetLines(), map[string]any{"total": len(resp.GetLines())})
 }
 
 func (rr *RapporteRoutes) HandleAddLine(w http.ResponseWriter, r *http.Request) {
@@ -779,7 +785,7 @@ func (rr *RapporteRoutes) HandleListAttachments(w http.ResponseWriter, r *http.R
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoListWrapped(w, http.StatusOK, "attachments", resp.GetAttachments(), map[string]any{"total": len(resp.GetAttachments())})
 }
 
 func (rr *RapporteRoutes) HandleUploadAttachment(w http.ResponseWriter, r *http.Request) {
@@ -972,7 +978,7 @@ func (rr *RapporteRoutes) HandleListPendingApprovals(w http.ResponseWriter, r *h
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	writeReportsList(w, resp)
 }
 
 func (rr *RapporteRoutes) HandleExportPDF(w http.ResponseWriter, r *http.Request) {
@@ -1079,7 +1085,7 @@ func (rr *RapporteRoutes) HandleListMeasurements(w http.ResponseWriter, r *http.
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoListWrapped(w, http.StatusOK, "measurements", resp.GetMeasurements(), map[string]any{"total": resp.GetTotal()})
 }
 
 func (rr *RapporteRoutes) HandleCreateMeasurement(w http.ResponseWriter, r *http.Request) {
@@ -1353,7 +1359,7 @@ func (rr *RapporteRoutes) HandleListTemplates(w http.ResponseWriter, r *http.Req
 		respondGRPCError(w, err)
 		return
 	}
-	response.Proto(w, http.StatusOK, resp)
+	response.ProtoListWrapped(w, http.StatusOK, "templates", resp.GetTemplates(), map[string]any{"total": resp.GetTotal()})
 }
 
 func (rr *RapporteRoutes) HandleCreateTemplate(w http.ResponseWriter, r *http.Request) {

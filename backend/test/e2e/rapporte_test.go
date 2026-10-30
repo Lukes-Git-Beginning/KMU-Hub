@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -60,11 +61,14 @@ func TestRapporteMemberFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusOK)
 		var out reportList
 		decodeBody(t, body, &out)
-		// IST: an empty list is `{}` (protojson drops the empty repeated field), not `{"reports":[]}`.
-		// RapportePage reads `reportsData?.reports ?? []`, so no screen breaks; see
-		// fix-rapporte-empty-list-wire-shape. `null` would be a real break and is refused.
-		if strings.TrimSpace(string(body)) == "null" {
-			t.Fatalf("a report list must never be null, got %s", string(body))
+		// An empty list is `{"reports":[],"total":0}`, never `{}` and never `null`.
+		var raw map[string]json.RawMessage
+		decodeBody(t, body, &raw)
+		if got := strings.TrimSpace(string(raw["reports"])); !strings.HasPrefix(got, "[") {
+			t.Fatalf("reports must be an array, got %q in %s", got, string(body))
+		}
+		if _, ok := raw["total"]; !ok {
+			t.Fatalf("total missing in %s", string(body))
 		}
 		for _, r := range out.Reports {
 			if r["id"] == id {

@@ -276,3 +276,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `POST /public/formulare/submit/{token}` -> kein Desktop-Aufrufer (nur generierte `api/types.ts`, die Ausfüllseite fehlt) -> passt
 - offen: (1) Entscheidung: leeres Objekt `{}` ist weiter 201 (wie zuvor Base64 `e30=`); der Service lehnt nur 0 Byte ab. (2) Verhaltensänderung: ein Plain-String ohne Base64-Objekt, der zuvor als 400 `invalid request body` kam, kommt jetzt als 400 `answers must be a JSON object`. (3) `e2e-local.sh` erkennt veraltete Binaries nur an `git status`-Dateinamen, nicht am Inhalt: nach einer Änderung an einer bereits geänderten Datei baut es nicht neu (hier unschädlich, Binary entsprach dem Endstand).
+
+## Iteration 20 — fix-rapporte-empty-list-wire-shape — done — 2026-10-30 02:02
+- commit: siehe Commit `fix(rapporte): answer an empty list as a wrapped array` (git log)
+- gebaut: sechs Listen-Handler (`/reports`, `/pending`, `/reports/{id}/lines`, `/attachments`, `/measurements`, `/templates`) schreiben über `response.ProtoListWrapped` mit `total` statt über `response.Proto`: leere Liste ist `{"<key>":[],"total":0}` statt `{}`. Die Messungen standen nicht in der Unit, haben aber denselben Fehler. Item-Encoding bleibt protojson wie zuvor. E2E: der IST-Kommentar in `TestRapporteMemberFlow` ist Erwartung (Array + `total` vorhanden).
+- gate: build ok | vet ok (gateway, `-tags=e2e` test/e2e) | lint ok (0 issues) | test ok (internal/gateway inkl. TestOpenAPIRouteDrift) | migration n.a. | rls-smoke n.a. | e2e ok (lokal, `TestRapporteMemberFlow`, ~4 min inkl. Build)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: `/templates` zurück auf `response.Proto` -> `TestRapporteRoutes_EmptyListsAreWrappedArrays//templates` rot, zurückgedreht (cmp gegen Backup, Diff sauber).
+- verify vorgaenger: sauber (Commit `7433497b`: kein Proto, keine Route, kein Guard, keine Tabelle; Handler läuft über gRPC-Client, Tests mit Mutationsprobe)
+- neue-units: keine
+- desktop-aufrufer: `GET /rapporte/reports`, `/pending`, `/reports/{id}/lines`, `/attachments` -> `api/rapporte-client.ts` (`listReports`, `listPendingApprovals`, `listLines`, `listAttachments`), Typen `reports|lines|attachments` + `total` -> passt (`lines`/`attachments` liefern jetzt zusätzlich `total`, vom FE ignoriert); `/templates` und `/measurements` ohne Desktop-Aufrufer im Client
+- offen: (1) `ListLinesResponse`/`ListAttachmentsResponse` tragen kein `total` im Proto; der Gateway setzt `len(items)`. (2) Weitere `response.Proto`-Listen anderer Module fängt `scan-empty-list-wire-shape-protojson` (Block C).
