@@ -739,20 +739,38 @@ func (r *PostgresRepository) CreateTripLog(ctx context.Context, log TripLog) (Tr
 }
 
 func (r *PostgresRepository) UpdateTripLog(ctx context.Context, log TripLog) (TripLog, error) {
-	if log.EndKm < log.StartKm {
+	if log.Fields.Has(TripLogStartKm|TripLogEndKm) && log.EndKm < log.StartKm {
 		return TripLog{}, ErrInvalidInput
 	}
 	log.UpdatedAt = time.Now()
-	ct, err := r.pool.Exec(ctx, `
-		UPDATE trip_logs SET
-			date=$3, start_location=$4, end_location=$5, purpose=$6,
-			start_km=$7, end_km=$8, is_private=$9, driver_name=$10, business_partner=$11, notes=$12, updated_at=$13,
-			driver_user_id = CASE WHEN $14 THEN $15::uuid ELSE driver_user_id END
-		WHERE id=$1 AND tenant_id=$2`,
-		log.ID, log.TenantID, log.Date, log.StartLocation, log.EndLocation,
-		log.Purpose, log.StartKm, log.EndKm, log.IsPrivate, log.DriverName,
-		log.BusinessPartner, log.Notes, log.UpdatedAt, log.DriverUserIDSet, log.DriverUserID)
+	// Only the named columns are written; the rest keep their stored values, so a PATCH with
+	// one field cannot blank the others. The km check runs against the stored row via the
+	// trip_logs_km_range_check constraint.
+	sets, args := []string{"updated_at=$3"}, []any{log.ID, log.TenantID, log.UpdatedAt}
+	set := func(f TripLogFields, col string, v any) {
+		if log.Fields.Has(f) {
+			args = append(args, v)
+			sets = append(sets, fmt.Sprintf("%s=$%d", col, len(args)))
+		}
+	}
+	set(TripLogDate, "date", log.Date)
+	set(TripLogStartLocation, "start_location", log.StartLocation)
+	set(TripLogEndLocation, "end_location", log.EndLocation)
+	set(TripLogPurpose, "purpose", log.Purpose)
+	set(TripLogStartKm, "start_km", log.StartKm)
+	set(TripLogEndKm, "end_km", log.EndKm)
+	set(TripLogIsPrivate, "is_private", log.IsPrivate)
+	set(TripLogDriverName, "driver_name", log.DriverName)
+	set(TripLogBusinessPartner, "business_partner", log.BusinessPartner)
+	set(TripLogNotes, "notes", log.Notes)
+	set(TripLogDriverUser, "driver_user_id", log.DriverUserID)
+	ct, err := r.pool.Exec(ctx,
+		"UPDATE trip_logs SET "+strings.Join(sets, ", ")+" WHERE id=$1 AND tenant_id=$2", args...)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgErrCodeCheckViolation {
+			return TripLog{}, ErrInvalidInput
+		}
 		return TripLog{}, err
 	}
 	if ct.RowsAffected() == 0 {
@@ -1333,6 +1351,9 @@ const activeBookingStatusSQL = `('booked', 'in_use')`
 //
 // Placeholders are fixed at $3 = startsAt, $4 = endsAt in both callers.
 const bookingOverlapPredicate = `starts_at < $4 AND ends_at > $3`
+
+// pgErrCodeCheckViolation is raised by trip_logs_km_range_check (000193).
+const pgErrCodeCheckViolation = "23514"
 
 // pgErrCodeExclusionViolation is raised by the vehicle_bookings_no_overlap constraint (000329).
 const pgErrCodeExclusionViolation = "23P01"

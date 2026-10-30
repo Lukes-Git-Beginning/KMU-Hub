@@ -502,6 +502,7 @@ func TestTripLogs_ListUpdateDeleteAndInvalidKmGuard(t *testing.T) {
 	t.Run("UpdateTripLog is tenant scoped and rejects end_km below start_km", func(t *testing.T) {
 		updated := log1
 		updated.Purpose = "Nachtermin"
+		updated.Fields = TripLogAllFields
 		saved, err := repo.UpdateTripLog(ctxA, updated)
 		if err != nil {
 			t.Fatalf("UpdateTripLog: %v", err)
@@ -512,6 +513,7 @@ func TestTripLogs_ListUpdateDeleteAndInvalidKmGuard(t *testing.T) {
 
 		invalid := log1
 		invalid.EndKm = log1.StartKm - 1
+		invalid.Fields = TripLogAllFields
 		if _, err := repo.UpdateTripLog(ctxA, invalid); !errors.Is(err, ErrInvalidInput) {
 			t.Fatalf("expected ErrInvalidInput for end_km < start_km, got %v", err)
 		}
@@ -519,8 +521,51 @@ func TestTripLogs_ListUpdateDeleteAndInvalidKmGuard(t *testing.T) {
 		wrongTenant := log1
 		wrongTenant.TenantID = tenantB
 		wrongTenant.Purpose = "Should not land"
+		wrongTenant.Fields = TripLogAllFields
 		if _, err := repo.UpdateTripLog(ctxB, wrongTenant); !errors.Is(err, ErrTripLogNotFound) {
 			t.Fatalf("expected ErrTripLogNotFound updating under the wrong tenant, got %v", err)
+		}
+	})
+
+	t.Run("UpdateTripLog writes only the named fields", func(t *testing.T) {
+		kept, err := repo.CreateTripLog(ctxA, TripLog{
+			TenantID: tenantA, VehicleID: vehicle1.ID, Date: today,
+			StartLocation: "Privat A", EndLocation: "Privat B", Purpose: "",
+			StartKm: 2000, EndKm: 2010, IsPrivate: true, DriverName: "Max Mustermann",
+			BusinessPartner: "Partner GmbH", Notes: "Notiz",
+		})
+		if err != nil {
+			t.Fatalf("CreateTripLog: %v", err)
+		}
+		t.Cleanup(func() { testutil.CleanupRow(t, pool, "trip_logs", kept.ID) })
+
+		got, err := repo.UpdateTripLog(ctxA, TripLog{
+			ID: kept.ID, TenantID: tenantA, Purpose: "nur der Zweck", Fields: TripLogPurpose,
+		})
+		if err != nil {
+			t.Fatalf("UpdateTripLog: %v", err)
+		}
+		want := kept
+		want.Purpose, want.UpdatedAt = "nur der Zweck", got.UpdatedAt
+		if !got.Date.Equal(kept.Date) {
+			t.Fatalf("date must stay %v, got %v", kept.Date, got.Date)
+		}
+		got.Date, want.Date = time.Time{}, time.Time{}
+		if got != want {
+			t.Fatalf("only the purpose may change: got %+v, want %+v", got, want)
+		}
+
+		// A lone end_km below the STORED start_km is refused by the row constraint.
+		if _, err := repo.UpdateTripLog(ctxA, TripLog{
+			ID: kept.ID, TenantID: tenantA, EndKm: 1999, Fields: TripLogEndKm,
+		}); !errors.Is(err, ErrInvalidInput) {
+			t.Fatalf("expected ErrInvalidInput for end_km below the stored start_km, got %v", err)
+		}
+		// A lone start_km is not compared against the zero value of the unsent end_km.
+		if _, err := repo.UpdateTripLog(ctxA, TripLog{
+			ID: kept.ID, TenantID: tenantA, StartKm: 2005, Fields: TripLogStartKm,
+		}); err != nil {
+			t.Fatalf("a lone start_km within the stored end_km must pass, got %v", err)
 		}
 	})
 

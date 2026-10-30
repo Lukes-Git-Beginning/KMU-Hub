@@ -117,6 +117,31 @@ type FuelLog struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// TripLogFields is the set of trip log columns an update writes.
+type TripLogFields uint16
+
+const (
+	TripLogDate TripLogFields = 1 << iota
+	TripLogStartLocation
+	TripLogEndLocation
+	TripLogPurpose
+	TripLogStartKm
+	TripLogEndKm
+	TripLogIsPrivate
+	TripLogDriverName
+	TripLogBusinessPartner
+	TripLogNotes
+	TripLogDriverUser
+)
+
+// TripLogAllFields writes every column, the shape of a full replacement.
+const TripLogAllFields = TripLogDate | TripLogStartLocation | TripLogEndLocation | TripLogPurpose |
+	TripLogStartKm | TripLogEndKm | TripLogIsPrivate | TripLogDriverName |
+	TripLogBusinessPartner | TripLogNotes | TripLogDriverUser
+
+// Has reports whether every column in f is part of the set.
+func (s TripLogFields) Has(f TripLogFields) bool { return s&f == f }
+
 // TripLog represents a single trip/logbook entry.
 type TripLog struct {
 	ID               uuid.UUID `json:"id"`
@@ -135,9 +160,10 @@ type TripLog struct {
 	Notes            string    `json:"notes"`
 	// DriverUserID links the entry to the driver's account; nil for an external driver.
 	DriverUserID *uuid.UUID `json:"driver_user_id"`
-	// DriverUserIDSet is read by UpdateTripLog only: false keeps the stored link, true
-	// writes DriverUserID (nil clears it).
-	DriverUserIDSet bool      `json:"-"`
+	// Fields is read by UpdateTripLog only: it names the columns the caller sent. A column
+	// that is not named keeps its stored value; TripLogDriverUser with a nil DriverUserID
+	// clears the link.
+	Fields TripLogFields `json:"-"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }

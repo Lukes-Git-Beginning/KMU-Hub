@@ -20702,6 +20702,7 @@ paths:
   /api/v1/fuhrpark/trip-logs/{id}:
     patch:
       summary: Update a trip log entry
+      description: Partial update. Only the fields in the body are written; omitted fields keep their stored value. An end_km below the stored start_km (or the reverse) and a date that is not YYYY-MM-DD are 400.
       tags: [fuhrpark]
       operationId: updateTripLog
       security: [{ bearerAuth: [] }]

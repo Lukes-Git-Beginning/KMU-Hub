@@ -797,7 +797,7 @@ func (s *Service) UpdateTripLog(ctx context.Context, req TripLog) (TripLog, erro
 	if req.ID == (uuid.UUID{}) {
 		return TripLog{}, ErrInvalidInput
 	}
-	if req.DriverUserIDSet {
+	if req.Fields.Has(TripLogDriverUser) {
 		if err := s.resolveTripDriver(ctx, &req); err != nil {
 			return TripLog{}, err
 		}
@@ -819,7 +819,8 @@ func (s *Service) resolveTripDriver(ctx context.Context, log *TripLog) error {
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(log.DriverName) == "" {
+	// An update that does not send driver_name keeps the stored one.
+	if strings.TrimSpace(log.DriverName) == "" && (log.Fields == 0 || log.Fields.Has(TripLogDriverName)) {
 		log.DriverName = name
 	}
 	return nil

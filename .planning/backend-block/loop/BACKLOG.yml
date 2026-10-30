@@ -538,7 +538,7 @@ units:
     service: fuhrpark
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: PATCH eines Fahrtenbuch-Eintrags überschreibt nur noch die gesendeten Felder
     coverage_start: n.a.
     scope: >

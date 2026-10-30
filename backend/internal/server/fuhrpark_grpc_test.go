@@ -35,6 +35,7 @@ type stubFuhrparkRepo struct {
 	lastRoutesParams     fuhrpark.GetVehicleRoutesParams
 	lastGpsParams        fuhrpark.GetGpsPositionsParams
 	lastBookingCreatedBy *uuid.UUID
+	lastTripLogUpdate    fuhrpark.TripLog
 
 	gpsPositions []fuhrpark.GpsPosition
 	routes       []fuhrpark.VehicleRouteAggregation
@@ -208,6 +209,7 @@ func (r *stubFuhrparkRepo) CreateTripLog(_ context.Context, log fuhrpark.TripLog
 }
 
 func (r *stubFuhrparkRepo) UpdateTripLog(_ context.Context, log fuhrpark.TripLog) (fuhrpark.TripLog, error) {
+	r.lastTripLogUpdate = log
 	if r.err != nil {
 		return fuhrpark.TripLog{}, r.err
 	}
@@ -1009,6 +1011,35 @@ func TestFuhrparkTripLogHandlers(t *testing.T) {
 		_, err := s.CreateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.CreateTripLogRequest{VehicleId: vehicleID.String(), DriverUserId: &bad})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 		_, err = s.UpdateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateTripLogRequest{Id: logID.String(), DriverUserId: &bad})
+		requireGRPCCode(t, err, codes.InvalidArgument)
+	})
+
+	t.Run("UpdateTripLog hands only the sent fields to the service", func(t *testing.T) {
+		repo := newStubFuhrparkRepo()
+		s := newFuhrparkTestServer(repo)
+		purpose, empty := "nur der Zweck", ""
+		if _, err := s.UpdateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateTripLogRequest{
+			Id: logID.String(), Purpose: &purpose,
+		}); err != nil {
+			t.Fatalf("UpdateTripLog: %v", err)
+		}
+		if got := repo.lastTripLogUpdate.Fields; got != fuhrpark.TripLogPurpose {
+			t.Fatalf("expected only the purpose to be written, got fields %b", got)
+		}
+
+		// A sent empty value is a write, not an omission.
+		isPrivate := false
+		if _, err := s.UpdateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateTripLogRequest{
+			Id: logID.String(), StartLocation: &empty, IsPrivate: &isPrivate,
+		}); err != nil {
+			t.Fatalf("UpdateTripLog: %v", err)
+		}
+		if got, want := repo.lastTripLogUpdate.Fields, fuhrpark.TripLogStartLocation|fuhrpark.TripLogIsPrivate; got != want {
+			t.Fatalf("expected fields %b, got %b", want, got)
+		}
+
+		bad := "31.12.2026"
+		_, err := s.UpdateTripLog(fuhrparkCtxWithTenant(tenantID), &fuhrparkv1.UpdateTripLogRequest{Id: logID.String(), Date: &bad})
 		requireGRPCCode(t, err, codes.InvalidArgument)
 	})
 

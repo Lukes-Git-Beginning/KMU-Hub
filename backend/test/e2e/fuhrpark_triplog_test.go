@@ -50,6 +50,7 @@ func TestFuhrparkTripLogPrivateMaskingFlow(t *testing.T) {
 	type trip struct {
 		ID            string `json:"id"`
 		VehicleID     string `json:"vehicle_id"`
+		Date          string `json:"date"`
 		StartLocation string `json:"start_location"`
 		EndLocation   string `json:"end_location"`
 		Purpose       string `json:"purpose"`
@@ -302,11 +303,7 @@ func TestFuhrparkTripLogPrivateMaskingFlow(t *testing.T) {
 		requireStatus(t, resp, body, http.StatusBadRequest)
 	})
 
-	t.Run("IST: a partial PATCH of a trip log overwrites every field it does not send", func(t *testing.T) {
-		// UpdateTripLogRequest is all-optional and the body says PATCH, but the repository writes
-		// every column: sending only the purpose blanks the locations and km, resets the date and
-		// flips is_private back to false. Pinned as IST on a throwaway trip; the fix is
-		// fix-fuhrpark-trip-log-partial-patch-overwrites-row. Flip the expectations then.
+	t.Run("a partial PATCH of a trip log keeps every field it does not send", func(t *testing.T) {
 		id := create(t, driverToken, map[string]interface{}{
 			"vehicle_id": vehicleID, "date": today,
 			"start_location": secretStart, "end_location": secretEnd, "purpose": "",
@@ -321,8 +318,9 @@ func TestFuhrparkTripLogPrivateMaskingFlow(t *testing.T) {
 		if out.TripLog.Purpose != "nur der Zweck" {
 			t.Fatalf("the sent field must be stored, got %s", string(body))
 		}
-		if out.TripLog.StartLocation != "" || out.TripLog.IsPrivate {
-			t.Fatalf("IST changed: the partial PATCH keeps unsent fields now (%s) -- flip this subtest and close the fix unit", string(body))
+		if out.TripLog.StartLocation != secretStart || out.TripLog.EndLocation != secretEnd || !out.TripLog.IsPrivate ||
+			out.TripLog.Date != today || out.TripLog.DriverName != "E2E Fahrer" {
+			t.Fatalf("the partial PATCH must keep every unsent field, got %s", string(body))
 		}
 	})
 }

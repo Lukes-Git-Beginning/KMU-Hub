@@ -3628,18 +3628,19 @@ func (x *CreateTripLogResponse) GetTripLog() *TripLog {
 }
 
 type UpdateTripLogRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Date            string                 `protobuf:"bytes,2,opt,name=date,proto3" json:"date,omitempty"`
-	StartLocation   string                 `protobuf:"bytes,3,opt,name=start_location,json=startLocation,proto3" json:"start_location,omitempty"`
-	EndLocation     string                 `protobuf:"bytes,4,opt,name=end_location,json=endLocation,proto3" json:"end_location,omitempty"`
-	Purpose         string                 `protobuf:"bytes,5,opt,name=purpose,proto3" json:"purpose,omitempty"`
-	StartKm         int64                  `protobuf:"varint,6,opt,name=start_km,json=startKm,proto3" json:"start_km,omitempty"`
-	EndKm           int64                  `protobuf:"varint,7,opt,name=end_km,json=endKm,proto3" json:"end_km,omitempty"`
-	IsPrivate       bool                   `protobuf:"varint,8,opt,name=is_private,json=isPrivate,proto3" json:"is_private,omitempty"`
-	DriverName      string                 `protobuf:"bytes,9,opt,name=driver_name,json=driverName,proto3" json:"driver_name,omitempty"`
-	Notes           string                 `protobuf:"bytes,10,opt,name=notes,proto3" json:"notes,omitempty"`
-	BusinessPartner string                 `protobuf:"bytes,11,opt,name=business_partner,json=businessPartner,proto3" json:"business_partner,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// every field below: unset keeps the stored value, set writes it (a PATCH, not a PUT)
+	Date            *string `protobuf:"bytes,2,opt,name=date,proto3,oneof" json:"date,omitempty"`
+	StartLocation   *string `protobuf:"bytes,3,opt,name=start_location,json=startLocation,proto3,oneof" json:"start_location,omitempty"`
+	EndLocation     *string `protobuf:"bytes,4,opt,name=end_location,json=endLocation,proto3,oneof" json:"end_location,omitempty"`
+	Purpose         *string `protobuf:"bytes,5,opt,name=purpose,proto3,oneof" json:"purpose,omitempty"`
+	StartKm         *int64  `protobuf:"varint,6,opt,name=start_km,json=startKm,proto3,oneof" json:"start_km,omitempty"`
+	EndKm           *int64  `protobuf:"varint,7,opt,name=end_km,json=endKm,proto3,oneof" json:"end_km,omitempty"`
+	IsPrivate       *bool   `protobuf:"varint,8,opt,name=is_private,json=isPrivate,proto3,oneof" json:"is_private,omitempty"`
+	DriverName      *string `protobuf:"bytes,9,opt,name=driver_name,json=driverName,proto3,oneof" json:"driver_name,omitempty"`
+	Notes           *string `protobuf:"bytes,10,opt,name=notes,proto3,oneof" json:"notes,omitempty"`
+	BusinessPartner *string `protobuf:"bytes,11,opt,name=business_partner,json=businessPartner,proto3,oneof" json:"business_partner,omitempty"`
 	// unset keeps the stored link, "" clears it, a user id replaces it
 	DriverUserId  *string `protobuf:"bytes,12,opt,name=driver_user_id,json=driverUserId,proto3,oneof" json:"driver_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3684,71 +3685,71 @@ func (x *UpdateTripLogRequest) GetId() string {
 }
 
 func (x *UpdateTripLogRequest) GetDate() string {
-	if x != nil {
-		return x.Date
+	if x != nil && x.Date != nil {
+		return *x.Date
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetStartLocation() string {
-	if x != nil {
-		return x.StartLocation
+	if x != nil && x.StartLocation != nil {
+		return *x.StartLocation
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetEndLocation() string {
-	if x != nil {
-		return x.EndLocation
+	if x != nil && x.EndLocation != nil {
+		return *x.EndLocation
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetPurpose() string {
-	if x != nil {
-		return x.Purpose
+	if x != nil && x.Purpose != nil {
+		return *x.Purpose
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetStartKm() int64 {
-	if x != nil {
-		return x.StartKm
+	if x != nil && x.StartKm != nil {
+		return *x.StartKm
 	}
 	return 0
 }
 
 func (x *UpdateTripLogRequest) GetEndKm() int64 {
-	if x != nil {
-		return x.EndKm
+	if x != nil && x.EndKm != nil {
+		return *x.EndKm
 	}
 	return 0
 }
 
 func (x *UpdateTripLogRequest) GetIsPrivate() bool {
-	if x != nil {
-		return x.IsPrivate
+	if x != nil && x.IsPrivate != nil {
+		return *x.IsPrivate
 	}
 	return false
 }
 
 func (x *UpdateTripLogRequest) GetDriverName() string {
-	if x != nil {
-		return x.DriverName
+	if x != nil && x.DriverName != nil {
+		return *x.DriverName
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetNotes() string {
-	if x != nil {
-		return x.Notes
+	if x != nil && x.Notes != nil {
+		return *x.Notes
 	}
 	return ""
 }
 
 func (x *UpdateTripLogRequest) GetBusinessPartner() string {
-	if x != nil {
-		return x.BusinessPartner
+	if x != nil && x.BusinessPartner != nil {
+		return *x.BusinessPartner
 	}
 	return ""
 }
@@ -6712,23 +6713,35 @@ const file_proto_fuhrpark_v1_fuhrpark_proto_rawDesc = "" +
 	"\x0edriver_user_id\x18\f \x01(\tH\x00R\fdriverUserId\x88\x01\x01B\x11\n" +
 	"\x0f_driver_user_id\"H\n" +
 	"\x15CreateTripLogResponse\x12/\n" +
-	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"\x8f\x03\n" +
+	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"\xd0\x04\n" +
 	"\x14UpdateTripLogRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04date\x18\x02 \x01(\tR\x04date\x12%\n" +
-	"\x0estart_location\x18\x03 \x01(\tR\rstartLocation\x12!\n" +
-	"\fend_location\x18\x04 \x01(\tR\vendLocation\x12\x18\n" +
-	"\apurpose\x18\x05 \x01(\tR\apurpose\x12\x19\n" +
-	"\bstart_km\x18\x06 \x01(\x03R\astartKm\x12\x15\n" +
-	"\x06end_km\x18\a \x01(\x03R\x05endKm\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04date\x18\x02 \x01(\tH\x00R\x04date\x88\x01\x01\x12*\n" +
+	"\x0estart_location\x18\x03 \x01(\tH\x01R\rstartLocation\x88\x01\x01\x12&\n" +
+	"\fend_location\x18\x04 \x01(\tH\x02R\vendLocation\x88\x01\x01\x12\x1d\n" +
+	"\apurpose\x18\x05 \x01(\tH\x03R\apurpose\x88\x01\x01\x12\x1e\n" +
+	"\bstart_km\x18\x06 \x01(\x03H\x04R\astartKm\x88\x01\x01\x12\x1a\n" +
+	"\x06end_km\x18\a \x01(\x03H\x05R\x05endKm\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"is_private\x18\b \x01(\bR\tisPrivate\x12\x1f\n" +
-	"\vdriver_name\x18\t \x01(\tR\n" +
-	"driverName\x12\x14\n" +
+	"is_private\x18\b \x01(\bH\x06R\tisPrivate\x88\x01\x01\x12$\n" +
+	"\vdriver_name\x18\t \x01(\tH\aR\n" +
+	"driverName\x88\x01\x01\x12\x19\n" +
 	"\x05notes\x18\n" +
-	" \x01(\tR\x05notes\x12)\n" +
-	"\x10business_partner\x18\v \x01(\tR\x0fbusinessPartner\x12)\n" +
-	"\x0edriver_user_id\x18\f \x01(\tH\x00R\fdriverUserId\x88\x01\x01B\x11\n" +
+	" \x01(\tH\bR\x05notes\x88\x01\x01\x12.\n" +
+	"\x10business_partner\x18\v \x01(\tH\tR\x0fbusinessPartner\x88\x01\x01\x12)\n" +
+	"\x0edriver_user_id\x18\f \x01(\tH\n" +
+	"R\fdriverUserId\x88\x01\x01B\a\n" +
+	"\x05_dateB\x11\n" +
+	"\x0f_start_locationB\x0f\n" +
+	"\r_end_locationB\n" +
+	"\n" +
+	"\b_purposeB\v\n" +
+	"\t_start_kmB\t\n" +
+	"\a_end_kmB\r\n" +
+	"\v_is_privateB\x0e\n" +
+	"\f_driver_nameB\b\n" +
+	"\x06_notesB\x13\n" +
+	"\x11_business_partnerB\x11\n" +
 	"\x0f_driver_user_id\"H\n" +
 	"\x15UpdateTripLogResponse\x12/\n" +
 	"\btrip_log\x18\x01 \x01(\v2\x14.fuhrpark.v1.TripLogR\atripLog\"&\n" +

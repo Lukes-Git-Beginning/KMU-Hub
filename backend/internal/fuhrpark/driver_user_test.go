@@ -71,13 +71,13 @@ func TestService_UpdateTripLog_OnlyChecksTheDriverWhenItIsPartOfTheUpdate(t *tes
 	assert.Zero(t, repo.driverLookups, "an update that does not carry the driver must not ask")
 
 	clearIt := keep
-	clearIt.DriverUserIDSet = true
+	clearIt.Fields = TripLogDriverUser
 	_, err = svc.UpdateTripLog(context.Background(), clearIt)
 	require.NoError(t, err)
 	assert.Zero(t, repo.driverLookups, "clearing the link needs no account")
 
 	foreign := keep
-	foreign.DriverUserID, foreign.DriverUserIDSet = &user, true
+	foreign.DriverUserID, foreign.Fields = &user, TripLogDriverUser
 	_, err = svc.UpdateTripLog(context.Background(), foreign)
 	require.ErrorIs(t, err, ErrInvalidInput)
 }
@@ -151,7 +151,7 @@ func TestTripLogs_DriverUserLinkAgainstRealSchema(t *testing.T) {
 	t.Run("an update without the driver keeps the link", func(t *testing.T) {
 		upd := created
 		upd.Notes = "geaendert"
-		upd.DriverUserID, upd.DriverUserIDSet = nil, false
+		upd.DriverUserID, upd.Fields = nil, TripLogNotes
 		got, err := svc.UpdateTripLog(ctxA, upd)
 		require.NoError(t, err)
 		require.NotNil(t, got.DriverUserID)
@@ -160,7 +160,7 @@ func TestTripLogs_DriverUserLinkAgainstRealSchema(t *testing.T) {
 
 	t.Run("an update replaces the link, a foreign user is refused", func(t *testing.T) {
 		upd := created
-		upd.DriverUserID, upd.DriverUserIDSet = &userA2, true
+		upd.DriverUserID, upd.Fields = &userA2, TripLogDriverUser
 		got, err := svc.UpdateTripLog(ctxA, upd)
 		require.NoError(t, err)
 		require.NotNil(t, got.DriverUserID)
@@ -173,7 +173,7 @@ func TestTripLogs_DriverUserLinkAgainstRealSchema(t *testing.T) {
 
 	t.Run("an update with an explicit nil clears the link", func(t *testing.T) {
 		upd := created
-		upd.DriverUserID, upd.DriverUserIDSet = nil, true
+		upd.DriverUserID, upd.Fields = nil, TripLogDriverUser
 		got, err := svc.UpdateTripLog(ctxA, upd)
 		require.NoError(t, err)
 		assert.Nil(t, got.DriverUserID)
@@ -181,7 +181,7 @@ func TestTripLogs_DriverUserLinkAgainstRealSchema(t *testing.T) {
 
 	t.Run("deleting the account unlinks the entry and keeps the printed name", func(t *testing.T) {
 		upd := created
-		upd.DriverUserID, upd.DriverUserIDSet = &userA2, true
+		upd.DriverUserID, upd.Fields = &userA2, TripLogDriverUser
 		_, err := svc.UpdateTripLog(ctxA, upd)
 		require.NoError(t, err)
 

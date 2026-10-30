@@ -1352,36 +1352,19 @@ func (fr *FuhrparkRoutes) HandleUpdateTripLog(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	grpcReq := &fuhrparkv1.UpdateTripLogRequest{Id: id}
-	if req.Date != nil {
-		grpcReq.Date = *req.Date
-	}
-	if req.StartLocation != nil {
-		grpcReq.StartLocation = *req.StartLocation
-	}
-	if req.EndLocation != nil {
-		grpcReq.EndLocation = *req.EndLocation
-	}
-	if req.Purpose != nil {
-		grpcReq.Purpose = *req.Purpose
-	}
-	if req.StartKm != nil {
-		grpcReq.StartKm = *req.StartKm
-	}
-	if req.EndKm != nil {
-		grpcReq.EndKm = *req.EndKm
-	}
-	if req.IsPrivate != nil {
-		grpcReq.IsPrivate = *req.IsPrivate
-	}
-	if req.DriverName != nil {
-		grpcReq.DriverName = *req.DriverName
-	}
-	if req.BusinessPartner != nil {
-		grpcReq.BusinessPartner = *req.BusinessPartner
-	}
-	if req.Notes != nil {
-		grpcReq.Notes = *req.Notes
+	// Unsent fields stay nil, so the service keeps the stored values (PATCH, not PUT).
+	grpcReq := &fuhrparkv1.UpdateTripLogRequest{
+		Id:              id,
+		Date:            req.Date,
+		StartLocation:   req.StartLocation,
+		EndLocation:     req.EndLocation,
+		Purpose:         req.Purpose,
+		StartKm:         req.StartKm,
+		EndKm:           req.EndKm,
+		IsPrivate:       req.IsPrivate,
+		DriverName:      req.DriverName,
+		BusinessPartner: req.BusinessPartner,
+		Notes:           req.Notes,
 	}
 	grpcReq.DriverUserId = req.DriverUserID
 	resp, err := client.UpdateTripLog(r.Context(), grpcReq)

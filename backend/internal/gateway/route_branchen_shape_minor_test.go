@@ -306,6 +306,17 @@ func TestBranchenShape_FuhrparkTripLogDriverUserReachesTheService(t *testing.T) 
 	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"notes":"n"}`))
 	assertStatus(t, rec, http.StatusOK)
 	assert.Nil(t, stub.tripUpd.DriverUserId)
+	// A PATCH sends only what the body carries; the rest stays unset for the service.
+	require.NotNil(t, stub.tripUpd.Notes)
+	assert.Nil(t, stub.tripUpd.Date)
+	assert.Nil(t, stub.tripUpd.StartKm)
+	assert.Nil(t, stub.tripUpd.IsPrivate)
+
+	rec = httptest.NewRecorder()
+	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"is_private":false,"start_km":0}`))
+	assertStatus(t, rec, http.StatusOK)
+	require.NotNil(t, stub.tripUpd.IsPrivate, "an explicit false is a write")
+	require.NotNil(t, stub.tripUpd.StartKm, "an explicit 0 is a write")
 
 	rec = httptest.NewRecorder()
 	routes.HandleUpdateTripLog(rec, branchenRequest(http.MethodPatch, "/trip-logs/x", `{"driver_user_id":""}`))

@@ -913,23 +913,48 @@ func (s *FuhrparkGRPCServer) UpdateTripLog(ctx context.Context, req *fuhrparkv1.
 	if err != nil {
 		return nil, err
 	}
-	date, _ := time.Parse("2006-01-02", req.Date)
-	l, err := s.svc.UpdateTripLog(ctx, fuhrpark.TripLog{
+	upd := fuhrpark.TripLog{
 		ID:              id,
 		TenantID:        tenantID,
-		Date:            date,
-		StartLocation:   req.StartLocation,
-		EndLocation:     req.EndLocation,
-		Purpose:         req.Purpose,
-		StartKm:         req.StartKm,
-		EndKm:           req.EndKm,
-		IsPrivate:       req.IsPrivate,
-		DriverName:      req.DriverName,
-		BusinessPartner: req.BusinessPartner,
-		Notes:           req.Notes,
+		StartLocation:   req.GetStartLocation(),
+		EndLocation:     req.GetEndLocation(),
+		Purpose:         req.GetPurpose(),
+		StartKm:         req.GetStartKm(),
+		EndKm:           req.GetEndKm(),
+		IsPrivate:       req.GetIsPrivate(),
+		DriverName:      req.GetDriverName(),
+		BusinessPartner: req.GetBusinessPartner(),
+		Notes:           req.GetNotes(),
 		DriverUserID:    driverUserID,
-		DriverUserIDSet: driverUserIDSet,
-	})
+	}
+	if req.Date != nil {
+		date, err := time.Parse("2006-01-02", *req.Date)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid date: %v", err)
+		}
+		upd.Date = date
+	}
+	for _, f := range []struct {
+		sent bool
+		flag fuhrpark.TripLogFields
+	}{
+		{req.Date != nil, fuhrpark.TripLogDate},
+		{req.StartLocation != nil, fuhrpark.TripLogStartLocation},
+		{req.EndLocation != nil, fuhrpark.TripLogEndLocation},
+		{req.Purpose != nil, fuhrpark.TripLogPurpose},
+		{req.StartKm != nil, fuhrpark.TripLogStartKm},
+		{req.EndKm != nil, fuhrpark.TripLogEndKm},
+		{req.IsPrivate != nil, fuhrpark.TripLogIsPrivate},
+		{req.DriverName != nil, fuhrpark.TripLogDriverName},
+		{req.BusinessPartner != nil, fuhrpark.TripLogBusinessPartner},
+		{req.Notes != nil, fuhrpark.TripLogNotes},
+		{driverUserIDSet, fuhrpark.TripLogDriverUser},
+	} {
+		if f.sent {
+			upd.Fields |= f.flag
+		}
+	}
+	l, err := s.svc.UpdateTripLog(ctx, upd)
 	if err != nil {
 		return nil, mapFuhrparkError(err)
 	}

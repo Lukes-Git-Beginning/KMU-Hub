@@ -459,16 +459,17 @@ message CreateTripLogRequest {
 message CreateTripLogResponse { TripLog trip_log = 1; }
 message UpdateTripLogRequest {
   string id                = 1;
-  string date              = 2;
-  string start_location    = 3;
-  string end_location      = 4;
-  string purpose            = 5;
-  int64  start_km          = 6;
-  int64  end_km            = 7;
-  bool   is_private        = 8;
-  string driver_name       = 9;
-  string notes              = 10;
-  string business_partner   = 11;
+  // every field below: unset keeps the stored value, set writes it (a PATCH, not a PUT)
+  optional string date              = 2;
+  optional string start_location    = 3;
+  optional string end_location      = 4;
+  optional string purpose           = 5;
+  optional int64  start_km          = 6;
+  optional int64  end_km            = 7;
+  optional bool   is_private        = 8;
+  optional string driver_name       = 9;
+  optional string notes             = 10;
+  optional string business_partner  = 11;
   // unset keeps the stored link, "" clears it, a user id replaces it
   optional string driver_user_id = 12;
 }
