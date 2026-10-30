@@ -2306,7 +2306,7 @@ units:
     service: gateway
     model: opus
     deps: []
-    status: todo
+    status: done
     target: die Scan-Fixes der zweiten Hälfte halten an allen genannten Stellen
     coverage_start: n.a.
     scope: >
@@ -2320,6 +2320,42 @@ units:
       - Liste der geprüften SHAs mit Ergebnis je SHA im Journal, End-SHA genannt
       - Je Fund eine Fix-Unit VOR der ersten todo-Unit (im selben Commit)
       - 'Ohne Fund: nur Journal und Backlog-Status, kein Code-Commit'
+
+  - id: fix-pg-deadlock-status-sticky-in-idempotency-cache
+    phase: 4
+    service: server
+    model: sonnet
+    deps: []
+    status: todo
+    target: ein Deadlock/Serialisierungsfehler bleibt mit demselben Idempotency-Key wiederholbar
+    coverage_start: n.a. (Fix an gemeinsamer Funktion)
+    scope: >
+      Gefunden in `review-run18-r4` (Lauf 18, Iteration 76) an `fa26621d`. `pgConstraintError`
+      (`internal/server/pg_constraint.go`) mappt 40P01/40001 auf `codes.Aborted`, der Gateway antwortet 409
+      (`gateway/helpers.go:63`). Die Idempotency-Middleware speichert jede Antwort unter 500 für 24 h und spielt sie
+      beim selben Key wieder ab; nur Status >= 500 löscht den Key (`idempotency/postgres_repository.go:188`). Die
+      Offline-Queue des Desktops (`desktop/.../api/offline-queue.ts`, `replayItem`) sendet jede Wiederholung mit
+      DEMSELBEN Key und wiederholt 409 ausdrücklich. Folge: ein transienter Deadlock beim Drain wird dauerhaft — jede
+      Wiederholung bekommt das gecachte 409, nach MAX_RETRIES landet die Offline-Änderung im Dead-Letter, und auch
+      `retryDeadLetter` (gleicher Key) scheitert 24 h lang. Vor `fa26621d` war es 500, der Key wurde gelöscht und der
+      Retry lief neu. Fix an der gemeinsamen Stelle: 40P01/40001 auf `codes.Unavailable` ("concurrent change, please
+      retry") statt `Aborted` — der Gateway antwortet 503 mit dem Text (nur 500 wird maskiert), die Middleware löscht
+      den Key, die Offline-Queue wiederholt 5xx. Im Gateway-Pfad gibt es keinen Circuit-Breaker, der `Unavailable`
+      zählt (geprüft: `internal/circuitbreaker` wird von `gateway/` und `cmd/gateway` nicht benutzt). 23P01 und 23505
+      bleiben `AlreadyExists` (dauerhafte Konflikte, Cachen ist dort richtig). Die bestehenden Aborted-Pfade der
+      Domänen (Lexware-Versionskonflikt usw.) NICHT anfassen. Kommentar am Case und `offen:`-Satz aus Iteration 65
+      nachziehen.
+    sources:
+      - backend/internal/server/pg_constraint.go
+      - backend/internal/server/pg_constraint_test.go
+      - backend/internal/middleware/idempotency.go
+      - backend/internal/idempotency/postgres_repository.go
+      - desktop/src/renderer/src/api/offline-queue.ts
+    done_when:
+      - pgConstraintError mappt 40P01 und 40001 auf Unavailable, Test angepasst
+      - Gateway-Test oder Middleware-Test belegt, dass eine Antwort aus Unavailable den Idempotency-Key nicht dauerhaft belegt (zweiter Request mit gleichem Key läuft erneut durch)
+      - Mutations-Probe
+      - desktop-aufrufer: offline-queue.ts wiederholt 5xx -> passt
 
   # ========================================================================================
   # BLOCK D — COVERAGE-AUFFÜLLER (Werte aus CI-Run 40300605217 auf `90b03133`)
@@ -2601,3 +2637,29 @@ units:
       - kein `codes.Internal, err.Error()` mehr in plugin_grpc.go, crm_grpc.go, email_grpc.go außer begründet
       - Handler-Test je Paket mit gewrapptem PgError 23503 erwartet InvalidArgument
       - Mutationsprobe belegt
+
+  - id: fix-payment-domain-errors-as-500
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: []
+    status: todo
+    target: Zahlung löschen auf stornierter Rechnung und Nicht-positiver Betrag antworten 4xx statt 500
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Nebenfund aus `review-run18-r4` (Lauf 18, Iteration 76), vorbestehend, nicht durch einen geprüften Commit
+      eingeführt. `internal/biz/payment/service.go` liefert drei Domänenfehler als nackte `fmt.Errorf`-Strings:
+      "payment amount must be positive" (Record, Zeile ~111) und zweimal "cannot delete payment on cancelled invoice"
+      (Delete, Zeilen ~211 und ~236). `mapBizError` (`internal/server/biz_grpc.go:2788`) kennt nur `payment.ErrNotFound`,
+      `ErrInvoiceLocked`, `ErrCurrencyMismatch`; die drei fallen in `default:` und enden als 500 "internal error".
+      Fix: Sentinel-Fehler im Paket `payment` (`ErrNonPositiveAmount` -> InvalidArgument, `ErrInvoiceCancelled` ->
+      FailedPrecondition/409), im Service per `%w` bzw. direkt zurückgeben, in `mapBizError` mappen. Vorher prüfen, ob
+      der Gateway den Betrag schon validiert (dann bleibt nur der Storno-Fall erreichbar) und ob Tests auf den alten
+      Text matchen.
+    sources:
+      - backend/internal/biz/payment/service.go
+      - backend/internal/server/biz_grpc.go
+    done_when:
+      - beide Fälle liefern über den gRPC-Server InvalidArgument bzw. FailedPrecondition (Test)
+      - Mutations-Probe
+      - desktop-aufrufer geprüft (Fehlertext der Zahlungs-Löschen-Aktion)
