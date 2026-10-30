@@ -688,3 +688,23 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: `POST /produktion/orders/{id}/steps`, `/produktion/quality`, `/produktion/bookings` -> `api/produktion-client.ts`, `modules/produktion/ProduktionDetailModals.tsx:331` (Button „Qualitätsprüfung“ nur bei `isActive`, also nicht bei completed/cancelled) -> passt: Eingabe und Antwortform unverändert, neu ist nur 404 für unbekannten Auftrag und 409 für abgeschlossenen/stornierten
 - offen: Frage an Luke zur Qualitätsprüfung: Das FE bietet sie nur an aktiven Aufträgen an, deshalb lehnt das Backend sie jetzt auch bei `completed` ab. Falls nachträgliche Prüfungen an abgeschlossenen Aufträgen fachlich gewollt sind, in `CreateQualityCheck` nur die Existenz prüfen (`GetOrder` statt `requireOpenOrder`). `UpdateWorkStep`/`UpdateMachineBooking` am abgeschlossenen Auftrag sind unberührt.
+
+## Iteration 57 — scan-partial-quantity-books-full-amount — done — 2026-10-30 06:56
+- commit: siehe Commit `docs(loop): record scan of partial quantity and amount bookings` (git log)
+- gebaut: Scan ohne Produktivcode. Suchstrategie: alle Service-Methoden nach Wortstämmen `Receive|Return|Consume|Transfer|Adjust|Allocate|Record|Book|Credit|Call` in einkauf, inventar, vermietung, produktion, biz (Zahlung, Gutschrift, Mahnung, Banking, Rahmenvertrag) und `partial|abschlag|advance` repo-weit; jede Operation bis zur SQL-Stelle gelesen. Ergebnis je Operation:
+  - einkauf `ReceiveGoods`: sauber seit Block B (Delta Bestellmenge minus erhalten). Aber das Delta kommt aus einem Lesen VOR dem PO-Lock -> Fund 1.
+  - einkauf `PartialReceive`: Idempotenz ok (gleiche kumulative Menge ergibt Delta 0, Obergrenze `ErrExceedsOrderedQty`). Dieselbe Zeile zweimal in einem Aufruf (4, dann 10 bei Bestellmenge 10): per Wegwerf-Mock-Test belegt, `received_quantity=10`, Lager +6 (Delta überschrieben statt summiert). Fund 1.
+  - einkauf Rahmenvertrag-Abruf (`bookContractCall`): Zeile gesperrt, Restwert in numeric, Währung geprüft, bei Wareneingang Delta aus ersetzter Menge. sauber.
+  - inventar `AdjustStock`, `TransferStock`, `RecordMovement`, `BookInventurDifferences` (Differenz Gezählt minus Soll, Sitzung atomar), `BookPickingList` (Claim plus Bewegungen in einer Transaktion, zweite Buchung -> `ErrPickingListAlreadyBooked`): sauber.
+  - vermietung (`EndRental` u. a.) und produktion (`CompleteOrder`): buchen keine Mengen oder Beträge, nur Status; Materialverbrauch wird nur gelesen (`material_availability.go`). n.a.
+  - biz `payment.Record`: Teilzahlungen werden summiert, Idempotenz-Key vorhanden, Überzahlung bewusst erlaubt. Aber kein Zeilen-Lock auf der Rechnung -> Fund 2 (verlorener Wechsel auf `paid` bei zwei gleichzeitigen Teilzahlungen; aus dem Code, nicht als Race reproduziert).
+  - biz Gutschrift (`createWithinLimit`): Rechnung gesperrt, Obergrenze Brutto minus Bereits-Gutgeschriebenes, sauber. Aber offene Posten und `transitionToPaidInTx` rechnen die versandte Teilgutschrift nicht ab, die Belegkette schon -> Fund 3.
+  - biz `banking.Reconcile`: bucht den vollen Betrag der Banktransaktion als Zahlung (Überzahlung wie bei `Record` bewusst zulässig), idempotent über `bank-tx:<id>`. kein Fund.
+  - Lexware-Zahlungsrückmeldung ist nicht verdrahtet (`webhook_handler.go:172`), Bexio gesperrt. n.a.
+- gate: n.a. (kein Produktivcode); Wegwerf-Test lief grün und wurde entfernt, Diff sauber | `backlog-check.py --preflight` ok
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (Commit `1cf9c9f8`: kein Proto, keine neue Route, kein neuer Guard, keine Tabelle; `requireOpenOrder` über tenant-gescopedes `GetOrder`; `ProductionOrderID` ist kein Pointer, ein Buchungs-Create ohne Auftrag war ohnehin nicht möglich; Spec-404/409 passen)
+- neue-units: `fix-einkauf-receipt-stock-delta-from-locked-quantities`, `fix-payment-record-lock-invoice-row`, `fix-invoice-open-amount-net-sent-credit-notes` (alle direkt hinter dem Scan, kein Cross-Tenant-Zugriff und kein Totalausfall, deshalb nicht an den Kopf)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Fund 3 enthält eine fachliche Annahme (versandte Gutschrift mindert die Forderung, keine Auszahlung im Modell); die Unit nennt sie als Vorab-Prüfung. Bruchmengen werden in `ReceiveGoods`/`PartialReceive` per `int64()` abgeschnitten (Lager ist ganzzahlig), nicht als Unit angelegt.

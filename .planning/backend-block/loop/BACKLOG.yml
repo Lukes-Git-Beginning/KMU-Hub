@@ -1806,7 +1806,7 @@ units:
     service: biz
     model: sonnet
     deps: [fix-einkauf-receive-goods-stock-delta]
-    status: todo
+    status: done
     target: jede Teilmengen- oder Teilbetrags-Operation bucht nur das noch Offene
     coverage_start: n.a. (Scan)
     scope: >
@@ -1825,6 +1825,96 @@ units:
     done_when:
       - Liste der Operationen mit Ergebnis im Journal
       - Fix-Units nach Regel 1
+
+  - id: fix-einkauf-receipt-stock-delta-from-locked-quantities
+    phase: 4
+    service: einkauf
+    model: sonnet
+    deps: [scan-partial-quantity-books-full-amount]
+    status: todo
+    target: die Inventarbuchung eines Wareneingangs richtet sich nach den Mengen, die unter dem PO-Lock gelesen wurden
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Gefunden von `scan-partial-quantity-books-full-amount`. `ReceiveGoods` und `PartialReceive`
+      (`einkauf/service.go`) berechnen das Lagerdelta aus `ListPOLines`, das VOR der Transaktion gelesen wird;
+      `ApplyGoodsReceipt` sperrt die PO erst danach und leitet nur den Abrufwert aus den ersetzten Mengen ab
+      (`postgres_repository_extended.go:611`). (1) VERIFIZIERT per Wegwerf-Test (Mock): `PartialReceive` mit derselben
+      Zeile zweimal in einem Aufruf (`4`, dann `10`, Bestellmenge 10) setzt `received_quantity=10`, bucht aber nur 6 ins
+      Inventar, weil `lineAdjusts[lineID]` das erste Delta überschreibt statt es zu summieren. (2) Aus dem Code:
+      zwei gleichzeitige Wareneingänge derselben PO lesen beide dieselben Vormengen, der zweite wartet am Lock und
+      bucht danach dasselbe Delta noch einmal, obwohl der Abrufwert korrekt nur einmal gezählt wird.
+      Fix an der gemeinsamen Stelle: `ApplyGoodsReceipt` liefert je Zeile die tatsächlich gesetzte Mengendifferenz
+      (neu minus ersetzt, nur > 0, aus dem `prev`-CTE unter dem Lock) zurück, beide Service-Methoden buchen genau
+      diese Deltas. Die Vorab-Rechnung im Service entfällt. Ganzzahl-Abschneiden von Bruchmengen (`int64(open)`) ist
+      bewusst nicht Teil der Unit.
+    sources:
+      - backend/internal/einkauf/service.go
+      - backend/internal/einkauf/postgres_repository_extended.go
+      - backend/internal/einkauf/repository.go
+      - backend/internal/einkauf/service_test.go
+    done_when:
+      - 'Test: PartialReceive mit doppelter Zeile (4, dann 10) bucht 10 ins Inventar'
+      - 'DB-Test: zwei Wareneingänge derselben PO nacheinander mit veralteter Vormenge buchen nicht doppelt'
+      - go test -count=1 für internal/einkauf/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-payment-record-lock-invoice-row
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: [scan-partial-quantity-books-full-amount]
+    status: todo
+    target: zwei gleichzeitige Teilzahlungen, die zusammen den Rechnungsbetrag decken, setzen die Rechnung auf bezahlt
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Gefunden von `scan-partial-quantity-books-full-amount`. `payment.Service.Record` und `Delete`
+      (`biz/payment/service.go`) legen die Zahlung in einer Transaktion an und summieren danach mit
+      `SumByInvoiceIDInTx`, sperren aber die Rechnungszeile nicht (kein `FOR UPDATE` im Paket). Unter READ COMMITTED
+      sieht keine der beiden Transaktionen die ungebuchte Zahlung der anderen: bei 2 x 500 auf eine Rechnung über 1000
+      summieren beide 500, keine setzt `paid`, die Rechnung bleibt `sent`/`overdue` und wird gemahnt, obwohl vollständig
+      bezahlt. Aus dem Code gelesen, nicht als Race reproduziert. Fix: Rechnungszeile am Anfang der Transaktion sperren
+      (Muster `LockForCreditInTx`, `biz/invoice/postgres_repository.go:404`), Status und Brutto aus der gesperrten Zeile
+      statt aus dem Lesen vor der Transaktion nehmen. Test mit zwei offenen Transaktionen (Zweitverbindung hält den
+      Lock), nicht mit Goroutinen-Timing.
+    sources:
+      - backend/internal/biz/payment/service.go
+      - backend/internal/biz/payment/postgres_repository.go
+      - backend/internal/biz/invoice/postgres_repository.go
+    done_when:
+      - 'DB-Test: zweite Zahlung wartet am Lock und sieht die erste, Rechnung wird bezahlt'
+      - Idempotenz-Replay (`ErrDuplicatePayment`) bleibt unverändert
+      - go test -count=1 für internal/biz/payment/... grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-invoice-open-amount-net-sent-credit-notes
+    phase: 4
+    service: biz
+    model: sonnet
+    deps: [scan-partial-quantity-books-full-amount]
+    status: todo
+    target: eine teilgutgeschriebene Rechnung gilt nach Zahlung des Restbetrags als bezahlt und wird nicht gemahnt
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      Gefunden von `scan-partial-quantity-books-full-amount`. Die Belegkette (`biz/invoice/postgres_document_chains.go:160`)
+      rechnet `Brutto - bezahlt - gutgeschrieben (Status sent)`, aber die Stellen, die Folgen auslösen, rechnen nur
+      `Brutto - bezahlt`: `openItemsBase` (`biz/invoice/postgres_open_items.go:42,56`, Quelle der offenen Posten und der
+      Mahnübersicht) und `payment.Service.transitionToPaidInTx`/`revertPaidStatusInTx` (`biz/payment/service.go:276,302`).
+      Beispiel: Rechnung 1000, versandte Gutschrift 400, Zahlung 600 -> die Kette zeigt 0 offen, die offenen Posten zeigen
+      400 offen, die Rechnung wird nie `paid` und läuft in die Mahnung. ENTSCHEIDUNG VORAB PRÜFEN: Gutschriften, die
+      ausgezahlt statt verrechnet werden, gibt es im Modell nicht (kein Erstattungs-Zahlungstyp); gilt das weiter, ist
+      "versandte Gutschrift mindert die Forderung" die Lesart der Belegkette und wird übernommen. Nur Status `sent`
+      zählt, Entwürfe nicht. Storno (`StornoInvoice`) setzt die Rechnung auf `cancelled` und ist davon nicht berührt.
+    sources:
+      - backend/internal/biz/invoice/postgres_open_items.go
+      - backend/internal/biz/invoice/postgres_document_chains.go
+      - backend/internal/biz/payment/service.go
+      - backend/internal/biz/payment/postgres_repository.go
+      - backend/internal/biz/creditnote/postgres_repository.go
+    done_when:
+      - 'DB-Test: Rechnung 1000 / Gutschrift sent 400 / Zahlung 600 -> kein offener Posten, Status paid'
+      - 'DB-Test: Entwurfs-Gutschrift mindert nichts'
+      - go test -count=1 für internal/biz/... grün, 0 Skips
+      - Mutationsprobe belegt
 
   - id: scan-enum-and-fk-violation-500
     phase: 4
