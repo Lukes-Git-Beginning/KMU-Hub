@@ -40,6 +40,13 @@ func pgConstraintError(err error) error {
 		}
 	case "23505":
 		st = status.Error(codes.AlreadyExists, "record already exists")
+	case "23P01":
+		// exclusion_violation: overlapping booking/rental window.
+		st = status.Error(codes.AlreadyExists, "overlaps with an existing record")
+	case "40P01", "40001":
+		// deadlock_detected, serialization_failure: the statement lost against a
+		// concurrent writer and is safe to retry. Gateway answers Aborted with 409.
+		st = status.Error(codes.Aborted, "concurrent change, please retry")
 	default:
 		return nil
 	}

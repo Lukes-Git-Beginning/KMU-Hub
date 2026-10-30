@@ -796,3 +796,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-pg-exclusion-and-deadlock-backstop` (hinter dem Scan, kein Leck/Totalausfall)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
 - offen: Der Backstop ist nicht reproduziert, sondern defensiv; er kostet eine Mapper-Zeile. Repos, die PgError mit `%v` statt `%w` wrappen, werden weder von ihm noch von `pgConstraintError` erfasst (nicht gescannt).
+
+## Iteration 65 — fix-pg-exclusion-and-deadlock-backstop — done — 2026-10-30 07:36
+- commit: siehe Commit `fix(server): map exclusion, deadlock and serialization errors to client statuses` (git log)
+- gebaut: `pgConstraintError` (`internal/server/pg_constraint.go`) mappt zusätzlich 23P01 -> AlreadyExists ("overlaps with an existing record") und 40P01/40001 -> Aborted ("concurrent change, please retry"; Gateway: 409). Feste Texte, Constraintname nur im Log. Domänenfehler bleiben vorrangig (`errors.Is` vor `default:`). Tests: drei neue Zeilen in `TestPgConstraintError_Codes`, 23P01/40P01 in `TestMapErrors_PostgresConstraintNotInternal` über alle 42 Mapper, `TestMapErrors_DomainConflictBeatsPgBackstop`. Der alte Fall "40001 -> nil" ist auf 42P01 umgestellt.
+- gate: build ok | vet ok (server + gateway) | lint ok (0 issues, internal/server) | test ok (internal/server/... + internal/gateway inkl. TestOpenAPIRouteDrift, DATABASE_URL als kmuhub_app, 0 SKIP in internal/server) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: n.a. (Fix an gemeinsamer Funktion, pg_constraint.go vollständig durch Test abgedeckt)
+- mutations-probe: (1) `case "40P01", "40001"` auf `"40P01"` verkürzt: Subtest `serialization_failure` rot; (2) `case "23P01"` auf `"23P99"`: `exclusion_violation` und `TestMapErrors_PostgresConstraintNotInternal` rot. Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `8a1d583f`: nur BACKLOG.yml und JOURNAL.md, kein Code)
+- neue-units: keine
+- desktop-aufrufer: n.a. (keine Eingabevalidierung geändert; bisher 500 bei Exclusion/Deadlock aus Repos ohne eigenes Mapping, jetzt 409 — der Desktop behandelt beides als Fehler)
+- offen: Backstop ist nicht reproduziert (siehe Iteration 64), sondern defensiv. Aborted -> 409 setzt voraus, dass der Client erneut versucht; automatisches Retry gibt es nirgends.

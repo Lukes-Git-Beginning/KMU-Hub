@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/kmuhub/kmuhub/internal/vermietung"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,6 +26,9 @@ func TestPgConstraintError_Codes(t *testing.T) {
 		{"unknown reference on insert", &pgconn.PgError{Code: "23503", Detail: `Key (x)=(1) is not present in table "y".`}, codes.InvalidArgument},
 		{"still referenced on delete", &pgconn.PgError{Code: "23503", Detail: `Key (x)=(1) is still referenced from table "y".`}, codes.FailedPrecondition},
 		{"unique violation", &pgconn.PgError{Code: "23505"}, codes.AlreadyExists},
+		{"exclusion violation", &pgconn.PgError{Code: "23P01"}, codes.AlreadyExists},
+		{"deadlock detected", &pgconn.PgError{Code: "40P01"}, codes.Aborted},
+		{"serialization failure", &pgconn.PgError{Code: "40001"}, codes.Aborted},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -41,7 +45,7 @@ func TestPgConstraintError_Codes(t *testing.T) {
 	}
 
 	t.Run("other sqlstate", func(t *testing.T) {
-		require.NoError(t, pgConstraintError(&pgconn.PgError{Code: "40001"}))
+		require.NoError(t, pgConstraintError(&pgconn.PgError{Code: "42P01"}))
 	})
 	t.Run("no pg error", func(t *testing.T) {
 		require.NoError(t, pgConstraintError(errors.New("boom")))
@@ -69,7 +73,10 @@ func TestMapErrors_PostgresConstraintNotInternal(t *testing.T) {
 		"recording": mapRecordingError, "meeting": mapMeetingError, "presence": mapPresenceError,
 		"wiki": mapWikiError, "timeentry": mapTimeEntryError, "work": mapWorkError,
 	}
-	violations := map[string]codes.Code{"23503": codes.InvalidArgument, "23514": codes.InvalidArgument, "22P02": codes.InvalidArgument}
+	violations := map[string]codes.Code{
+		"23503": codes.InvalidArgument, "23514": codes.InvalidArgument, "22P02": codes.InvalidArgument,
+		"23P01": codes.AlreadyExists, "40P01": codes.Aborted,
+	}
 	for name, fn := range mappers {
 		for sqlstate, want := range violations {
 			t.Run(name+"/"+sqlstate, func(t *testing.T) {
@@ -78,4 +85,12 @@ func TestMapErrors_PostgresConstraintNotInternal(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestMapErrors_DomainConflictBeatsPgBackstop: a domain error that wraps an
+// exclusion violation keeps its own mapping, the backstop only fires in default.
+func TestMapErrors_DomainConflictBeatsPgBackstop(t *testing.T) {
+	err := mapVermietungError(fmt.Errorf("%w: %w", vermietung.ErrRentalConflict, &pgconn.PgError{Code: "23P01"}))
+	require.Equal(t, codes.AlreadyExists, status.Code(err))
+	require.NotContains(t, status.Convert(err).Message(), "overlaps with an existing record")
 }

@@ -2023,7 +2023,7 @@ units:
     service: server
     model: sonnet
     deps: [scan-concurrent-move-deadlock]
-    status: todo
+    status: done
     target: ein Exclusion-Konflikt (23P01) oder Deadlock (40P01/40001) aus irgendeinem Repo endet in 409, nie in 500
     coverage_start: n.a. (Fix an gemeinsamer Funktion)
     scope: >
