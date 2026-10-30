@@ -599,6 +599,10 @@ func TestCreateSubmission_HappyPath(t *testing.T) {
 
 	tenantID := uuid.New()
 	schemaID := uuid.New()
+	// A submission needs a live form to land in: an unknown id is refused.
+	if err := repo.CreateSchema(context.Background(), &formulare.FormSchema{ID: schemaID, TenantID: tenantID, Title: "Form", Status: formulare.FormSchemaStatusActive}); err != nil {
+		t.Fatalf("seed schema: %v", err)
+	}
 
 	resp, err := srv.CreateSubmission(context.Background(), &formularev1.CreateSubmissionRequest{
 		TenantId:     tenantID.String(),
@@ -640,6 +644,10 @@ func TestListSubmissions_HappyPath(t *testing.T) {
 
 	tenantID := uuid.New()
 	schemaID := uuid.New()
+	// A submission needs a live form to land in: an unknown id is refused.
+	if err := repo.CreateSchema(context.Background(), &formulare.FormSchema{ID: schemaID, TenantID: tenantID, Title: "Form", Status: formulare.FormSchemaStatusActive}); err != nil {
+		t.Fatalf("seed schema: %v", err)
+	}
 
 	for range 2 {
 		_, err := srv.CreateSubmission(context.Background(), &formularev1.CreateSubmissionRequest{
