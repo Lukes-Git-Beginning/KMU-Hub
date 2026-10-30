@@ -2001,7 +2001,7 @@ units:
     service: gateway
     model: sonnet
     deps: [fix-fuhrpark-concurrent-booking-move-deadlock]
-    status: todo
+    status: done
     target: gleichzeitige Änderungen unter Exclusion- und Unique-Constraints enden in 409, nie in 500
     coverage_start: n.a. (Scan)
     scope: >
@@ -2017,6 +2017,34 @@ units:
     done_when:
       - Liste der Constraints und Pfade mit Ergebnis im Journal
       - Fix-Units nach Regel 1
+
+  - id: fix-pg-exclusion-and-deadlock-backstop
+    phase: 4
+    service: server
+    model: sonnet
+    deps: [scan-concurrent-move-deadlock]
+    status: todo
+    target: ein Exclusion-Konflikt (23P01) oder Deadlock (40P01/40001) aus irgendeinem Repo endet in 409, nie in 500
+    coverage_start: n.a. (Fix an gemeinsamer Funktion)
+    scope: >
+      Aus `scan-concurrent-move-deadlock`. `pgConstraintError` (`internal/server/pg_constraint.go`, Iteration 62)
+      kennt 23505, aber weder 23P01 (exclusion_violation) noch 40P01 (deadlock_detected) noch 40001
+      (serialization_failure). Nur fuhrpark, produktion (beide 23P01+40P01), vermietung (nur 23P01, `asRentalConflict`)
+      und work/resource (nur 23P01, `CreateBooking`) mappen im Repo selbst. Vermietung `UpdateRental`/`CreateRental` und
+      `resource_bookings`-INSERT verlieren bei einem Deadlock den Fehler als 500. Fix an der gemeinsamen Stelle:
+      23P01 -> AlreadyExists ("overlaps with an existing record"), 40P01 und 40001 -> Aborted ("concurrent change,
+      please retry"; gateway mappt Aborted auf 409). Feste Texte, Constraintnamen nur im Log. Die Domänenfehler
+      (`ErrRentalConflict`, `ErrBookingConflict`) bleiben vorrangig, weil `errors.Is` im Mapper vor `default:` greift.
+      KEIN Umbau der Repos. Hinweis aus dem Scan: das Deadlock-Szenario ließ sich für Vermietung NICHT erzwingen
+      (300 Runden, je zwei gleichzeitige `UpdateRental` auf dasselbe Fenster: 600 Writes, 300 x 23P01, 0 Deadlocks);
+      die Unit ist ein Backstop nach dem Muster von fuhrpark und produktion, kein reproduzierter Ausfall.
+    sources:
+      - backend/internal/server/pg_constraint.go
+      - backend/internal/server/pg_constraint_test.go
+    done_when:
+      - pgConstraintError mappt 23P01, 40P01, 40001 mit festen Texten
+      - Unit-Test pro SQLSTATE inkl. Wrap-Kette (fmt.Errorf %w) und Test, dass ein Domänenfehler vorrangig bleibt
+      - Mutations-Probe (Case entfernen -> Test rot)
 
   - id: scan-money-format-double-currency
     phase: 4

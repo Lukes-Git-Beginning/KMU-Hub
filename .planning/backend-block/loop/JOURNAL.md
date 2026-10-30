@@ -776,3 +776,23 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: alle ~115 Listen-/Entity-Antworten -> Desktop-Typen deklarieren die Felder als Arrays (z. B. `berichte-types.ts` `kpis: DashboardKPI[]`) -> passt; Änderung macht aus fehlendem Feld `[]`, kein bisher vorhandener Wert ändert sich
 - offen: Nur Top-Level gefüllt. Listen in Items (z. B. `contact.tags` leer in einer Listenzeile) fehlen weiter; falls ein Screen daran stürzt, Rekursion wie in `fillOptionalNulls` nachziehen. Alte `ProtoFull`-Stellen sind schon vollständig. FE-Code, der `x.items === undefined` als „nicht geladen" liest, würde jetzt `[]` sehen; beim Greppen keiner aufgefallen, aber nicht vollständig geprüft.
+
+## Iteration 64 — scan-concurrent-move-deadlock — done — 2026-10-30 07:33
+- commit: siehe Commit `docs(loop): record scan of concurrent move and exclusion conflicts` (git log)
+- gebaut: nichts am Produktivcode (Scan). Fix-Unit `fix-pg-exclusion-and-deadlock-backstop` direkt hinter den Scan gelegt.
+- scan-ergebnis: Suchstrategie: `EXCLUDE USING gist` in allen `*.up.sql` (4 Constraints), dann pro Tabelle alle `INSERT`/`UPDATE` im Go-Code und alle `23P01`/`40P01`/`23505`-Stellen. Tabelle (Constraint -> Schreibpfade -> Mapping):
+  - `resource_bookings` (000034) -> nur INSERT (`work/resource CreateBooking`), Cancel setzt `cancelled_at` -> 23P01 gemappt, 40P01 nicht.
+  - `rentals` `uq_rentals_no_overlap` (000101) -> `CreateRental`, `UpdateRental` (Status/Fenster); `SaveSignature`/Scrub ändern kein Fenster -> `asRentalConflict` nur 23P01, 40P01 nicht.
+  - `machine_bookings` (000328) -> `CreateBooking`, `CreateBookingWithLock` (Advisory-Lock), `UpdateBooking` -> 23P01+40P01 gemappt (Lauf 17).
+  - `vehicle_bookings` (000329) -> Insert, `UpdateBooking` -> 23P01+40P01 gemappt (Block B).
+  - Unique-Constraints (Schichten-Zuordnung, Kategorien, Booking-Pages-Slug, public_bookings, Inspection-Kind, Notification-Mutes): 23505 ist in den Repos teils gemappt, den Rest fängt seit Iteration 62 der zentrale `pgConstraintError` als AlreadyExists/409 ab.
+  - Sperrreihenfolge: kein Pfad sperrt mehrere Buchungszeilen; die Schicht-Tauschlogik mit zwei Zeilen (`SwapAssignmentsForRequest`) gibt es im Code nicht mehr, `HandOverAssignment` ist ein Ein-Zeilen-UPDATE.
+  - Deadlock-Belegversuch Vermietung: Wegwerf-Test, 300 Runden, je zwei gleichzeitige `UpdateRental` auf dasselbe Fenster -> 300 x Erfolg, 300 x `ErrRentalConflict`, 0 rohe Fehler. Ein Deadlock lässt sich mit Einzel-Statements nicht erzwingen (wie schon bei fuhrpark/produktion). Test wieder gelöscht, Diff sauber.
+  - Lücke: `pgConstraintError` kennt 23P01/40P01/40001 nicht -> 1 Fix-Unit an der gemeinsamen Stelle (Regel 1), kein Einzelfix je Repo.
+- gate: n.a. (kein Code geändert; Wegwerf-Probe lief gegen die lokale DB als kmuhub_app, 0 Skips)
+- coverage: n.a. (kein Coverage-Ziel)
+- mutations-probe: n.a. (Scan)
+- verify vorgaenger: sauber (Commit `f500f567`: `fillEmptyLists` in `response.marshalProto`, kein Proto/Route/Guard/Tabelle; Gateway-Test an die neue Form angepasst, Gate in Iteration 63 dokumentiert)
+- neue-units: `fix-pg-exclusion-and-deadlock-backstop` (hinter dem Scan, kein Leck/Totalausfall)
+- desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung)
+- offen: Der Backstop ist nicht reproduziert, sondern defensiv; er kostet eine Mapper-Zeile. Repos, die PgError mit `%v` statt `%w` wrappen, werden weder von ihm noch von `pgConstraintError` erfasst (nicht gescannt).
