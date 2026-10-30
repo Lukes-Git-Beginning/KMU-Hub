@@ -411,7 +411,7 @@ func (h *ChatErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 }
 
 // WorkErasureHandler handles erasure for work/project data.
-// Anonymizes task assignments and comments; deletes personal time entries
+// Anonymizes task assignments and task/document comments; deletes personal time entries
 // and project memberships.
 type WorkErasureHandler struct {
 	pool *pgxpool.Pool
@@ -437,9 +437,10 @@ func (h *WorkErasureHandler) PreviewErasure(ctx context.Context, userID uuid.UUI
 		`SELECT
 		   (SELECT COUNT(*) FROM tasks WHERE assignee_id = $1) +
 		   (SELECT COUNT(*) FROM time_entries WHERE user_id = $1 AND started_at < $2) +
-		   (SELECT COUNT(*) FROM task_comments WHERE author_id = $1) +
+		   (SELECT COUNT(*) FROM task_comments WHERE author_id = $1 AND content NOT LIKE $3) +
+		   (SELECT COUNT(*) FROM document_file_comments WHERE author_id = $1 AND content NOT LIKE $3) +
 		   (SELECT COUNT(*) FROM project_members WHERE user_id = $1)
-		`, userID, time.Now().UTC().AddDate(0, 0, -timeEntryRetentionDays),
+		`, userID, time.Now().UTC().AddDate(0, 0, -timeEntryRetentionDays), anonymizedContentPattern,
 	).Scan(&count); err != nil {
 		return &models.ModuleErasurePreview{
 			ModuleName:  "work",
@@ -513,6 +514,20 @@ func (h *WorkErasureHandler) ExecuteErasure(ctx context.Context, userID uuid.UUI
 	)
 	if err != nil {
 		return 0, fmt.Errorf("work erasure: failed to anonymize task comments: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	// Same for comments on document files: author_id is NO ACTION on users(id)
+	// and the row is only anonymized, so the free text would otherwise stay
+	// verbatim next to a sentinel author.
+	res, err = tx.Exec(ctx,
+		`UPDATE document_file_comments SET
+		   content = '[' || $2 || ']',
+		   updated_at = NOW()
+		 WHERE author_id = $1 AND content NOT LIKE $3`, userID, anonymizedLabel, anonymizedContentPattern,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("work erasure: failed to anonymize document file comments: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

@@ -2182,7 +2182,7 @@ units:
     service: security
     model: sonnet
     deps: [scan-child-tables-cascade-on-parent-delete-and-scrub]
-    status: todo
+    status: done
     target: Nutzer-Löschung anonymisiert Kommentare an Dokumenten wie schon Aufgaben-Kommentare
     coverage_start: n.a. (Fix)
     scope: >

@@ -123,6 +123,41 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	})
 	defer testutil.CleanupRow(t, pool, "task_comments", commentID)
 
+	// Comments on a document file: the subject's is anonymized, the
+	// colleague's stays verbatim.
+	folderID := testutil.SeedRow(t, pool, "document_folders", map[string]any{
+		"tenant_id":  tenantOwn,
+		"name":       "Loeschtest",
+		"space_type": "personal",
+		"space_id":   colleagueID,
+		"created_by": colleagueID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_folders", folderID)
+	docFileID := testutil.SeedRow(t, pool, "document_files", map[string]any{
+		"tenant_id":   tenantOwn,
+		"folder_id":   folderID,
+		"filename":    "vertrag.pdf",
+		"mime_type":   "application/pdf",
+		"file_size":   10,
+		"storage_key": "erasure-test/" + uuid.NewString(),
+		"owner_id":    colleagueID,
+	})
+	defer testutil.CleanupRow(t, pool, "document_files", docFileID)
+	docCommentID := testutil.SeedRow(t, pool, "document_file_comments", map[string]any{
+		"tenant_id": tenantOwn,
+		"file_id":   docFileID,
+		"author_id": userID,
+		"content":   "Ruf mich unter 0170 1234567 an",
+	})
+	defer testutil.CleanupRow(t, pool, "document_file_comments", docCommentID)
+	colleagueDocCommentID := testutil.SeedRow(t, pool, "document_file_comments", map[string]any{
+		"tenant_id": tenantOwn,
+		"file_id":   docFileID,
+		"author_id": colleagueID,
+		"content":   "Kommentar der Kollegin",
+	})
+	defer testutil.CleanupRow(t, pool, "document_file_comments", colleagueDocCommentID)
+
 	// project_members.user_id is CASCADE on users(id), but AuthErasureHandler
 	// anonymizes the user row instead of deleting it, so the CASCADE never
 	// fires — the membership must be deleted explicitly.
@@ -147,9 +182,9 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	// 2 tasks unassigned (both-task and assigned-only; the created-only task keeps its
 	// assignee and is therefore not changed at all, and the foreign task is untouched)
 	// + 1 time entry (the one past the retention window) deleted + 1 comment anonymized
-	// + 1 project membership deleted = 5.
+	// + 1 document file comment anonymized + 1 project membership deleted = 6.
 	// recentTimeEntryID is inside the window and must not be counted.
-	const wantAffected = 5
+	const wantAffected = 6
 	assert.Equal(t, wantAffected, affected, "only rows this run actually changed are counted")
 	assert.Equal(t, wantAffected, preview.RecordCount, "PreviewErasure must report the same total ExecuteErasure later affects on the first run")
 
@@ -197,6 +232,24 @@ func TestWorkErasureHandler_ExecuteErasure_Integration(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx,
 		`SELECT content FROM task_comments WHERE id = $1`, commentID).Scan(&commentContent))
 	assert.Equal(t, "["+erasureLabel+"]", commentContent, "comment content must be replaced by the bracketed anonymized label")
+
+	// Document file comments: the subject's is anonymized, the colleague's is not.
+	var docCommentContent, colleagueDocCommentContent string
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT content FROM document_file_comments WHERE id = $1`, docCommentID).Scan(&docCommentContent))
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT content FROM document_file_comments WHERE id = $1`, colleagueDocCommentID).Scan(&colleagueDocCommentContent))
+	assert.Equal(t, "["+erasureLabel+"]", docCommentContent, "document comment of the subject must be replaced by the anonymized label")
+	assert.Equal(t, "Kommentar der Kollegin", colleagueDocCommentContent, "another author's document comment must stay untouched")
+
+	// A second run changes nothing: the label is not overwritten and nothing is
+	// counted again.
+	affectedAgain, err := h.ExecuteErasure(ctx, userID, "Geloeschter Benutzer #zweiter-lauf", ErasureAnonymize)
+	require.NoError(t, err)
+	assert.Equal(t, 0, affectedAgain, "a repeated run must not count or change already anonymized comments")
+	require.NoError(t, pool.QueryRow(ctx,
+		`SELECT content FROM document_file_comments WHERE id = $1`, docCommentID).Scan(&docCommentContent))
+	assert.Equal(t, "["+erasureLabel+"]", docCommentContent, "second run must keep the first run's label")
 
 	// Only the subject's project membership is gone.
 	var ownMemberships, colleagueMemberships int
