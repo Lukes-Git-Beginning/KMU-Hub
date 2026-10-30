@@ -1300,9 +1300,15 @@ func (rr *RapporteRoutes) HandleDeleteMeasurementPosition(w http.ResponseWriter,
 		return
 	}
 
+	restrict, ok := restrictToAuthor(w, r, rapporteMeasurementScopeKeys...)
+	if !ok {
+		return
+	}
+
 	_, err = client.DeleteMeasurementPosition(r.Context(), &rapportev1.DeleteMeasurementPositionRequest{
-		TenantId:   tenantID.String(),
-		PositionId: posID,
+		TenantId:         tenantID.String(),
+		PositionId:       posID,
+		RestrictToAuthor: restrict,
 	})
 	if err != nil {
 		respondGRPCError(w, err)

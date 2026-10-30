@@ -1420,7 +1420,7 @@ units:
     service: rapporte
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: '`DELETE /rapporte/measurements/positions/{pos_id}` hält die Autor-Grenze ein wie das Anlegen einer Position'
     coverage_start: n.a. (Bugfix)
     scope: >

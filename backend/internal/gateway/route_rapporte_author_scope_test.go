@@ -123,6 +123,10 @@ func (s *rapporteScopeStub) AddMeasurementPosition(_ context.Context, r *rapport
 	s.record("AddMeasurementPosition", r.GetRestrictToAuthor())
 	return &rapportev1.AddMeasurementPositionResponse{}, nil
 }
+func (s *rapporteScopeStub) DeleteMeasurementPosition(_ context.Context, r *rapportev1.DeleteMeasurementPositionRequest) (*rapportev1.DeleteMeasurementPositionResponse, error) {
+	s.record("DeleteMeasurementPosition", r.GetRestrictToAuthor())
+	return &rapportev1.DeleteMeasurementPositionResponse{}, nil
+}
 
 func TestRapporteRoutes_MemberFillsAndSubmitsOwnReport(t *testing.T) {
 	const (
@@ -166,6 +170,7 @@ func TestRapporteRoutes_MemberFillsAndSubmitsOwnReport(t *testing.T) {
 		{"get report", "GetReport", "GET", "/api/v1/rapporte/reports/" + reportID + "/", "", http.StatusOK},
 		{"add measurement", "CreateMeasurement", "POST", "/api/v1/rapporte/measurements", `{"title":"Aufmaß","report_id":"` + reportID + `"}`, http.StatusCreated},
 		{"add measurement position", "AddMeasurementPosition", "POST", "/api/v1/rapporte/measurements/" + lineID + "/positions", `{"description":"Wand"}`, http.StatusCreated},
+		{"delete measurement position", "DeleteMeasurementPosition", "DELETE", "/api/v1/rapporte/measurements/positions/" + attID + "/", "", http.StatusNoContent},
 	}
 
 	run := func(t *testing.T, perms []string, scopes map[string]string, wantRestricted bool) *rapporteScopeStub {

@@ -544,3 +544,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: `fix-rapporte-delete-measurement-position-author-scope`, `fix-work-task-edit-own-scope`, `fix-crm-delete-deal-team-scope` VOR die erste todo-Unit (verifizierte Scope-Lecks auf Schreibwegen); `fix-rapporte-stats-own-scope`, `fix-schichten-compliance-own-scope` ans Ende (nur Zähler bzw. Ja/Nein-Orakel, Schichten-Flag in Prod aus)
 - desktop-aufrufer: n.a. (keine Validierungs- oder Antwortform-Änderung); Stats- und Compliance-Aufrufer stehen als Prüfauftrag in den Fix-Units
 - offen: (1) `extern` hält `work:task:read`, `work:project:read`, `documents:file:read` mit Scope team; team wirkt außerhalb von `/hr/time/team` wie all (`middleware/auth.go:141-143`, `gateway/helpers.go:222`), ein extern-Nutzer sähe also alle Aufgaben, Projekte und Dateien. Das ist eine dokumentierte Grenze und betrifft Haupt- wie Nebenrouten gleich, deshalb keine Fix-Unit hier — braucht eine Entscheidung zum team-Resolver, bevor jemand die Rolle vergibt (lokal 0 Zuweisungen, Prod nicht geprüft). (2) Die Semantik von own beim Bearbeiten einer Aufgabe (nur Ersteller oder auch Zuständiger) und welcher Alt-Key das Deal-Löschen tenant-weit macht, stehen als offene Fragen in den Units.
+
+## Iteration 44 — fix-rapporte-delete-measurement-position-author-scope — done — 2026-10-30 04:36
+- commit: siehe Commit `fix(rapporte): restrict measurement position delete to own reports` (git log)
+- gebaut: `HandleDeleteMeasurementPosition` setzt `RestrictToAuthor` über `restrictToAuthor(..., rapporteMeasurementScopeKeys...)` wie `HandleAddMeasurementPosition`. Der Router-Test `TestRapporteRoutes_MemberFillsAndSubmitsOwnReport` bekommt die Route als 14. Aufruf (Stub-RPC `DeleteMeasurementPosition`): member (own) -> `true`, manager (all) -> `false`.
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (internal/gateway komplett inkl. TestOpenAPIRouteDrift, 0 Skips; internal/server -run Rapporte, DATABASE_URL als kmuhub_app) | migration n.a. | rls-smoke n.a. | e2e n.a. (kein Flow löscht Aufmaßpositionen)
+- coverage: n.a. (kein Coverage-Ziel, Bugfix)
+- mutations-probe: `RestrictToAuthor: restrict` -> `restrict && false`: Subtest „member at own scope gets through and is flagged author-only“ rot („delete measurement position: author-only flag“). Datei aus Backup zurück, Tests grün, Diff sauber.
+- verify vorgaenger: sauber (Commit `3e21ebcf` nur Loop-Dateien)
+- neue-units: keine
+- desktop-aufrufer: `DELETE /rapporte/measurements/positions/{pos_id}` -> kein Aufrufer in `desktop/src/renderer/src/api/` oder `hooks/` (nur generierte `types.ts:12303`) -> keine Auswirkung; Antwortform unverändert (204)
+- offen: Der Server-Test für fremde Position unter `restrict_to_author` existierte schon (`internal/server/rapporte_author_scope_test.go:101`), deshalb kein neuer Server-Test.
