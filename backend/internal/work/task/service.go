@@ -80,15 +80,44 @@ func (s *Service) AttachFile(ctx context.Context, tenantID, actorID uuid.UUID, f
 // rule as AttachFile; a file of another tenant is ErrFileNotFound.
 // lean: the stored object and the quota are not released here; see the
 // document cleanup path if task files ever need reclaiming.
-func (s *Service) RemoveFile(ctx context.Context, tenantID, actorID, fileID uuid.UUID) error {
+//
+// A non-nil ownerID is the own scope of work:task:edit (see RequireOwnTask).
+func (s *Service) RemoveFile(ctx context.Context, tenantID, actorID, fileID uuid.UUID, ownerID *uuid.UUID) error {
 	f, err := s.repo.GetFile(ctx, tenantID, fileID)
 	if err != nil {
+		return err
+	}
+	if err := s.RequireOwnTask(ctx, tenantID, f.TaskID, ownerID); err != nil {
 		return err
 	}
 	if err := s.requireTaskEditor(ctx, tenantID, f.TaskID, actorID); err != nil {
 		return err
 	}
 	return s.repo.RemoveFile(ctx, tenantID, fileID)
+}
+
+// ownsTask is the own scope of work:task:edit: the caller created the task or
+// is its assignee (the owners the desktop's useTaskCan checks, so an assignee
+// can still complete it).
+func ownsTask(t *models.TaskWithRelations, ownerID uuid.UUID) bool {
+	return t.CreatedBy == ownerID || (t.AssigneeID != nil && *t.AssigneeID == ownerID)
+}
+
+// RequireOwnTask enforces the own scope of work:task:edit on a task: a nil
+// ownerID passes, otherwise the task must be one ownerID owns (ownsTask), any
+// other answers ErrNotFound so a caller cannot probe foreign task ids.
+func (s *Service) RequireOwnTask(ctx context.Context, tenantID, taskID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID == nil {
+		return nil
+	}
+	existing, err := s.repo.GetByID(ctx, taskID, tenantID)
+	if err != nil {
+		return err
+	}
+	if !ownsTask(existing, *ownerID) {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // requireTaskEditor applies the rule Update uses: a task with a project needs
@@ -348,8 +377,7 @@ func (s *Service) Update(ctx context.Context, tenantID, taskID uuid.UUID, input 
 	if err != nil {
 		return nil, err
 	}
-	if input.OwnerID != nil && existing.CreatedBy != *input.OwnerID &&
-		(existing.AssigneeID == nil || *existing.AssigneeID != *input.OwnerID) {
+	if input.OwnerID != nil && !ownsTask(existing, *input.OwnerID) {
 		return nil, ErrNotFound
 	}
 
@@ -763,9 +791,37 @@ func (s *Service) CreateDependency(ctx context.Context, input DepInput) (*models
 	return dep, nil
 }
 
-// DeleteDependency removes a task dependency
-func (s *Service) DeleteDependency(ctx context.Context, tenantID, depID uuid.UUID) error {
+// DeleteDependency removes a task dependency. A non-nil ownerID is the own
+// scope of work:task:edit: the dependency shows on both its tasks, so owning
+// either one is enough; any other answers ErrNotFound.
+func (s *Service) DeleteDependency(ctx context.Context, tenantID, depID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		source, target, err := s.repo.DependencyTaskIDs(ctx, tenantID, depID)
+		if err != nil {
+			return err
+		}
+		if s.RequireOwnTask(ctx, tenantID, source, ownerID) != nil {
+			if err := s.RequireOwnTask(ctx, tenantID, target, ownerID); err != nil {
+				return err
+			}
+		}
+	}
 	return s.repo.DeleteDependency(ctx, tenantID, depID)
+}
+
+// UnlinkEntity removes an entity link of the tenant. A non-nil ownerID is the
+// own scope of work:task:edit on the link's task (see RequireOwnTask).
+func (s *Service) UnlinkEntity(ctx context.Context, tenantID, linkID uuid.UUID, ownerID *uuid.UUID) error {
+	if ownerID != nil {
+		taskID, err := s.repo.EntityLinkTaskID(ctx, tenantID, linkID)
+		if err != nil {
+			return err
+		}
+		if err := s.RequireOwnTask(ctx, tenantID, taskID, ownerID); err != nil {
+			return err
+		}
+	}
+	return s.repo.UnlinkEntity(ctx, tenantID, linkID)
 }
 
 // ListMyTasks returns tasks assigned to or created by the user, scoped to the given tenant.

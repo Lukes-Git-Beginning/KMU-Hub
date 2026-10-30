@@ -172,6 +172,19 @@ func (m *mockRepo) ListActivities(_ context.Context, taskID uuid.UUID, page, pag
 	return result, len(result), nil
 }
 
+func (m *mockRepo) DependencyTaskIDs(_ context.Context, _, id uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	for _, d := range m.deps {
+		if d.ID == id {
+			return d.SourceTaskID, d.TargetTaskID, nil
+		}
+	}
+	return uuid.Nil, uuid.Nil, ErrNotFound
+}
+
+func (m *mockRepo) EntityLinkTaskID(_ context.Context, _, _ uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, ErrNotFound
+}
+
 func (m *mockRepo) LinkEntity(_ context.Context, link *models.TaskEntityLink) error {
 	return nil
 }
@@ -983,6 +996,43 @@ func TestService_UpdateOwnScopeOnlyCreator(t *testing.T) {
 	}
 	if _, err := svc.Update(ctx, uuid.Nil, created.ID, UpdateInput{Title: &kept, OwnerID: &assignee}, assignee); err != nil {
 		t.Fatalf("assignee at own scope: %v", err)
+	}
+}
+
+// DeleteDependency at scope own passes when the caller owns either end of
+// the dependency (it shows on both tasks) and answers ErrNotFound otherwise,
+// leaving the dependency in place.
+func TestService_DeleteDependencyOwnScopeEitherEnd(t *testing.T) {
+	ctx := context.Background()
+	repo := newMockRepo()
+	svc := NewService(repo, newMockProjectRepo())
+
+	alice, bob, carol := uuid.New(), uuid.New(), uuid.New()
+	source, _ := svc.Create(ctx, CreateInput{Title: "Source", CreatedBy: alice})
+	target, _ := svc.Create(ctx, CreateInput{Title: "Target", CreatedBy: bob})
+	dep := models.TaskDependency{ID: uuid.New(), SourceTaskID: source.ID, TargetTaskID: target.ID, DependencyType: models.DepTypeRelatesTo}
+	repo.deps = append(repo.deps, dep)
+
+	if err := svc.DeleteDependency(ctx, uuid.Nil, dep.ID, &carol); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("owner of neither end: want ErrNotFound, got %v", err)
+	}
+	if len(repo.deps) != 1 {
+		t.Fatalf("refused delete removed the dependency")
+	}
+	if err := svc.DeleteDependency(ctx, uuid.Nil, dep.ID, &bob); err != nil {
+		t.Fatalf("owner of the target end: %v", err)
+	}
+	if len(repo.deps) != 0 {
+		t.Fatalf("dependency still there after the target owner deleted it")
+	}
+	if err := svc.DeleteDependency(ctx, uuid.Nil, uuid.New(), &alice); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown dependency at own scope: want ErrNotFound, got %v", err)
+	}
+	if err := svc.RequireOwnTask(ctx, uuid.Nil, source.ID, &alice); err != nil {
+		t.Fatalf("creator passes RequireOwnTask: %v", err)
+	}
+	if err := svc.RequireOwnTask(ctx, uuid.Nil, source.ID, nil); err != nil {
+		t.Fatalf("nil owner passes RequireOwnTask: %v", err)
 	}
 }
 

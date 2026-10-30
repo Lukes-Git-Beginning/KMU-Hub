@@ -3973,8 +3973,12 @@ type CreateTaskDependencyRequest struct {
 	TargetTaskId   string                 `protobuf:"bytes,2,opt,name=target_task_id,json=targetTaskId,proto3" json:"target_task_id,omitempty"`
 	DependencyType string                 `protobuf:"bytes,3,opt,name=dependency_type,json=dependencyType,proto3" json:"dependency_type,omitempty"`
 	CreatedBy      string                 `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the source task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateTaskDependencyRequest) Reset() {
@@ -4035,6 +4039,13 @@ func (x *CreateTaskDependencyRequest) GetCreatedBy() string {
 	return ""
 }
 
+func (x *CreateTaskDependencyRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
+}
+
 type CreateTaskDependencyResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Dependency    *TaskDependencyProto   `protobuf:"bytes,1,opt,name=dependency,proto3" json:"dependency,omitempty"`
@@ -4080,8 +4091,12 @@ func (x *CreateTaskDependencyResponse) GetDependency() *TaskDependencyProto {
 }
 
 type DeleteTaskDependencyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// owner_id must have created or be assigned to its source or target task
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4119,6 +4134,13 @@ func (*DeleteTaskDependencyRequest) Descriptor() ([]byte, []int) {
 func (x *DeleteTaskDependencyRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *DeleteTaskDependencyRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -4656,11 +4678,15 @@ func (x *ListTaskCommentsResponse) GetTotal() int32 {
 }
 
 type LinkEntityToTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	EntityType    string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
-	EntityId      string                 `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
-	CreatedBy     string                 `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	TaskId     string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	EntityType string                 `protobuf:"bytes,2,opt,name=entity_type,json=entityType,proto3" json:"entity_type,omitempty"`
+	EntityId   string                 `protobuf:"bytes,3,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	CreatedBy  string                 `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,5,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4723,6 +4749,13 @@ func (x *LinkEntityToTaskRequest) GetCreatedBy() string {
 	return ""
 }
 
+func (x *LinkEntityToTaskRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
+}
+
 type LinkEntityToTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Link          *TaskEntityLinkProto   `protobuf:"bytes,1,opt,name=link,proto3" json:"link,omitempty"`
@@ -4768,8 +4801,12 @@ func (x *LinkEntityToTaskResponse) GetLink() *TaskEntityLinkProto {
 }
 
 type UnlinkEntityFromTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the link's task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4807,6 +4844,13 @@ func (*UnlinkEntityFromTaskRequest) Descriptor() ([]byte, []int) {
 func (x *UnlinkEntityFromTaskRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *UnlinkEntityFromTaskRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -5168,14 +5212,18 @@ func (x *ListTaskActivitiesResponse) GetTotal() int32 {
 }
 
 type AttachFileToTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
-	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
-	MimeType      string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	FileSize      int64                  `protobuf:"varint,4,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
-	StorageKey    string                 `protobuf:"bytes,5,opt,name=storage_key,json=storageKey,proto3" json:"storage_key,omitempty"`
-	ThumbnailKey  *string                `protobuf:"bytes,6,opt,name=thumbnail_key,json=thumbnailKey,proto3,oneof" json:"thumbnail_key,omitempty"`
-	UploadedBy    string                 `protobuf:"bytes,7,opt,name=uploaded_by,json=uploadedBy,proto3" json:"uploaded_by,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	TaskId       string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Filename     string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	MimeType     string                 `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
+	FileSize     int64                  `protobuf:"varint,4,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	StorageKey   string                 `protobuf:"bytes,5,opt,name=storage_key,json=storageKey,proto3" json:"storage_key,omitempty"`
+	ThumbnailKey *string                `protobuf:"bytes,6,opt,name=thumbnail_key,json=thumbnailKey,proto3,oneof" json:"thumbnail_key,omitempty"`
+	UploadedBy   string                 `protobuf:"bytes,7,opt,name=uploaded_by,json=uploadedBy,proto3" json:"uploaded_by,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,8,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5259,6 +5307,13 @@ func (x *AttachFileToTaskRequest) GetUploadedBy() string {
 	return ""
 }
 
+func (x *AttachFileToTaskRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
+	}
+	return ""
+}
+
 type AttachFileToTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	File          *TaskFileProto         `protobuf:"bytes,1,opt,name=file,proto3" json:"file,omitempty"`
@@ -5304,8 +5359,12 @@ func (x *AttachFileToTaskResponse) GetFile() *TaskFileProto {
 }
 
 type RemoveTaskFileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Set by the gateway when the caller holds work:task:edit only at scope own:
+	// the file's task must be one owner_id created or is assigned to
+	// (NotFound otherwise). Empty keeps it tenant-wide.
+	OwnerId       *string `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3,oneof" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5343,6 +5402,13 @@ func (*RemoveTaskFileRequest) Descriptor() ([]byte, []int) {
 func (x *RemoveTaskFileRequest) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *RemoveTaskFileRequest) GetOwnerId() string {
+	if x != nil && x.OwnerId != nil {
+		return *x.OwnerId
 	}
 	return ""
 }
@@ -9368,19 +9434,23 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\x0eparent_task_id\x18\x01 \x01(\tR\fparentTaskId\x12\x1c\n" +
 	"\trecursive\x18\x02 \x01(\bR\trecursive\"@\n" +
 	"\x14ListSubtasksResponse\x12(\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\"\xb1\x01\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x12.work.v1.TaskProtoR\x05tasks\"\xde\x01\n" +
 	"\x1bCreateTaskDependencyRequest\x12$\n" +
 	"\x0esource_task_id\x18\x01 \x01(\tR\fsourceTaskId\x12$\n" +
 	"\x0etarget_task_id\x18\x02 \x01(\tR\ftargetTaskId\x12'\n" +
 	"\x0fdependency_type\x18\x03 \x01(\tR\x0edependencyType\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x04 \x01(\tR\tcreatedBy\"\\\n" +
+	"created_by\x18\x04 \x01(\tR\tcreatedBy\x12\x1e\n" +
+	"\bowner_id\x18\x05 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\\\n" +
 	"\x1cCreateTaskDependencyResponse\x12<\n" +
 	"\n" +
 	"dependency\x18\x01 \x01(\v2\x1c.work.v1.TaskDependencyProtoR\n" +
-	"dependency\"-\n" +
+	"dependency\"Z\n" +
 	"\x1bDeleteTaskDependencyRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
+	"\bowner_id\x18\x02 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x1e\n" +
 	"\x1cDeleteTaskDependencyResponse\"6\n" +
 	"\x1bListTaskDependenciesRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"`\n" +
@@ -9409,18 +9479,22 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"g\n" +
 	"\x18ListTaskCommentsResponse\x125\n" +
 	"\bcomments\x18\x01 \x03(\v2\x19.work.v1.TaskCommentProtoR\bcomments\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x8f\x01\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xbc\x01\n" +
 	"\x17LinkEntityToTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1f\n" +
 	"\ventity_type\x18\x02 \x01(\tR\n" +
 	"entityType\x12\x1b\n" +
 	"\tentity_id\x18\x03 \x01(\tR\bentityId\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x04 \x01(\tR\tcreatedBy\"L\n" +
+	"created_by\x18\x04 \x01(\tR\tcreatedBy\x12\x1e\n" +
+	"\bowner_id\x18\x05 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"L\n" +
 	"\x18LinkEntityToTaskResponse\x120\n" +
-	"\x04link\x18\x01 \x01(\v2\x1c.work.v1.TaskEntityLinkProtoR\x04link\"-\n" +
+	"\x04link\x18\x01 \x01(\v2\x1c.work.v1.TaskEntityLinkProtoR\x04link\"Z\n" +
 	"\x1bUnlinkEntityFromTaskRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
+	"\bowner_id\x18\x02 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x1e\n" +
 	"\x1cUnlinkEntityFromTaskResponse\"5\n" +
 	"\x1aListTaskEntityLinksRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"Q\n" +
@@ -9443,7 +9517,7 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"\n" +
 	"activities\x18\x01 \x03(\v2\x1a.work.v1.TaskActivityProtoR\n" +
 	"activities\x12\x14\n" +
-	"\x05total\x18\x02 \x01(\x05R\x05total\"\x86\x02\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\"\xb3\x02\n" +
 	"\x17AttachFileToTaskRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1a\n" +
 	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x1b\n" +
@@ -9453,12 +9527,16 @@ const file_proto_work_v1_work_proto_rawDesc = "" +
 	"storageKey\x12(\n" +
 	"\rthumbnail_key\x18\x06 \x01(\tH\x00R\fthumbnailKey\x88\x01\x01\x12\x1f\n" +
 	"\vuploaded_by\x18\a \x01(\tR\n" +
-	"uploadedByB\x10\n" +
-	"\x0e_thumbnail_key\"F\n" +
+	"uploadedBy\x12\x1e\n" +
+	"\bowner_id\x18\b \x01(\tH\x01R\aownerId\x88\x01\x01B\x10\n" +
+	"\x0e_thumbnail_keyB\v\n" +
+	"\t_owner_id\"F\n" +
 	"\x18AttachFileToTaskResponse\x12*\n" +
-	"\x04file\x18\x01 \x01(\v2\x16.work.v1.TaskFileProtoR\x04file\"'\n" +
+	"\x04file\x18\x01 \x01(\v2\x16.work.v1.TaskFileProtoR\x04file\"T\n" +
 	"\x15RemoveTaskFileRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x18\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1e\n" +
+	"\bowner_id\x18\x02 \x01(\tH\x00R\aownerId\x88\x01\x01B\v\n" +
+	"\t_owner_id\"\x18\n" +
 	"\x16RemoveTaskFileResponse\"/\n" +
 	"\x14ListTaskFilesRequest\x12\x17\n" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\"E\n" +
@@ -10226,8 +10304,13 @@ func file_proto_work_v1_work_proto_init() {
 	file_proto_work_v1_work_proto_msgTypes[49].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[51].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[53].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[59].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[61].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[65].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[73].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[75].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[83].OneofWrappers = []any{}
+	file_proto_work_v1_work_proto_msgTypes[85].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[97].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[99].OneofWrappers = []any{}
 	file_proto_work_v1_work_proto_msgTypes[101].OneofWrappers = []any{}

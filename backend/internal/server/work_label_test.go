@@ -348,6 +348,16 @@ func (r *workTaskMockRepo) LinkEntity(_ context.Context, l *models.TaskEntityLin
 	r.entityLinks[l.ID] = *l
 	return nil
 }
+func (r *workTaskMockRepo) DependencyTaskIDs(_ context.Context, _, _ uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	return uuid.Nil, uuid.Nil, task.ErrNotFound
+}
+func (r *workTaskMockRepo) EntityLinkTaskID(_ context.Context, _, id uuid.UUID) (uuid.UUID, error) {
+	l, ok := r.entityLinks[id]
+	if !ok {
+		return uuid.Nil, task.ErrNotFound
+	}
+	return l.TaskID, nil
+}
 func (r *workTaskMockRepo) UnlinkEntity(_ context.Context, _, id uuid.UUID) error {
 	if r.forceErr != nil {
 		return r.forceErr

@@ -33,6 +33,9 @@ type Repository interface {
 	// Dependencies
 	CreateDependency(ctx context.Context, dep *models.TaskDependency) error
 	DeleteDependency(ctx context.Context, tenantID, id uuid.UUID) error
+	// DependencyTaskIDs returns the source and target task of a dependency of
+	// the tenant, ErrNotFound when there is none.
+	DependencyTaskIDs(ctx context.Context, tenantID, id uuid.UUID) (source, target uuid.UUID, err error)
 	ListDependencies(ctx context.Context, taskID uuid.UUID) ([]models.TaskDependency, error)
 	HasCycle(ctx context.Context, sourceID, targetID uuid.UUID) (bool, error)
 
@@ -43,6 +46,9 @@ type Repository interface {
 	// Entity links
 	LinkEntity(ctx context.Context, link *models.TaskEntityLink) error
 	UnlinkEntity(ctx context.Context, tenantID, id uuid.UUID) error
+	// EntityLinkTaskID returns the task of an entity link of the tenant,
+	// ErrNotFound when there is none.
+	EntityLinkTaskID(ctx context.Context, tenantID, id uuid.UUID) (uuid.UUID, error)
 	ListEntityLinks(ctx context.Context, taskID uuid.UUID) ([]models.TaskEntityLink, error)
 	ListTasksForEntity(ctx context.Context, entityType string, entityID uuid.UUID) ([]models.TaskWithRelations, error)
 

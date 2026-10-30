@@ -1084,6 +1084,19 @@ func (s *WorkGRPCServer) ListSubtasks(ctx context.Context, req *workv1.ListSubta
 	}, nil
 }
 
+// parseWorkOwnerID reads the optional own-scope owner the gateway sets on a
+// task edit request; nil keeps the write tenant-wide.
+func parseWorkOwnerID(raw *string) (*uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	id, err := uuid.Parse(*raw)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, "invalid owner_id")
+	}
+	return &id, nil
+}
+
 // ============================================================================
 // Task Dependencies
 // ============================================================================
@@ -1102,6 +1115,20 @@ func (s *WorkGRPCServer) CreateTaskDependency(ctx context.Context, req *workv1.C
 	createdBy, err := uuid.Parse(req.CreatedBy)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
+	}
+
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+	if ownerID != nil {
+		tenantID, tenantErr := middleware.GetTenantID(ctx)
+		if tenantErr != nil {
+			return nil, status.Error(codes.Unauthenticated, "tenant_id missing from context")
+		}
+		if err := s.taskService.RequireOwnTask(ctx, tenantID, sourceID, ownerID); err != nil {
+			return nil, mapWorkError(err)
+		}
 	}
 
 	dep, err := s.taskService.CreateDependency(ctx, task.DepInput{
@@ -1129,8 +1156,12 @@ func (s *WorkGRPCServer) DeleteTaskDependency(ctx context.Context, req *workv1.D
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid dependency id")
 	}
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := s.taskService.DeleteDependency(ctx, tenantID, id); err != nil {
+	if err := s.taskService.DeleteDependency(ctx, tenantID, id, ownerID); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1295,6 +1326,13 @@ func (s *WorkGRPCServer) LinkEntityToTask(ctx context.Context, req *workv1.LinkE
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid created_by")
 	}
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.taskService.RequireOwnTask(ctx, tenantID, taskID, ownerID); err != nil {
+		return nil, mapWorkError(err)
+	}
 
 	link := &models.TaskEntityLink{
 		ID:         uuid.New(),
@@ -1325,8 +1363,12 @@ func (s *WorkGRPCServer) UnlinkEntityFromTask(ctx context.Context, req *workv1.U
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid link id")
 	}
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
 
-	if err := s.taskRepo.UnlinkEntity(ctx, tenantID, id); err != nil {
+	if err := s.taskService.UnlinkEntity(ctx, tenantID, id, ownerID); err != nil {
 		return nil, mapWorkError(err)
 	}
 
@@ -1450,6 +1492,13 @@ func (s *WorkGRPCServer) AttachFileToTask(ctx context.Context, req *workv1.Attac
 		f.ThumbnailKey = req.ThumbnailKey
 	}
 
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.taskService.RequireOwnTask(ctx, tenantID, taskID, ownerID); err != nil {
+		return nil, mapWorkError(err)
+	}
 	if err := s.taskService.AttachFile(ctx, tenantID, actorID, f); err != nil {
 		return nil, mapWorkError(err)
 	}
@@ -1475,7 +1524,12 @@ func (s *WorkGRPCServer) RemoveTaskFile(ctx context.Context, req *workv1.RemoveT
 		return nil, err
 	}
 
-	if err := s.taskService.RemoveFile(ctx, tenantID, actorID, id); err != nil {
+	ownerID, err := parseWorkOwnerID(req.OwnerId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.taskService.RemoveFile(ctx, tenantID, actorID, id, ownerID); err != nil {
 		return nil, mapWorkError(err)
 	}
 

@@ -552,6 +552,10 @@ message CreateTaskDependencyRequest {
   string target_task_id = 2;
   string dependency_type = 3;
   string created_by = 4;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the source task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 5;
 }
 
 message CreateTaskDependencyResponse {
@@ -560,6 +564,10 @@ message CreateTaskDependencyResponse {
 
 message DeleteTaskDependencyRequest {
   string id = 1;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // owner_id must have created or be assigned to its source or target task
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 2;
 }
 
 message DeleteTaskDependencyResponse {}
@@ -623,6 +631,10 @@ message LinkEntityToTaskRequest {
   string entity_type = 2;
   string entity_id = 3;
   string created_by = 4;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 5;
 }
 
 message LinkEntityToTaskResponse {
@@ -631,6 +643,10 @@ message LinkEntityToTaskResponse {
 
 message UnlinkEntityFromTaskRequest {
   string id = 1;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the link's task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 2;
 }
 
 message UnlinkEntityFromTaskResponse {}
@@ -682,6 +698,10 @@ message AttachFileToTaskRequest {
   string storage_key = 5;
   optional string thumbnail_key = 6;
   string uploaded_by = 7;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 8;
 }
 
 message AttachFileToTaskResponse {
@@ -690,6 +710,10 @@ message AttachFileToTaskResponse {
 
 message RemoveTaskFileRequest {
   string id = 1;
+  // Set by the gateway when the caller holds work:task:edit only at scope own:
+  // the file's task must be one owner_id created or is assigned to
+  // (NotFound otherwise). Empty keeps it tenant-wide.
+  optional string owner_id = 2;
 }
 
 message RemoveTaskFileResponse {}

@@ -128,6 +128,12 @@ func (m *mockTaskRepo) ListActivities(_ context.Context, _ uuid.UUID, _, _ int) 
 }
 func (m *mockTaskRepo) LinkEntity(_ context.Context, _ *models.TaskEntityLink) error { return nil }
 func (m *mockTaskRepo) UnlinkEntity(_ context.Context, _, _ uuid.UUID) error         { return nil }
+func (m *mockTaskRepo) EntityLinkTaskID(_ context.Context, _, _ uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockTaskRepo) DependencyTaskIDs(_ context.Context, _, _ uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	return uuid.Nil, uuid.Nil, nil
+}
 func (m *mockTaskRepo) ListEntityLinks(_ context.Context, _ uuid.UUID) ([]models.TaskEntityLink, error) {
 	return nil, nil
 }

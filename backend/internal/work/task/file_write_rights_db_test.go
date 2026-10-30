@@ -93,10 +93,10 @@ func TestTaskFileWrites_NeedProjectEditRights_RealSQL(t *testing.T) {
 	}
 
 	// Remove: viewer and outsider are refused, the file stays.
-	if err := svc.RemoveFile(ctx, tenantOwn, viewer, kept.ID); !errors.Is(err, ErrViewerCannotEdit) {
+	if err := svc.RemoveFile(ctx, tenantOwn, viewer, kept.ID, nil); !errors.Is(err, ErrViewerCannotEdit) {
 		t.Fatalf("viewer remove: want ErrViewerCannotEdit, got %v", err)
 	}
-	if err := svc.RemoveFile(ctx, tenantOwn, outsider, kept.ID); !errors.Is(err, ErrNotProjectMember) {
+	if err := svc.RemoveFile(ctx, tenantOwn, outsider, kept.ID, nil); !errors.Is(err, ErrNotProjectMember) {
 		t.Fatalf("outsider remove: want ErrNotProjectMember, got %v", err)
 	}
 	if n := count(inProject); n != 1 {
@@ -105,12 +105,12 @@ func TestTaskFileWrites_NeedProjectEditRights_RealSQL(t *testing.T) {
 
 	// Another tenant cannot see the file, let alone delete it.
 	ctxOther := testutil.WithTenantCtx(context.Background(), tenantOther)
-	if err := svc.RemoveFile(ctxOther, tenantOther, otherUser, kept.ID); !errors.Is(err, ErrFileNotFound) {
+	if err := svc.RemoveFile(ctxOther, tenantOther, otherUser, kept.ID, nil); !errors.Is(err, ErrFileNotFound) {
 		t.Fatalf("foreign tenant remove: want ErrFileNotFound, got %v", err)
 	}
 
 	// Remove: the editor may.
-	if err := svc.RemoveFile(ctx, tenantOwn, editor, kept.ID); err != nil {
+	if err := svc.RemoveFile(ctx, tenantOwn, editor, kept.ID, nil); err != nil {
 		t.Fatalf("editor remove: %v", err)
 	}
 	if n := count(inProject); n != 0 {
@@ -122,7 +122,7 @@ func TestTaskFileWrites_NeedProjectEditRights_RealSQL(t *testing.T) {
 	if err := svc.AttachFile(ctx, tenantOwn, outsider, free); err != nil {
 		t.Fatalf("attach to a project-less task: %v", err)
 	}
-	if err := svc.RemoveFile(ctx, tenantOwn, viewer, free.ID); err != nil {
+	if err := svc.RemoveFile(ctx, tenantOwn, viewer, free.ID, nil); err != nil {
 		t.Fatalf("remove from a project-less task: %v", err)
 	}
 	if n := count(loose); n != 0 {

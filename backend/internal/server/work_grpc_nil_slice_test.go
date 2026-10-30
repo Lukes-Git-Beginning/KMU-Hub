@@ -141,6 +141,12 @@ func (stubWorkTaskRepo) List(context.Context, uuid.UUID, task.TaskFilters) ([]mo
 }
 
 func (stubWorkTaskRepo) Update(context.Context, *models.Task) error         { return nil }
+func (stubWorkTaskRepo) DependencyTaskIDs(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, uuid.UUID, error) {
+	return uuid.Nil, uuid.Nil, nil
+}
+func (stubWorkTaskRepo) EntityLinkTaskID(context.Context, uuid.UUID, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
 func (stubWorkTaskRepo) Delete(context.Context, uuid.UUID, uuid.UUID) error { return nil }
 
 func (stubWorkTaskRepo) MoveTask(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, float64, *time.Time) error {

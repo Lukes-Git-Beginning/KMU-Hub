@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/kmuhub/kmuhub/internal/auth"
+	chatfile "github.com/kmuhub/kmuhub/internal/chat/file"
 	"github.com/kmuhub/kmuhub/internal/middleware"
 	"github.com/kmuhub/kmuhub/internal/server"
 	"github.com/kmuhub/kmuhub/internal/testutil"
@@ -33,7 +34,8 @@ import (
 // the guard). The chain is the production one: the real seed through
 // ResolveTokenPermissions, the real Auth middleware and route registration, a
 // real work gRPC server behind TenantInboundUnaryInterceptor and the Postgres
-// repositories.
+// repositories. The same scope holds on the edit sub-routes of a task:
+// dependencies, entity links and files, including their top-level deletes.
 
 var ownTaskEditTenant = uuid.MustParse("e4fec700-0000-4000-8000-0000000000d4")
 
@@ -153,7 +155,7 @@ func TestWorkOwnTaskEdit_HRAdminAgainstRealSeed(t *testing.T) {
 	}
 
 	hrID, hrToken := tokenFor("hr_admin")
-	_, memberToken := tokenFor("member")
+	memberID, memberToken := tokenFor("member")
 
 	own := createTask(hrToken, `{"title":"Eigene Aufgabe"}`)
 	members := createTask(memberToken, `{"title":"Aufgabe des Kollegen"}`)
@@ -192,6 +194,147 @@ func TestWorkOwnTaskEdit_HRAdminAgainstRealSeed(t *testing.T) {
 		}
 		if got := titleOf(hrToken, own); got != "Vom Kollegen" {
 			t.Errorf("hr_admin's task title = %q after member PUT, want Vom Kollegen", got)
+		}
+	})
+
+	// Sub-routes. Each create returns the child wrapped under its key.
+	create := func(token, path, key, body string) (int, string) {
+		t.Helper()
+		code, out := do(http.MethodPost, token, path, body)
+		if code != http.StatusCreated {
+			return code, ""
+		}
+		return code, idOf(out, key)
+	}
+	mustCreate := func(token, path, key, body string) string {
+		t.Helper()
+		code, id := create(token, path, key, body)
+		if code != http.StatusCreated {
+			t.Fatalf("POST %s = %d, want 201", path, code)
+		}
+		return id
+	}
+	depBody := func(target string) string {
+		return `{"target_task_id":"` + target + `","dependency_type":"relates_to"}`
+	}
+	linkBody := func() string {
+		return `{"entity_type":"contact","entity_id":"` + uuid.NewString() + `"}`
+	}
+	fileBody := func() string {
+		return `{"filename":"plan.pdf","mime_type":"application/pdf","file_size":10,"storage_key":"` +
+			chatfile.UnattachedUploadPrefix(ownTaskEditTenant) + uuid.NewString() + `"}`
+	}
+	rows := func(table, id string) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(sysCtx, `SELECT count(*) FROM `+table+` WHERE id = $1`, id).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		return n
+	}
+	childCount := func(table, taskID string) int {
+		t.Helper()
+		col := "task_id"
+		if table == "task_dependencies" {
+			col = "source_task_id"
+		}
+		var n int
+		if err := pool.QueryRow(sysCtx, `SELECT count(*) FROM `+table+` WHERE `+col+` = $1`, taskID).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		return n
+	}
+	other := createTask(memberToken, `{"title":"Zweite Aufgabe des Kollegen"}`)
+	// POST /tasks/{id}/dependencies answers 500 for a project-less task (the
+	// INSERT takes tenant_id from the project join, see
+	// fix-work-dependency-tenant-for-standalone-task), so the delete cases
+	// seed their dependency directly and the create cases only prove the
+	// owner gate: 404 on a foreign task, past it on an own one.
+	seedDep := func(source, target string, by uuid.UUID) string {
+		t.Helper()
+		id := testutil.SeedRow(t, pool, "task_dependencies", map[string]any{
+			"id":              uuid.New(),
+			"tenant_id":       ownTaskEditTenant,
+			"source_task_id":  uuid.MustParse(source),
+			"target_task_id":  uuid.MustParse(target),
+			"dependency_type": "relates_to",
+			"created_by":      by,
+		})
+		return id.String()
+	}
+
+	t.Run("hr_admin edits sub-objects of the tasks they own or are assigned to", func(t *testing.T) {
+		for _, taskID := range []string{own, assigned} {
+			if code, _ := create(hrToken, "/tasks/"+taskID+"/dependencies", "dependency", depBody(other)); code == http.StatusNotFound {
+				t.Errorf("POST dependency on own task = 404, the owner gate refused it")
+			}
+			dep := seedDep(taskID, other, hrID)
+			if code, out := do(http.MethodDelete, hrToken, "/task-dependencies/"+dep, ""); code != http.StatusOK || rows("task_dependencies", dep) != 0 {
+				t.Errorf("DELETE own dependency = %d %v, rows left %d", code, out, rows("task_dependencies", dep))
+			}
+			link := mustCreate(hrToken, "/tasks/"+taskID+"/links", "link", linkBody())
+			if code, out := do(http.MethodDelete, hrToken, "/task-links/"+link, ""); code != http.StatusOK || rows("task_entity_links", link) != 0 {
+				t.Errorf("DELETE own link = %d %v, rows left %d", code, out, rows("task_entity_links", link))
+			}
+			file := mustCreate(hrToken, "/tasks/"+taskID+"/files", "file", fileBody())
+			if code, out := do(http.MethodDelete, hrToken, "/task-files/"+file, ""); code != http.StatusOK || rows("task_files", file) != 0 {
+				t.Errorf("DELETE own file = %d %v, rows left %d", code, out, rows("task_files", file))
+			}
+		}
+	})
+
+	t.Run("hr_admin removes a colleague's dependency that points at their own task", func(t *testing.T) {
+		dep := seedDep(members, own, memberID)
+		if code, out := do(http.MethodDelete, hrToken, "/task-dependencies/"+dep, ""); code != http.StatusOK || rows("task_dependencies", dep) != 0 {
+			t.Errorf("DELETE dependency onto own task = %d %v, rows left %d", code, out, rows("task_dependencies", dep))
+		}
+	})
+
+	t.Run("hr_admin cannot touch sub-objects of a colleague's task", func(t *testing.T) {
+		for _, c := range []struct{ path, key, table, body string }{
+			{"/dependencies", "dependency", "task_dependencies", depBody(other)},
+			{"/links", "link", "task_entity_links", linkBody()},
+			{"/files", "file", "task_files", fileBody()},
+		} {
+			if code, _ := create(hrToken, "/tasks/"+members+c.path, c.key, c.body); code != http.StatusNotFound {
+				t.Errorf("POST foreign task %s = %d, want 404", c.path, code)
+			}
+			if n := childCount(c.table, members); n != 0 {
+				t.Errorf("refused POST %s left %d rows on the foreign task", c.path, n)
+			}
+		}
+		for _, c := range []struct{ path, key, table, del, body string }{
+			{"", "", "task_dependencies", "/task-dependencies/", ""},
+			{"/links", "link", "task_entity_links", "/task-links/", linkBody()},
+			{"/files", "file", "task_files", "/task-files/", fileBody()},
+		} {
+			var id string
+			if c.path == "" {
+				id = seedDep(members, other, memberID)
+			} else {
+				id = mustCreate(memberToken, "/tasks/"+members+c.path, c.key, c.body)
+			}
+			if code, out := do(http.MethodDelete, hrToken, c.del+id, ""); code != http.StatusNotFound {
+				t.Errorf("DELETE foreign %s = %d %v, want 404", c.del, code, out)
+			}
+			if n := rows(c.table, id); n != 1 {
+				t.Errorf("refused DELETE %s removed the row (rows %d)", c.del, n)
+			}
+		}
+	})
+
+	t.Run("member edits sub-objects tenant-wide through tasks:write", func(t *testing.T) {
+		dep := seedDep(own, other, hrID)
+		link := mustCreate(memberToken, "/tasks/"+own+"/links", "link", linkBody())
+		file := mustCreate(memberToken, "/tasks/"+own+"/files", "file", fileBody())
+		for _, c := range []struct{ del, table, id string }{
+			{"/task-dependencies/", "task_dependencies", dep},
+			{"/task-links/", "task_entity_links", link},
+			{"/task-files/", "task_files", file},
+		} {
+			if code, out := do(http.MethodDelete, memberToken, c.del+c.id, ""); code != http.StatusOK || rows(c.table, c.id) != 0 {
+				t.Errorf("member DELETE %s on hr_admin's task = %d %v", c.del, code, out)
+			}
 		}
 	})
 }

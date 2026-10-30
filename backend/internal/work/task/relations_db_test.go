@@ -152,11 +152,11 @@ func TestDependencies_CreateListAndTenantScope(t *testing.T) {
 
 	// The service passes the delete through with the tenant it was given.
 	svc := NewService(f.repo, nil)
-	if err := svc.DeleteDependency(f.ctxOwn, f.tenantOther, ab.ID); err != nil {
+	if err := svc.DeleteDependency(f.ctxOwn, f.tenantOther, ab.ID, nil); err != nil {
 		t.Fatalf("Service.DeleteDependency (foreign tenantID): %v", err)
 	}
 	testutil.AssertRowCount(t, f.pool, sysCtx, "task_dependencies", ab.ID, 1)
-	if err := svc.DeleteDependency(f.ctxOwn, f.tenantOwn, ab.ID); err != nil {
+	if err := svc.DeleteDependency(f.ctxOwn, f.tenantOwn, ab.ID, nil); err != nil {
 		t.Fatalf("Service.DeleteDependency: %v", err)
 	}
 	testutil.AssertRowCount(t, f.pool, sysCtx, "task_dependencies", ab.ID, 0)

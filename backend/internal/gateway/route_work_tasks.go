@@ -397,6 +397,16 @@ func (w *WorkRoutes) HandleListSubtasks(wr http.ResponseWriter, r *http.Request)
 // Dependency Handlers
 // ============================================================================
 
+// taskEditOwnerFilter is the own scope of work:task:edit on the edit routes
+// of a task and its dependencies, links and files: the service then touches
+// only tasks the caller created or is assigned to. Legacy tasks:write beyond
+// own keeps them tenant-wide, also on the top-level deletes, whose guard lets
+// member in through work:task:edit (member holds tasks:write, not
+// tasks:delete).
+func taskEditOwnerFilter(wr http.ResponseWriter, r *http.Request) (*string, bool) {
+	return ownerFilterUnlessAltKey(wr, r, [2]string{"tasks", "write"}, "work:task", "edit")
+}
+
 type createDependencyRequest struct {
 	TargetTaskID   string `json:"target_task_id" validate:"required,uuid"`
 	DependencyType string `json:"dependency_type" validate:"omitempty,oneof=blocks blocked_by relates_to duplicates"`
@@ -416,12 +426,17 @@ func (w *WorkRoutes) HandleCreateTaskDependency(wr http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
 
 	resp, err := client.CreateTaskDependency(r.Context(), &workv1.CreateTaskDependencyRequest{
 		SourceTaskId:   sourceTaskID,
 		TargetTaskId:   req.TargetTaskID,
 		DependencyType: req.DependencyType,
 		CreatedBy:      userID,
+		OwnerId:        ownerID,
 	})
 	if err != nil {
 		respondGRPCError(wr, err)
@@ -439,7 +454,11 @@ func (w *WorkRoutes) HandleDeleteTaskDependency(wr http.ResponseWriter, r *http.
 	}
 
 	depID := chi.URLParam(r, "id")
-	_, err = client.DeleteTaskDependency(r.Context(), &workv1.DeleteTaskDependencyRequest{Id: depID})
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
+	_, err = client.DeleteTaskDependency(r.Context(), &workv1.DeleteTaskDependencyRequest{Id: depID, OwnerId: ownerID})
 	if err != nil {
 		respondGRPCError(wr, err)
 		return
@@ -606,12 +625,17 @@ func (w *WorkRoutes) HandleLinkEntityToTask(wr http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
 
 	resp, err := client.LinkEntityToTask(r.Context(), &workv1.LinkEntityToTaskRequest{
 		TaskId:     taskID,
 		EntityType: req.EntityType,
 		EntityId:   req.EntityID,
 		CreatedBy:  userID,
+		OwnerId:    ownerID,
 	})
 	if err != nil {
 		respondGRPCError(wr, err)
@@ -629,7 +653,11 @@ func (w *WorkRoutes) HandleUnlinkEntityFromTask(wr http.ResponseWriter, r *http.
 	}
 
 	linkID := chi.URLParam(r, "id")
-	_, err = client.UnlinkEntityFromTask(r.Context(), &workv1.UnlinkEntityFromTaskRequest{Id: linkID})
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
+	_, err = client.UnlinkEntityFromTask(r.Context(), &workv1.UnlinkEntityFromTaskRequest{Id: linkID, OwnerId: ownerID})
 	if err != nil {
 		respondGRPCError(wr, err)
 		return
@@ -742,6 +770,10 @@ func (w *WorkRoutes) HandleAttachFileToTask(wr http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
 
 	grpcReq := &workv1.AttachFileToTaskRequest{
 		TaskId:     taskID,
@@ -750,6 +782,7 @@ func (w *WorkRoutes) HandleAttachFileToTask(wr http.ResponseWriter, r *http.Requ
 		FileSize:   req.FileSize,
 		StorageKey: req.StorageKey,
 		UploadedBy: userID,
+		OwnerId:    ownerID,
 	}
 	if req.ThumbnailKey != nil {
 		grpcReq.ThumbnailKey = req.ThumbnailKey
@@ -772,7 +805,11 @@ func (w *WorkRoutes) HandleRemoveTaskFile(wr http.ResponseWriter, r *http.Reques
 	}
 
 	fileID := chi.URLParam(r, "id")
-	_, err = client.RemoveTaskFile(r.Context(), &workv1.RemoveTaskFileRequest{Id: fileID})
+	ownerID, ok := taskEditOwnerFilter(wr, r)
+	if !ok {
+		return
+	}
+	_, err = client.RemoveTaskFile(r.Context(), &workv1.RemoveTaskFileRequest{Id: fileID, OwnerId: ownerID})
 	if err != nil {
 		respondGRPCError(wr, err)
 		return

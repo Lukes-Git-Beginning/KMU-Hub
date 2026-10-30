@@ -6488,6 +6488,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Create task dependency
+      description: >
+        Requires tasks:write or work:task:edit. At scope own of work:task:edit (hr_admin preset)
+        without tasks:write beyond own, only a task the caller created or is assigned to is
+        changed; any other task answers 404 and stays unchanged.
       tags: [tasks]
       operationId: createTaskDependency
       security:
@@ -6525,6 +6529,10 @@ paths:
                     $ref: "#/components/schemas/TaskDependencyResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/ConflictOrIdempotencyInFlight"
         "503":
@@ -6533,6 +6541,10 @@ paths:
   /api/v1/task-dependencies/{id}:
     delete:
       summary: Delete task dependency
+      description: >
+        Requires tasks:delete or work:task:edit. At scope own of work:task:edit without
+        tasks:write beyond own, only a dependency whose source or target task the caller created
+        or is assigned to is deleted; any other answers 404 and stays.
       tags: [tasks]
       operationId: deleteTaskDependency
       security:
@@ -6547,6 +6559,10 @@ paths:
       responses:
         "200":
           description: Dependency deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -6721,6 +6737,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Link CRM entity to task
+      description: >
+        Requires tasks:write or work:task:edit. At scope own of work:task:edit (hr_admin preset)
+        without tasks:write beyond own, only a task the caller created or is assigned to is
+        changed; any other task answers 404 and stays unchanged.
       tags: [task-links]
       operationId: linkEntityToTask
       security:
@@ -6758,6 +6778,10 @@ paths:
                     $ref: "#/components/schemas/TaskEntityLinkResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -6766,6 +6790,10 @@ paths:
   /api/v1/task-links/{id}:
     delete:
       summary: Unlink entity from task
+      description: >
+        Requires tasks:delete or work:task:edit. At scope own of work:task:edit without
+        tasks:write beyond own, only an entry on a task the caller created or is assigned to is
+        deleted; any other answers 404 and stays.
       tags: [task-links]
       operationId: unlinkEntityFromTask
       security:
@@ -6780,6 +6808,10 @@ paths:
       responses:
         "200":
           description: Entity unlinked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":
@@ -6905,6 +6937,10 @@ paths:
           $ref: "#/components/responses/ServiceUnavailable"
     post:
       summary: Attach file to task
+      description: >
+        Requires tasks:write or work:task:edit. At scope own of work:task:edit (hr_admin preset)
+        without tasks:write beyond own, only a task the caller created or is assigned to is
+        changed; any other task answers 404 and stays unchanged.
       tags: [task-files]
       operationId: attachFileToTask
       security:
@@ -6951,6 +6987,8 @@ paths:
                     $ref: "#/components/schemas/TaskFileResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -6961,6 +6999,10 @@ paths:
   /api/v1/task-files/{id}:
     delete:
       summary: Remove file from task
+      description: >
+        Requires tasks:delete or work:task:edit. At scope own of work:task:edit without
+        tasks:write beyond own, only an entry on a task the caller created or is assigned to is
+        deleted; any other answers 404 and stays.
       tags: [task-files]
       operationId: removeTaskFile
       security:
@@ -6975,6 +7017,10 @@ paths:
       responses:
         "200":
           description: File removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/IdempotencyInFlight"
         "503":

@@ -387,6 +387,17 @@ func (r *PostgresRepository) DeleteDependency(ctx context.Context, tenantID, id 
 	return err
 }
 
+func (r *PostgresRepository) DependencyTaskIDs(ctx context.Context, tenantID, id uuid.UUID) (source, target uuid.UUID, err error) {
+	err = r.pool.QueryRow(ctx,
+		`SELECT source_task_id, target_task_id FROM task_dependencies WHERE id = $1 AND tenant_id = $2`,
+		id, tenantID,
+	).Scan(&source, &target)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, uuid.Nil, ErrNotFound
+	}
+	return source, target, err
+}
+
 func (r *PostgresRepository) ListDependencies(ctx context.Context, taskID uuid.UUID) ([]models.TaskDependency, error) {
 	rows, err := r.pool.Query(ctx,
 		`SELECT id, source_task_id, target_task_id, dependency_type, created_by, created_at
@@ -496,6 +507,17 @@ func (r *PostgresRepository) LinkEntity(ctx context.Context, link *models.TaskEn
 func (r *PostgresRepository) UnlinkEntity(ctx context.Context, tenantID, id uuid.UUID) error {
 	_, err := r.pool.Exec(ctx, `DELETE FROM task_entity_links WHERE id = $1 AND tenant_id = $2`, id, tenantID)
 	return err
+}
+
+func (r *PostgresRepository) EntityLinkTaskID(ctx context.Context, tenantID, id uuid.UUID) (uuid.UUID, error) {
+	var taskID uuid.UUID
+	err := r.pool.QueryRow(ctx,
+		`SELECT task_id FROM task_entity_links WHERE id = $1 AND tenant_id = $2`, id, tenantID,
+	).Scan(&taskID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return taskID, err
 }
 
 func (r *PostgresRepository) ListEntityLinks(ctx context.Context, taskID uuid.UUID) ([]models.TaskEntityLink, error) {

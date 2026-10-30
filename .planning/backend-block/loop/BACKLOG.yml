@@ -1484,7 +1484,7 @@ units:
     service: work
     model: opus
     deps: [fix-work-task-edit-own-scope]
-    status: todo
+    status: done
     target: 'Die Edit-Nebenrouten einer Aufgabe halten `work:task:edit` im Scope own ein wie `PUT /tasks/{id}`'
     coverage_start: n.a. (Bugfix)
     scope: >
@@ -1517,6 +1517,73 @@ units:
     done_when:
       - 'Router-DB-Test mit echtem hr_admin-Token: Nebenroute an fremder Aufgabe -> 404, Zeile unverändert; an eigener bzw. zugewiesener -> Erfolg; member-Token bleibt tenant-weit'
       - Proto regeneriert, go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-work-dependency-tenant-for-standalone-task
+    phase: 4
+    service: work
+    model: sonnet
+    deps: []
+    status: todo
+    target: '`POST /tasks/{id}/dependencies` legt Abhängigkeiten auch an projektlosen Aufgaben an statt mit 500 zu scheitern'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      TOTALAUSFALL für projektlose Aufgaben, gefunden in `fix-work-task-edit-own-scope-subroutes` (Lauf 18, Iteration
+      46) und dort reproduziert: `POST /tasks/{id}/dependencies` an einer Aufgabe ohne Projekt antwortet jedem Nutzer
+      500. `task.PostgresRepository.CreateDependency` (`internal/work/task/postgres_repository.go`, INSERT in
+      `task_dependencies`) holt `tenant_id` per Subselect über `tasks JOIN projects`; ohne Projekt ist der Wert NULL und
+      verletzt `tenant_id NOT NULL`. `AttachFile` hatte denselben Fehler und nimmt den Tenant inzwischen aus
+      `tasks.tenant_id` (Kommentar dort). Fix: Subselect auf `SELECT t.tenant_id FROM tasks t WHERE t.id = $2`
+      (Tenant des Aufrufers als Filter wie bei `AttachFile`, sonst ErrNotFound statt 500). `CreateFromTemplate` nutzt
+      dieselbe Methode für Projektaufgaben und darf sich nicht ändern.
+    sources:
+      - backend/internal/work/task/postgres_repository.go
+      - backend/internal/work/task/service.go
+      - backend/internal/gateway/route_work_own_task_edit_db_test.go
+    notes: >
+      Der Router-DB-Test `route_work_own_task_edit_db_test.go` seedet Abhängigkeiten deshalb per SQL (`seedDep`) und
+      prüft beim Anlegen an eigener Aufgabe nur „nicht 404". Nach dem Fix dort auf 201 schärfen und `seedDep` für die
+      Anlege-Fälle durch den echten POST ersetzen. Prüfen, ob `task_dependencies` weitere INSERT-Pfade mit
+      Projekt-JOIN hat (grep `INSERT INTO task_` im Paket).
+    done_when:
+      - 'DB-Test: Abhängigkeit zwischen zwei projektlosen Aufgaben per POST -> 201, Zeile mit tenant_id des Aufrufers'
+      - 'Router-DB-Test in route_work_own_task_edit_db_test.go erwartet beim Anlegen an eigener Aufgabe 201'
+      - go test -count=1 für internal/work/... und internal/gateway grün, 0 Skips
+      - Mutationsprobe belegt
+
+  - id: fix-work-task-edit-own-scope-labels-customfields
+    phase: 4
+    service: work
+    model: opus
+    deps: [fix-work-task-edit-own-scope-subroutes]
+    status: todo
+    target: '`PUT /tasks/{id}/labels` und `PUT /tasks/{id}/custom-fields` halten `work:task:edit` im Scope own ein'
+    coverage_start: n.a. (Bugfix)
+    scope: >
+      LECK IM TENANT (Own-Scope), letzter Rest von `fix-work-task-edit-own-scope` (Lauf 18). Iteration 46 hat
+      Abhängigkeiten, Verknüpfungen und Dateien gebaut und laut Unit-Notiz (mehr als fünf Produktivdateien) die Gruppe
+      Label/Custom-Field abgetrennt. `HandleSetTaskLabels` (`internal/gateway/route_work_labels.go`, Guard `labelEdit` =
+      Any(work_labels:write, work:task:edit)) und `HandleSetTaskCustomFieldValues` (`route_work_tasks.go`, Guard
+      `taskEdit`) reichen keinen Owner durch; `WorkGRPCServer.SetTaskLabels` bzw. `SetTaskCustomFieldValues`
+      (`internal/server/work_grpc.go`) schreiben ohne Prüfung. hr_admin (`work:task:edit=own`, kein `tasks:*`) ersetzt
+      damit Labels und Zusatzfelder an jeder Aufgabe im Tenant. Fix: `optional string owner_id` an
+      `SetTaskLabelsRequest` und `SetTaskCustomFieldValuesRequest`, gRPC prüft vor dem Schreiben über
+      `taskService.RequireOwnTask` (gibt es seit Iteration 46), Gateway setzt den Owner über `taskEditOwnerFilter`
+      bzw. für Labels `ownerFilterUnlessAltKey(work_labels:write, work:task:edit)`.
+    sources:
+      - backend/internal/gateway/route_work_labels.go
+      - backend/internal/gateway/route_work_tasks.go
+      - backend/proto/work/v1/work.proto
+      - backend/internal/server/work_grpc.go
+      - backend/internal/gateway/route_work_own_task_edit_db_test.go
+    notes: >
+      Proto ändern UND regenerieren. Alt-Key für Labels prüfen: member hält laut lokalem Seed `tasks:write=all`, aber
+      ob `work_labels:write` geseedet ist, vorher in `role_permissions` nachsehen, sonst wird member an den Labels
+      eingeengt. Spec-Einträge der zwei PUTs um 401/404 ergänzen, falls `TestOpenAPIStatusCodeDrift` sie verlangt
+      (bei den sechs Nebenrouten war das so).
+    done_when:
+      - 'Router-DB-Test mit echtem hr_admin-Token: Labels/Zusatzfelder an fremder Aufgabe -> 404, Werte unverändert; an eigener bzw. zugewiesener -> Erfolg; member bleibt tenant-weit'
+      - Proto regeneriert, go test -count=1 für internal/work/..., internal/server und internal/gateway grün, 0 Skips
       - Mutationsprobe belegt
 
   - id: fix-crm-delete-deal-team-scope
