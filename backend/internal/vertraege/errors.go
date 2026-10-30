@@ -8,6 +8,7 @@ var (
 	ErrPartyNotFound         = errors.New("contract party not found")
 	ErrReminderNotFound      = errors.New("contract reminder not found")
 	ErrInvalidInput          = errors.New("invalid input")
+	ErrPartyRefNotFound      = errors.New("contact or company of the party not found")
 	ErrDeleteNonDraft        = errors.New("only draft contracts can be deleted")
 	ErrAlreadySigned         = errors.New("contract is already signed")
 	ErrPartySigned           = errors.New("party has already signed and cannot be removed")

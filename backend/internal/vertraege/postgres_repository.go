@@ -246,7 +246,36 @@ func (r *PostgresRepository) ExpireContracts(ctx context.Context) (int64, error)
 // Parties
 // ============================================================================
 
+// rowExists reports whether the tenant owns a row with this id. The foreign keys
+// on contract_parties and contract_reminders are checked without row-level
+// security, so they accept another tenant's row; this lookup is what keeps a
+// reference inside the caller's tenant. The table name is always a literal.
+func (r *PostgresRepository) rowExists(ctx context.Context, table string, tenantID, id uuid.UUID) (bool, error) {
+	var ok bool
+	err := r.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM `+table+` WHERE id = $1 AND tenant_id = $2)`, id, tenantID).Scan(&ok)
+	return ok, err
+}
+
 func (r *PostgresRepository) AddParty(ctx context.Context, p *ContractParty) error {
+	if err := r.requireContract(ctx, p.TenantID, p.ContractID); err != nil {
+		return err
+	}
+	for _, ref := range []struct {
+		table string
+		id    *uuid.UUID
+	}{{"contacts", p.ContactID}, {"companies", p.CompanyID}} {
+		if ref.id == nil {
+			continue
+		}
+		ok, err := r.rowExists(ctx, ref.table, p.TenantID, *ref.id)
+		if err != nil {
+			return fmt.Errorf("check party %s: %w", ref.table, err)
+		}
+		if !ok {
+			return ErrPartyRefNotFound
+		}
+	}
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO contract_parties
 		    (id, tenant_id, contract_id, party_type, contact_id, company_id,
@@ -316,7 +345,22 @@ func (r *PostgresRepository) ListParties(ctx context.Context, tenantID, contract
 // Reminders
 // ============================================================================
 
+// requireContract returns ErrContractNotFound unless the tenant owns the contract.
+func (r *PostgresRepository) requireContract(ctx context.Context, tenantID, contractID uuid.UUID) error {
+	ok, err := r.rowExists(ctx, "contracts", tenantID, contractID)
+	if err != nil {
+		return fmt.Errorf("check contract: %w", err)
+	}
+	if !ok {
+		return ErrContractNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) CreateReminder(ctx context.Context, rem *ContractReminder) error {
+	if err := r.requireContract(ctx, rem.TenantID, rem.ContractID); err != nil {
+		return err
+	}
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO contract_reminders
 		    (id, tenant_id, contract_id, remind_at, reminder_type, subject, message, status, created_at)

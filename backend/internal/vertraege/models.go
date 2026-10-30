@@ -17,6 +17,15 @@ const (
 	ContractTypeOther      ContractType = "other"
 )
 
+// Valid reports whether t is one of the contract types the contracts table accepts.
+func (t ContractType) Valid() bool {
+	switch t {
+	case ContractTypeRental, ContractTypeService, ContractTypeEmployment, ContractTypeNDA, ContractTypeOther:
+		return true
+	}
+	return false
+}
+
 // ContractStatus represents the lifecycle state of a contract.
 type ContractStatus string
 
@@ -27,6 +36,15 @@ const (
 	ContractStatusTerminated ContractStatus = "terminated"
 )
 
+// Valid reports whether s is one of the contract statuses the contracts table accepts.
+func (s ContractStatus) Valid() bool {
+	switch s {
+	case ContractStatusDraft, ContractStatusActive, ContractStatusExpired, ContractStatusTerminated:
+		return true
+	}
+	return false
+}
+
 // PartyType identifies who the contracting party is.
 type PartyType string
 
@@ -35,6 +53,15 @@ const (
 	PartyTypeCompany  PartyType = "company"
 	PartyTypeExternal PartyType = "external"
 )
+
+// Valid reports whether t is one of the party types the contract_parties table accepts.
+func (t PartyType) Valid() bool {
+	switch t {
+	case PartyTypeContact, PartyTypeCompany, PartyTypeExternal:
+		return true
+	}
+	return false
+}
 
 // ReminderType classifies the purpose of a reminder.
 type ReminderType string
@@ -46,6 +73,15 @@ const (
 	ReminderTypeCustom   ReminderType = "custom"
 )
 
+// Valid reports whether t is one of the reminder types the contract_reminders table accepts.
+func (t ReminderType) Valid() bool {
+	switch t {
+	case ReminderTypeRenewal, ReminderTypeExpiry, ReminderTypePayment, ReminderTypeCustom:
+		return true
+	}
+	return false
+}
+
 // ReminderStatus tracks whether a reminder has been sent.
 type ReminderStatus string
 
@@ -54,6 +90,15 @@ const (
 	ReminderStatusSent      ReminderStatus = "sent"
 	ReminderStatusCancelled ReminderStatus = "cancelled"
 )
+
+// Valid reports whether s is one of the reminder statuses the contract_reminders table accepts.
+func (s ReminderStatus) Valid() bool {
+	switch s {
+	case ReminderStatusPending, ReminderStatusSent, ReminderStatusCancelled:
+		return true
+	}
+	return false
+}
 
 // ContractEventAction names the kind of change recorded on a contract. The
 // column is TEXT, so this constant set — not the database — is what keeps the

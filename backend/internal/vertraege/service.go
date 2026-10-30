@@ -200,7 +200,7 @@ func (s *Service) CreateContract(ctx context.Context, input CreateContractInput)
 	if number == "" {
 		return nil, ErrInvalidInput
 	}
-	if input.ContractType == "" {
+	if !input.ContractType.Valid() {
 		return nil, ErrInvalidInput
 	}
 
@@ -268,10 +268,16 @@ func (s *Service) UpdateContract(ctx context.Context, input UpdateContractInput)
 		changed = append(changed, "title")
 	}
 	if input.ContractType != nil {
+		if !input.ContractType.Valid() {
+			return nil, ErrInvalidInput
+		}
 		c.ContractType = *input.ContractType
 		changed = append(changed, "contract_type")
 	}
 	if input.Status != nil {
+		if !input.Status.Valid() {
+			return nil, ErrInvalidInput
+		}
 		c.Status = *input.Status
 		changed = append(changed, "status")
 	}
@@ -390,7 +396,7 @@ func (s *Service) ExportContract(ctx context.Context, tenantID, contractID uuid.
 
 // AddParty attaches a party to a contract.
 func (s *Service) AddParty(ctx context.Context, input AddPartyInput) (*ContractParty, error) {
-	if input.RoleInContract == "" {
+	if input.RoleInContract == "" || !input.PartyType.Valid() {
 		return nil, ErrInvalidInput
 	}
 	if input.PartyType == PartyTypeExternal && (input.ExternalName == nil || strings.TrimSpace(*input.ExternalName) == "") {
@@ -455,7 +461,7 @@ func (s *Service) CreateReminder(ctx context.Context, input CreateReminderInput)
 	if strings.TrimSpace(input.Subject) == "" {
 		return nil, ErrInvalidInput
 	}
-	if input.RemindAt.IsZero() {
+	if input.RemindAt.IsZero() || !input.ReminderType.Valid() {
 		return nil, ErrInvalidInput
 	}
 
@@ -494,6 +500,9 @@ func (s *Service) UpdateReminder(ctx context.Context, input UpdateReminderInput)
 		rem.RemindAt = *input.RemindAt
 	}
 	if input.ReminderType != nil {
+		if !input.ReminderType.Valid() {
+			return nil, ErrInvalidInput
+		}
 		rem.ReminderType = *input.ReminderType
 	}
 	if input.Subject != nil {
@@ -503,6 +512,9 @@ func (s *Service) UpdateReminder(ctx context.Context, input UpdateReminderInput)
 		rem.Message = *input.Message
 	}
 	if input.Status != nil {
+		if !input.Status.Valid() {
+			return nil, ErrInvalidInput
+		}
 		rem.Status = *input.Status
 	}
 

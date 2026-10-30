@@ -705,12 +705,30 @@ units:
       - 'Service-Test: unbekanntes, gelöschtes und archiviertes Formular -> Fehler, kein Insert, kein Webhook-Enqueue'
       - 'E2E `TestFormulareMemberFlow`: die beiden IST-Stellen (500 auf unbekanntes, 201 auf gelöschtes Formular) werden zur Erwartung 404'
 
+  - id: fix-formulare-server-tests-schema-stub
+    phase: 4
+    service: formulare
+    model: sonnet
+    deps: []
+    status: done
+    target: die Stub-Tests der Einreichung in internal/server legen das Formular an, in das sie einreichen
+    coverage_start: n.a.
+    scope: >
+      Fund im Verify-Vorspann von Iteration 18: `a3707bb4` lädt das Formular vor dem Insert, die Tests
+      `TestCreateSubmission_HappyPath` und `TestListSubmissions_HappyPath` in `internal/server` reichten
+      aber in ein nie angelegtes Formular ein und scheiterten mit NotFound. Das Journal von Iteration 17
+      meldete dieses Paket grün.
+    sources:
+      - backend/internal/server/formulare_grpc_test.go
+    done_when:
+      - '`go test ./internal/server/` grün, beide Tests seeden das Schema über das Stub-Repo'
+
   - id: fix-vertraege-enum-and-reference-validation-500
     phase: 4
     service: vertraege
     model: sonnet
     deps: []
-    status: todo
+    status: done
     target: Werte außerhalb der Enums und unbekannte Referenzen in Verträgen antworten 400/404 statt 500
     coverage_start: n.a.
     scope: >

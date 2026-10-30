@@ -659,7 +659,7 @@ func mapVertraegeError(err error) error {
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, vertraege.ErrDeleteNonDraft), errors.Is(err, vertraege.ErrAlreadySigned), errors.Is(err, vertraege.ErrPartySigned):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, vertraege.ErrInvalidInput):
+	case errors.Is(err, vertraege.ErrInvalidInput), errors.Is(err, vertraege.ErrPartyRefNotFound):
 		return status.Error(codes.InvalidArgument, err.Error())
 	default:
 		slog.Error("unhandled vertraege service error", "error", err)

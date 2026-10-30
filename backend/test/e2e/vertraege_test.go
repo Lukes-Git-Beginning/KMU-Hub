@@ -200,29 +200,28 @@ func TestVertraegeMemberFlow(t *testing.T) {
 		requireStatus(t, resp, b, http.StatusBadRequest)
 	})
 
-	// FUND (fix-vertraege-enum-and-reference-validation-500): the service checks no enum and no
-	// reference, so a value the table's CHECK or a foreign key refuses surfaces as an unhandled 500
-	// instead of a 400/404. The desktop sends typed enum values only, so no screen trips this today.
-	// The test pins the IST (500); when the fix lands, the expected codes become 400/404.
-	t.Run("values outside the enums and unknown references answer 500 today", func(t *testing.T) {
+	// A value outside an enum is an input error (400), an unknown contract is 404, an unknown contact
+	// is 400. The CHECK constraints and foreign keys never see them.
+	t.Run("values outside the enums and unknown references are refused as input errors", func(t *testing.T) {
 		unknown := vt + "/contracts/00000000-0000-4000-8000-000000000000"
 		for name, c := range map[string]struct {
 			method, url string
 			body        map[string]interface{}
+			want        int
 		}{
-			"patch status":      {http.MethodPatch, contractURL(), map[string]interface{}{"status": "bogus"}},
-			"patch type":        {http.MethodPatch, contractURL(), map[string]interface{}{"contract_type": "bogus"}},
-			"create type":       {http.MethodPost, vt + "/contracts", map[string]interface{}{"contract_number": number + "-p", "title": "x", "contract_type": "bogus", "starts_on": day(0)}},
-			"party type":        {http.MethodPost, contractURL() + "/parties", map[string]interface{}{"party_type": "bogus", "external_name": "x", "role_in_contract": "client"}},
-			"party contact":     {http.MethodPost, contractURL() + "/parties", map[string]interface{}{"party_type": "contact", "contact_id": "00000000-0000-4000-8000-000000000000", "role_in_contract": "client"}},
-			"party contract":    {http.MethodPost, unknown + "/parties", map[string]interface{}{"party_type": "external", "external_name": "x", "role_in_contract": "client"}},
-			"reminder type":     {http.MethodPost, contractURL() + "/reminders", map[string]interface{}{"remind_at": day(30), "reminder_type": "bogus", "subject": "x"}},
-			"reminder no type":  {http.MethodPost, contractURL() + "/reminders", map[string]interface{}{"remind_at": day(30), "subject": "x"}},
-			"reminder contract": {http.MethodPost, unknown + "/reminders", map[string]interface{}{"remind_at": day(30), "reminder_type": "custom", "subject": "x"}},
+			"patch status":      {http.MethodPatch, contractURL(), map[string]interface{}{"status": "bogus"}, http.StatusBadRequest},
+			"patch type":        {http.MethodPatch, contractURL(), map[string]interface{}{"contract_type": "bogus"}, http.StatusBadRequest},
+			"create type":       {http.MethodPost, vt + "/contracts", map[string]interface{}{"contract_number": number + "-p", "title": "x", "contract_type": "bogus", "starts_on": day(0)}, http.StatusBadRequest},
+			"party type":        {http.MethodPost, contractURL() + "/parties", map[string]interface{}{"party_type": "bogus", "external_name": "x", "role_in_contract": "client"}, http.StatusBadRequest},
+			"party contact":     {http.MethodPost, contractURL() + "/parties", map[string]interface{}{"party_type": "contact", "contact_id": "00000000-0000-4000-8000-000000000000", "role_in_contract": "client"}, http.StatusBadRequest},
+			"party contract":    {http.MethodPost, unknown + "/parties", map[string]interface{}{"party_type": "external", "external_name": "x", "role_in_contract": "client"}, http.StatusNotFound},
+			"reminder type":     {http.MethodPost, contractURL() + "/reminders", map[string]interface{}{"remind_at": day(30), "reminder_type": "bogus", "subject": "x"}, http.StatusBadRequest},
+			"reminder no type":  {http.MethodPost, contractURL() + "/reminders", map[string]interface{}{"remind_at": day(30), "subject": "x"}, http.StatusBadRequest},
+			"reminder contract": {http.MethodPost, unknown + "/reminders", map[string]interface{}{"remind_at": day(30), "reminder_type": "custom", "subject": "x"}, http.StatusNotFound},
 		} {
 			resp, b := doRequest(t, c.method, c.url, c.body, managerToken)
-			if resp.StatusCode != http.StatusInternalServerError {
-				t.Errorf("%s: IST is 500 (fix-vertraege-enum-and-reference-validation-500), got %d: %s", name, resp.StatusCode, string(b))
+			if resp.StatusCode != c.want {
+				t.Errorf("%s: expected %d, got %d: %s", name, c.want, resp.StatusCode, string(b))
 			}
 		}
 		// The refused patches changed nothing.
