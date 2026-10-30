@@ -1831,7 +1831,7 @@ units:
     service: einkauf
     model: sonnet
     deps: [scan-partial-quantity-books-full-amount]
-    status: todo
+    status: done
     target: die Inventarbuchung eines Wareneingangs richtet sich nach den Mengen, die unter dem PO-Lock gelesen wurden
     coverage_start: n.a. (Bugfix)
     scope: >

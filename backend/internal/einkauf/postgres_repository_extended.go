@@ -614,10 +614,10 @@ func bookContractCall(ctx context.Context, tx pgx.Tx, call *FrameworkContractCal
 // other and the second sees the quantities the first committed: the call-off
 // value is derived from the received_quantity the UPDATE replaces, never from
 // a read the service made before the transaction.
-func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, error) {
+func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, map[uuid.UUID]float64, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("begin goods receipt tx: %w", err)
+		return nil, nil, fmt.Errorf("begin goods receipt tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -632,13 +632,13 @@ func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *Goo
 		receipt.POID, receipt.TenantID,
 	).Scan(&status, &contractID, &currency, &poNumber)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrPONotFound
+		return nil, nil, ErrPONotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("lock purchase order: %w", err)
+		return nil, nil, fmt.Errorf("lock purchase order: %w", err)
 	}
 	if !isReceivable(status) {
-		return nil, ErrPONotReceivable
+		return nil, nil, ErrPONotReceivable
 	}
 
 	ids := make([]uuid.UUID, len(receipt.Lines))
@@ -646,15 +646,13 @@ func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *Goo
 	for i, l := range receipt.Lines {
 		ids[i], qtys[i] = l.LineID, l.ReceivedQuantity
 	}
-	// prev reads the quantities this statement replaces (same snapshot), so
-	// each line contributes unit_price * (new - old), and nothing for a
-	// correction downwards.
+	// prev reads the quantities this statement replaces (same snapshot, taken
+	// after the lock), so each line contributes unit_price * (new - old) to the
+	// call-off and (new - old) to the stock, and nothing for a correction
+	// downwards.
 	// lean: no reversing call-off for a downward correction; add one when
 	// received quantities get corrected in practice.
-	var updated int
-	var value string
-	var anything bool
-	err = tx.QueryRow(ctx,
+	rows, err := tx.Query(ctx,
 		`WITH input AS (
 		     SELECT * FROM unnest($3::uuid[], $4::numeric[]) AS t(id, qty)
 		 ), prev AS (
@@ -664,23 +662,43 @@ func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *Goo
 		     SET received_quantity = i.qty, updated_at = NOW()
 		     FROM input i JOIN prev p ON p.id = i.id
 		     WHERE l.id = i.id AND l.tenant_id = $2
-		     RETURNING l.unit_price * GREATEST(i.qty - p.received_quantity, 0) AS value
+		     RETURNING l.id, GREATEST(i.qty - p.received_quantity, 0) AS delta,
+		               l.unit_price * GREATEST(i.qty - p.received_quantity, 0) AS value
 		 )
-		 SELECT COUNT(*), ROUND(COALESCE(SUM(value), 0), 4)::text, COALESCE(SUM(value), 0) > 0 FROM upd`,
+		 SELECT id, delta::float8, ROUND(SUM(value) OVER (), 4)::text, SUM(value) OVER () > 0 FROM upd`,
 		receipt.POID, receipt.TenantID, ids, qtys,
-	).Scan(&updated, &value, &anything)
+	)
 	if err != nil {
-		return nil, fmt.Errorf("update received quantities: %w", err)
+		return nil, nil, fmt.Errorf("update received quantities: %w", err)
 	}
+	defer rows.Close()
+	updated := 0
+	value, anything := "0", false
+	deltas := make(map[uuid.UUID]float64, len(receipt.Lines))
+	for rows.Next() {
+		var id uuid.UUID
+		var delta float64
+		if scanErr := rows.Scan(&id, &delta, &value, &anything); scanErr != nil {
+			return nil, nil, fmt.Errorf("scan received quantities: %w", scanErr)
+		}
+		updated++
+		if delta > 0 {
+			deltas[id] = delta
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("update received quantities: %w", err)
+	}
+	rows.Close()
 	if updated != len(receipt.Lines) {
-		return nil, ErrPOLineNotFound
+		return nil, nil, ErrPOLineNotFound
 	}
 
 	if _, err = tx.Exec(ctx,
 		`UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
 		receipt.Status, receipt.POID, receipt.TenantID,
 	); err != nil {
-		return nil, fmt.Errorf("update po status: %w", err)
+		return nil, nil, fmt.Errorf("update po status: %w", err)
 	}
 
 	var result *ReceiptCallOff
@@ -705,7 +723,7 @@ func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *Goo
 			errors.Is(bookErr, ErrContractCurrencyMismatch):
 			result.Warning = "call-off skipped: " + bookErr.Error()
 		case bookErr != nil:
-			return nil, bookErr
+			return nil, nil, bookErr
 		default:
 			result.CallID = &call.ID
 			result.Remaining = remaining
@@ -717,9 +735,9 @@ func (r *PostgresRepository) ApplyGoodsReceipt(ctx context.Context, receipt *Goo
 	}
 
 	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit goods receipt: %w", err)
+		return nil, nil, fmt.Errorf("commit goods receipt: %w", err)
 	}
-	return result, nil
+	return result, deltas, nil
 }
 
 func (r *PostgresRepository) ListContractCalls(ctx context.Context, tenantID, contractID uuid.UUID) ([]*FrameworkContractCall, error) {

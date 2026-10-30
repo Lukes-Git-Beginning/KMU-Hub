@@ -279,22 +279,28 @@ func (r *stubEinkaufRepo) UpdatePOLineReceivedQuantity(_ context.Context, tenant
 
 // ApplyGoodsReceipt applies quantities and status in memory and returns the
 // canned receiptCallOff; the transaction itself is proven in the einkauf package.
-func (r *stubEinkaufRepo) ApplyGoodsReceipt(_ context.Context, rc *einkauf.GoodsReceipt) (*einkauf.ReceiptCallOff, error) {
+func (r *stubEinkaufRepo) ApplyGoodsReceipt(_ context.Context, rc *einkauf.GoodsReceipt) (*einkauf.ReceiptCallOff, map[uuid.UUID]float64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	po, ok := r.pos[rc.POID]
 	if !ok || po.TenantID != rc.TenantID {
-		return nil, einkauf.ErrPONotFound
+		return nil, nil, einkauf.ErrPONotFound
 	}
+	deltas := make(map[uuid.UUID]float64, len(rc.Lines))
 	for _, item := range rc.Lines {
 		l, ok := r.lines[item.LineID]
 		if !ok || l.TenantID != rc.TenantID {
-			return nil, einkauf.ErrPOLineNotFound
+			return nil, nil, einkauf.ErrPOLineNotFound
+		}
+		prev, _ := strconv.ParseFloat(l.ReceivedQuantity, 64)
+		next, _ := strconv.ParseFloat(item.ReceivedQuantity, 64)
+		if next > prev {
+			deltas[item.LineID] = next - prev
 		}
 		l.ReceivedQuantity = item.ReceivedQuantity
 	}
 	po.Status = rc.Status
-	return r.receiptCallOff, nil
+	return r.receiptCallOff, deltas, nil
 }
 
 func (r *stubEinkaufRepo) CountPOLines(_ context.Context, tenantID, poID uuid.UUID) (int, error) {

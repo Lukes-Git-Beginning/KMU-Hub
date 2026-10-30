@@ -55,8 +55,11 @@ type Repository interface {
 	// is soft here: an exceeded remaining value is booked anyway and reported.
 	// An inactive, missing or other-currency contract skips the call-off with a
 	// warning. The receipt itself never fails on the contract. Returns nil when
-	// the PO is unbound or nothing new arrived.
-	ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, error)
+	// the PO is unbound or nothing new arrived. The second result maps each line
+	// to the quantity it newly received (new minus the quantity the write
+	// replaced, only > 0), read under the lock: stock is booked from it, never
+	// from a read made before the transaction.
+	ApplyGoodsReceipt(ctx context.Context, receipt *GoodsReceipt) (*ReceiptCallOff, map[uuid.UUID]float64, error)
 	CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error)
 	// RecomputePOTotal recalculates and persists the PO's total_amount as the
 	// net sum (quantity * unit_price) of its current lines.

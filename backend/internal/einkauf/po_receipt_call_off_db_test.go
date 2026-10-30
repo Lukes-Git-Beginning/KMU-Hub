@@ -176,7 +176,7 @@ func TestGoodsReceipt_BooksContractCallOffs(t *testing.T) {
 		po, ids := boundPO(t, fc, [2]string{"5", "10"})
 		_, otherIDs := boundPO(t, nil, [2]string{"5", "10"})
 
-		_, err := repo.ApplyGoodsReceipt(ctx, &GoodsReceipt{
+		_, _, err := repo.ApplyGoodsReceipt(ctx, &GoodsReceipt{
 			TenantID: tenantID, POID: po.ID, Status: POStatusReceived,
 			Lines: []PartialReceiveItem{{LineID: ids[0], ReceivedQuantity: "5"}, {LineID: otherIDs[0], ReceivedQuantity: "5"}},
 		})
@@ -197,7 +197,7 @@ func TestGoodsReceipt_BooksContractCallOffs(t *testing.T) {
 		po, ids := boundPO(t, nil, [2]string{"1", "10"})
 		_, err := svc.CancelPO(ctx, tenantID, po.ID)
 		require.NoError(t, err)
-		_, err = repo.ApplyGoodsReceipt(ctx, &GoodsReceipt{
+		_, _, err = repo.ApplyGoodsReceipt(ctx, &GoodsReceipt{
 			TenantID: tenantID, POID: po.ID, Status: POStatusReceived,
 			Lines: []PartialReceiveItem{{LineID: ids[0], ReceivedQuantity: "1"}},
 		})

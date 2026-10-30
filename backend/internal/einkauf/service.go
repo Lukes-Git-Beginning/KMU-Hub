@@ -703,43 +703,19 @@ func (s *Service) ReceiveGoods(ctx context.Context, tenantID, poID uuid.UUID) (*
 	}
 
 	// Full delivery: every line's received quantity becomes its ordered quantity.
-	// The stock delta is what is still open (ordered minus already received via
-	// PartialReceive), captured before the write while lines hold the old values.
+	// The stock delta is what the write newly received, read under the PO lock.
 	receipt := &GoodsReceipt{TenantID: tenantID, POID: poID, Status: POStatusReceived}
-	stockDelta := make(map[uuid.UUID]int64, len(lines))
 	for _, line := range lines {
 		receipt.Lines = append(receipt.Lines, PartialReceiveItem{LineID: line.ID, ReceivedQuantity: line.Quantity})
-		qty, parseErr := strconv.ParseFloat(line.Quantity, 64)
-		if parseErr != nil {
-			continue
-		}
-		prev, _ := strconv.ParseFloat(line.ReceivedQuantity, 64)
-		if open := qty - prev; open > 0 {
-			stockDelta[line.ID] = int64(open)
-		}
 	}
-	callOff, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
+	callOff, deltas, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
 	if err != nil {
 		return nil, fmt.Errorf("apply goods receipt: %w", err)
 	}
 	po.Status = POStatusReceived
 	reportReceiptCallOff(po, callOff)
 
-	// Record inventory movements for each line (best-effort: skip on error so
-	// that a missing inventar item never blocks a goods receipt).
-	if s.inventarAdj != nil {
-		reason := fmt.Sprintf("goods receipt PO %s", po.PONumber)
-		for _, line := range lines {
-			delta := stockDelta[line.ID]
-			if delta <= 0 {
-				continue
-			}
-			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, line.SKU, delta, reason); adjErr != nil {
-				slog.Warn("inventar stock adjustment failed during ReceiveGoods",
-					"po_id", poID, "line_id", line.ID, "sku", line.SKU, "error", adjErr)
-			}
-		}
-	}
+	s.bookReceiptStock(ctx, po, lines, deltas, fmt.Sprintf("goods receipt PO %s", po.PONumber))
 
 	slog.Info("einkauf goods received (full)", "po_id", poID, "tenant_id", tenantID, "lines_count", len(lines))
 	return po, nil
@@ -774,14 +750,8 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	}
 
 	// -------------------------------------------------------------------------
-	// Phase 1: Validate all items + compute incoming deltas (fail-fast).
-	// lineDeltas maps lineID → (sku, incomingQty) for stock adjustment.
+	// Phase 1: Validate all items (fail-fast).
 	// -------------------------------------------------------------------------
-	type lineAdjust struct {
-		sku         string
-		incomingQty float64
-	}
-	lineAdjusts := make(map[uuid.UUID]lineAdjust, len(items))
 	// order lists each line once (a repeated line keeps its last quantity).
 	var order []uuid.UUID
 	seen := make(map[uuid.UUID]bool, len(items))
@@ -801,15 +771,6 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 		}
 		if recv > ordered {
 			return nil, fmt.Errorf("partial receive line %s: %w", item.LineID, ErrExceedsOrderedQty)
-		}
-
-		// Delta = newly arriving quantity (the full new received qty; callers
-		// pass the cumulative received amount, so we track per-line delta by
-		// comparing against the previous received_quantity).
-		prevRecv, _ := strconv.ParseFloat(line.ReceivedQuantity, 64)
-		delta := recv - prevRecv
-		if delta > 0 && line.SKU != "" {
-			lineAdjusts[item.LineID] = lineAdjust{sku: line.SKU, incomingQty: delta}
 		}
 		if !seen[item.LineID] {
 			seen[item.LineID] = true
@@ -834,7 +795,7 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	for _, id := range order {
 		receipt.Lines = append(receipt.Lines, PartialReceiveItem{LineID: id, ReceivedQuantity: after[id].ReceivedQuantity})
 	}
-	callOff, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
+	callOff, deltas, err := s.repo.ApplyGoodsReceipt(ctx, receipt)
 	if err != nil {
 		return nil, fmt.Errorf("apply partial receive: %w", err)
 	}
@@ -844,18 +805,29 @@ func (s *Service) PartialReceive(ctx context.Context, tenantID, poID uuid.UUID, 
 	// -------------------------------------------------------------------------
 	// Phase 3: Record inventory movements (best-effort, non-blocking).
 	// -------------------------------------------------------------------------
-	if s.inventarAdj != nil {
-		reason := fmt.Sprintf("partial goods receipt PO %s", po.PONumber)
-		for lineID, adj := range lineAdjusts {
-			if adjErr := s.inventarAdj.AdjustStockBySKU(ctx, tenantID, adj.sku, int64(adj.incomingQty), reason); adjErr != nil {
-				slog.Warn("inventar stock adjustment failed during PartialReceive",
-					"po_id", poID, "line_id", lineID, "sku", adj.sku, "error", adjErr)
-			}
-		}
-	}
+	s.bookReceiptStock(ctx, po, lines, deltas, fmt.Sprintf("partial goods receipt PO %s", po.PONumber))
 
 	slog.Info("einkauf partial receive applied", "po_id", poID, "tenant_id", tenantID, "new_status", newStatus)
 	return po, nil
+}
+
+// bookReceiptStock increments the inventar stock of each line's SKU by the
+// quantity the receipt newly received (deltas, from ApplyGoodsReceipt). Best
+// effort: a missing inventar item or SKU never blocks a goods receipt.
+func (s *Service) bookReceiptStock(ctx context.Context, po *PurchaseOrder, lines []*POLine, deltas map[uuid.UUID]float64, reason string) {
+	if s.inventarAdj == nil {
+		return
+	}
+	for _, line := range lines {
+		delta := int64(deltas[line.ID])
+		if delta <= 0 || line.SKU == "" {
+			continue
+		}
+		if err := s.inventarAdj.AdjustStockBySKU(ctx, po.TenantID, line.SKU, delta, reason); err != nil {
+			slog.Warn("inventar stock adjustment failed during goods receipt",
+				"po_id", po.ID, "line_id", line.ID, "sku", line.SKU, "error", err)
+		}
+	}
 }
 
 // isReceivable reports whether goods can still be received against a PO in

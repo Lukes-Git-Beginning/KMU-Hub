@@ -229,21 +229,27 @@ func (m *mockRepository) UpdatePOLineReceivedQuantity(ctx context.Context, tenan
 // transaction does; the contract call-off itself is proven against a real
 // database (po_receipt_call_off_db_test.go), here it is the canned
 // receiptCallOff so the service tests can see it reach the returned PO.
-func (m *mockRepository) ApplyGoodsReceipt(_ context.Context, rc *GoodsReceipt) (*ReceiptCallOff, error) {
+func (m *mockRepository) ApplyGoodsReceipt(_ context.Context, rc *GoodsReceipt) (*ReceiptCallOff, map[uuid.UUID]float64, error) {
 	m.receipts = append(m.receipts, rc)
 	po, ok := m.pos[rc.POID]
 	if !ok || po.TenantID != rc.TenantID {
-		return nil, ErrPONotFound
+		return nil, nil, ErrPONotFound
 	}
+	deltas := make(map[uuid.UUID]float64, len(rc.Lines))
 	for _, item := range rc.Lines {
 		l, ok := m.lines[item.LineID]
 		if !ok || l.POID != rc.POID {
-			return nil, ErrPOLineNotFound
+			return nil, nil, ErrPOLineNotFound
+		}
+		prev, _ := strconv.ParseFloat(l.ReceivedQuantity, 64)
+		next, _ := strconv.ParseFloat(item.ReceivedQuantity, 64)
+		if next > prev {
+			deltas[item.LineID] = next - prev
 		}
 		l.ReceivedQuantity = item.ReceivedQuantity
 	}
 	po.Status = rc.Status
-	return m.receiptCallOff, nil
+	return m.receiptCallOff, deltas, nil
 }
 
 func (m *mockRepository) CountPOLines(ctx context.Context, tenantID, poID uuid.UUID) (int, error) {
@@ -1311,4 +1317,27 @@ type stubInventarAdjuster struct {
 func (s *stubInventarAdjuster) AdjustStockBySKU(_ context.Context, _ uuid.UUID, _ string, _ int64, _ string) error {
 	s.calls++
 	return nil
+}
+
+// A line named twice in one delivery (4, then 10 of 10 ordered) arrives as 10 in
+// total, so the stock grows by 10, not by the last repetition's 6.
+func TestService_PartialReceive_RepeatedLine_BooksWholeDelta(t *testing.T) {
+	repo := newMockRepository()
+	adj := &recordingInventarAdjuster{}
+	svc := NewService(repo).WithInventarAdjuster(adj)
+
+	tenantID := uuid.New()
+	s := addSupplier(repo, tenantID, "Supplier")
+	po := addPO(repo, tenantID, s.ID, "PO-STOCK-REPEAT", POStatusSubmitted)
+	l1 := addPOLine(repo, tenantID, po.ID, "Widget", "10")
+	l1.SKU = "SKU-A"
+
+	got, err := svc.PartialReceive(context.Background(), tenantID, po.ID, []PartialReceiveItem{
+		{LineID: l1.ID, ReceivedQuantity: "4"},
+		{LineID: l1.ID, ReceivedQuantity: "10"},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, POStatusReceived, got.Status)
+	assert.Equal(t, "10", l1.ReceivedQuantity)
+	assert.Equal(t, int64(10), adj.booked["SKU-A"])
 }
