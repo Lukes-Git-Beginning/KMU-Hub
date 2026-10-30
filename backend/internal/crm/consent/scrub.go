@@ -60,6 +60,13 @@ const AnonymizedRequesterEmail = "geloescht@deleted.invalid"
 // the account's own address) are left alone: the link also exists for
 // outbound mail, and there the sender is the employee, not the contact.
 //
+// Also scrubbed: the contact's free-text CSAT comment on their tickets --
+// ticket_csat_responses.comment and its flat mirror tickets.csat_comment
+// (written together, see helpdesk.PostgresRepository.SubmitCsatTx). tickets.contact_id is ON DELETE
+// SET NULL, so after a hard delete the ticket survives but can no longer be
+// matched to the contact. The rating stays: it is a number without personal
+// reference and keeps the satisfaction statistics intact.
+//
 // Deliberately NOT scrubbed here:
 //   - finance_invoices (customer_name/-address/-email/-ust_id_nr) -- §147
 //     Abs. 3 AO requires 10 years retention for invoices
@@ -120,6 +127,29 @@ func ScrubDependentPII(ctx context.Context, tx pgx.Tx, contactID, tenantID uuid.
 	)
 	if err != nil {
 		return 0, fmt.Errorf("scrub dependent pii: scrub ticket requester identity: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE ticket_csat_responses SET comment = NULL, updated_at = NOW()
+		 WHERE tenant_id = $2 AND comment IS NOT NULL
+		   AND ticket_id IN (
+		     SELECT id FROM tickets WHERE contact_id = $1 AND tenant_id = $2
+		   )`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear csat comments: %w", err)
+	}
+	affected += int(res.RowsAffected())
+
+	res, err = tx.Exec(ctx,
+		`UPDATE tickets SET csat_comment = NULL, updated_at = NOW()
+		 WHERE contact_id = $1 AND tenant_id = $2 AND csat_comment IS NOT NULL`,
+		contactID, tenantID,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("scrub dependent pii: clear ticket csat comment mirror: %w", err)
 	}
 	affected += int(res.RowsAffected())
 

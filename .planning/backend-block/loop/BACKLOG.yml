@@ -2231,7 +2231,7 @@ units:
     service: crm
     model: sonnet
     deps: [fix-erasure-integration-account-links]
-    status: todo
+    status: done
     target: Kontakt-Scrub und Kontakt-Löschung leeren CSAT-Freitext zu dessen Tickets
     coverage_start: n.a. (Fix)
     scope: >

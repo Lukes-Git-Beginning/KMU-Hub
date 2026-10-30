@@ -905,3 +905,14 @@ Je Unit steht die Entscheidung im Feld `decision` von `BACKLOG.yml`. Kurzfassung
 - neue-units: keine
 - desktop-aufrufer: n.a. (keine Wire-Änderung; Erasure-Handler intern)
 - offen: Der Handler sitzt unter „notifications“, weil die Links zum Benachrichtigungs-Integrationsmodul gehören. Die DSAR-Auskunft (`dsar_search_account_access.go`) liest die Tabelle bereits; nach der Löschung ist sie dort leer.
+
+## Iteration 73 — fix-contact-scrub-csat-comment — done — 2026-10-30 08:07
+- commit: siehe Commit `fix(crm): clear csat comments when a contact is deleted or anonymized` (git log)
+- gebaut: `ScrubDependentPII` leert `ticket_csat_responses.comment` der Tickets des Kontakts und zusätzlich den flachen Spiegel `tickets.csat_comment` (Migration 000288 schreibt denselben Freitext in beide Tabellen, `SubmitCsatTx` beide in einer Transaktion; der Scan hatte nur die Response-Tabelle genannt, der Spiegel wird vom FE flach am Ticket gelesen und hätte den Kommentar weiter geliefert). Rating bleibt. Header-Kommentar nachgezogen. Zwei DB-Tests: `TestAnonymizeContact_ScrubsCSATComments` (eigener Kontakt gescrubbt, Geschwister-Kontakt im selben Tenant und Fremd-Tenant unberührt) und `TestDelete_ScrubsCSATComments` (Hard-Delete-Pfad, Ticket überlebt via SET NULL).
+- gate: build ok | vet ok | lint ok (0 issues) | test ok (`./internal/crm/consent/...`, `./internal/crm/contact/...`, DATABASE_URL als kmuhub_app, 0 SKIP) | migration n.a. | rls-smoke n.a. | e2e n.a.
+- coverage: internal/crm/consent 86,9 % -> 86,9 % (Fix; die neuen Statements laufen schon über bestehende Anonymize-Tests, Beweis liegt in der Mutations-Probe)
+- mutations-probe: (1) Mirror-UPDATE mit `AND false` neutralisiert: beide neuen Tests rot (Response nil, Mirror gesetzt). (2) Response-UPDATE mit `AND false` neutralisiert: beide rot (Response gesetzt, Mirror nil). Zurückgedreht, Diff sauber.
+- verify vorgaenger: sauber (Commit `630e3c86`: nur `gdpr/erasure.go` + Test, DELETE in derselben Transaktion, Preview-Zählung mit, Test mit Kollegen-Link und Mutations-Probe)
+- neue-units: keine
+- desktop-aufrufer: `csat_comment`/`csat_rating` am Ticket -> Wire-Form unverändert, Feld wird nach Scrub nur `null`/fehlend (`omitempty` auf `CsatComment`); CSAT-Versand bleibt gesperrt -> passt
+- offen: `tickets.csat_comment` war im Scan-Befund nicht genannt; falls weitere Spiegelspalten mit Kontakt-Freitext existieren (z. B. in `ticket_comments`, Absender-Antworten), deckt das der bestehende Scrub nicht ab — nicht untersucht, nur die CSAT-Spur.
